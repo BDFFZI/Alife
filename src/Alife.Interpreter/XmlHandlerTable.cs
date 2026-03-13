@@ -1,4 +1,4 @@
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 internal delegate Task CompiledTagInvoker(
     XmlTagContext context,

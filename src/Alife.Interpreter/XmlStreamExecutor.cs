@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 /// <summary>
 /// XML 执行器：通过订阅 XmlStreamParser 的事件，结合 CompiledHandlerTable 的映射表，

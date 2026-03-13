@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
   </ItemGroup>
 
 </Project>

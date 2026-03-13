@@ -1,4 +1,4 @@
-using Alife.Core;
+using Alife.Interpreter;
 
 // 1. 初始化
 var table = new XmlHandlerCompiler()

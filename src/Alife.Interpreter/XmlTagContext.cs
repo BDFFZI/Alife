@@ -1,4 +1,4 @@
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 /// <summary>
 /// 标签信息，包含标签名和属性。

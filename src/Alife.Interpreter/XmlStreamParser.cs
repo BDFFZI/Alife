@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 /// <summary>
 /// 纯 XML 流式解析器：逐字符解析字符流，通过事件通知使用者解析到的内容。

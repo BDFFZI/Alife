@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 /// <summary>
 /// 函数编译器：通过反射扫描 [TagHandler] 方法，构建标签名→调用器的映射表。

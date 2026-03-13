@@ -1,4 +1,4 @@
-namespace Alife.Core;
+namespace Alife.Interpreter;
 
 /// <summary>
 /// 标记一个方法为 XML 标签处理程序。
