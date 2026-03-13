@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
-    <Project Path="src/Alife.Test/Alife.Test.csproj" />
+    <Project Path="src/Alife.Interpreter.Test/Alife.Interpreter.Test.csproj" />
     <Project Path="src/Alife.Speech.Recognition/Alife.Speech.Recognition.csproj" />
     <Project Path="src/Alife.Speech.Synthesis/Alife.Speech.Synthesis.csproj" />
     <Project Path="src/Alife.Speech.Test/Alife.Speech.Test.csproj" />
