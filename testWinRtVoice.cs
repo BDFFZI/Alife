@@ -1,0 +1,1 @@
+using System; using System.Linq; using System.Threading.Tasks; using Windows.Media.SpeechSynthesis; class Program { static async Task Main() { var synth = new SpeechSynthesizer(); foreach(var voice in SpeechSynthesizer.AllVoices) { Console.WriteLine(voice.DisplayName); } } }

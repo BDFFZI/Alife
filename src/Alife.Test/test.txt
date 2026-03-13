@@ -1,0 +1,2 @@
+<chat>hello，你是？<think>测试</think>啊</chat>
+quit

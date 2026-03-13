@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.tmp
+*.log
+.gemini/
+__pycache__/
+*.pyc
+model/
