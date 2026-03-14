@@ -1,6 +1,7 @@
 @using System.Reflection
 @using Alife.Components.Elements.Utility
 @inject PluginSystem PluginSystem
+@inject CharacterSystem CharacterSystem
 
 <Modal
     Title=@($"配置 {Context.ID}")
@@ -13,9 +14,9 @@
         <GridCol Style="height: 100%;" Span="@(SystemPrompts == null ? 24 : 12)">
             <Flex Style="height: 100%;" Direction="FlexDirection.Vertical" Gap="FlexGap.Small">
                 <Text>名称</Text>
-                <Input Disabled="@(IsOnlyRead)" @bind-Value="@name"/>
+                <Input Disabled="@(IsOnlyRead)" @bind-Value="name"/>
                 <Text>设定</Text>
-                <Input Disabled="@(IsOnlyRead)" @bind-Value="@prompt"/>
+                <Input Disabled="@(IsOnlyRead)" @bind-Value="prompt"/>
                 <Text>插件</Text>
                 <Card>
                     @if (IsOnlyRead)
@@ -33,7 +34,7 @@
                         <StringFolderSelectorUI
                             Context="@(PluginSystem.GetPluginFolder())"
                             ItemTitleFilter="@(fullName => GetPluginName(fullName))"
-                            @bind-IsChecking="pluginTypeNames">
+                            @bind-IsChecking="pluginIDs">
                         </StringFolderSelectorUI>
                     }
                 </Card>
@@ -69,7 +70,7 @@
 
     string name = null!;
     string prompt = null!;
-    HashSet<string> pluginTypeNames = null!;
+    HashSet<string> pluginIDs = null!;
     RenderFragment<CharacterEditorUI> customFooter = null!;
 
     protected override void OnInitialized()
@@ -78,7 +79,7 @@
 
         name = Context.Name;
         prompt = Context.Prompt;
-        pluginTypeNames = new HashSet<string>(Context.Plugins.Select(t => t.FullName!));
+        pluginIDs = new HashSet<string>(Context.Plugins.Select(PluginSystem.GetPluginID));
 
         customFooter = (source) =>
             @<div>
@@ -93,20 +94,22 @@
 
     string GetPluginName(string fullName)
     {
-        var type = PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == fullName);
-        if (type == null) return fullName;
-        var attr = type.GetCustomAttribute<PluginAttribute>();
-        return attr?.Name ?? type.Name;
+        Type? type = PluginSystem.GetPlugin(fullName);
+        if (type == null)
+            return "[未知插件]" + fullName;
+        PluginAttribute attr = type.GetCustomAttribute<PluginAttribute>()!;
+        return attr.Name;
     }
 
     void OnConfirm()
     {
         Context.Name = name;
         Context.Prompt = prompt;
-        Context.Plugins = pluginTypeNames
-            .Select(name => PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == name))
+        Context.Plugins = pluginIDs
+            .Select(PluginSystem.GetPlugin)
             .Where(t => t != null)
             .ToHashSet()!;
+        CharacterSystem.SaveCharacter(Context);
         VisibleChanged.InvokeAsync(false);
     }
     void OnCancel()

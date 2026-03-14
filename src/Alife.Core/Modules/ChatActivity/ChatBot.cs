@@ -10,7 +10,7 @@ public class ChatBot : IAsyncDisposable
     public event Action? ChatEnd;
     public event Action<string>? ChatHandle;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
-    public bool IsChatting => isChatting.CurrentCount != 0;
+    public bool IsChatting => isChatting.CurrentCount == 0;
 
     public async IAsyncEnumerable<string> ChatStreamingAsync(string message)
     {

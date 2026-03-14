@@ -1,57 +1,56 @@
 using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Vosk;
 using NAudio.Wave;
 
 namespace Alife.Speech;
 
+/// <summary>
+/// 本地语音识别器（Vosk + NAudio）
+/// </summary>
 public class LocalSpeechRecognizer : IDisposable
 {
     private readonly Model _model;
     private readonly VoskRecognizer _recognizer;
     private WaveInEvent? _waveIn;
     
-    public event EventHandler<(string text, float confidence)>? SpeechRecognized;
-    public event EventHandler<string>? SpeechHypothesized;
+    /// <summary>识别到完整一句话。参数：(文本, 置信度)</summary>
+    public event Action<string, float>? OnRecognized;
+    
+    /// <summary>识别过程中的中间结果。</summary>
+    public event Action<string>? OnPartial;
 
     public LocalSpeechRecognizer(string modelPath)
     {
-        Vosk.Vosk.SetLogLevel(0);
+        Vosk.Vosk.SetLogLevel(-1);
         _model = new Model(modelPath);
         _recognizer = new VoskRecognizer(_model, 16000.0f);
         _recognizer.SetMaxAlternatives(0);
         _recognizer.SetWords(true);
     }
 
-    public void StartListening()
+    public void Start()
     {
         if (_waveIn != null) return;
 
         _waveIn = new WaveInEvent();
-        _waveIn.WaveFormat = new WaveFormat(16000, 1); // 16kHz Mono
+        _waveIn.WaveFormat = new WaveFormat(16000, 1);
         _waveIn.DataAvailable += (s, e) =>
         {
             if (_recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
             {
-                var resultJson = _recognizer.Result();
-                var result = JsonSerializer.Deserialize<VoskResult>(resultJson);
-                if (result != null && !string.IsNullOrWhiteSpace(result.text))
+                var result = JsonSerializer.Deserialize<VoskResult>(_recognizer.Result());
+                if (!string.IsNullOrWhiteSpace(result?.text))
                 {
-                    // Vosk small model doesn't always provide confidence per result in the simple API, 
-                    // but it is generally much higher than SAPI.
-                    // We simulate high confidence for clear results.
-                    SpeechRecognized?.Invoke(this, (result.text, 0.95f));
+                    OnRecognized?.Invoke(result.text, 0.95f);
                 }
             }
             else
             {
-                var partialJson = _recognizer.PartialResult();
-                var partial = JsonSerializer.Deserialize<VoskPartialResult>(partialJson);
-                if (partial != null && !string.IsNullOrWhiteSpace(partial.partial))
+                var partial = JsonSerializer.Deserialize<VoskPartialResult>(_recognizer.PartialResult());
+                if (!string.IsNullOrWhiteSpace(partial?.partial))
                 {
-                    SpeechHypothesized?.Invoke(this, partial.partial);
+                    OnPartial?.Invoke(partial.partial);
                 }
             }
         };
@@ -59,7 +58,7 @@ public class LocalSpeechRecognizer : IDisposable
         _waveIn.StartRecording();
     }
 
-    public void StopListening()
+    public void Stop()
     {
         _waveIn?.StopRecording();
         _waveIn?.Dispose();
@@ -68,19 +67,12 @@ public class LocalSpeechRecognizer : IDisposable
 
     public void Dispose()
     {
-        StopListening();
+        Stop();
         _recognizer.Dispose();
         _model.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    private class VoskResult
-    {
-        public string text { get; set; } = "";
-    }
-
-    private class VoskPartialResult
-    {
-        public string partial { get; set; } = "";
-    }
+    private class VoskResult { public string text { get; set; } = ""; }
+    private class VoskPartialResult { public string partial { get; set; } = ""; }
 }

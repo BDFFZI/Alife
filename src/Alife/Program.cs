@@ -1,5 +1,9 @@
+using System.Text;
 using Alife;
 using Alife.Components;
+
+Console.OutputEncoding = Encoding.UTF8;
+Console.InputEncoding = Encoding.UTF8;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -28,11 +32,3 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
-
-//活动自启
-// CharacterSystem characterSystem = app.Services.GetRequiredService<CharacterSystem>();
-// ChatActivitySystem chatActivitySystem = app.Services.GetRequiredService<ChatActivitySystem>();
-// foreach (Character character in characterSystem.GetAllCharacters())
-// {
-//     if(character.)
-// }

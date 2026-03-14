@@ -1,0 +1,100 @@
+@namespace Alife.Plugins.Official.Components
+@using Newtonsoft.Json
+@using Alife.Plugins.Official.Implement
+@inject ConfigurationSystem ConfigurationSystem
+
+<Flex Justify="@(FlexJustify.SpaceBetween)" Align="@(FlexAlign.Center)" Style="margin-bottom: 24px;">
+    <Title Level="4" Style="margin: 0;">MCP 服务器管理</Title>
+    <Button Type="@ButtonType.Primary" OnClick="AddServer">添加服务器</Button>
+</Flex>
+
+<Table TItem="McpServerConfig" DataSource="@config.Servers" Bordered Size="@TableSize.Small">
+    <PropertyColumn Property="c=>c.Name" Title="名称"></PropertyColumn>
+    <PropertyColumn Property="c=>c.Command" Title="命令"></PropertyColumn>
+    <PropertyColumn Property="c=>c.Description" Title="描述"></PropertyColumn>
+    <ActionColumn Title="操作">
+        <Space>
+            <SpaceItem>
+                <Button Size="@ButtonSize.Small" OnClick="@(() => EditServer(context))">编辑</Button>
+            </SpaceItem>
+            <SpaceItem>
+                <Button Size="@ButtonSize.Small" Danger OnClick="@(() => RemoveServer(context))">删除</Button>
+            </SpaceItem>
+        </Space>
+    </ActionColumn>
+</Table>
+
+<Drawer Title="@("服务器配置")"
+        Visible="isEditingServer"
+        Width="400"
+        OnClose="() => isEditingServer = false">
+    @if (editingServer != null)
+    {
+        <Form TModel="McpServerConfig" Model="@editingServer" Layout="@FormLayout.Vertical">
+            <FormItem Label="名称">
+                <Input @bind-Value="editingServer.Name"/>
+            </FormItem>
+            <FormItem Label="描述">
+                <Input @bind-Value="editingServer.Description"/>
+            </FormItem>
+            <FormItem Label="可执行文件 (Command)">
+                <Input @bind-Value="editingServer.Command"/>
+            </FormItem>
+            <FormItem Label="参数 (每个参数一行)">
+                    <TextArea Value="@string.Join('\n', editingServer.Arguments)"
+                              ValueChanged="@(val => editingServer.Arguments = val.Split('\n', StringSplitOptions.RemoveEmptyEntries))"
+                              Rows="4"/>
+            </FormItem>
+            <FormItem>
+                <Button Type="@ButtonType.Primary" OnClick="OnConfirm" Block>保存服务器配置</Button>
+            </FormItem>
+        </Form>
+    }
+</Drawer>
+
+@code {
+    [Parameter] public Type PluginType { get; set; } = null!;
+
+    McpPluginConfig config = new();
+    McpServerConfig? editingServer;
+    bool isEditingServer;
+
+    protected override void OnInitialized()
+    {
+        LoadConfig();
+    }
+
+    void LoadConfig()
+    {
+        var result = ConfigurationSystem.GetConfiguration(PluginType);
+        if (result is McpPluginConfig mcpConfig)
+        {
+            config = JsonConvert.DeserializeObject<McpPluginConfig>(JsonConvert.SerializeObject(mcpConfig)) ?? new();
+        }
+    }
+
+    void AddServer()
+    {
+        editingServer = new McpServerConfig();
+        config.Servers.Add(editingServer);
+        isEditingServer = true;
+    }
+
+    void EditServer(McpServerConfig server)
+    {
+        editingServer = server;
+        isEditingServer = true;
+    }
+
+    void RemoveServer(McpServerConfig server)
+    {
+        config.Servers.Remove(server);
+        OnConfirm(); // 立即保存
+    }
+
+    void OnConfirm()
+    {
+        ConfigurationSystem.SetConfiguration(PluginType, config);
+        isEditingServer = false;
+    }
+}

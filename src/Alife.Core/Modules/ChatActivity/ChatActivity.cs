@@ -10,10 +10,17 @@ public class ChatActivity : IAsyncDisposable
     public static async Task<ChatActivity> Create(
         Character character,
         ConfigurationSystem configurationSystem,
-        IProgress<(string, float)>? progress = null)
+        IProgress<(string, float)>? progress = null,
+        object[]? appendServices = null)
     {
         //创建插件服务
         ServiceCollection extensionServiceBuilder = new();
+        //添加系统服务
+        if (appendServices != null)
+        {
+            foreach (var appendService in appendServices)
+                extensionServiceBuilder.AddSingleton(appendService.GetType(), appendService);
+        }
         foreach (Type pluginType in character.Plugins)
             extensionServiceBuilder.AddSingleton(pluginType);
         ServiceProvider extensionService = extensionServiceBuilder.BuildServiceProvider();

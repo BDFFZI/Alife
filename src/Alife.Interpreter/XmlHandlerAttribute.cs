@@ -7,9 +7,11 @@ namespace Alife.Interpreter;
 public class XmlHandlerAttribute : Attribute
 {
     public string TagName { get; }
+    public string Description { get; }
 
-    public XmlHandlerAttribute(string tagName)
+    public XmlHandlerAttribute(string tagName, string description = "")
     {
         TagName = tagName;
+        Description = description;
     }
 }

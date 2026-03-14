@@ -33,27 +33,27 @@ public class XmlStreamParser
     char quoteChar;
     bool isSelfClosing;
 
-    public async Task Feed(char ch)
+    public async Task FeedAsync(char ch)
     {
         switch (state)
         {
-            case ParserState.Content:         await HandleContent(ch); break;
-            case ParserState.TagOpen:          await HandleTagOpen(ch); break;
-            case ParserState.ReadTagName:      await HandleReadTagName(ch); break;
-            case ParserState.WaitAttrOrClose:  await HandleWaitAttrOrClose(ch); break;
-            case ParserState.ReadAttrName:     await HandleReadAttrName(ch); break;
-            case ParserState.WaitAttrEquals:   await HandleWaitAttrEquals(ch); break;
-            case ParserState.WaitAttrQuote:    await HandleWaitAttrQuote(ch); break;
-            case ParserState.ReadAttrValue:    await HandleReadAttrValue(ch); break;
-            case ParserState.ReadCloseTag:     await HandleReadCloseTag(ch); break;
+            case ParserState.Content:         await HandleContentAsync(ch); break;
+            case ParserState.TagOpen:          await HandleTagOpenAsync(ch); break;
+            case ParserState.ReadTagName:      await HandleReadTagNameAsync(ch); break;
+            case ParserState.WaitAttrOrClose:  await HandleWaitAttrOrCloseAsync(ch); break;
+            case ParserState.ReadAttrName:     await HandleReadAttrNameAsync(ch); break;
+            case ParserState.WaitAttrEquals:   await HandleWaitAttrEqualsAsync(ch); break;
+            case ParserState.WaitAttrQuote:    await HandleWaitAttrQuoteAsync(ch); break;
+            case ParserState.ReadAttrValue:    await HandleReadAttrValueAsync(ch); break;
+            case ParserState.ReadCloseTag:     await HandleReadCloseTagAsync(ch); break;
         }
     }
 
-    public async Task Feed(string text)
+    public async Task FeedAsync(string text)
     {
         foreach (char ch in text)
         {
-            await Feed(ch);
+            await FeedAsync(ch);
         }
     }
 
@@ -71,38 +71,38 @@ public class XmlStreamParser
     //  事件发射辅助
     // ═══════════════════════════════════════
 
-    async Task EmitText(char ch)
+    async Task EmitTextAsync(char ch)
     {
         if (TextParsed != null) await TextParsed.Invoke(ch);
     }
 
-    async Task EmitText(StringBuilder sb)
+    async Task EmitTextAsync(StringBuilder sb)
     {
         for (int i = 0; i < sb.Length; i++)
         {
-            await EmitText(sb[i]);
+            await EmitTextAsync(sb[i]);
         }
     }
 
-    async Task EmitText(string s)
+    async Task EmitTextAsync(string s)
     {
         foreach (char c in s)
         {
-            await EmitText(c);
+            await EmitTextAsync(c);
         }
     }
 
-    async Task EmitRevertedTagAsText()
+    async Task EmitRevertedTagAsTextAsync()
     {
-        await EmitText('<');
-        await EmitText(tagBuffer);
+        await EmitTextAsync('<');
+        await EmitTextAsync(tagBuffer);
         foreach (KeyValuePair<string, string> kv in currentTagAttrs)
         {
-            await EmitText(' '); await EmitText(kv.Key); await EmitText("=\""); await EmitText(kv.Value); await EmitText('"');
+            await EmitTextAsync(' '); await EmitTextAsync(kv.Key); await EmitTextAsync("=\""); await EmitTextAsync(kv.Value); await EmitTextAsync('"');
         }
         if (attrNameBuffer.Length > 0)
         {
-            await EmitText(' '); await EmitText(attrNameBuffer);
+            await EmitTextAsync(' '); await EmitTextAsync(attrNameBuffer);
         }
     }
 
@@ -110,7 +110,7 @@ public class XmlStreamParser
     //  状态处理
     // ═══════════════════════════════════════
 
-    async Task HandleContent(char ch)
+    async Task HandleContentAsync(char ch)
     {
         if (ch == '<')
         {
@@ -118,10 +118,10 @@ public class XmlStreamParser
             tagBuffer.Clear();
             return;
         }
-        await EmitText(ch);
+        await EmitTextAsync(ch);
     }
 
-    async Task HandleTagOpen(char ch)
+    async Task HandleTagOpenAsync(char ch)
     {
         if (ch == '/')
         {
@@ -140,16 +140,16 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitText('<');
-        await EmitText(ch);
+        await EmitTextAsync('<');
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleReadTagName(char ch)
+    async Task HandleReadTagNameAsync(char ch)
     {
         if (ch == '>')
         {
-            await EmitOpenTag();
+            await EmitOpenTagAsync();
             state = ParserState.Content;
             return;
         }
@@ -173,17 +173,17 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitText('<');
-        await EmitText(tagBuffer);
-        await EmitText(ch);
+        await EmitTextAsync('<');
+        await EmitTextAsync(tagBuffer);
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleWaitAttrOrClose(char ch)
+    async Task HandleWaitAttrOrCloseAsync(char ch)
     {
         if (ch == '>')
         {
-            await EmitOpenTag();
+            await EmitOpenTagAsync();
             state = ParserState.Content;
             return;
         }
@@ -207,12 +207,12 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitRevertedTagAsText();
-        await EmitText(ch);
+        await EmitRevertedTagAsTextAsync();
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleReadAttrName(char ch)
+    async Task HandleReadAttrNameAsync(char ch)
     {
         if (ch == '=')
         {
@@ -232,12 +232,12 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitRevertedTagAsText();
-        await EmitText(ch);
+        await EmitRevertedTagAsTextAsync();
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleWaitAttrEquals(char ch)
+    async Task HandleWaitAttrEqualsAsync(char ch)
     {
         if (ch == '=')
         {
@@ -250,12 +250,12 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitRevertedTagAsText();
-        await EmitText(ch);
+        await EmitRevertedTagAsTextAsync();
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleWaitAttrQuote(char ch)
+    async Task HandleWaitAttrQuoteAsync(char ch)
     {
         if (ch == '"' || ch == '\'')
         {
@@ -270,12 +270,12 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitRevertedTagAsText();
-        await EmitText(ch);
+        await EmitRevertedTagAsTextAsync();
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task HandleReadAttrValue(char ch)
+    async Task HandleReadAttrValueAsync(char ch)
     {
         if (ch == quoteChar)
         {
@@ -288,7 +288,7 @@ public class XmlStreamParser
         await Task.CompletedTask;
     }
 
-    async Task HandleReadCloseTag(char ch)
+    async Task HandleReadCloseTagAsync(char ch)
     {
         if (ch == '>')
         {
@@ -303,13 +303,13 @@ public class XmlStreamParser
             return;
         }
 
-        await EmitText("</");
-        await EmitText(tagBuffer);
-        await EmitText(ch);
+        await EmitTextAsync("</");
+        await EmitTextAsync(tagBuffer);
+        await EmitTextAsync(ch);
         state = ParserState.Content;
     }
 
-    async Task EmitOpenTag()
+    async Task EmitOpenTagAsync()
     {
         string tagName = tagBuffer.ToString();
         if (OpenTagParsed != null) await OpenTagParsed.Invoke(tagName, currentTagAttrs);

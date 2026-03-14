@@ -6,4 +6,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <PluginDeployDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Alife\bin\$(Configuration)\net10.0\Plugins'))</PluginDeployDir>
+    </PropertyGroup>
+    <Message Importance="High" Text="Deploying plugin to $(PluginDeployDir)..." />
+    <MakeDir Directories="$(PluginDeployDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDeployDir)" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginDeployDir)" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+  </Target>
 </Project>

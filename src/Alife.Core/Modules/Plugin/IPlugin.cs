@@ -5,7 +5,7 @@ namespace Alife.Abstractions;
 
 public interface IPlugin
 {
-    public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread agentThread)
+    public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
     {
         return Task.CompletedTask;
     }

@@ -1,5 +1,4 @@
 @inject IJSRuntime JsRuntime
-@implements IDisposable
 
 <Modal Title="对话窗口"
        Visible="Visible"
@@ -26,26 +25,47 @@
             @foreach (ChatMessage message in Context.GetMessages())
             {
                 <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
-                    @if (message.isUser)
-                    {
-                        <Alert Type=@(AlertType.Info)>
-                            <MessageTemplate>
-                                <Text Style="white-space: pre-wrap;">
-                                    @(message.content)
-                                </Text>
-                            </MessageTemplate>
-                        </Alert>
-                    }
-                    else
-                    {
-                        <Alert Type=@(AlertType.Success)>
-                            <MessageTemplate>
-                                <Text Style="white-space: pre-wrap;">
-                                    @(message.content)
-                                </Text>
-                            </MessageTemplate>
-                        </Alert>
-                    }
+                    <Alert
+                        Message="@message.author"
+                        Description="@message.content"
+                        Type=@(message.isUser ? AlertType.Info : AlertType.Success)>
+                        <ChildContent>
+                            <Flex Direction="FlexDirection.Vertical" Gap="FlexGap.Small">
+                                @if (isHiding.GetValueOrDefault(message) == false)
+                                {
+                                    <AntDesign.Text Style="white-space: pre-wrap;">
+                                        @message.content
+                                    </AntDesign.Text>
+                                }
+                                @if (message.isDefaultHiding)
+                                {
+                                    if (isHiding.GetValueOrDefault(message))
+                                    {
+                                        <Button Type="@(ButtonType.Primary)"
+                                                OnClick="@(() => isHiding[message] = false)">
+                                            <Icon Type="arrows-alt" Theme="IconThemeType.Outline"/>
+                                            展开内容
+                                        </Button>
+                                    }
+                                    else
+                                    {
+                                        <Button Type="@(ButtonType.Primary)"
+                                                OnClick="@(() => isHiding[message] = true)">
+                                            <Icon Type="shrink" Theme="IconThemeType.Outline"/>
+                                            收起内容
+                                        </Button>
+                                    }
+                                }
+                                @if (message.isInputting)
+                                {
+                                    <AntDesign.Text Disabled>
+                                        等待中
+                                        <Icon Type="@IconType.Outline.Loading"/>
+                                    </AntDesign.Text>
+                                }
+                            </Flex>
+                        </ChildContent>
+                    </Alert>
                 </div>
             }
         }
@@ -55,6 +75,7 @@
         <Button Type="@(ButtonType.Primary)" OnClick="OnSend">发送</Button>
     </Flex>
 </Modal>
+
 
 <script type="text/javascript">
     window.scrollMessageArea = () => {
@@ -71,11 +92,13 @@
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
     string inputText = "";
+    Dictionary<ChatMessage, bool> isHiding = null!;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
 
+        isHiding = new Dictionary<ChatMessage, bool>();
         Context.MessageAdded += OnMessageAdded;
         Context.MessageUpdated += OnMessageUpdated;
     }
@@ -101,16 +124,23 @@
     }
     void OnMessageAdded(ChatMessage obj)
     {
+        if (obj.isDefaultHiding)
+            isHiding[obj] = true;
+
         InvokeAsync(() => {
             StateHasChanged();
-            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+
+            if (obj.isDefaultHiding == false)
+                JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }
-    void OnMessageUpdated()
+    void OnMessageUpdated(ChatMessage obj)
     {
         InvokeAsync(() => {
             StateHasChanged();
-            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+
+            if (obj.isDefaultHiding == false && obj == Context.GetMessages().Last())
+                JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }
 }

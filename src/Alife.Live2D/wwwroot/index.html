@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Live2D Desktop Pet</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            cursor: move;
+        }
+
+        #bubble {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-size: 13px;
+            color: #333;
+            max-width: 85%;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        #bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #ffcc00;
+        }
+    </style>
+</head>
+<body>
+    <div id="bubble">...</div>
+    <canvas id="canvas"></canvas>
+
+    <script src="lib/live2dcubismcore.min.js"></script>
+    <script src="lib/live2d.min.js"></script>
+    <script src="lib/pixi.min.js"></script>
+    <script src="lib/pixi-live2d-display.min.js"></script>
+
+    <script>
+        async function init() {
+            try {
+                const { Application, Ticker } = PIXI;
+                const { Live2DModel } = PIXI.live2d;
+
+                // 核心：必须注册 Ticker 才能让模型“动”起来（自动眼球追踪、闲置动画等）
+                Live2DModel.registerTicker(Ticker.shared);
+
+                const app = new Application({
+                    view: document.getElementById('canvas'),
+                    autoStart: true,
+                    backgroundAlpha: 0,
+                    resizeTo: window,
+                    antialias: true
+                });
+
+                // 加载本地 Hiyori 模型
+                const model = await Live2DModel.from('model/hiyori/model.json', {
+                    autoInteract: true // 开启自动眼球跟随
+                });
+
+                app.stage.addChild(model);
+                
+                model.anchor.set(0.5, 0.5);
+                model.position.set(app.screen.width / 2, app.screen.height / 2);
+                
+                // 形象 Q 化：调小比例
+                model.scale.set(0.08);
+
+                // 交互增强
+                model.interactive = true;
+                model.on('hit', (hitAreas) => {
+                    if (hitAreas.includes('Body')) {
+                        model.motion('TapBody');
+                    }
+                });
+
+                // --- 实现鼠标拖拽窗口 ---
+                let isDragging = false;
+                window.addEventListener('mousedown', (e) => {
+                    if (e.button === 0) { // 左键
+                        isDragging = true;
+                        window.chrome.webview.postMessage("drag");
+                    }
+                });
+                // -----------------------
+
+                window.pet = {
+                    say: function(text, duration = 3000) {
+                        const bubble = document.getElementById('bubble');
+                        bubble.innerText = text;
+                        bubble.style.display = 'block';
+                        if (this._bubbleTimer) clearTimeout(this._bubbleTimer);
+                        this._bubbleTimer = setTimeout(() => {
+                            bubble.style.display = 'none';
+                        }, duration);
+                        
+                        model.motion('Idle');
+                    },
+                    action: function(motionName) {
+                        const mapping = {
+                            'tap_body': 'TapBody',
+                            'idle': 'Idle'
+                        };
+                        const target = mapping[motionName.toLowerCase()] || motionName;
+                        model.motion(target);
+                    }
+                };
+
+                // 初始招呼
+                window.pet.say("我可以被拖动了，快试试吧！", 4000);
+
+            } catch (e) {
+                console.error("Live2D Error: ", e);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

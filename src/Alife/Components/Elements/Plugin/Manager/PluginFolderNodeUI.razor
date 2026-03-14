@@ -34,10 +34,18 @@
         {
             <PluginFolderNodeUI Context="folder" OnDeleted="StateHasChanged"></PluginFolderNodeUI>
         }
-        @foreach (Type pluginType in Context.Strings.Select(fullName => PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == fullName)).Where(t => t != null)!)
+        @foreach (string pluginID in Context.Strings)
         {
-            var attribute = pluginType.GetCustomAttribute<PluginAttribute>()!;
-            <TreeNode Key="@(pluginType.FullName)"
+            Type? pluginType = PluginSystem.GetPlugin(pluginID);
+            if (pluginType == null)
+            {
+                <Alert Type="AlertType.Error">@($"不存在的插件：{pluginID}")</Alert>
+                continue;
+            }
+
+            PluginAttribute attribute = pluginType.GetCustomAttribute<PluginAttribute>()!;
+
+            <TreeNode Key="@(pluginID)"
                       DataItem="@((object)pluginType)">
                 <TitleTemplate>
                     <PluginUI Name="@(attribute.Name)"
@@ -52,7 +60,7 @@
 
 
 @code {
-    [Parameter] public global::StringFolder Context { get; set; } = null!;
+    [Parameter] public StringFolder Context { get; set; } = null!;
     [Parameter] public bool IsExpanded { get; set; }
     [Parameter] public EventCallback OnDeleted { get; set; }
 

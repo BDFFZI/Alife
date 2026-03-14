@@ -14,7 +14,7 @@ public class XmlHandlerCompiler
         ParameterRole Role, string? AttributeName, Type ParameterType,
         bool HasDefaultValue, object? DefaultValue);
 
-    readonly List<(object? Target, MethodInfo Method, string TagName)> registrations = new();
+    readonly List<(object? Target, MethodInfo Method, string TagName, string Description)> registrations = new();
 
     public XmlHandlerCompiler Register(object handlerInstance)
     {
@@ -25,7 +25,7 @@ public class XmlHandlerCompiler
             XmlHandlerAttribute? attr = method.GetCustomAttribute<XmlHandlerAttribute>();
             if (attr != null)
             {
-                registrations.Add((method.IsStatic ? null : handlerInstance, method, attr.TagName));
+                registrations.Add((method.IsStatic ? null : handlerInstance, method, attr.TagName, attr.Description));
             }
         }
         return this;
@@ -39,7 +39,7 @@ public class XmlHandlerCompiler
             XmlHandlerAttribute? attr = method.GetCustomAttribute<XmlHandlerAttribute>();
             if (attr != null)
             {
-                registrations.Add((null, method, attr.TagName));
+                registrations.Add((null, method, attr.TagName, attr.Description));
             }
         }
         return this;
@@ -48,16 +48,34 @@ public class XmlHandlerCompiler
     public XmlHandlerTable Compile()
     {
         Dictionary<string, CompiledTagInvoker> handlers = new();
-        foreach ((object? target, MethodInfo method, string tagName) in registrations)
+        Dictionary<string, string> descriptions = new();
+        Dictionary<string, List<XmlParameterInfo>> tagParameters = new();
+
+        foreach ((object? target, MethodInfo method, string tagName, string description) in registrations)
         {
+            descriptions[tagName] = description;
             ParameterMapping[] mappings = BuildParameterMappings(method);
-            object? t = target; MethodInfo m = method;
+            
+            List<XmlParameterInfo> paramInfos = new();
+            foreach (var mapping in mappings)
+            {
+                if (mapping.Role == ParameterRole.Attribute)
+                {
+                    Type type = mapping.ParameterType;
+                    string typeName = GetAITypeName(type);
+                    string[]? possibleValues = type.IsEnum ? Enum.GetNames(type) : null;
+                    paramInfos.Add(new XmlParameterInfo(mapping.AttributeName!, typeName, mapping.HasDefaultValue, possibleValues));
+                }
+            }
+            tagParameters[tagName] = paramInfos;
+
+            object? tObj = target; MethodInfo mInfo = method;
             
             CompiledTagInvoker invoker = (XmlTagContext ctx, ref string content, IReadOnlyDictionary<string, string> attrs) =>
             {
                 object?[] args = ResolveArguments(mappings, ctx, content, attrs);
                 
-                object? result = m.Invoke(t, args);
+                object? result = mInfo.Invoke(tObj, args);
                 
                 // 回填 ref string (因为 Invoke 会更新 args 数组中的对象)
                 for (int i = 0; i < mappings.Length; i++)
@@ -90,7 +108,21 @@ public class XmlHandlerCompiler
             
             handlers[tagName] = invoker;
         }
-        return new XmlHandlerTable(handlers);
+        return new XmlHandlerTable(handlers, descriptions, tagParameters);
+    }
+
+    static string GetAITypeName(Type t)
+    {
+        if (t == typeof(string)) return "string";
+        if (t == typeof(int) || t == typeof(long) || t == typeof(short)) return "int";
+        if (t == typeof(float) || t == typeof(double) || t == typeof(decimal)) return "float";
+        if (t == typeof(bool)) return "bool";
+        if (t.IsEnum) return "enum{" + string.Join(",", Enum.GetNames(t)) + "}";
+        
+        Type? u = Nullable.GetUnderlyingType(t);
+        if (u != null) return GetAITypeName(u);
+
+        return t.Name;
     }
 
     // ═══════════════════════════════════════

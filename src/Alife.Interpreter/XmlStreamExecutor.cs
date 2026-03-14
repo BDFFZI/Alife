@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.Channels;
 
 namespace Alife.Interpreter;
 
@@ -11,6 +12,13 @@ public class XmlStreamExecutor
     readonly XmlStreamParser parser;
     readonly XmlHandlerTable handlerTable;
     readonly HashSet<char> sentenceBreakers;
+
+    // ── 内部缓冲区（Channel） ──
+    readonly Channel<char> inputChannel = Channel.CreateUnbounded<char>(new UnboundedChannelOptions
+    {
+        SingleReader = true,
+        SingleWriter = false
+    });
 
     // ── 标签栈 ──
     readonly Stack<TagEntry> tagStack = new();
@@ -32,33 +40,79 @@ public class XmlStreamExecutor
             ? new HashSet<char>(sentenceBreakers) 
             : new HashSet<char> { ',', '.', '!', '?', '，', '。', '！', '？' };
 
-        this.parser.OpenTagParsed += OnOpenTag;
-        this.parser.CloseTagParsed += OnCloseTag;
-        this.parser.TextParsed += OnText;
+        this.parser.OpenTagParsed += OnOpenTagAsync;
+        this.parser.CloseTagParsed += OnCloseTagAsync;
+        this.parser.TextParsed += OnTextAsync;
+
+        // 启动后台处理循环
+        _ = ProcessInputLoopAsync();
     }
 
-    /// <summary>向解析器输入一个字符。</summary>
-    public async Task Feed(char ch) => await parser.Feed(ch);
+    /// <summary>向内部缓冲区输入一个字符（同步）。</summary>
+    public void Feed(char ch) => inputChannel.Writer.TryWrite(ch);
 
-    /// <summary>向解析器输入一个字符串。</summary>
-    public async Task Feed(string text) => await parser.Feed(text);
+    /// <summary>向内部缓冲区输入一个字符串（同步）。</summary>
+    public void Feed(string text)
+    {
+        foreach (char ch in text)
+        {
+            inputChannel.Writer.TryWrite(ch);
+        }
+    }
+
+    /// <summary>向解析器输入一个字符（异步版本）。</summary>
+    public async Task FeedAsync(char ch)
+    {
+        await inputChannel.Writer.WriteAsync(ch);
+    }
+
+    /// <summary>向解析器输入一个字符串（异步版本）。</summary>
+    public async Task FeedAsync(string text)
+    {
+        foreach (char ch in text)
+        {
+            await inputChannel.Writer.WriteAsync(ch);
+        }
+    }
 
     /// <summary>刷新所有待执行的闭合标签调用（流结束时必须调用）。</summary>
     public void Flush() { }
 
-    /// <summary>重置全部状态以便复用。</summary>
+    /// <summary>重置全部状态以便复用。当输入不完整 XML 导致状态错误时调用此方法恢复。</summary>
     public void Reset()
     {
+        // 清空内部通道中的待处理字符
+        while (inputChannel.Reader.TryRead(out _)) { }
+
         parser.Reset();
         tagStack.Clear();
         contentBuffer.Clear();
+    }
+
+    private async Task ProcessInputLoopAsync()
+    {
+        try
+        {
+            while (await inputChannel.Reader.WaitToReadAsync())
+            {
+                while (inputChannel.Reader.TryRead(out char ch))
+                {
+                    await parser.FeedAsync(ch);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // 记录异常或处理错误
+            Console.WriteLine($"XmlStreamExecutor ProcessInputLoopAsync error: {ex.Message}");
+        }
     }
 
     // ═══════════════════════════════════════
     //  事件处理
     // ═══════════════════════════════════════
 
-    async Task OnOpenTag(string tagName, IReadOnlyDictionary<string, string> attributes)
+    async Task OnOpenTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes)
     {
         // 遇到新标签时，如果缓冲区有内容，说明这些内容属于它外层的 active 标签
         // 我们应该立刻把它们当做独立的 chunk 触发掉，保证顺序流式处理
@@ -73,10 +127,9 @@ public class XmlStreamExecutor
             Name = tagName,
             Attributes = new Dictionary<string, string>(attributes)
         });
-        await Task.CompletedTask;
     }
 
-    async Task OnCloseTag(string tagName)
+    async Task OnCloseTagAsync(string tagName)
     {
         if (TryPopTag(tagName, out TagEntry closedEntry))
         {
@@ -91,10 +144,9 @@ public class XmlStreamExecutor
 
         // 栈中无匹配标签，还原为文本内容
         contentBuffer.Append($"</{tagName}>");
-        await Task.CompletedTask;
     }
 
-    async Task OnText(char ch)
+    async Task OnTextAsync(char ch)
     {
         contentBuffer.Append(ch);
 
@@ -104,7 +156,6 @@ public class XmlStreamExecutor
             await ProcessCurrentStackAsync(null, contentBuffer.ToString(), ch);
             contentBuffer.Clear();
         }
-        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -134,9 +185,9 @@ public class XmlStreamExecutor
         {
             TagEntry entry = chain[i];
             
-            // InvokeHandler 传入的是 ref currentChunk
+            // InvokeHandlerAsync 传入的是 ref currentChunk
             // 内部 handler 对 currentChunk 的修改会直接影响它传递给更外层父标签的内容（即冒泡阶段的数据变化）
-            tasks.Add(InvokeHandler(entry, context, ref currentChunk));
+            tasks.Add(InvokeHandlerAsync(entry, context, ref currentChunk));
         }
 
         // 所有的 handler task 返回后，统一 await 确保异步操作顺序完成（例如等待 think 标签中的异步延时）
@@ -172,7 +223,7 @@ public class XmlStreamExecutor
         return false;
     }
 
-    Task InvokeHandler(TagEntry entry, XmlTagContext context, ref string content)
+    Task InvokeHandlerAsync(TagEntry entry, XmlTagContext context, ref string content)
     {
         if (handlerTable.Handlers.TryGetValue(entry.Name, out CompiledTagInvoker? invoker))
         {
@@ -181,3 +232,4 @@ public class XmlStreamExecutor
         return Task.CompletedTask;
     }
 }
+

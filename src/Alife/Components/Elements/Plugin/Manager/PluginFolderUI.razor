@@ -27,10 +27,11 @@
         }
         else if (obj.Node.DataItem is Type pluginType)
         {
-            sourceContainer.Strings.Remove(pluginType.FullName!);
-            targetContainer.Strings.Add(pluginType.FullName!);
+            string pluginID = PluginSystem.GetPluginID(pluginType);
+            sourceContainer.Strings.Remove(pluginID);
+            targetContainer.Strings.Add(pluginID);
         }
-        
+
         StateHasChanged();
     }
 }

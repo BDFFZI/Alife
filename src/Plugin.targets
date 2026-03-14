@@ -1,0 +1,15 @@
+<Project>
+  <Target Name="PostBuildDeployment" AfterTargets="Build">
+    <PropertyGroup>
+      <PluginDeployDir>$(MSBuildProjectDirectory)\..\Alife\bin\$(Configuration)\net10.0\Plugins\$(ProjectName)\</PluginDeployDir>
+    </PropertyGroup>
+    <Message Importance="High" Text="[DEPLOY] Starting Deployment for $(ProjectName)..." />
+    <Message Importance="High" Text="[DEPLOY] Source: $(TargetDir)" />
+    <Message Importance="High" Text="[DEPLOY] Destination: $(PluginDeployDir)" />
+    
+    <MakeDir Directories="$(PluginDeployDir)" />
+    <!-- Use robocopy for robustness. Note: robocopy returns 1 on success (files copied) which MSBuild treats as error. Use IgnoreExitCode. -->
+    <Exec Command="robocopy &quot;$(TargetDir).&quot; &quot;$(PluginDeployDir).&quot; /E /IS /IT /NJH /NJS /NDL /NC /NS /NP" IgnoreExitCode="true" />
+    <Message Importance="High" Text="[DEPLOY] Deployment Finished for $(ProjectName)." />
+  </Target>
+</Project>

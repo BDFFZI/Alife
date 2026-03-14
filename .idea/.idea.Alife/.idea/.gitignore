@@ -1,8 +1,0 @@
-﻿# 默认忽略的文件
-/shelf/
-/workspace.xml
-# Rider 忽略的文件
-/.idea.Alife.iml
-/projectSettingsUpdater.xml
-/modules.xml
-/contentModel.xml

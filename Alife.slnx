@@ -1,13 +1,17 @@
 <Solution>
   <Folder Name="/Function/">
-    <Project Path="src/Alife.Interpreter.Test/Alife.Interpreter.Test.csproj" />
+    <Project Path="src/Alife.Interpreter.Tests/Alife.Interpreter.Tests.csproj" />
     <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
-    <Project Path="src/Alife.Speech.Test/Alife.Speech.Test.csproj" />
+    <Project Path="src/Alife.Speech.Tests/Alife.Speech.Tests.csproj" />
     <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
+    <Project Path="src\Alife.Live2D.Tests\Alife.Live2D.Tests.csproj" />
+    <Project Path="src\Alife.Live2D\Alife.Live2D.csproj" />
   </Folder>
   <Folder Name="/Plugins/">
-    <Project Path="src\Alife.Plugins.Official\Alife.Plugins.Official.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.OfficialPlugins.Tests\Alife.OfficialPlugins.Tests.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.OfficialPlugins\Alife.OfficialPlugins.csproj" Type="Classic C#" />
   </Folder>
+  <Project Path="src\Alife.Core.Tests\Alife.Core.Tests.csproj" />
   <Project Path="src\Alife.Core\Alife.Core.csproj" Type="Classic C#" />
   <Project Path="src\Alife\Alife.csproj" Type="Classic C#" />
 </Solution>

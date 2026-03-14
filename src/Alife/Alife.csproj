@@ -18,22 +18,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <_ContentIncludedByDefault Remove="Components\Utility\StringFolderSelectorUI.razor" />
-    <_ContentIncludedByDefault Remove="Components\Utility\StringSelectorUI.razor" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AdditionalFiles Include="Components\Elements\Plugin\Manager\PluginFolderNodeUI.razor" />
-    <AdditionalFiles Include="Components\Elements\Plugin\Manager\PluginFolderUI.razor" />
-    <AdditionalFiles Include="Components\Elements\Utility\StringFolderSelectorUI.razor" />
-    <AdditionalFiles Include="Components\Elements\Utility\StringSelectorUI.razor" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Components\Pages\" />
+    <ProjectReference Include="..\Alife.Plugins.Official\Alife.Plugins.Official.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>None</OutputItemType>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
