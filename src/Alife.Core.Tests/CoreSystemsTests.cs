@@ -40,8 +40,8 @@ public class CoreSystemsTests
         characterSystem.CreateCharacter();
         Character pluginCharacter = characterSystem.GetAllCharacters().Last();
         pluginCharacter.Name = "插件机器人";
-        // 尝试添加一个系统类型作为插件
-        pluginCharacter.Plugins.Add(typeof(string)); 
+        // 使用一个实现了 IPlugin 的虚拟插件
+        pluginCharacter.Plugins.Add(typeof(DummyPlugin)); 
         characterSystem.SaveCharacters();
 
         CharacterSystem reloadSystem = new CharacterSystem(pluginSystem, storageSystem);
@@ -49,6 +49,10 @@ public class CoreSystemsTests
 
         Assert.NotNull(loadedPluginChar);
         Assert.Equal("插件机器人", loadedPluginChar.Name);
-        Assert.Contains(typeof(string), loadedPluginChar.Plugins);
+        Assert.Contains(loadedPluginChar.Plugins, p => p.Name == nameof(DummyPlugin));
     }
+}
+
+public class DummyPlugin : IPlugin
+{
 }

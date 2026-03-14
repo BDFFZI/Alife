@@ -30,24 +30,6 @@ public class SpeechService : IPlugin
         return Task.CompletedTask;
     }
 
-    private void EnsureRecognizerInitialized()
-    {
-        if (recognizer != null) return;
-        recognizer = new LocalSpeechRecognizer(modelPath);
-        recognizer.OnRecognized += OnRecognized;
-        recognizer.Start();
-    }
-
-    void OnRecognized(string text, float confidence)
-    {
-        if (isSpeaking && confidence < 0.6) return;
-
-        speechSynthesizer.Stop();
-        chatBot.Chat(text);
-
-        Console.WriteLine($"{text}: {confidence}");
-    }
-
     [XmlHandler("speak", "让AI说出指定的内容给用户听。")]
     public async Task Speak(string content)
     {

@@ -12,49 +12,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Alife.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Alife.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core.Test/Alife.Core.Test.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core.Test/Program.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/Character.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/Character.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatActivity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatActivity.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatWindow.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatWindow.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/Plugin/IPlugin.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/Plugin/IPlugin.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Systems/CharacterSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Systems/CharacterSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Systems/ChatActivitySystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Systems/ChatActivitySystem.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Core.Tests/CoreSystemsTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core.Tests/CoreSystemsTests.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Core/Systems/PluginSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Systems/PluginSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Test/Alife.Interpreter.Test.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Test/Program.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Test/test.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/Alife.Interpreter.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/Alife.Interpreter.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerAttribute.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerAttribute.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerCompiler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerCompiler.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerTable.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerTable.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamParser.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamParser.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/Alife.Plugins.Official.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/ChatService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/CommandService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/EventService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/InterpreterService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/McpServices/McpService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/McpServices/McpServiceUI.razor" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/OpenAIChatService/OpenAIChatService.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/OpenAIChatService/OpenAIChatServiceUI.razor" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Plugins.Official/_Imports.razor" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Test/Alife.Speech.Test.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Test/Program.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OfficialPlugins/InterpreterService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OfficialPlugins/InterpreterService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OfficialPlugins/SpeechService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OfficialPlugins/SpeechService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Speech/Alife.Speech.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech/Alife.Speech.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechRecognizer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechRecognizer.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife/Alife.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Alife.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/CharacterEditorUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/CharacterEditorUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatWindowUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatWindowUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/Plugin/Manager/PluginFolderNodeUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/Plugin/Manager/PluginFolderNodeUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/Plugin/Manager/PluginFolderUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/Plugin/Manager/PluginFolderUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Pages/CharacterSystemUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Pages/CharacterSystemUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Pages/HomeUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Pages/HomeUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Program.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,9 +32,18 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="mock:///debugger_visualizers" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/11aa0e509b4c4eeeaed9547dab1ff52b4c400/98/686755d7/Mock`1.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/d2fc4e5236f74a0d8789f902be54d3bbf48938/9c/29ffad5a/AssemblyName.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/10d66f5854fb740512a17b43a58ea77d0f8befade53fc42f0a2b43758387c1b/Text.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Core.Tests/CoreSystemsTests.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Core.Tests/CoreSystemsTests.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Core/Systems/PluginSystem.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Core/Systems/PluginSystem.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.OfficialPlugins/InterpreterService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.OfficialPlugins/InterpreterService.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
+  <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
   &quot;associatedIndex&quot;: 7
@@ -80,18 +53,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;.NET 启动设置配置文件.Alife: http.executor&quot;: &quot;Debug&quot;,
-    &quot;.NET 项目.Plugins\\Alife.Plugins.Official.Test.executor&quot;: &quot;Debug&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    ".NET 启动设置配置文件.Alife: http.executor": "Debug",
+    ".NET 项目.Plugins\\Alife.Plugins.Official.Test.executor": "Debug",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected=".NET 启动设置配置文件.Alife: http">
     <configuration name="Alife.Core.Test" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
@@ -251,9 +224,23 @@
     </task>
     <servers />
   </component>
+  <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+    <MESSAGE value="-" />
+    <option name="LAST_COMMIT_MESSAGE" value="-" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

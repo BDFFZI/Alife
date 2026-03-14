@@ -43,12 +43,21 @@ public class PluginSystem : IDisposable
         string[] pluginPaths = Directory.GetFiles(pluginRoot, "*.dll", SearchOption.AllDirectories);
 
         //加载插件
+        HashSet<string> currentAssemblies = AppDomain.CurrentDomain.GetAssemblies().Select(assembly => assembly.FullName).ToHashSet()!;
         foreach (string pluginPath in pluginPaths)
         {
-            try { pluginContext.LoadFromAssemblyPath(pluginPath); }
-            catch (Exception)
+            try
             {
-                // ignored 可能包含一些非C#的dll
+                string assemblyName = AssemblyName.GetAssemblyName(pluginPath).FullName;
+                if (currentAssemblies.Contains(assemblyName))
+                    continue;
+                
+                pluginContext.LoadFromAssemblyPath(pluginPath);
+            }
+            catch (Exception e)
+            {
+                // 可能包含一些非C#的dll
+                // Console.WriteLine(e);
             }
         }
 
@@ -57,24 +66,16 @@ public class PluginSystem : IDisposable
         Assembly[] allAssemblies = AppDomain.CurrentDomain.GetAssemblies();
         foreach (Assembly assembly in allAssemblies)
         {
-            Console.WriteLine(assembly.FullName);
-            try
+            foreach (Type type in assembly.GetTypes())
             {
-                foreach (Type type in assembly.GetTypes())
-                {
-                    if (type.IsAssignableTo(typeof(IPlugin)) == false)
-                        continue;
-                    if (type.IsAbstract)
-                        continue;
-                    if (type.IsInterface)
-                        continue;
+                if (type.IsAssignableTo(typeof(IPlugin)) == false)
+                    continue;
+                if (type.IsAbstract)
+                    continue;
+                if (type.IsInterface)
+                    continue;
 
-                    pluginTypes.Add(GetPluginID(type), type);
-                }
-            }
-            catch
-            {
-                /* 忽略无法获取类型的程序集 */
+                pluginTypes.Add(GetPluginID(type), type);
             }
         }
 
