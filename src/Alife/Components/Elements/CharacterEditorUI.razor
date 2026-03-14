@@ -1,0 +1,116 @@
+@using System.Reflection
+@using Alife.Components.Elements.Utility
+@inject PluginSystem PluginSystem
+
+<Modal
+    Title=@($"配置 {Context.ID}")
+    Visible="Visible"
+    BodyStyle="height: 50vh;"
+    DefaultMaximized="true"
+    OnCancel="OnCancel"
+    Footer=@(customFooter(this))>
+    <GridRow Style="height: 100%;overflow-y: scroll" Gutter="12">
+        <GridCol Style="height: 100%;" Span="@(SystemPrompts == null ? 24 : 12)">
+            <Flex Style="height: 100%;" Direction="FlexDirection.Vertical" Gap="FlexGap.Small">
+                <Text>名称</Text>
+                <Input Disabled="@(IsOnlyRead)" @bind-Value="@name"/>
+                <Text>设定</Text>
+                <Input Disabled="@(IsOnlyRead)" @bind-Value="@prompt"/>
+                <Text>插件</Text>
+                <Card>
+                    @if (IsOnlyRead)
+                    {
+                        <div style="height: 100%;width: 100%;display: flex;flex-wrap: wrap">
+                            @foreach (Type pluginType in Context.Plugins)
+                            {
+                                var attr = pluginType.GetCustomAttribute<PluginAttribute>();
+                                <Tag>@(attr?.Name ?? pluginType.Name)</Tag>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <StringFolderSelectorUI
+                            Context="@(PluginSystem.GetPluginFolder())"
+                            ItemTitleFilter="@(fullName => GetPluginName(fullName))"
+                            @bind-IsChecking="pluginTypeNames">
+                        </StringFolderSelectorUI>
+                    }
+                </Card>
+            </Flex>
+        </GridCol>
+        @if (SystemPrompts != null)
+        {
+            <GridCol Style="height: 100%;" Span="12">
+                <Flex Style="height: 100%;" Direction="FlexDirection.Vertical" Gap="FlexGap.Small">
+                    <Text>系统提示词</Text>
+                    <Card Style="flex: 1; overflow-y: scroll;">
+                        @foreach (string systemPrompt in SystemPrompts)
+                        {
+                            <Paragraph Copyable style="white-space: pre-wrap;">
+                                @(systemPrompt)
+                            </Paragraph>
+                            <Divider Dashed></Divider>
+                        }
+                    </Card>
+                </Flex>
+            </GridCol>
+        }
+        <br/>
+    </GridRow>
+</Modal>
+
+@code {
+    [Parameter] public Character Context { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public bool IsOnlyRead { get; set; }
+    [Parameter] public IEnumerable<string>? SystemPrompts { get; set; }
+
+    string name = null!;
+    string prompt = null!;
+    HashSet<string> pluginTypeNames = null!;
+    RenderFragment<CharacterEditorUI> customFooter = null!;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        name = Context.Name;
+        prompt = Context.Prompt;
+        pluginTypeNames = new HashSet<string>(Context.Plugins.Select(t => t.FullName!));
+
+        customFooter = (source) =>
+            @<div>
+                @if (source.IsOnlyRead) { }
+                else
+                {
+                    <Button Type="@ButtonType.Primary" OnClick="source.OnConfirm">确定</Button>
+                    <Button OnClick="@source.OnCancel">取消</Button>
+                }
+            </div>;
+    }
+
+    string GetPluginName(string fullName)
+    {
+        var type = PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == fullName);
+        if (type == null) return fullName;
+        var attr = type.GetCustomAttribute<PluginAttribute>();
+        return attr?.Name ?? type.Name;
+    }
+
+    void OnConfirm()
+    {
+        Context.Name = name;
+        Context.Prompt = prompt;
+        Context.Plugins = pluginTypeNames
+            .Select(name => PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == name))
+            .Where(t => t != null)
+            .ToHashSet()!;
+        VisibleChanged.InvokeAsync(false);
+    }
+    void OnCancel()
+    {
+        VisibleChanged.InvokeAsync(false);
+    }
+}

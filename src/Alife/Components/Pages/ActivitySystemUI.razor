@@ -1,0 +1,67 @@
+﻿@page "/activity"
+@using Alife.Components.Elements.Utility
+@inject ChatActivitySystem ChatActivitySystem
+@inject CharacterSystem CharacterSystem
+@inject INotificationService NotificationService
+
+<div style="height: 100%;width: 100%;overflow-y: scroll;
+display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: start">
+    <Card Style="display: grid;">
+        <Button style="top: 50%;left: 50%; transform: translate(-50%,-50%) scale(1.3);  "
+                Size="ButtonSize.Large"
+                Icon="@(IconType.Fill.PlusCircle)" OnClick="OnPlay"></Button>
+        <StringSelectorUI Options="@(options.Keys)" Visible="isSelecting" OnFinished="OnSelected"></StringSelectorUI>
+    </Card>
+    @foreach (ChatActivity chatActivity in ChatActivitySystem.GetAllChatActivities())
+    {
+        <ChatActivityUI Context="chatActivity"
+                        Stopped="@(() => ChatActivitySystem.Stop(chatActivity.Character))"></ChatActivityUI>
+    }
+</div>
+
+<Modal Title="创建活动中..." Header="null" Footer="null" Visible="isCreating">
+    <Progress Percent=@((int)(creatingInfo.Item2 * 100)) Type=ProgressType.Circle></Progress>
+    <Text>@(creatingInfo.Item1)</Text>
+</Modal>
+
+@code {
+    Dictionary<string, Character> options = new();
+    bool isSelecting;
+    bool isCreating;
+    (string, float) creatingInfo;
+
+    void OnPlay()
+    {
+        options = CharacterSystem.GetAllCharacters()
+            .Where(character => ChatActivitySystem.IsActivated(character) == false)
+            .ToDictionary(character => $"{character.Name}({character.ID})", character => character);
+        isSelecting = true;
+    }
+    async Task OnSelected(string? obj)
+    {
+        isSelecting = false;
+        if (obj == null)
+            return;
+        Character character = options[obj];
+
+        isCreating = true;
+
+        try
+        {
+            IProgress<(string, float)> progress = new Progress<(string, float)>(tuple => {
+                creatingInfo = tuple;
+                StateHasChanged();
+            });
+            await ChatActivitySystem.Play(character, progress);
+        }
+        catch (Exception e)
+        {
+            await NotificationService.Error(new NotificationConfig() {
+                Message = e.Message,
+                Description = e.StackTrace,
+            });
+        }
+
+        isCreating = false;
+    }
+}

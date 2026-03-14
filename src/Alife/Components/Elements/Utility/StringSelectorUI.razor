@@ -1,0 +1,29 @@
+﻿<Modal OnOk="OnConfirm" OnCancel="OnCancel" Visible="@(Visible)">
+    <SimpleSelect Mode="SelectMode.Default" Style="width:100%;" OnSelectedItemChanged="OnSelected">
+        @foreach (string value in Options)
+        {
+            <SimpleSelectOption Value="@(value)"></SimpleSelectOption>
+        }
+    </SimpleSelect>
+</Modal>
+
+@code {
+    [Parameter] public IEnumerable<string> Options { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<string?> OnFinished { get; set; }
+
+    string? selected;
+
+    void OnSelected(string obj)
+    {
+        selected = obj;
+    }
+    void OnConfirm()
+    {
+        OnFinished.InvokeAsync(selected);
+    }
+    void OnCancel()
+    {
+        OnFinished.InvokeAsync(null);
+    }
+}

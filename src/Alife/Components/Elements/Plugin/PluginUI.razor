@@ -1,0 +1,41 @@
+@inject ConfigurationSystem ConfigurationSystem;
+
+<Collapse>
+    <Panel Header="@Name">
+        <ExtraTemplate>
+            <Space Size="@(SpaceSize.Small)" Style="height: 0">
+                <SpaceItem>
+                    @if (ConfigurationSystem.CanConfiguration(Context))
+                    {
+                        <Button Icon="setting" OnClick="@(() => isEditing = true)"
+                                OnClickStopPropagation="true"></Button>
+                        <PluginEditorUI PluginType="Context" @bind-Visible="isEditing"></PluginEditorUI>
+                    }
+                </SpaceItem>
+                <SpaceItem>
+                    @if (AppendExtra != null)
+                    {
+                        @AppendExtra
+                    }
+                </SpaceItem>
+            </Space>
+        </ExtraTemplate>
+        <ChildContent>
+            <Paragraph>@Description</Paragraph>
+            @if (AppendContent != null)
+            {
+                @AppendContent
+            }
+        </ChildContent>
+    </Panel>
+</Collapse>
+
+@code {
+    [Parameter] public Type Context { get; set; } = null!;
+    [Parameter] public string Name { get; set; } = null!;
+    [Parameter] public string Description { get; set; } = null!;
+    [Parameter] public RenderFragment? AppendContent { get; set; }
+    [Parameter] public RenderFragment? AppendExtra { get; set; }
+
+    bool isEditing;
+}

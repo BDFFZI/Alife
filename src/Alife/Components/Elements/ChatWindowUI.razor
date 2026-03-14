@@ -1,0 +1,116 @@
+@inject IJSRuntime JsRuntime
+@implements IDisposable
+
+<Modal Title="对话窗口"
+       Visible="Visible"
+       VisibleChanged="OnVisibleChanged"
+       MaxBodyHeight="90vh"
+       BodyStyle="display:flex;flex-direction:column;gap:12px"
+       Footer="null"
+       MaskClosable="false"
+       Maximizable="true">
+    <Flex Style="height: 100%;width: 100%; flex: 1; overflow-y: scroll; "
+          Direction="FlexDirection.Vertical"
+          Gap="@(FlexGap.Small)"
+          Id="messageArea">
+        @if (Context.GetMessages().Any() == false)
+        {
+            <Empty>
+                <DescriptionTemplate>
+                    <Text>暂无聊天信息</Text>
+                </DescriptionTemplate>
+            </Empty>
+        }
+        else
+        {
+            @foreach (ChatMessage message in Context.GetMessages())
+            {
+                <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
+                    @if (message.isUser)
+                    {
+                        <Alert Type=@(AlertType.Info)>
+                            <MessageTemplate>
+                                <Text Style="white-space: pre-wrap;">
+                                    @(message.content)
+                                </Text>
+                            </MessageTemplate>
+                        </Alert>
+                    }
+                    else
+                    {
+                        <Alert Type=@(AlertType.Success)>
+                            <MessageTemplate>
+                                <Text Style="white-space: pre-wrap;">
+                                    @(message.content)
+                                </Text>
+                            </MessageTemplate>
+                        </Alert>
+                    }
+                </div>
+            }
+        }
+    </Flex>
+    <Flex Direction="FlexDirection.Horizontal" Gap="@(FlexGap.Small)">
+        <Input @bind-Value="inputText" OnPressEnter="OnSend"></Input>
+        <Button Type="@(ButtonType.Primary)" OnClick="OnSend">发送</Button>
+    </Flex>
+</Modal>
+
+<script type="text/javascript">
+    window.scrollMessageArea = () => {
+        setTimeout(() => {
+            element = document.getElementById("messageArea");
+            element.scrollTop = element.scrollHeight;
+        }, 10);
+    }
+</script>
+
+@code {
+    [Parameter] public ChatWindow Context { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    string inputText = "";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        Context.MessageAdded += OnMessageAdded;
+        Context.MessageUpdated += OnMessageUpdated;
+    }
+    public void Dispose()
+    {
+        Context.MessageAdded -= OnMessageAdded;
+        Context.MessageUpdated -= OnMessageUpdated;
+    }
+
+    void OnSend()
+    {
+        if (string.IsNullOrWhiteSpace(inputText))
+            return;
+
+        string text = inputText;
+        inputText = "";
+        Context.AddMessage(new ChatMessage() { content = text, isUser = true });
+    }
+    void OnVisibleChanged(bool obj)
+    {
+        Visible = obj;
+        VisibleChanged.InvokeAsync(obj);
+    }
+    void OnMessageAdded(ChatMessage obj)
+    {
+        InvokeAsync(() => {
+            StateHasChanged();
+            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+        });
+    }
+    void OnMessageUpdated()
+    {
+        InvokeAsync(() => {
+            StateHasChanged();
+            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+        });
+    }
+}

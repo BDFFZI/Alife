@@ -1,0 +1,20 @@
+﻿@inherits LayoutComponentBase
+
+<Layout Style="height: 100vh;width: 100vw">
+    <Sider>
+        <Header Style="padding: 0px 16px">
+            <Button Type="@(ButtonType.Primary)" Style="pointer-events: none" block ghost>
+                <div style="overflow:hidden; text-overflow: ellipsis">Alife</div>
+            </Button>
+        </Header>
+        <NavMenu/>
+    </Sider>
+    <Layout>
+        <Header Style="background:#e1e1e1">
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        </Header>
+        <Content Style="padding: 12px;">
+            @Body
+        </Content>
+    </Layout>
+</Layout>

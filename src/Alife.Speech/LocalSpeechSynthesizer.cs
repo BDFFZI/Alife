@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
 
-namespace Alife.Speech.Synthesis;
+namespace Alife.Speech;
 
 public class LocalSpeechSynthesizer : IDisposable
 {

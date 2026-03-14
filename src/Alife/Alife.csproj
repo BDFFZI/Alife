@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AntDesign" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Components\Utility\StringFolderSelectorUI.razor" />
+    <_ContentIncludedByDefault Remove="Components\Utility\StringSelectorUI.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="Components\Elements\Plugin\Manager\PluginFolderNodeUI.razor" />
+    <AdditionalFiles Include="Components\Elements\Plugin\Manager\PluginFolderUI.razor" />
+    <AdditionalFiles Include="Components\Elements\Utility\StringFolderSelectorUI.razor" />
+    <AdditionalFiles Include="Components\Elements\Utility\StringSelectorUI.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Components\Pages\" />
+  </ItemGroup>
+
+</Project>

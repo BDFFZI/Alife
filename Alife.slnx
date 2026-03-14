@@ -1,9 +1,13 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
+  <Folder Name="/Function/">
     <Project Path="src/Alife.Interpreter.Test/Alife.Interpreter.Test.csproj" />
-    <Project Path="src/Alife.Speech.Recognition/Alife.Speech.Recognition.csproj" />
-    <Project Path="src/Alife.Speech.Synthesis/Alife.Speech.Synthesis.csproj" />
+    <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
     <Project Path="src/Alife.Speech.Test/Alife.Speech.Test.csproj" />
+    <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
   </Folder>
+  <Folder Name="/Plugins/">
+    <Project Path="src\Alife.Plugins.Official\Alife.Plugins.Official.csproj" Type="Classic C#" />
+  </Folder>
+  <Project Path="src\Alife.Core\Alife.Core.csproj" Type="Classic C#" />
+  <Project Path="src\Alife\Alife.csproj" Type="Classic C#" />
 </Solution>

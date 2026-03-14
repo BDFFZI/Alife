@@ -1,0 +1,72 @@
+@using Newtonsoft.Json
+@using System.Reflection
+@inject ConfigurationSystem ConfigurationSystem
+
+<Modal
+    Title=@($"配置 {PluginType.FullName}")
+    Visible="Visible"
+    BodyStyle="height: 50vh;"
+    OnCancel="OnCancel"
+    Footer=@(footerUI(this))>
+    @if (customUIType != null)
+    {
+        <DynamicComponent Type="customUIType" Parameters="customUIParameters"/>
+    }
+    else
+    {
+        <TextArea
+            Style="height: 100%;"
+            @bind-Value="pluginConfiguration">
+        </TextArea>
+    }
+</Modal>
+
+@code {
+    [Parameter] public Type PluginType { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    string pluginConfiguration = null!;
+    Type? customUIType;
+    Dictionary<string, object> customUIParameters = new();
+    RenderFragment<PluginEditorUI> footerUI = null!;
+
+    void OnConfirm()
+    {
+        Type type = ConfigurationSystem.GetConfigurationType(PluginType)!;
+        object configuration = JsonConvert.DeserializeObject(pluginConfiguration, type)!;
+        ConfigurationSystem.SetConfiguration(type, configuration);
+        VisibleChanged.InvokeAsync(false);
+    }
+    void OnCancel()
+    {
+        pluginConfiguration = ConfigurationSystem.GetConfigurationJson(PluginType)!.ToString(Formatting.Indented);
+        VisibleChanged.InvokeAsync(false);
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        var attr = PluginType.GetCustomAttribute<PluginAttribute>();
+
+        if (attr?.ConfigurationUIType != null)
+        {
+            customUIType = attr.ConfigurationUIType;
+            customUIParameters = new Dictionary<string, object> {
+                { "PluginType", PluginType }
+            };
+        }
+        else
+        {
+            pluginConfiguration = ConfigurationSystem.GetConfigurationJson(PluginType)?.ToString(Formatting.Indented) ?? "{}";
+        }
+
+        footerUI = value => {
+            if (value.customUIType == null)
+                return @<Button Type="@(ButtonType.Primary)" OnClick="@(() => value.OnConfirm())">保存</Button>;
+            else
+                return @<div></div>;
+        };
+    }
+}

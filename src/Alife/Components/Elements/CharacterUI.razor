@@ -1,0 +1,19 @@
+﻿<Card Title="@(Source.Name)">
+    <Extra>
+        <Button Type="@(ButtonType.Link)" OnClick="@(() => isEditing = true)">编辑</Button>
+        <CharacterEditorUI Context="Source" @bind-Visible="isEditing"></CharacterEditorUI>
+    </Extra>
+    <ChildContent>
+        <Flex Style="justify-content: space-between;align-items: center">
+            <Checkbox @bind-Value="Source.AutoActivate">开机自启</Checkbox>
+            <Button Danger OnClick="@(OnDelete)">删除</Button>
+        </Flex>
+    </ChildContent>
+</Card>
+
+@code {
+    [Parameter] public Character Source { get; set; } = null!;
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    bool isEditing;
+}

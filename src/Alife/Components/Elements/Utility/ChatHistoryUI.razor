@@ -1,0 +1,29 @@
+﻿@using Microsoft.SemanticKernel.ChatCompletion
+@using Newtonsoft.Json
+
+<Modal DefaultMaximized="true"
+       Footer="null"
+       Visible="Visible" VisibleChanged="VisibleChanged">
+    <AntList DataSource="@(Context)">
+        <ListItemMeta
+            Description="@($"{context.Role.Label} @{context.AuthorName}")">
+        </ListItemMeta>
+        <ListItem>
+            <Extra>
+            </Extra>
+            <ChildContent>
+                <Paragraph Style="white-space: pre-wrap;">
+                    @(string.Join("\n---\n", context.Items.Select(content =>
+                        $"[{content.GetType().Name}]{JsonConvert.SerializeObject(content.ToLogObject(), Formatting.Indented)}"
+                    )))
+                </Paragraph>
+            </ChildContent>
+        </ListItem>
+    </AntList>
+</Modal>
+
+@code {
+    [Parameter] public ChatHistory Context { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+}

@@ -1,0 +1,14 @@
+@page "/Plugin"
+@using Alife.Components.Elements.Plugin.Manager
+@inject PluginSystem PluginSystem
+
+<Flex Justify="@(FlexJustify.SpaceBetween)" Align="@(FlexAlign.Center)" Style="margin-bottom: 24px;">
+    <Title Level="2" Style="margin: 0;">插件管理</Title>
+    <Button Type="@ButtonType.Primary" OnClick="() => PluginSystem.SaveData()">保存</Button>
+</Flex>
+
+<PluginFolderUI Context="@(PluginSystem.GetPluginFolder())"></PluginFolderUI>
+
+@code {
+
+}

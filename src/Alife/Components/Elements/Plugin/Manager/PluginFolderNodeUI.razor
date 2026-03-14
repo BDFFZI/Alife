@@ -1,0 +1,94 @@
+@using System.Reflection
+@using Alife.Components.Elements.Plugin
+@inject PluginSystem PluginSystem
+
+<TreeNode @ref="node"
+          DataItem="@((object)Context)"
+          Title="@(folderName)"
+          Expanded="IsExpanded"
+          Draggable="true"
+          IsLeaf="@(Context.Folders.Count + Context.Strings.Count == 0)">
+    <TitleTemplate>
+        <Flex Justify="@(FlexJustify.SpaceBetween)" Align="@(FlexAlign.Center)">
+            <Text>@(Context.Name)</Text>
+            <Space>
+                <SpaceItem>
+                    <Button Icon="@(IconType.Outline.Plus)" OnClick="OnCreate"></Button>
+                    @if (node.GetParentNode() != null)
+                    {
+                        <Button Icon="@(IconType.Outline.Minus)" OnClick="OnDelete"></Button>
+                        <Button Icon="@(IconType.Outline.Edit)" OnClick="OnRename"></Button>
+                        <Modal Title="重命名"
+                               @bind-Visible="renameWindow"
+                               OnOk="OnConfirmRename"
+                               OnCancel="OnCancelRename">
+                            <Input @bind-Value="folderName"></Input>
+                        </Modal>
+                    }
+                </SpaceItem>
+            </Space>
+        </Flex>
+    </TitleTemplate>
+    <ChildContent>
+        @foreach (StringFolder folder in Context.Folders)
+        {
+            <PluginFolderNodeUI Context="folder" OnDeleted="StateHasChanged"></PluginFolderNodeUI>
+        }
+        @foreach (Type pluginType in Context.Strings.Select(fullName => PluginSystem.GetAllPlugins().FirstOrDefault(t => t.FullName == fullName)).Where(t => t != null)!)
+        {
+            var attribute = pluginType.GetCustomAttribute<PluginAttribute>()!;
+            <TreeNode Key="@(pluginType.FullName)"
+                      DataItem="@((object)pluginType)">
+                <TitleTemplate>
+                    <PluginUI Name="@(attribute.Name)"
+                              Description="@(attribute.Description)"
+                              Context="@(pluginType)">
+                    </PluginUI>
+                </TitleTemplate>
+            </TreeNode>
+        }
+    </ChildContent>
+</TreeNode>
+
+
+@code {
+    [Parameter] public global::StringFolder Context { get; set; } = null!;
+    [Parameter] public bool IsExpanded { get; set; }
+    [Parameter] public EventCallback OnDeleted { get; set; }
+
+    TreeNode<object> node = null!;
+    string folderName = null!;
+    bool renameWindow;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        folderName = Context.Name;
+    }
+
+    void OnCreate()
+    {
+        Context.Folders.Add(new StringFolder("未命名分类"));
+        IsExpanded = true;
+    }
+    void OnDelete()
+    {
+        StringFolder parent = (StringFolder)node.GetParentNode().DataItem;
+        parent.Strings.AddRange(Context.Strings);
+        parent.Folders.AddRange(Context.Folders);
+        parent.Folders.Remove(Context);
+        OnDeleted.InvokeAsync();
+    }
+    void OnRename()
+    {
+        renameWindow = true;
+    }
+    void OnConfirmRename()
+    {
+        Context.Name = folderName;
+    }
+    void OnCancelRename()
+    {
+        folderName = Context.Name;
+    }
+}

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Vosk;
 using NAudio.Wave;
 
-namespace Alife.Speech.Recognition;
+namespace Alife.Speech;
 
 public class LocalSpeechRecognizer : IDisposable
 {

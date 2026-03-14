@@ -1,8 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Speech.Recognition;
-using Alife.Speech.Synthesis;
+using Alife.Speech;
 
 namespace Alife.Speech.App;
 

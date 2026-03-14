@@ -1,0 +1,54 @@
+﻿@using System.Text
+@using Alife.Components.Elements.Utility
+@using Microsoft.SemanticKernel
+@using Microsoft.SemanticKernel.Connectors.OpenAI
+@using Newtonsoft.Json.Linq
+@using ChatActivity = global::ChatActivity
+
+<Card Title="@($"与{Context.Character.Name}的活动")">
+    <Extra>
+        <Button Type="@(ButtonType.Link)" OnClick="@(() => isEditing = true)">查看配置</Button>
+        <CharacterEditorUI
+            SystemPrompts="@(systemPrompts)"
+            Context="Context.Character"
+            @bind-Visible="isEditing"
+            IsOnlyRead="true">
+        </CharacterEditorUI>
+    </Extra>
+    <ChildContent>
+        <Flex Justify="FlexJustify.Center" Gap="FlexGap.Middle">
+            <Button Type="@ButtonType.Primary" OnClick="@(() => isLogging = true)">日志</Button>
+            <ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
+            <Button Type="@ButtonType.Primary" OnClick="@(() => isChatting = true)">对话</Button>
+            <ChatWindowUI Context="@(chatWindow)" @bind-Visible="isChatting"></ChatWindowUI>
+            <Button Type="@ButtonType.Primary" Danger OnClick="Stopped">停止</Button>
+        </Flex>
+    </ChildContent>
+</Card>
+
+@code {
+    [Parameter] public ChatActivity Context { get; set; } = null!;
+    [Parameter] public EventCallback Stopped { get; set; }
+
+    ChatWindow chatWindow = null!;
+    bool isEditing;
+    bool isChatting;
+    bool isLogging;
+    IEnumerable<string> systemPrompts = null!;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        chatWindow = Context.PluginService.GetRequiredService<ChatWindow>();
+        systemPrompts = Context.KernelService.Plugins.GetFunctionsMetadata()
+            .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
+            .Select(chatTool => new JObject() {
+                ["kind"] = chatTool.Kind.GetHashCode(),
+                ["FunctionName"] = chatTool.FunctionName,
+                ["FunctionDescription"] = chatTool.FunctionDescription,
+                ["FunctionParameters"] = JToken.Parse(Encoding.UTF8.GetString(chatTool.FunctionParameters)),
+                ["FunctionSchemaIsStrict"] = chatTool.FunctionSchemaIsStrict
+            }).Select(jObject => jObject.ToString());
+    }
+}

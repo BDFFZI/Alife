@@ -1,0 +1,49 @@
+﻿@page "/"
+@inject CharacterSystem CharacterSystem
+@inject ChatActivitySystem ChatActivitySystem
+@inject INotificationService NotificationService
+
+<Title Level="1">欢迎</Title>
+@code
+{
+    static bool isFirstInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (isFirstInitialized == false)
+        {
+            isFirstInitialized = true;
+
+            await Task.Delay(500);
+            FirstInitialize();
+        }
+    }
+
+    void FirstInitialize()
+    {
+        foreach (Character character in CharacterSystem.GetAllCharacters())
+        {
+            if (character.AutoActivate)
+            {
+                try
+                {
+                    RenderFragment customIcon = @<Icon Type="@IconType.Outline.Smile" Style="color:#108ee9;"/>;
+                    ChatActivitySystem.Play(character);
+                    NotificationService.Open(new NotificationConfig() {
+                        Message = $"{character.Name} 自启成功。",
+                        Icon = customIcon
+                    });
+                }
+                catch (Exception e)
+                {
+                    NotificationService.Error(new NotificationConfig() {
+                        Message = $"{character.Name} 自启失败。",
+                        Description = e.ToString()
+                    });
+                }
+            }
+        }
+    }
+}

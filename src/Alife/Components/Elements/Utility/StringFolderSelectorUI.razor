@@ -1,0 +1,66 @@
+﻿<Tree TItem="object" Checkable OnCheck="OnCheck" DefaultExpandedKeys="@([Context.Name])"
+      DefaultCheckedKeys="@(IsChecking.ToArray())">
+    <TitleTemplate>
+        <Text>@(context.DataItem is StringFolder ? context.Title : ItemTitleFilter(context.Title))</Text>
+    </TitleTemplate>
+    <ChildContent>
+        @(folderFragmentUI(Context))
+    </ChildContent>
+</Tree>
+
+@code {
+    [Parameter] public StringFolder Context { get; set; } = null!;
+    [Parameter] public HashSet<string> IsChecking { get; set; } = null!;
+    [Parameter] public EventCallback<HashSet<string>> IsCheckingChanged { get; set; }
+    [Parameter] public Func<string, string> ItemTitleFilter { get; set; } = title => title;
+
+    RenderFragment<StringFolder> folderFragmentUI = null!;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        folderFragmentUI = context => {
+            return @<TreeNode Title="@(context.Name)" Key="@(context.Name)" DataItem="@((object)context)"
+                              Checked="@(context.Strings.Count == 0)">
+                @foreach (StringFolder folder in context.Folders)
+                {
+                    @(folderFragmentUI(folder))
+                }
+                @foreach (string item in context.Strings)
+                {
+                    <TreeNode Title="@(item)" Key="@(item)" DataItem="@((object)item)"/>
+                }
+            </TreeNode>;
+        };
+    }
+
+    void OnCheck(TreeEventArgs<object> obj)
+    {
+        if (obj.Node.DataItem is StringFolder pluginFolder)
+        {
+            if (obj.Node.Checked)
+            {
+                foreach (string item in pluginFolder)
+                    IsChecking.Add(item);
+            }
+            else
+            {
+                foreach (string item in pluginFolder)
+                    IsChecking.Remove(item);
+            }
+        }
+        else
+        {
+            if (obj.Node.DataItem is string item)
+            {
+                if (obj.Node.Checked)
+                    IsChecking.Add(item);
+                else
+                    IsChecking.Remove(item);
+            }
+        }
+
+        IsCheckingChanged.InvokeAsync(IsChecking);
+    }
+}

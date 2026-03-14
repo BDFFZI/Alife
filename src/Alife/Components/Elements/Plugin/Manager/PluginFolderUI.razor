@@ -1,0 +1,36 @@
+@using StringFolder = StringFolder
+@inject PluginSystem PluginSystem
+
+<Tree TItem="object"
+      BlockNode Selectable="false" Draggable="true"
+      OnDrop="@OnDrop">
+    <div style="height: 4px"></div>
+    <PluginFolderNodeUI Context="Context" IsExpanded="true"></PluginFolderNodeUI>
+</Tree>
+
+@code {
+    [Parameter] public StringFolder Context { get; set; } = null!;
+
+    void OnDrop(TreeEventArgs<object> obj)
+    {
+        if (obj.TargetNode.DataItem is not StringFolder targetContainer)
+            return;
+
+        StringFolder? sourceContainer = obj.Node.GetParentNode()?.DataItem as StringFolder;
+        if (sourceContainer == null)
+            return;
+
+        if (obj.Node.DataItem is StringFolder pluginFolder)
+        {
+            sourceContainer.Folders.Remove(pluginFolder);
+            targetContainer.Folders.Add(pluginFolder);
+        }
+        else if (obj.Node.DataItem is Type pluginType)
+        {
+            sourceContainer.Strings.Remove(pluginType.FullName!);
+            targetContainer.Strings.Add(pluginType.FullName!);
+        }
+        
+        StateHasChanged();
+    }
+}
