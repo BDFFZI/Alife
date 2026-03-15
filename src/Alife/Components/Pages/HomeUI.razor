@@ -22,29 +22,36 @@
         }
     }
 
-    void FirstInitialize()
+    async void FirstInitialize()
     {
-        foreach (Character character in CharacterSystem.GetAllCharacters())
+        try
         {
-            if (character.AutoActivate)
+            foreach (Character character in CharacterSystem.GetAllCharacters())
             {
-                try
+                if (character.AutoActivate)
                 {
-                    RenderFragment customIcon = @<Icon Type="@IconType.Outline.Smile" Style="color:#108ee9;"/>;
-                    ChatActivitySystem.Play(character);
-                    NotificationService.Open(new NotificationConfig() {
-                        Message = $"{character.Name} 自启成功。",
-                        Icon = customIcon
-                    });
-                }
-                catch (Exception e)
-                {
-                    NotificationService.Error(new NotificationConfig() {
-                        Message = $"{character.Name} 自启失败。",
-                        Description = e.ToString()
-                    });
+                    try
+                    {
+                        RenderFragment customIcon = @<Icon Type="@IconType.Outline.Smile" Style="color:#108ee9;"/>;
+                        await ChatActivitySystem.Play(character);
+                        await NotificationService.Open(new NotificationConfig() {
+                            Message = $"{character.Name} 自启成功。",
+                            Icon = customIcon
+                        });
+                    }
+                    catch (Exception e)
+                    {
+                        await NotificationService.Error(new NotificationConfig() {
+                            Message = $"{character.Name} 自启失败。",
+                            Description = e.ToString()
+                        });
+                    }
                 }
             }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
         }
     }
 }

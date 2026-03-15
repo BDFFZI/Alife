@@ -18,11 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife.OfficialPlugins.Tests\Alife.OfficialPlugins.Tests.csproj" />
-    <ProjectReference Include="..\Alife.OfficialPlugins\Alife.OfficialPlugins.csproj">
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <OutputItemType>None</OutputItemType>
-    </ProjectReference>
   </ItemGroup>
 
 </Project>

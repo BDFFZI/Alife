@@ -20,10 +20,19 @@ public class HttpCommandServer
 
     public void Start()
     {
-        _isRunning = true;
-        _listener.Start();
-        Task.Run(ListenLoop);
-        Console.WriteLine("Live2D HTTP Server started.");
+        try 
+        {
+            _isRunning = true;
+            _listener.Start();
+            Task.Run(ListenLoop);
+            Console.WriteLine($"Live2D HTTP Server started on {_listener.Prefixes.FirstOrDefault()}.");
+        }
+        catch (Exception ex)
+        {
+            _isRunning = false;
+            Console.WriteLine($"HTTP Server failed to start: {ex.Message}");
+            // Don't rethrow, just let it be. The UI can still work without the server for now.
+        }
     }
 
     public void Stop()

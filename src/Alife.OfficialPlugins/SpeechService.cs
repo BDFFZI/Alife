@@ -11,7 +11,7 @@ using Speech;
 using Microsoft.SemanticKernel;
 
 [Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。")]
-public class SpeechService : IPlugin
+public class SpeechService : Plugin, IAsyncDisposable
 {
     readonly LocalSpeechSynthesizer synthesizer;
     readonly LocalSpeechRecognizer recognizer;
@@ -19,6 +19,8 @@ public class SpeechService : IPlugin
     Task lastSynthesizer;
     ChatCompletionAgent validator = null!;
     ChatHistoryAgentThread validatorThread = null!;
+    CancellationTokenSource? validationCancelSource;
+    CancellationTokenSource? synthesizerCancelSource;
 
     bool IsSpeaking => lastSynthesizer.Status == TaskStatus.Running;
 
@@ -37,7 +39,7 @@ public class SpeechService : IPlugin
         lastSynthesizer = Task.CompletedTask;
     }
 
-    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         //创建语音识别验证器
         validator = new ChatCompletionAgent() {
@@ -59,11 +61,16 @@ public class SpeechService : IPlugin
 
         //持续追加上下文
         chatActivity.ChatBot.ChatHistoryAdd += OnChatHistoryAdd;
+        chatActivity.ChatBot.ChatStart += OnChatStart;
 
         //开始语音识别
         recognizer.Start();
 
         return Task.CompletedTask;
+    }
+    void OnChatStart()
+    {
+        StopSynthesizer(); //新对话打断旧对话
     }
     void OnChatHistoryAdd(ChatMessageContent obj)
     {
@@ -71,38 +78,45 @@ public class SpeechService : IPlugin
             validatorThread.ChatHistory.AddUserMessage($"聊天上下文 > {AuthorRole.Assistant}：{obj.Content}");
     }
 
+    void StopSynthesizer()
+    {
+        synthesizer.Stop();
+        synthesizerCancelSource?.Cancel();
+    }
+
     async void OnRecognized(string text, float confidence)
     {
         try
         {
-            if (confidence < 0.8) return;
+            Console.WriteLine($"{text} : {confidence} ");
 
-            recognizer.Stop();
+            if (confidence < 0.75) return;
+
+            if (validationCancelSource != null)
+                await validationCancelSource.CancelAsync();
+
+            //ai验证语音识别内容是否正确
+            // bool isValidated = false;
+            // validatorThread.ChatHistory.AddUserMessage("待识别内容 > " + JsonConvert.SerializeObject(new {
+            //     text,
+            //     confidence,
+            //     otherSpeaking = IsSpeaking,
+            // }));
+            // validationCancelSource = new CancellationTokenSource();
+            // await foreach (var item in validator.InvokeAsync(validatorThread, cancellationToken: validationCancelSource.Token))
+            // {
+            //     bool.TryParse(item.Message.Content, out isValidated);
+            // }
+            // Console.WriteLine($"{text} : {confidence} : {isValidated}");
+
+            // if (isValidated)
             {
-                bool isValidated = false;
-
-                validatorThread.ChatHistory.AddUserMessage("待识别内容 > " + JsonConvert.SerializeObject(new {
-                    text,
-                    confidence,
-                    otherSpeaking = IsSpeaking,
-                }));
-                await foreach (var item in validator.InvokeAsync(validatorThread))
-                {
-                    bool.TryParse(item.Message.Content, out isValidated);
-                }
-
-                if (isValidated)
-                {
-                    synthesizer.Stop();
-                    chatWindow.AddMessage(new ChatMessage() {
-                        content = text,
-                        isUser = true
-                    });
-                }
-
-                Console.WriteLine($"{text} : {confidence} : {isValidated}");
+                StopSynthesizer(); //用户说话，打断
+                chatWindow.AddMessage(new ChatMessage() {
+                    content = text,
+                    isUser = true
+                });
             }
-            recognizer.Start();
         }
         catch (Exception e)
         {
@@ -114,8 +128,12 @@ public class SpeechService : IPlugin
     [Description("使用语音的方式向用户发送消息（优先使用speak和用户发送消息！）")]
     public async Task Speak(string content)
     {
+        content = content.Trim();
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
         ChatMessage chatMessage = new ChatMessage() {
-            author = "speak",
+            tool = "speak",
             content = content,
             isInputting = true
         };
@@ -123,7 +141,8 @@ public class SpeechService : IPlugin
 
         try
         {
-            Task<string?> task = synthesizer.GenerateSpeechFileAsync(content);
+            synthesizerCancelSource = new CancellationTokenSource();
+            Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
             await lastSynthesizer;
             lastSynthesizer = Task.Run(async () => {
                 string? output = await task;
@@ -135,6 +154,25 @@ public class SpeechService : IPlugin
         {
             chatMessage.isInputting = false;
             chatWindow.UpdateMessage(chatMessage);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await lastSynthesizer;
+        await CastAndDispose(synthesizer);
+        await CastAndDispose(recognizer);
+        await CastAndDispose(lastSynthesizer);
+        if (validationCancelSource != null) await CastAndDispose(validationCancelSource);
+        if (synthesizerCancelSource != null) await CastAndDispose(synthesizerCancelSource);
+        return;
+
+        static async ValueTask CastAndDispose(IDisposable resource)
+        {
+            if (resource is IAsyncDisposable resourceAsyncDisposable)
+                await resourceAsyncDisposable.DisposeAsync();
+            else
+                resource.Dispose();
         }
     }
 }

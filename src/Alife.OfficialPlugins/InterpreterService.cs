@@ -3,10 +3,9 @@ namespace Alife.OfficialPlugins;
 using Abstractions;
 using Interpreter;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 
 [Plugin("框架-口译员", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
-public class InterpreterService : IPlugin
+public class InterpreterService : Plugin
 {
     public void RegisterHandler(object handler)
     {
@@ -17,19 +16,21 @@ public class InterpreterService : IPlugin
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
 
-    public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
+    public override Task AwakeAsync(AwakeContext context)
     {
+        //创建xml解析执行器等
         XmlHandlerTable handlerTable = compiler.Compile();
         parser = new XmlStreamParser();
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
-            ["，", "。", "！", "？", "......"],
-            minResultLength: 13
+            ["，", "。", "！", "？", "......", "~"],
+            minResultLength: 7
         );
 
+        //注入使用说明
         string doc = handlerTable.GenerateDocumentation();
-        context.ChatHistory.AddSystemMessage(
+        context.contextBuilder.ChatHistory.AddSystemMessage(
             @$"InterpreterService
 功能说明：
 1. 你拥有通过某些xml标签修饰对话内容的能力，这些被标记的文字将会传递给外部系统进行处理，从而让你具有多模态输出的能力。
@@ -46,10 +47,11 @@ public class InterpreterService : IPlugin
 （注意：不要自创此列表中未列出的标签！）
 "
         );
+
         return Task.CompletedTask;
     }
 
-    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatActivity.ChatBot.ChatHandle += OnChatHandle;
         chatActivity.ChatBot.ChatStart += OnChatStart;

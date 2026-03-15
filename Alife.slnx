@@ -4,7 +4,7 @@
     <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
     <Project Path="src/Alife.Speech.Tests/Alife.Speech.Tests.csproj" />
     <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
-    <Project Path="src\Alife.Live2D.Tests\Alife.Live2D.Tests.csproj" />
+    <Project Path="src\Alife.Live2D.Test\Alife.Live2D.Test.csproj" />
     <Project Path="src\Alife.Live2D\Alife.Live2D.csproj" />
   </Folder>
   <Folder Name="/Plugins/">

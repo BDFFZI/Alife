@@ -1,6 +1,5 @@
 using Alife.Abstractions;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 using ModelContextProtocol.Client;
 using Alife.Plugins.Official.Components;
 
@@ -17,16 +16,16 @@ public class McpPluginConfig
 {
     public List<McpServerConfig> Servers { get; set; } = new();
 }
-[Plugin("MCP插件", "让AI可以通过Model Context Protocol接入外部工具。",
+[Plugin("框架-MCP服务", "让AI可以通过Model Context Protocol接入外部工具。",
     configurationUIType: typeof(McpServiceUI))]
-public class McpService : IPlugin, IConfigurable<McpPluginConfig>
+public class McpService : Plugin, IConfigurable<McpPluginConfig>
 {
     public void Configure(McpPluginConfig configuration)
     {
         this.configuration = configuration;
     }
 
-    public async Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
+    public override async Task AwakeAsync(AwakeContext context)
     {
         foreach (McpServerConfig server in configuration.Servers)
         {
@@ -42,7 +41,7 @@ public class McpService : IPlugin, IConfigurable<McpPluginConfig>
 
                 if (mcpTools.Count > 0)
                 {
-                    kernelBuilder.Plugins.AddFromFunctions(
+                    context.kernelBuilder.Plugins.AddFromFunctions(
                         server.Name,
                         server.Description,
                         mcpTools.Select(tool => tool.AsKernelFunction())

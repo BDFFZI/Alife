@@ -14,20 +14,23 @@ public class ChatBot : IAsyncDisposable
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
     public bool IsChatting => isChatting.CurrentCount == 0;
 
-    public async IAsyncEnumerable<string> ChatStreamingAsync(string message)
+    public async IAsyncEnumerable<string> ChatStreamingAsync(string message, AuthorRole? role = null)
     {
         if (IsChatting)
-            await cancellationTokenSource.CancelAsync();
+        {
+            if (cancellationTokenSource != null)
+                await cancellationTokenSource.CancelAsync();
+        }
 
         await isChatting.WaitAsync();
         {
-            llmAgentThread.ChatHistory.AddMessage(AuthorRole.User, message);
+            llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, $"[{DateTime.Now}]{message}");
             cancellationTokenSource = new CancellationTokenSource();
 
             ChatStart?.Invoke();
             string? error = null;
             var enumerator = llmAgent
-                .InvokeStreamingAsync(llmAgentThread.ChatHistory, cancellationToken: cancellationTokenSource.Token)
+                .InvokeStreamingAsync(llmAgentThread, cancellationToken: cancellationTokenSource.Token)
                 .GetAsyncEnumerator();
             while (true)
             {
@@ -66,18 +69,18 @@ public class ChatBot : IAsyncDisposable
         }
         isChatting.Release();
     }
-    public async Task<string> ChatAsync(string message)
+    public async Task<string> ChatAsync(string message, AuthorRole? role = null)
     {
         StringBuilder stringBuilder = new StringBuilder();
-        await foreach (string content in ChatStreamingAsync(message))
+        await foreach (string content in ChatStreamingAsync(message, role))
             stringBuilder.Append(content);
         return stringBuilder.ToString();
     }
-    public async void Chat(string content)
+    public async void Chat(string content, AuthorRole? role = null)
     {
         try
         {
-            await ChatAsync(content);
+            await ChatAsync(content, role);
         }
         catch (Exception e)
         {
@@ -104,7 +107,7 @@ public class ChatBot : IAsyncDisposable
             messageCache.Clear();
 
             //发送消息
-            Chat(stringBuilder.ToString());
+            Chat(stringBuilder.ToString(), AuthorRole.System);
         }
         return true;
     }
@@ -114,7 +117,7 @@ public class ChatBot : IAsyncDisposable
     readonly ConcurrentQueue<string> messageCache;
     readonly PeriodicTimer periodicTimer;
     readonly SemaphoreSlim isChatting;
-    CancellationTokenSource cancellationTokenSource;
+    CancellationTokenSource? cancellationTokenSource;
     int lastContentIndex;
 
     async void Update()

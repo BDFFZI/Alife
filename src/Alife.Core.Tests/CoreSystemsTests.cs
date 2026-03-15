@@ -53,6 +53,6 @@ public class CoreSystemsTests
     }
 }
 
-public class DummyPlugin : IPlugin
+public class DummyPlugin : Plugin
 {
 }

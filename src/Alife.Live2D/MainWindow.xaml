@@ -4,11 +4,11 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Live2D Test Window" 
         Height="600" Width="400"
-        WindowStyle="None" 
-        AllowsTransparency="True" 
-        Background="Transparent" 
+        WindowStyle="SingleBorderWindow" 
+        AllowsTransparency="False" 
+        Background="White" 
         Topmost="True"
-        ShowInTaskbar="False"
+        ShowInTaskbar="True"
         WindowStartupLocation="CenterScreen"
         MouseDown="Window_MouseDown">
     <Grid>

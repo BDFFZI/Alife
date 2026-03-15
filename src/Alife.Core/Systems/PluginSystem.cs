@@ -54,7 +54,7 @@ public class PluginSystem : IDisposable
                 
                 pluginContext.LoadFromAssemblyPath(pluginPath);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // 可能包含一些非C#的dll
                 // Console.WriteLine(e);
@@ -68,7 +68,7 @@ public class PluginSystem : IDisposable
         {
             foreach (Type type in assembly.GetTypes())
             {
-                if (type.IsAssignableTo(typeof(IPlugin)) == false)
+                if (type.IsAssignableTo(typeof(Plugin)) == false)
                     continue;
                 if (type.IsAbstract)
                     continue;

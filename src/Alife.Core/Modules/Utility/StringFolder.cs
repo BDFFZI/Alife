@@ -2,11 +2,11 @@
 using Newtonsoft.Json;
 
 [JsonObject]
-public class StringFolder : IEnumerable<string>
+public class StringFolder : IEnumerable<string>, IComparable<StringFolder>
 {
     public string Name { get; set; }
-    public List<string> Strings { get; }
-    public List<StringFolder> Folders { get; }
+    public SortedSet<string> Strings { get; }
+    public SortedSet<StringFolder> Folders { get; }
 
     public IEnumerator<string> GetEnumerator()
     {
@@ -22,7 +22,7 @@ public class StringFolder : IEnumerable<string>
     {
         foreach (StringFolder folder in Folders)
             folder.RemoveAll(predicate);
-        Strings.RemoveAll(predicate);
+        Strings.RemoveWhere(predicate);
     }
     public bool Remove(string str)
     {
@@ -41,12 +41,19 @@ public class StringFolder : IEnumerable<string>
     public StringFolder(string name)
     {
         Name = name;
-        Strings = new List<string>();
-        Folders = new List<StringFolder>();
+        Strings = new SortedSet<string>();
+        Folders = new SortedSet<StringFolder>();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
+    }
+
+    public int CompareTo(StringFolder? other)
+    {
+        if (ReferenceEquals(this, other)) return 0;
+        if (other is null) return 1;
+        return string.Compare(Name, other.Name, StringComparison.Ordinal);
     }
 }

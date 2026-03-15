@@ -4,7 +4,7 @@ using Abstractions;
 using Microsoft.SemanticKernel;
 
 [Plugin("窗口对话", "通过借助系统预设的聊天窗口实现对话功能。")]
-public class ChatService : IPlugin
+public class ChatService : Plugin
 {
     ChatBot chatBot = null!;
     readonly ChatWindow chatWindow;
@@ -15,7 +15,7 @@ public class ChatService : IPlugin
         chatWindow.MessageAdded += OnMessageAdded;
     }
 
-    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
         return Task.CompletedTask;

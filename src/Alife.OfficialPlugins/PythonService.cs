@@ -4,21 +4,20 @@ using System.Diagnostics;
 using System.Text;
 using Abstractions;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
-public class PythonService : IPlugin
+public class PythonService : Plugin
 {
-    public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
+    public override Task AwakeAsync(AwakeContext context)
     {
-        kernelBuilder.Plugins.AddFromObject(this);
-        context.ChatHistory.AddSystemMessage(
+        context.kernelBuilder.Plugins.AddFromObject(this);
+        context.contextBuilder.ChatHistory.AddSystemMessage(
             @"PythonService
 功能说明：
 1. 当用户要求较高时，直接尝试用Python实现目标，借助Python你几乎可用做任何事（如调用命令，文件读写，网页访问，以及丰富的Python库）
 2. 如果Python中缺少环境之类，直接自行处理，例如升级或安装。这个Python环境完全由你管理，用户不是程序员，你要替他做事。
 3. 用户看不到你的执行内容，除了窗口应用无法交互。所以你要用极简的代码直接完成你的需求，不要去等待用户响应或写无关的注释等。
-4. 不要询问用户与Python相关的内容，用户不懂这些，所以有需要你直接用，优先保持对话的自然性（但也别没事乱用！）"
+4. 调用之前你一定要先向用户说明一下你需要准备脚本，因为用户很长时间将看不到你的回复，如果你不提前说明，会被认为是有故障。"
         );
         return Task.CompletedTask;
     }
@@ -47,7 +46,7 @@ public class PythonService : IPlugin
         ChatMessage chatMessage = new ChatMessage() {
             isDefaultHiding = true,
             isInputting = true,
-            author = nameof(PythonService),
+            tool = nameof(PythonService),
             content = content
         };
         chatWindow.AddMessage(chatMessage);

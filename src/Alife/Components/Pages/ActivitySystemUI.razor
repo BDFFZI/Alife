@@ -22,6 +22,7 @@ display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: sta
 <Modal Title="创建活动中..." Header="null" Footer="null" Visible="isCreating">
     <Progress Percent=@((int)(creatingInfo.Item2 * 100)) Type=ProgressType.Circle></Progress>
     <Text>@(creatingInfo.Item1)</Text>
+    <Icon Type="@IconType.Outline.Loading"/>
 </Modal>
 
 @code {

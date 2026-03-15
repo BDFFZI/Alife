@@ -6,12 +6,17 @@ public class PluginAttribute : Attribute
     public string[] Tags { get; private set; }
     public Type? ConfigurationUIType { get; set; }
 
-    public PluginAttribute(string name, string description, string? url = null, string[]? pluginType = null, Type? configurationUIType = null)
+    public int LaunchOrder { get; set; }
+
+    public PluginAttribute(string name, string description,
+        string? url = null, string[]? pluginType = null,
+        Type? configurationUIType = null, int launchOrder = 0)
     {
         Name = name;
         Description = description;
         Url = url;
         Tags = pluginType ?? [];
         ConfigurationUIType = configurationUIType;
+        LaunchOrder = launchOrder;
     }
 }

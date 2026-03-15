@@ -13,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="wwwroot\**\*">
+    <Content Include="wwwroot\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
 </Project>

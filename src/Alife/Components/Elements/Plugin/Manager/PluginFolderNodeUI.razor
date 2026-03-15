@@ -82,8 +82,8 @@
     void OnDelete()
     {
         StringFolder parent = (StringFolder)node.GetParentNode().DataItem;
-        parent.Strings.AddRange(Context.Strings);
-        parent.Folders.AddRange(Context.Folders);
+        Context.Strings.ForEach(s => parent.Strings.Add(s));
+        Context.Folders.ForEach(folder => parent.Folders.Add(folder));
         parent.Folders.Remove(Context);
         OnDeleted.InvokeAsync();
     }

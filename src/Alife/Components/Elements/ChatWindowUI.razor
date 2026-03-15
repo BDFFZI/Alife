@@ -26,7 +26,7 @@
             {
                 <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
                     <Alert
-                        Message="@message.author"
+                        Message="@message.tool"
                         Description="@message.content"
                         Type=@(message.isUser ? AlertType.Info : AlertType.Success)>
                         <ChildContent>
@@ -130,7 +130,7 @@
         InvokeAsync(() => {
             StateHasChanged();
 
-            if (obj.isDefaultHiding == false)
+            if (obj is { isDefaultHiding: false, tool: null })
                 JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }
@@ -139,7 +139,7 @@
         InvokeAsync(() => {
             StateHasChanged();
 
-            if (obj.isDefaultHiding == false && obj == Context.GetMessages().Last())
+            if (obj is { isDefaultHiding: false, tool: null } && obj == Context.GetMessages().Last())
                 JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }

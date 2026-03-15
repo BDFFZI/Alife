@@ -14,9 +14,12 @@
         }
 
         #canvas {
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
+            display: block;
             cursor: move;
+            /* Debug: background color to see canvas area */
+            background: rgba(255, 0, 0, 0.2); 
         }
 
         #bubble {
@@ -89,117 +92,121 @@
     </div>
     <canvas id="canvas"></canvas>
 
-    <script src="lib/live2dcubismcore.min.js"></script>
-    <script src="lib/live2d.min.js"></script>
-    <script src="lib/pixi.min.js"></script>
-    <script src="lib/pixi-live2d-display.min.js"></script>
+    <!-- Core Live2D Libraries (No PIXI) -->
+    <script src="lib/live2dcubismcore.min.js" onload="console.log('Lib loaded: core')" onerror="console.error('Lib failed: core')"></script>
+    <script src="lib/live2d.min.js" onload="console.log('Lib loaded: v2')" onerror="console.error('Lib failed: v2')"></script>
+    <script src="lib/live2d_bundle.js" onload="console.log('Lib loaded: bundle')" onerror="console.error('Lib failed: bundle')"></script>
 
     <script>
-        let currentModel = null;
-        let app = null;
+        /**
+         * Standalone Live2D Renderer Implementation
+         * Powered by live2d_bundle.js (No PIXI)
+         */
 
-        async function init() {
-            try {
-                const { Application, Ticker } = PIXI;
-                const { Live2DModel } = PIXI.live2d;
-
-                Live2DModel.registerTicker(Ticker.shared);
-
-                app = new Application({
-                    view: document.getElementById('canvas'),
-                    autoStart: true,
-                    backgroundAlpha: 0,
-                    resizeTo: window,
-                    antialias: true
-                });
-
-                await switchModel('hiyori');
-
-                // --- 实现鼠标拖拽窗口 ---
-                let isDragging = false;
-                window.addEventListener('mousedown', (e) => {
-                    if (e.button === 0) { // 左键
-                        isDragging = true;
-                        if (window.chrome && window.chrome.webview) {
-                            window.chrome.webview.postMessage("drag");
-                        }
-                    }
-                });
-
-                window.pet = {
-                    say: function(text, duration = 3000) {
-                        const bubble = document.getElementById('bubble');
-                        bubble.innerText = text;
-                        bubble.style.display = 'block';
-                        bubble.style.opacity = '1';
-                        if (this._bubbleTimer) clearTimeout(this._bubbleTimer);
-                        this._bubbleTimer = setTimeout(() => {
-                            bubble.style.opacity = '0';
-                            setTimeout(() => { bubble.style.display = 'none'; }, 300);
-                        }, duration);
-                        
-                        if (currentModel) currentModel.motion('Idle');
-                    },
-                    action: function(motionName) {
-                        if (!currentModel) return;
-                        const mapping = {
-                            'tap_body': 'TapBody',
-                            'idle': 'Idle',
-                            'happy': 'TapBody'
-                        };
-                        const target = mapping[motionName.toLowerCase()] || motionName;
-                        currentModel.motion(target);
-                    },
-                    switch: async function(name) {
-                        await switchModel(name);
-                    },
-                    setThinking: function(isThinking) {
-                        const thinking = document.getElementById('thinking');
-                        thinking.style.display = isThinking ? 'block' : 'none';
-                    }
-                };
-
-                window.pet.say("准备就绪！", 4000);
-
-            } catch (e) {
-                console.error("Live2D Error: ", e);
+        // --- 1. Structured Logging Setup ---
+        function sendToHost(type, message) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ type: type, message: message });
             }
+        }
+        console.log = m => sendToHost('log', typeof m === 'object' ? JSON.stringify(m) : String(m));
+        console.error = m => sendToHost('error', typeof m === 'object' ? JSON.stringify(m) : String(m));
+        console.warn = m => sendToHost('warn', typeof m === 'object' ? JSON.stringify(m) : String(m));
+
+        const bubble = document.getElementById('bubble');
+        const showStatus = (text, persist = false) => {
+            if (!bubble) return;
+            bubble.innerText = text;
+            bubble.style.display = 'block';
+            bubble.style.opacity = '1';
+            if (!persist) {
+                setTimeout(() => {
+                    bubble.style.opacity = '0';
+                    setTimeout(() => { bubble.style.display = 'none'; }, 300);
+                }, 4000);
+            }
+        };
+
+        window.onerror = (m, s, l) => {
+            console.error(`${m} at ${s}:${l}`);
+            showStatus("运行错误: " + m, true);
+        };
+
+        // --- 2. Live2D Integration logic ---
+        async function init() {
+            showStatus("正在初始化引擎 (No PIXI)...", true);
+            console.log("JS: Initialization started.");
+
+            const canvas = document.getElementById('canvas');
+            const resize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                console.log(`Canvas resized: ${canvas.width}x${canvas.height}`);
+            };
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Global pet object for host commands
+            window.pet = {
+                say: (text) => showStatus(text),
+                switch: (name) => switchModel(name),
+                action: (name) => {
+                    console.log("Action triggered:", name);
+                },
+                setThinking: (state) => {
+                    const el = document.getElementById('thinking');
+                    if (el) el.style.display = state ? 'block' : 'none';
+                }
+            };
+
+            await switchModel('shizuku');
         }
 
         async function switchModel(name) {
-            const { Live2DModel } = PIXI.live2d;
-            
-            if (currentModel) {
-                app.stage.removeChild(currentModel);
-                currentModel.destroy();
-            }
+            console.log("Loading model: " + name);
+            showStatus(`正在加载 ${name}...`, true);
 
-            const modelSettings = {
-                'hiyori': { path: 'model/hiyori/model.json', scale: 0.08, yOffset: 0.5 },
-                'shizuku': { path: 'model/shizuku/shizuku.model.json', scale: 0.3, yOffset: 0.6 }
+            const modelMap = {
+                'hiyori': 'model/hiyori/hiyori.model3.json',
+                'shizuku': 'model/shizuku/shizuku.model.json'
             };
 
-            const settings = modelSettings[name.toLowerCase()] || modelSettings['hiyori'];
+            let path = modelMap[name.toLowerCase()] || modelMap['hiyori'];
+            const absUrl = new URL(path, window.location.href).href;
+            console.log("Fetching: " + absUrl);
+            
+            try {
+                // Baseline test
+                const baseTest = await fetch('index.html');
+                console.log(`Self-fetch (index.html): ${baseTest.ok ? 'OK' : 'FAIL ' + baseTest.status}`);
+
+                const response = await fetch(absUrl);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                console.log(`Resource reachable: ${absUrl}`);
+            } catch (err) {
+                console.error("Network Error: " + err.message + " for " + absUrl);
+            }
 
             try {
-                currentModel = await Live2DModel.from(settings.path, {
-                    autoInteract: true
-                });
-
-                app.stage.addChild(currentModel);
-                
-                currentModel.anchor.set(0.5, 0.5);
-                currentModel.position.set(app.screen.width / 2, app.screen.height * settings.yOffset);
-                currentModel.scale.set(settings.scale);
-
-                currentModel.interactive = true;
-                currentModel.on('hit', (hitAreas) => {
-                    if (hitAreas.includes('Body')) {
-                        currentModel.motion('TapBody');
+                if (name.toLowerCase() === 'hiyori' || path.endsWith('.model3.json')) {
+                    if (typeof live2dv4 !== 'undefined') {
+                        console.log("Calling live2dv4.load...");
+                        live2dv4.load("canvas", path);
+                    } else {
+                        throw new Error("live2dv4 missing");
                     }
-                });
-            } catch (err) {
-                console.error("Failed to load model:", name, err);
+                } else {
+                    if (typeof live2dv2 !== 'undefined') {
+                        console.log("Calling live2dv2.load...");
+                        live2dv2.load("canvas", path);
+                    } else {
+                        throw new Error("live2dv2 missing");
+                    }
+                }
+                setTimeout(() => showStatus("已发送加载指令"), 1000);
+            } catch (e) {
+                console.error("Renderer Error: " + e.message);
+                showStatus("加载失败: " + e.message, true);
             }
         }
 

@@ -13,7 +13,7 @@ public class ChatActivity : IAsyncDisposable
         IProgress<(string, float)>? progress = null,
         object[]? appendServices = null)
     {
-        //创建插件服务
+        //创建服务容器
         ServiceCollection extensionServiceBuilder = new();
         //添加系统服务
         if (appendServices != null)
@@ -21,21 +21,27 @@ public class ChatActivity : IAsyncDisposable
             foreach (var appendService in appendServices)
                 extensionServiceBuilder.AddSingleton(appendService.GetType(), appendService);
         }
-        foreach (Type pluginType in character.Plugins)
+        //添加插件服务
+        foreach (Type pluginType in character.Plugins.OrderBy(type => type.GetCustomAttribute<PluginAttribute>()?.LaunchOrder))
             extensionServiceBuilder.AddSingleton(pluginType);
         ServiceProvider extensionService = extensionServiceBuilder.BuildServiceProvider();
 
         //实例化所有插件
-        List<IPlugin> allPlugins = new(extensionServiceBuilder.Count);
-        foreach (ServiceDescriptor serviceDescriptor in extensionServiceBuilder)
+        List<Plugin> allPlugins = new(extensionServiceBuilder.Count);
+        for (int index = 0; index < extensionServiceBuilder.Count; index++)
         {
+            ServiceDescriptor serviceDescriptor = extensionServiceBuilder[index];
+            progress?.Report(($"创建服务 {serviceDescriptor.ServiceType.Name}", (float)index / extensionServiceBuilder.Count));
+
+            await Task.Delay(100);
+
             object service = extensionService.GetRequiredService(serviceDescriptor.ServiceType);
-            if (service is IPlugin plugin)
+            if (service is Plugin plugin)
                 allPlugins.Add(plugin);
         }
 
         //赋值插件配置数据
-        foreach (IPlugin pluginInstance in allPlugins)
+        foreach (Plugin pluginInstance in allPlugins)
         {
             Type pluginType = pluginInstance.GetType();
             object? extensionData = configurationSystem.GetConfiguration(pluginType);
@@ -47,33 +53,35 @@ public class ChatActivity : IAsyncDisposable
             }
         }
 
-        //创建人工智能服务
+        //创建人工智能构建器
         IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
-        // builder.Services.AddLogging(config => {
-        //     config.AddConsole();
-        //     config.SetMinimumLevel(LogLevel.Trace);
-        //     config.AddFilter("Microsoft.SemanticKernel", LogLevel.Trace);
-        //     config.AddFilter("System.Net.Http.HttpClient", LogLevel.Trace);
-        // });
-
-        //添加上下文
-        ChatHistoryAgentThread agentThread = new();
-
-        //插件初始化事件回调
-        int index = 0;
-        int count = allPlugins.Count;
-        foreach (IPlugin pluginInstance in allPlugins)
+        //创建上下文构建器
+        ChatHistoryAgentThread contentBuilder = new();
+        //构建环境
+        Plugin.AwakeContext awakeContext = new() {
+            character = character,
+            kernelBuilder = kernelBuilder,
+            contextBuilder = contentBuilder
+        };
+        for (int index = 0; index < allPlugins.Count; index++)
         {
-            progress?.Report(($"配置插件 {pluginInstance.GetType().Name}", (float)index++ / count));
-            await pluginInstance.AwakeAsync(kernelBuilder, agentThread);
+            Plugin pluginInstance = allPlugins[index];
+            progress?.Report(($"唤醒服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
+
+            await pluginInstance.AwakeAsync(awakeContext);
         }
 
         //正式开始 AI 代理
         Kernel kernelService = kernelBuilder.Build();
-        ChatActivity chatActivity = new ChatActivity(character, agentThread, kernelService, extensionService, allPlugins);
+        ChatActivity chatActivity = new ChatActivity(character, contentBuilder, kernelService, extensionService, allPlugins);
 
-        foreach (IPlugin pluginInstance in allPlugins)
+        for (int index = 0; index < allPlugins.Count; index++)
+        {
+            Plugin pluginInstance = allPlugins[index];
+            progress?.Report(($"开始服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
+
             await pluginInstance.StartAsync(kernelService, chatActivity);
+        }
 
         return chatActivity;
     }
@@ -82,10 +90,10 @@ public class ChatActivity : IAsyncDisposable
     public Kernel KernelService => kernelService;
     public Character Character => character;
     public ChatBot ChatBot => chatBot;
-    public IReadOnlyList<IPlugin> Plugins => plugins;
+    public IReadOnlyList<Plugin> Plugins => plugins;
 
     ChatActivity(Character character, ChatHistoryAgentThread context,
-        Kernel kernelService, ServiceProvider pluginService, List<IPlugin> plugins)
+        Kernel kernelService, ServiceProvider pluginService, List<Plugin> plugins)
     {
         this.pluginService = pluginService;
         this.kernelService = kernelService;
@@ -100,6 +108,7 @@ public class ChatActivity : IAsyncDisposable
         ChatCompletionAgent llmAgent = new() {
             Name = character.Name,
             Instructions = character.Prompt,
+            InstructionsRole = AuthorRole.System,
             Kernel = kernelService,
             Arguments = new KernelArguments(
                 new PromptExecutionSettings() { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(), }
@@ -112,13 +121,21 @@ public class ChatActivity : IAsyncDisposable
     readonly ChatBot chatBot;
     readonly Kernel kernelService;
     readonly ServiceProvider pluginService;
-    readonly List<IPlugin> plugins;
+    readonly List<Plugin> plugins;
 
     public async ValueTask DisposeAsync()
     {
-        await Task.WhenAll(plugins.Select(plugin => plugin.DestroyAsync()));
-        await chatBot.DisposeAsync();
-        await pluginService.DisposeAsync();
-        await Task.Delay(1000); //等待一秒让用户反应
+        try
+        {
+            await Task.WhenAll(plugins.Select(plugin => plugin.DestroyAsync()));
+            await chatBot.DisposeAsync();
+            await pluginService.DisposeAsync();
+            await Task.Delay(1000); //等待一秒让用户反应
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 }

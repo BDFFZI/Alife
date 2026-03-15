@@ -11,6 +11,30 @@ Console.WriteLine("========================================");
 var synth = new LocalSpeechSynthesizer();
 Console.WriteLine("[系统] 语音合成器已就绪。");
 
+// 在大模型加载前先选择模式
+Console.WriteLine("\n[选择模式]: 1. 麦克风交互  2. 连续拼读压力测试");
+string? choice = Console.ReadLine();
+
+if (choice == "2")
+{
+    Console.WriteLine("[压力测试] 正在依次合成并播放多个分段...");
+    string[] segments = {
+        "你好，欢迎使用我的语音合成引擎。",
+        "这是一个无缝连接测试。",
+        "我们正在检测首尾静音是否已经被完美裁切。",
+        "如果听到的是连贯的声音，说明优化成功了。",
+        "再见！"
+    };
+
+    foreach (var text in segments)
+    {
+        Console.WriteLine($"[合成中]: {text}");
+        await synth.SpeakAsync(text);
+    }
+    Console.WriteLine("[压力测试] 完成。");
+    return;
+}
+
 // 2. 初始化语音识别器
 string? modelPath = GetModelPath();
 if (modelPath == null)
@@ -50,7 +74,7 @@ try
         await synth.SpeakAsync($"我听到您说：{text}");
     };
 
-    // 4. 开始运行
+    // 麦克风交互模式
     Console.WriteLine("\n[提示] 麦克风已开启，请开始说话...");
     Console.WriteLine("[提示] 说出 '退出' 或 'exit' 以结束程序。\n");
 

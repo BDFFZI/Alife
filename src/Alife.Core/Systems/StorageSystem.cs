@@ -4,9 +4,13 @@ namespace Alife;
 
 public class StorageSystem
 {
+    public string GetRootPath()
+    {
+        return Path.GetRelativePath(".", AppContext.BaseDirectory).Replace(Path.DirectorySeparatorChar, '/');
+    }
     public string GetTempPath(string filename)
     {
-        string path = $"{AppContext.BaseDirectory}/Cache/{filename}";
+        string path = $"{GetRootPath()}/Cache/{filename}";
         if (Directory.Exists(Path.GetDirectoryName(path)) == false)
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         return path;
