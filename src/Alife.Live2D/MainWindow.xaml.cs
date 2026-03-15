@@ -34,6 +34,22 @@ public partial class MainWindow : Window
         }
     }
 
+    public async void SwitchModel(string modelName)
+    {
+        if (webView.CoreWebView2 != null)
+        {
+            await webView.CoreWebView2.ExecuteScriptAsync($"pet.switch('{modelName.Replace("'", "\\'")}')");
+        }
+    }
+
+    public async void SetThinking(bool isThinking)
+    {
+        if (webView.CoreWebView2 != null)
+        {
+            await webView.CoreWebView2.ExecuteScriptAsync($"pet.setThinking({isThinking.ToString().ToLower()})");
+        }
+    }
+
     public async void DoAction(string action)
     {
         if (webView.CoreWebView2 != null)
@@ -42,6 +58,8 @@ public partial class MainWindow : Window
             {
                 "开心" => "TapBody",
                 "思考" => "Idle",
+                "点点点" => "TapBody",
+                "打招呼" => "TapBody",
                 _ => action
             };
             await webView.CoreWebView2.ExecuteScriptAsync($"pet.action('{motionName}')");

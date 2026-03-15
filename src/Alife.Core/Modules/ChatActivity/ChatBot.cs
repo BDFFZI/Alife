@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -9,25 +10,35 @@ public class ChatBot : IAsyncDisposable
     public event Action? ChatStart;
     public event Action? ChatEnd;
     public event Action<string>? ChatHandle;
+    public event Action<ChatMessageContent>? ChatHistoryAdd;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
     public bool IsChatting => isChatting.CurrentCount == 0;
 
     public async IAsyncEnumerable<string> ChatStreamingAsync(string message)
     {
+        if (IsChatting)
+            await cancellationTokenSource.CancelAsync();
+
         await isChatting.WaitAsync();
         {
             llmAgentThread.ChatHistory.AddMessage(AuthorRole.User, message);
-
-            string? error = null;
-            var enumerator = llmAgent.InvokeStreamingAsync(llmAgentThread).GetAsyncEnumerator();
+            cancellationTokenSource = new CancellationTokenSource();
 
             ChatStart?.Invoke();
+            string? error = null;
+            var enumerator = llmAgent
+                .InvokeStreamingAsync(llmAgentThread.ChatHistory, cancellationToken: cancellationTokenSource.Token)
+                .GetAsyncEnumerator();
             while (true)
             {
                 try
                 {
                     if (await enumerator.MoveNextAsync() == false)
                         break;
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
                 }
                 catch (Exception e)
                 {
@@ -43,6 +54,9 @@ public class ChatBot : IAsyncDisposable
                 }
             }
             ChatEnd?.Invoke();
+
+            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
+                ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
 
             if (error != null)
             {
@@ -100,6 +114,8 @@ public class ChatBot : IAsyncDisposable
     readonly ConcurrentQueue<string> messageCache;
     readonly PeriodicTimer periodicTimer;
     readonly SemaphoreSlim isChatting;
+    CancellationTokenSource cancellationTokenSource;
+    int lastContentIndex;
 
     async void Update()
     {

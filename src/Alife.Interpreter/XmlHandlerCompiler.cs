@@ -14,7 +14,7 @@ public class XmlHandlerCompiler
         ParameterRole Role, string? AttributeName, Type ParameterType,
         bool HasDefaultValue, object? DefaultValue);
 
-    readonly List<(object? Target, MethodInfo Method, string TagName, string Description)> registrations = new();
+    readonly List<(object? Target, MethodInfo Method, string? TagName, string Description)> registrations = new();
 
     public XmlHandlerCompiler Register(object handlerInstance)
     {
@@ -51,23 +51,42 @@ public class XmlHandlerCompiler
         Dictionary<string, string> descriptions = new();
         Dictionary<string, List<XmlParameterInfo>> tagParameters = new();
 
-        foreach ((object? target, MethodInfo method, string tagName, string description) in registrations)
+        foreach ((object? target, MethodInfo method, string? tagName, string description) in registrations)
         {
-            descriptions[tagName] = description;
+            string effectiveTagName = (tagName ?? method.Name).ToLowerInvariant();
+            string effectiveDescription = description;
+            
+            if (string.IsNullOrEmpty(effectiveDescription))
+            {
+                effectiveDescription = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "";
+            }
+
+            descriptions[effectiveTagName] = effectiveDescription;
             ParameterMapping[] mappings = BuildParameterMappings(method);
             
             List<XmlParameterInfo> paramInfos = new();
-            foreach (var mapping in mappings)
+            ParameterInfo[] ps = method.GetParameters();
+            for (int i = 0; i < mappings.Length; i++)
             {
-                if (mapping.Role == ParameterRole.Attribute)
+                var mapping = mappings[i];
+                if (mapping.Role == ParameterRole.Attribute || mapping.Role == ParameterRole.Content)
                 {
                     Type type = mapping.ParameterType;
                     string typeName = GetAITypeName(type);
                     string[]? possibleValues = type.IsEnum ? Enum.GetNames(type) : null;
-                    paramInfos.Add(new XmlParameterInfo(mapping.AttributeName!, typeName, mapping.HasDefaultValue, possibleValues));
+                    
+                    string pDesc = ps[i].GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "";
+                    
+                    paramInfos.Add(new XmlParameterInfo(
+                        mapping.AttributeName ?? ps[i].Name ?? "content", 
+                        typeName, 
+                        mapping.HasDefaultValue, 
+                        pDesc, 
+                        possibleValues,
+                        mapping.Role == ParameterRole.Content));
                 }
             }
-            tagParameters[tagName] = paramInfos;
+            tagParameters[effectiveTagName] = paramInfos;
 
             object? tObj = target; MethodInfo mInfo = method;
             
@@ -78,9 +97,9 @@ public class XmlHandlerCompiler
                 object? result = mInfo.Invoke(tObj, args);
                 
                 // 回填 ref string (因为 Invoke 会更新 args 数组中的对象)
-                for (int i = 0; i < mappings.Length; i++)
+                for (int j = 0; j < mappings.Length; j++)
                 {
-                    if (mappings[i].Role == ParameterRole.Content && args[i] is string newContent)
+                    if (mappings[j].Role == ParameterRole.Content && args[j] is string newContent)
                     {
                         content = newContent;
                         break;
@@ -94,10 +113,10 @@ public class XmlHandlerCompiler
                 return Task.CompletedTask;
             };
 
-            if (handlers.TryGetValue(tagName, out CompiledTagInvoker? existing))
+            if (handlers.TryGetValue(effectiveTagName, out CompiledTagInvoker? existing))
             {
                 CompiledTagInvoker prev = existing;
-                handlers[tagName] = (XmlTagContext ctx, ref string content, IReadOnlyDictionary<string, string> attrs) =>
+                handlers[effectiveTagName] = (XmlTagContext ctx, ref string content, IReadOnlyDictionary<string, string> attrs) =>
                 {
                     Task t1 = prev(ctx, ref content, attrs);
                     Task t2 = invoker(ctx, ref content, attrs);
@@ -106,7 +125,7 @@ public class XmlHandlerCompiler
                 continue;
             }
             
-            handlers[tagName] = invoker;
+            handlers[effectiveTagName] = invoker;
         }
         return new XmlHandlerTable(handlers, descriptions, tagParameters);
     }

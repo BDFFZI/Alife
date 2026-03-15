@@ -24,18 +24,20 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.95);
-            border: 2px solid #ffcc00;
-            border-radius: 12px;
-            padding: 8px 12px;
-            font-family: 'Microsoft YaHei', sans-serif;
-            font-size: 13px;
-            color: #333;
-            max-width: 85%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 12px 18px;
+            font-family: 'Inter', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-size: 14px;
+            color: #1a1a1a;
+            max-width: 80%;
             display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             z-index: 100;
             pointer-events: none;
+            transition: all 0.3s ease;
         }
 
         #bubble::after {
@@ -46,12 +48,45 @@
             transform: translateX(-50%);
             border-left: 8px solid transparent;
             border-right: 8px solid transparent;
-            border-top: 8px solid #ffcc00;
+            border-top: 8px solid rgba(255, 255, 255, 0.9);
+        }
+
+        #thinking {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 40px;
+            height: 40px;
+            display: none;
+            z-index: 90;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #ffcc00;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+            margin-right: 4px;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
         }
     </style>
 </head>
 <body>
-    <div id="bubble">...</div>
+    <div id="bubble"></div>
+    <div id="thinking">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+    </div>
     <canvas id="canvas"></canvas>
 
     <script src="lib/live2dcubismcore.min.js"></script>
@@ -60,15 +95,17 @@
     <script src="lib/pixi-live2d-display.min.js"></script>
 
     <script>
+        let currentModel = null;
+        let app = null;
+
         async function init() {
             try {
                 const { Application, Ticker } = PIXI;
                 const { Live2DModel } = PIXI.live2d;
 
-                // 核心：必须注册 Ticker 才能让模型“动”起来（自动眼球追踪、闲置动画等）
                 Live2DModel.registerTicker(Ticker.shared);
 
-                const app = new Application({
+                app = new Application({
                     view: document.getElementById('canvas'),
                     autoStart: true,
                     backgroundAlpha: 0,
@@ -76,64 +113,93 @@
                     antialias: true
                 });
 
-                // 加载本地 Hiyori 模型
-                const model = await Live2DModel.from('model/hiyori/model.json', {
-                    autoInteract: true // 开启自动眼球跟随
-                });
-
-                app.stage.addChild(model);
-                
-                model.anchor.set(0.5, 0.5);
-                model.position.set(app.screen.width / 2, app.screen.height / 2);
-                
-                // 形象 Q 化：调小比例
-                model.scale.set(0.08);
-
-                // 交互增强
-                model.interactive = true;
-                model.on('hit', (hitAreas) => {
-                    if (hitAreas.includes('Body')) {
-                        model.motion('TapBody');
-                    }
-                });
+                await switchModel('hiyori');
 
                 // --- 实现鼠标拖拽窗口 ---
                 let isDragging = false;
                 window.addEventListener('mousedown', (e) => {
                     if (e.button === 0) { // 左键
                         isDragging = true;
-                        window.chrome.webview.postMessage("drag");
+                        if (window.chrome && window.chrome.webview) {
+                            window.chrome.webview.postMessage("drag");
+                        }
                     }
                 });
-                // -----------------------
 
                 window.pet = {
                     say: function(text, duration = 3000) {
                         const bubble = document.getElementById('bubble');
                         bubble.innerText = text;
                         bubble.style.display = 'block';
+                        bubble.style.opacity = '1';
                         if (this._bubbleTimer) clearTimeout(this._bubbleTimer);
                         this._bubbleTimer = setTimeout(() => {
-                            bubble.style.display = 'none';
+                            bubble.style.opacity = '0';
+                            setTimeout(() => { bubble.style.display = 'none'; }, 300);
                         }, duration);
                         
-                        model.motion('Idle');
+                        if (currentModel) currentModel.motion('Idle');
                     },
                     action: function(motionName) {
+                        if (!currentModel) return;
                         const mapping = {
                             'tap_body': 'TapBody',
-                            'idle': 'Idle'
+                            'idle': 'Idle',
+                            'happy': 'TapBody'
                         };
                         const target = mapping[motionName.toLowerCase()] || motionName;
-                        model.motion(target);
+                        currentModel.motion(target);
+                    },
+                    switch: async function(name) {
+                        await switchModel(name);
+                    },
+                    setThinking: function(isThinking) {
+                        const thinking = document.getElementById('thinking');
+                        thinking.style.display = isThinking ? 'block' : 'none';
                     }
                 };
 
-                // 初始招呼
-                window.pet.say("我可以被拖动了，快试试吧！", 4000);
+                window.pet.say("准备就绪！", 4000);
 
             } catch (e) {
                 console.error("Live2D Error: ", e);
+            }
+        }
+
+        async function switchModel(name) {
+            const { Live2DModel } = PIXI.live2d;
+            
+            if (currentModel) {
+                app.stage.removeChild(currentModel);
+                currentModel.destroy();
+            }
+
+            const modelSettings = {
+                'hiyori': { path: 'model/hiyori/model.json', scale: 0.08, yOffset: 0.5 },
+                'shizuku': { path: 'model/shizuku/shizuku.model.json', scale: 0.3, yOffset: 0.6 }
+            };
+
+            const settings = modelSettings[name.toLowerCase()] || modelSettings['hiyori'];
+
+            try {
+                currentModel = await Live2DModel.from(settings.path, {
+                    autoInteract: true
+                });
+
+                app.stage.addChild(currentModel);
+                
+                currentModel.anchor.set(0.5, 0.5);
+                currentModel.position.set(app.screen.width / 2, app.screen.height * settings.yOffset);
+                currentModel.scale.set(settings.scale);
+
+                currentModel.interactive = true;
+                currentModel.on('hit', (hitAreas) => {
+                    if (hitAreas.includes('Body')) {
+                        currentModel.motion('TapBody');
+                    }
+                });
+            } catch (err) {
+                console.error("Failed to load model:", name, err);
             }
         }
 

@@ -11,8 +11,10 @@ internal delegate Task CompiledTagInvoker(
 /// <param name="Name">参数名</param>
 /// <param name="Type">类型名称</param>
 /// <param name="IsOptional">是否可选</param>
+/// <param name="Description">描述</param>
 /// <param name="PossibleValues">如果是枚举，包含可能的值</param>
-public sealed record XmlParameterInfo(string Name, string Type, bool IsOptional, string[]? PossibleValues = null);
+/// <param name="IsContent">是否映射到标签内容（Inner Text）</param>
+public sealed record XmlParameterInfo(string Name, string Type, bool IsOptional, string Description = "", string[]? PossibleValues = null, bool IsContent = false);
 
 /// <summary>
 /// 编译后的标签处理程序映射表。
@@ -46,15 +48,28 @@ public class XmlHandlerTable
             string description = Descriptions.TryGetValue(tagName, out var desc) ? desc : "无说明";
             var parameters = TagParameters.TryGetValue(tagName, out var @params) ? @params : new List<XmlParameterInfo>();
 
+            var attrs = parameters.Where(p => !p.IsContent).ToList();
+            var content = parameters.FirstOrDefault(p => p.IsContent);
+
             sb.Append($"- <{tagName}");
-            foreach (var p in parameters)
+            foreach (var p in attrs)
             {
                 sb.Append(" ");
                 if (p.IsOptional) sb.Append("[");
                 sb.Append($"{p.Name}:{p.Type}");
+                if (!string.IsNullOrEmpty(p.Description)) sb.Append($"({p.Description})");
                 if (p.IsOptional) sb.Append("]");
             }
-            sb.AppendLine($">: {description}");
+            
+            if (content != null)
+            {
+                sb.Append($"> {content.Description} </{tagName}>");
+            }
+            else
+            {
+                sb.Append("/>");
+            }
+            sb.AppendLine($": {description}");
         }
         return sb.ToString();
     }

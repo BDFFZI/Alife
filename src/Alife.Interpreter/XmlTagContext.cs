@@ -18,10 +18,10 @@ public class XmlTagContext
 {
     public IReadOnlyList<TagInfo> CallChain { get; }
 
-    /// <summary>触发本次处理的字符（如果是因标点断句触发则不为 null）</summary>
-    public char? Trigger { get; }
+    /// <summary>触发本次处理的字符串（如果是因标点断句触发则不为 null）</summary>
+    public string? Trigger { get; }
 
-    public XmlTagContext(IReadOnlyList<TagInfo> stack, char? trigger)
+    public XmlTagContext(IReadOnlyList<TagInfo> stack, string? trigger)
     {
         CallChain = stack;
         Trigger = trigger;

@@ -56,7 +56,6 @@ public class OpenAIChatService : IPlugin, IConfigurable<OpenAIChatServiceConfig>
         );
         return Task.CompletedTask;
     }
-    public Task StartAsync(Kernel kernel, ChatBot interactive) => Task.CompletedTask;
 
     OpenAIChatServiceConfig configuration = null!;
 }

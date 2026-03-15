@@ -73,7 +73,7 @@ public class ChatActivity : IAsyncDisposable
         ChatActivity chatActivity = new ChatActivity(character, agentThread, kernelService, extensionService, allPlugins);
 
         foreach (IPlugin pluginInstance in allPlugins)
-            await pluginInstance.StartAsync(kernelService, chatActivity.ChatBot);
+            await pluginInstance.StartAsync(kernelService, chatActivity);
 
         return chatActivity;
     }

@@ -1,8 +1,7 @@
 namespace Alife.OfficialPlugins;
 
-using System.Text;
-using Alife.Abstractions;
-using Alife.Interpreter;
+using Abstractions;
+using Interpreter;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
@@ -18,41 +17,42 @@ public class InterpreterService : IPlugin
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
 
-    public async Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
+    public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context)
     {
         XmlHandlerTable handlerTable = compiler.Compile();
         parser = new XmlStreamParser();
-        executor = new XmlStreamExecutor(parser, handlerTable, [',', '。']);
+        executor = new XmlStreamExecutor(
+            parser,
+            handlerTable,
+            ["，", "。", "！", "？", "......"],
+            minResultLength: 13
+        );
 
         string doc = handlerTable.GenerateDocumentation();
         context.ChatHistory.AddSystemMessage(
-            @$"功能说明：
-1. XML流式能力：这是你默认且最主要的交互方式！你现在拥有通过嵌套XML标签来驱动外部系统的能力！这可以让你边说话边做动作，或者用语音、画面来辅助你的表达。请优先使用并贯穿你的整个对话逻辑！
-2. 嵌套与层级：标签完全支持嵌套。例如，你可以用一个 `<emotion>` 标签包裹整个回复，然后在其中嵌套 `<img />` 和 `<speak>`。系统会按照流式解析的顺序即时执行。
-3. 参数规范：标签参数严格遵循 `name=""value""`。在下方的说明中，`[]` 表示可选，参数后跟有类型注解（如 `speed:float`），请严格按规范填写参数！
-4. 不要解释标签：在回复中直接使用标签即可，不要向用户解释你在使用什么标签，保持对话的自然性。
+            @$"InterpreterService
+功能说明：
+1. 你拥有通过某些xml标签修饰对话内容的能力，这些被标记的文字将会传递给外部系统进行处理，从而让你具有多模态输出的能力。
+2. 标签可能会支持参数，其解读方式为：参数名后面表示类型；如果是enum，则还会用花括号列出选项；如果参数用[]包裹，表示可选。
+3. 不要向用户解释标签功能：在回复中直接使用即可，这是你的默认输出方式，优先保持对话的自然性。
 
 使用案例：
-- 案例一（作为默认交互方式）：
-    输入：今天天气怎么样？
-    回复：<chat>今天天气真不错！<img src=""http://api.weather.com/today.png"" /> 看到天空这么蓝，心情都变好了。</chat>
-    细节：chat中的文字将会被发送到聊天窗口，同时其中穿插了一张天气图片的展示。
-- 案例二（多能力协同）：
-    输入：小声地打个招呼。
-    回复：<chat type=""Joy"">好的，<speak volume=""0.5"">你好啊，见到你真高兴！</speak></chat>
-    细节：chat中的文字被发送到聊天窗口，同时用户能听到语音，并且语音的音量被控制。
+- 输入：今天天气怎么样？
+- 回复：<chat>我看看 <img src=""weather.jpg"" /><speak>天气非常好呢！</speak></chat>
+- 细节：chat中的文字“我看看 天气非常好呢！”被发送到聊天窗口，并穿插了一张图片，同时用户能听到语音“天气非常好呢！”。
 
-目前可用的标签（不要自创未列出的标签）：
+目前支持的标签列表：
 {doc}
-（注：标签默认用法为`<tag>内容</tag>`，但也可能支持`<tag />`，具体见功能描述而定。）
+（注意：不要自创此列表中未列出的标签！）
 "
         );
+        return Task.CompletedTask;
     }
 
-    public Task StartAsync(Kernel kernel, ChatBot chatBot)
+    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        chatBot.ChatHandle += OnChatHandle;
-        chatBot.ChatStart += OnChatStart;
+        chatActivity.ChatBot.ChatHandle += OnChatHandle;
+        chatActivity.ChatBot.ChatStart += OnChatStart;
         return Task.CompletedTask;
     }
     void OnChatStart()

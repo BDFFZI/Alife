@@ -22,7 +22,7 @@ public class LocalSpeechRecognizer : IDisposable
 
     public LocalSpeechRecognizer(string modelPath)
     {
-        Vosk.Vosk.SetLogLevel(-1);
+        // Vosk.Vosk.SetLogLevel(0);
         _model = new Model(modelPath);
         _recognizer = new VoskRecognizer(_model, 16000.0f);
         _recognizer.SetMaxAlternatives(0);
@@ -37,25 +37,45 @@ public class LocalSpeechRecognizer : IDisposable
         _waveIn.WaveFormat = new WaveFormat(16000, 1);
         _waveIn.DataAvailable += (s, e) =>
         {
-            if (_recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
-            {
-                var result = JsonSerializer.Deserialize<VoskResult>(_recognizer.Result());
-                if (!string.IsNullOrWhiteSpace(result?.text))
-                {
-                    OnRecognized?.Invoke(result.text, 0.95f);
-                }
-            }
-            else
-            {
-                var partial = JsonSerializer.Deserialize<VoskPartialResult>(_recognizer.PartialResult());
-                if (!string.IsNullOrWhiteSpace(partial?.partial))
-                {
-                    OnPartial?.Invoke(partial.partial);
-                }
-            }
+            AcceptWaveform(e.Buffer, e.BytesRecorded);
         };
 
         _waveIn.StartRecording();
+    }
+
+    public void AcceptWaveform(byte[] buffer, int bytesRecorded)
+    {
+        if (_recognizer.AcceptWaveform(buffer, bytesRecorded))
+        {
+            var result = JsonSerializer.Deserialize<VoskResult>(_recognizer.Result());
+            if (!string.IsNullOrWhiteSpace(result?.text))
+            {
+                float confidence = 0.0f;
+                if (result.result != null && result.result.Count > 0)
+                {
+                    float sum = 0;
+                    foreach (var word in result.result)
+                    {
+                        sum += word.conf;
+                    }
+                    confidence = sum / result.result.Count;
+                }
+                else
+                {
+                    confidence = 1.0f; // Default if no word info (some models/configs)
+                }
+
+                OnRecognized?.Invoke(result.text, confidence);
+            }
+        }
+        else
+        {
+            var partial = JsonSerializer.Deserialize<VoskPartialResult>(_recognizer.PartialResult());
+            if (!string.IsNullOrWhiteSpace(partial?.partial))
+            {
+                OnPartial?.Invoke(partial.partial);
+            }
+        }
     }
 
     public void Stop()
@@ -73,6 +93,17 @@ public class LocalSpeechRecognizer : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private class VoskResult { public string text { get; set; } = ""; }
+    private class VoskResult 
+    { 
+        public string text { get; set; } = ""; 
+        public List<VoskWord>? result { get; set; }
+    }
+
+    private class VoskWord
+    {
+        public string word { get; set; } = "";
+        public float conf { get; set; }
+    }
+
     private class VoskPartialResult { public string partial { get; set; } = ""; }
 }

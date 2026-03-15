@@ -11,7 +11,8 @@ public class XmlStreamExecutor
 {
     readonly XmlStreamParser parser;
     readonly XmlHandlerTable handlerTable;
-    readonly HashSet<char> sentenceBreakers;
+    readonly List<string> sentenceBreakers;
+    readonly int minResultLength;
 
     // ── 内部缓冲区（Channel） ──
     readonly Channel<char> inputChannel = Channel.CreateUnbounded<char>(new UnboundedChannelOptions
@@ -32,13 +33,14 @@ public class XmlStreamExecutor
         public required Dictionary<string, string> Attributes { get; init; }
     }
 
-    public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handlerTable, IEnumerable<char>? sentenceBreakers = null)
+    public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handlerTable, IEnumerable<string>? sentenceBreakers = null, int minResultLength = 0)
     {
         this.parser = parser;
         this.handlerTable = handlerTable;
+        this.minResultLength = minResultLength;
         this.sentenceBreakers = sentenceBreakers != null 
-            ? new HashSet<char>(sentenceBreakers) 
-            : new HashSet<char> { ',', '.', '!', '?', '，', '。', '！', '？' };
+            ? sentenceBreakers.ToList() 
+            : new List<string> { ",", ".", "!", "?", "，", "。", "！", "？" };
 
         this.parser.OpenTagParsed += OnOpenTagAsync;
         this.parser.CloseTagParsed += OnCloseTagAsync;
@@ -150,18 +152,31 @@ public class XmlStreamExecutor
     {
         contentBuffer.Append(ch);
 
-        // 自动断句功能：识别到特定标点符号时，提前触发调用链
-        if (tagStack.Count > 0 && sentenceBreakers.Contains(ch))
+        // 自动断句功能：检测到指定的断句字符串，且长度满足要求时，提前触发调用链
+        if (tagStack.Count > 0)
         {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), ch);
-            contentBuffer.Clear();
+            string currentText = contentBuffer.ToString();
+            foreach (var breaker in sentenceBreakers)
+            {
+                if (currentText.EndsWith(breaker))
+                {
+                    // 计算句长（不计入断句符本身）
+                    int accumulatedLength = currentText.Length - breaker.Length;
+                    if (accumulatedLength >= minResultLength)
+                    {
+                        await ProcessCurrentStackAsync(null, currentText, breaker);
+                        contentBuffer.Clear();
+                        break;
+                    }
+                }
+            }
         }
     }
 
     /// <summary>
     /// 处理当前标签栈中的所有处理器，从内向外冒泡传递内容执行。
     /// </summary>
-    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, char? trigger)
+    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger)
     {
         // 构建完整执行链：栈中现有标签 + 刚刚弹出的闭合标签
         var chain = tagStack.Reverse().ToList();
@@ -225,7 +240,7 @@ public class XmlStreamExecutor
 
     Task InvokeHandlerAsync(TagEntry entry, XmlTagContext context, ref string content)
     {
-        if (handlerTable.Handlers.TryGetValue(entry.Name, out CompiledTagInvoker? invoker))
+        if (handlerTable.Handlers.TryGetValue(entry.Name.ToLowerInvariant(), out CompiledTagInvoker? invoker))
         {
             return invoker(context, ref content, entry.Attributes);
         }

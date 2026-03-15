@@ -9,7 +9,7 @@ public interface IPlugin
     {
         return Task.CompletedTask;
     }
-    public Task StartAsync(Kernel kernel, ChatBot chatBot)
+    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         return Task.CompletedTask;
     }

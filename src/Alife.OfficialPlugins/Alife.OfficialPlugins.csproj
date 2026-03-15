@@ -19,12 +19,4 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
   </ItemGroup>
 
-  <!-- Resources for the plugin -->
-  <ItemGroup>
-    <Content Include="..\Alife.Speech\model\**\*">
-      <Link>model\%(RecursiveDir)%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
 </Project>

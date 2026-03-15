@@ -76,6 +76,20 @@ public class HttpCommandServer
                     }
                     break;
 
+                case "/switch":
+                    string model = query["name"] ?? "";
+                    if (!string.IsNullOrEmpty(model))
+                    {
+                        await _window.Dispatcher.InvokeAsync(() => _window.SwitchModel(model));
+                    }
+                    break;
+
+                case "/thinking":
+                    string stateStr = query["state"] ?? "false";
+                    bool isThinking = stateStr.ToLower() == "true";
+                    await _window.Dispatcher.InvokeAsync(() => _window.SetThinking(isThinking));
+                    break;
+
                 case "/health":
                     response.StatusCode = (int)HttpStatusCode.OK;
                     byte[] healthBuffer = Encoding.UTF8.GetBytes("Health OK");

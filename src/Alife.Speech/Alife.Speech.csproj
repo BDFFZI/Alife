@@ -11,9 +11,14 @@
     <PackageReference Include="Vosk" Version="0.3.38" />
   </ItemGroup>
 
+
   <ItemGroup>
     <Content Include="model\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="libvosk.dll">
+      <Link>runtimes/win-x64/native/libvosk.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 

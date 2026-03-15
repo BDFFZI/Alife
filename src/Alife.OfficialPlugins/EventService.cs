@@ -8,9 +8,9 @@ using Microsoft.SemanticKernel.Agents;
 public class EventService : IPlugin
 {
     public Task AwakeAsync(IKernelBuilder kernelBuilder, ChatHistoryAgentThread context) => Task.CompletedTask;
-    public Task StartAsync(Kernel kernel, ChatBot chatBot)
+    public Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        this.chatBot = chatBot;
+        chatBot = chatActivity.ChatBot;
         return chatBot.ChatAsync("[系统事件] 对话活动即将开始。你可以尝试读取记忆（如果有相关功能的话），准备开场词等。");
     }
     public Task DestroyAsync()
