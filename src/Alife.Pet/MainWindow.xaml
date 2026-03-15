@@ -8,7 +8,7 @@
         Title="Alife Pet" Height="600" Width="400"
         WindowStyle="None" 
         AllowsTransparency="True" 
-        Background="Transparent"
+        Background="#01FFFFFF"
         Topmost="True"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen">

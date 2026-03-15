@@ -14,40 +14,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Alife.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Alife.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D.Test/Alife.Live2D.Test.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D.Test/Program.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/Alife.Live2D.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/App.xaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/App.xaml.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/AssemblyInfo.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/HttpCommandServer.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/MainWindow.xaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/MainWindow.xaml.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d-library.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d-render.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d-renderer.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d-renderer.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2d_bundle.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/live2dcubismcore.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/pixi-live2d-display.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Live2D/wwwroot/lib/pixi.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.OfficialPlugins/InterpreterService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OfficialPlugins/InterpreterService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.OfficialPlugins/PythonService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OfficialPlugins/PythonService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.OfficialPlugins/SystemPromptService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OfficialPlugins/SystemPromptService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechSynthesizer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechSynthesizer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Alife.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Alife.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/CharacterEditorUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/CharacterEditorUI.razor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/bilibili_user_35949109_20260315_220131.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/bilibili_user_analysis_35949109_20260315_220600.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/bilibili_user_analysis_35949109_20260315_220600.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/cthulhu_game_data.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife/github_user_BDFFZI_20260315_220908.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/lib/pixi.min.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/lib/pixi.min.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

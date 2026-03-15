@@ -21,6 +21,12 @@ public partial class MainWindow : Window
             Debug.WriteLine("=== Window Loaded ===");
             InitializeWebView();
         };
+
+        // 允许拖动窗口
+        this.MouseLeftButtonDown += (s, e) => {
+            if (e.ChangedButton == MouseButton.Left)
+                this.DragMove();
+        };
     }
 
     private async void InitializeWebView()

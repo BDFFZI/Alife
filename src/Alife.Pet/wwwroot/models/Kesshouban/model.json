@@ -1,0 +1,33 @@
+{
+	"type": "Live2D Model Setting",
+	"name": "model",
+	"model": "model.moc?v=20181102",
+	"textures": [
+		"textures/texture_00.png?v=20181102"
+	],
+  "layout": {
+    "center_x": -0.3,
+    "center_y": -0.08,
+    "width": 1.9
+  },
+  "hit_areas_custom": {
+    "head_x": [-0.35, 0.6],
+    "head_y": [0.19, -0.2],
+    "body_x": [-0.3, -0.25],
+    "body_y": [0.3, -0.9]
+  },
+	"motions":{
+		"idle":[
+			{"file":"motions/Idle.mtn?v=20181102"}
+		],
+        "sleepy":[
+            {"file":"motions/Nemui.mtn?v=20181102"}
+        ],
+		"flick_head":[
+			{"file":"motions/Anone_Synced.mtn?v=20181102"}
+		],
+		"tap_body":[
+			{"file":"motions/Dance.mtn?v=20181102"}
+		]
+	}
+}
