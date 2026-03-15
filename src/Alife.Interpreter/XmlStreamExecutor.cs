@@ -15,8 +15,7 @@ public class XmlStreamExecutor
     readonly int minResultLength;
 
     // ── 内部缓冲区（Channel） ──
-    readonly Channel<char> inputChannel = Channel.CreateUnbounded<char>(new UnboundedChannelOptions
-    {
+    readonly Channel<char> inputChannel = Channel.CreateUnbounded<char>(new UnboundedChannelOptions {
         SingleReader = true,
         SingleWriter = false
     });
@@ -38,8 +37,8 @@ public class XmlStreamExecutor
         this.parser = parser;
         this.handlerTable = handlerTable;
         this.minResultLength = minResultLength;
-        this.sentenceBreakers = sentenceBreakers != null 
-            ? sentenceBreakers.ToList() 
+        this.sentenceBreakers = sentenceBreakers != null
+            ? sentenceBreakers.ToList()
             : new List<string> { ",", ".", "!", "?", "，", "。", "！", "？" };
 
         this.parser.OpenTagParsed += OnOpenTagAsync;
@@ -93,20 +92,19 @@ public class XmlStreamExecutor
 
     private async Task ProcessInputLoopAsync()
     {
-        try
+        while (await inputChannel.Reader.WaitToReadAsync())
         {
-            while (await inputChannel.Reader.WaitToReadAsync())
+            while (inputChannel.Reader.TryRead(out char ch))
             {
-                while (inputChannel.Reader.TryRead(out char ch))
+                try
                 {
                     await parser.FeedAsync(ch);
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            // 记录异常或处理错误
-            Console.WriteLine($"XmlStreamExecutor ProcessInputLoopAsync error: {ex.Message}");
         }
     }
 
@@ -124,8 +122,7 @@ public class XmlStreamExecutor
             contentBuffer.Clear();
         }
 
-        tagStack.Push(new TagEntry
-        {
+        tagStack.Push(new TagEntry {
             Name = tagName,
             Attributes = new Dictionary<string, string>(attributes)
         });
@@ -187,8 +184,7 @@ public class XmlStreamExecutor
 
         if (chain.Count == 0 || string.IsNullOrEmpty(currentChunk)) return;
 
-        XmlTagContext context = new(chain.Select(e => new TagInfo
-        {
+        XmlTagContext context = new(chain.Select(e => new TagInfo {
             Name = e.Name,
             Attributes = new Dictionary<string, string>(e.Attributes)
         }).ToList(), trigger);
@@ -199,7 +195,7 @@ public class XmlStreamExecutor
         for (int i = chain.Count - 1; i >= 0; i--)
         {
             TagEntry entry = chain[i];
-            
+
             // InvokeHandlerAsync 传入的是 ref currentChunk
             // 内部 handler 对 currentChunk 的修改会直接影响它传递给更外层父标签的内容（即冒泡阶段的数据变化）
             tasks.Add(InvokeHandlerAsync(entry, context, ref currentChunk));
@@ -247,4 +243,3 @@ public class XmlStreamExecutor
         return Task.CompletedTask;
     }
 }
-

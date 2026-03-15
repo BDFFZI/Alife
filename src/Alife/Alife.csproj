@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.OfficialPlugins\Alife.OfficialPlugins.csproj" />
   </ItemGroup>
 
 </Project>

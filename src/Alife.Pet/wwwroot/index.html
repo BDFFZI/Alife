@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Pet Renderer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: transparent;
+        }
+        #canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <!-- 1. PixiJS -->
+    <script src="lib/pixi.min.js"></script>
+
+    <!-- 2. Live2D SDK Runtimes -->
+    <script src="lib/live2d.min.js"></script>
+    <script src="lib/live2dcubismcore.min.js"></script>
+    
+    <!-- 3. Plugin -->
+    <script src="lib/pixi-live2d-display.min.js"></script>
+    
+    <script src="pet.js"></script>
+</body>
+</html>

@@ -1,1 +1,0 @@
-Couldn't find the requested file /dist/live2d-renderer.js in live2d-renderer.

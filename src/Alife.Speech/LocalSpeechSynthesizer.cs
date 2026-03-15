@@ -72,7 +72,7 @@ public class LocalSpeechSynthesizer : IDisposable
             if (process.ExitCode == 0 && File.Exists(outputPath))
                 return outputPath;
         }
-        catch (OperationCanceledException)
+        catch
         {
             process.Kill();
         }
@@ -133,7 +133,7 @@ public class LocalSpeechSynthesizer : IDisposable
             DisposeAudioResources();
             tcs.SetException(ex);
         }
-        
+
         await tcs.Task;
     }
 

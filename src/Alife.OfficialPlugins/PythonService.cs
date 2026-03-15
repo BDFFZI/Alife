@@ -8,20 +8,6 @@ using Microsoft.SemanticKernel;
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
 public class PythonService : Plugin
 {
-    public override Task AwakeAsync(AwakeContext context)
-    {
-        context.kernelBuilder.Plugins.AddFromObject(this);
-        context.contextBuilder.ChatHistory.AddSystemMessage(
-            @"PythonService
-功能说明：
-1. 当用户要求较高时，直接尝试用Python实现目标，借助Python你几乎可用做任何事（如调用命令，文件读写，网页访问，以及丰富的Python库）
-2. 如果Python中缺少环境之类，直接自行处理，例如升级或安装。这个Python环境完全由你管理，用户不是程序员，你要替他做事。
-3. 用户看不到你的执行内容，除了窗口应用无法交互。所以你要用极简的代码直接完成你的需求，不要去等待用户响应或写无关的注释等。
-4. 调用之前你一定要先向用户说明一下你需要准备脚本，因为用户很长时间将看不到你的回复，如果你不提前说明，会被认为是有故障。"
-        );
-        return Task.CompletedTask;
-    }
-
     [KernelFunction]
     public async Task<string> Python(string content)
     {
@@ -67,10 +53,35 @@ public class PythonService : Plugin
 
     readonly StorageSystem storageSystem;
     readonly ChatWindow chatWindow;
+    ChatBot chatBot = null!;
 
     public PythonService(StorageSystem storageSystem, ChatWindow chatWindow)
     {
         this.storageSystem = storageSystem;
         this.chatWindow = chatWindow;
+    }
+
+    public override Task AwakeAsync(AwakeContext context)
+    {
+        context.contextBuilder.ChatHistory.AddSystemMessage(
+            @"PythonService
+功能说明：
+1. 当用户要求较高时，直接尝试用Python实现目标，借助Python你几乎可用做任何事（如调用命令，文件读写，网页访问，以及丰富的Python库）
+2. 如果Python中缺少环境之类，直接自行处理，例如升级或安装。这个Python环境完全由你管理，用户不是程序员，你要替他做事。
+3. 用户看不到你的执行内容，除了窗口应用无法交互。所以你要用极简的代码直接完成你的需求，不要去等待用户响应或写无关的注释等。
+4. 调用之前你一定要先向用户说明一下你需要准备脚本，因为用户很长时间将看不到你的回复，如果你不提前说明，会被认为是有故障。
+5. 你可以在Python中执行命令行，例如`import os; os.system('python test.py')`，从而快速调用你写好的py脚本。
+"
+        );
+
+        context.kernelBuilder.Plugins.AddFromObject(this);
+
+        return Task.CompletedTask;
+    }
+
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    {
+        chatBot = chatActivity.ChatBot;
+        return Task.CompletedTask;
     }
 }

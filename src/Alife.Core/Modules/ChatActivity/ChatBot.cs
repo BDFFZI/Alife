@@ -19,7 +19,10 @@ public class ChatBot : IAsyncDisposable
         if (IsChatting)
         {
             if (cancellationTokenSource != null)
+            {
                 await cancellationTokenSource.CancelAsync();
+                llmAgentThread.ChatHistory.RemoveAt(llmAgentThread.ChatHistory.Count - 1);
+            }
         }
 
         await isChatting.WaitAsync();

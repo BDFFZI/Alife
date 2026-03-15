@@ -16,7 +16,7 @@
                 <Text>名称</Text>
                 <Input Disabled="@(IsOnlyRead)" @bind-Value="name"/>
                 <Text>设定</Text>
-                <Input Disabled="@(IsOnlyRead)" @bind-Value="prompt"/>
+                <TextArea MinRows="10" Disabled="@(IsOnlyRead)" @bind-Value="prompt"></TextArea>
                 <Text>插件</Text>
                 <Card>
                     @if (IsOnlyRead)
