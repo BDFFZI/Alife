@@ -32,7 +32,7 @@ public class InterpreterService : Plugin
         //创建xml解析执行器等
         compiler.Register(this);
         XmlHandlerTable handlerTable = compiler.Compile();
-        parser = new XmlStreamParser { RootTagName = "interpret" };
+        parser = new XmlStreamParser { RootTagName = "Interpreter" };
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
@@ -45,7 +45,7 @@ public class InterpreterService : Plugin
 你可以给你的回复套上一些可选的xml标签，来使内容发挥一些特定作用。
 **目前可用的标签：**
 {handlerTable.GenerateDocumentation()}
-注意：如果你要使用上述功能，必须先用<interpret></interpret>包裹。
+注意：如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
 ";
 
 //         @"
