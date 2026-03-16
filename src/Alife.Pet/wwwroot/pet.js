@@ -17,6 +17,12 @@
         logContainer.innerText = msg;
     }
 
+    function postToHost(data) {
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage(data);
+        }
+    }
+
     // --- 核心变量 ---
     let model;
     let modelName = "";
@@ -117,35 +123,31 @@
         }
         lastInteractionTime = now;
 
-        if (!hitAreas || hitAreas.length === 0) {
-            const diag = DIALOGUES.random[Math.floor(Math.random() * DIALOGUES.random.length)];
-            model.expression(diag.exp);
-            showBubble(diag.text);
-            return;
-        }
-
-        // 强连击判定 (5次以上才必出动作)
+        // 强连击判定 (5次以上触发 Poke)
         if (comboCount >= 5 && modelName === "Mao") {
             const diag = DIALOGUES.combo[Math.floor(Math.random() * DIALOGUES.combo.length)];
             model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
             model.expression(diag.exp);
             showBubble(diag.text, 6000);
+            
+            // 发送 Poke 事件给 AI
+            postToHost({ type: "poke", text: `主人对真央进行了连续互动（Combo ${comboCount}），真央现在有点晕头转向喵！` });
+            
             comboCount = 0;
             return;
         }
 
         const h = hitAreas.map(i => i.toLowerCase());
         let category = "random";
-        if (h.some(i => i.includes("body"))) category = "body";
+        if (hitAreas.length === 0) category = "random";
+        else if (h.some(i => i.includes("body"))) category = "body";
         else if (h.some(i => i.includes("head"))) category = "head";
 
         const pool = DIALOGUES[category];
         const diag = pool[Math.floor(Math.random() * pool.length)];
         
-        // 【关键修复】动作概率上调到 40%，找回“灵动感”
         const shouldPlayMotion = Math.random() < 0.4;
-        
-        log(`Interact: ${category} | Combo: ${comboCount} | Motion Chance: ${shouldPlayMotion}`);
+        log(`Interact: ${category} | Combo: ${comboCount} | Motion: ${shouldPlayMotion}`);
         
         if (shouldPlayMotion && diag.mtn) {
             model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
@@ -186,10 +188,9 @@
                 model.position.set(window.innerWidth / 2, window.innerHeight / 2);
                 model.interactive = true;
 
-                // 【加固】模型加载后播放入场动画
                 setTimeout(() => {
                     if (model && modelName === "Mao") {
-                        log("Startup Animation Triggered喵!");
+                        log("Startup Animation Triggered");
                         model.motion(MOTIONS.SPECIAL_1.group, MOTIONS.SPECIAL_1.index, PIXI.live2d.MotionPriority.FORCE);
                         model.expression(EXPS.SMILE);
                         showBubble("喵~ 主人你回来啦！真央一直在这里等你喵~(ฅ´ω`ฅ)");
@@ -203,6 +204,34 @@
             }
         }
 
+        // --- 事件绑定 ---
+
+        // A. 接收来自 Host (C#) 的指令
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener("message", (event) => {
+                const msg = event.data;
+                log(`Host Command: ${msg.type}`);
+
+                if (msg.type === "bubble") {
+                    showBubble(msg.text, msg.duration || 4000);
+                } else if (msg.type === "expression") {
+                    if (model) model.expression(msg.id);
+                } else if (msg.type === "motion") {
+                    if (model) model.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE);
+                } else if (msg.type === "look") {
+                    if (model && model.internalModel && model.internalModel.coreModel) {
+                        const core = model.internalModel.coreModel;
+                        // 强制重置视角参数（通常是这几个，不同模型可能略有不同）
+                        ["ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeBallX", "ParamEyeBallY", "ParamBodyAngleX"]
+                            .forEach(p => {
+                                if (core.getParameterIndex(p) !== -1) core.setParameterValueById(p, 0);
+                            });
+                    }
+                }
+            });
+        }
+
+        // B. 交互反馈
         window.addEventListener("dblclick", (e) => {
             if (e.button === 0 && (e.target.id === "canvas" || e.target.tagName === "CANVAS")) {
                 triggerInteraction(e.clientX, e.clientY);
@@ -214,9 +243,7 @@
                 if (!model) return;
                 const hitAreas = await model.hitTest(e.clientX, e.clientY);
                 if (hitAreas.length === 0) {
-                    if (window.chrome && window.chrome.webview) {
-                        window.chrome.webview.postMessage({ type: 'drag-request' });
-                    }
+                    postToHost({ type: 'drag-request' });
                 }
             }
         });
@@ -237,6 +264,8 @@
                 if (model && modelName === "Mao") {
                     model.motion(MOTIONS.SHY.group, MOTIONS.SHY.index, PIXI.live2d.MotionPriority.FORCE);
                     model.expression(EXPS.DIZZY);
+                    // 发送 Poke 事件给 AI
+                    postToHost({ type: "poke", text: "主人在疯狂晃动鼠标，真央被转晕了喵！" });
                 }
             }
         });
@@ -244,10 +273,8 @@
         const handleSend = () => {
             const msg = chatInput.value.trim();
             if (msg) {
-                showBubble("正在帮主人处理中... 喵~", 2000);
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ type: 'chat', text: msg });
-                }
+                showBubble("收到！正在转达给 AI 喵~", 2000);
+                postToHost({ type: 'chat', text: msg });
                 chatInput.value = "";
             }
         };

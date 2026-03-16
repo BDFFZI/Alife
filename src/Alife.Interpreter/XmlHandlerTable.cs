@@ -54,20 +54,16 @@ public class XmlHandlerTable
             sb.Append($"- <{tagName}");
             foreach (var p in attrs)
             {
-                sb.Append(" ");
-                if (p.IsOptional) sb.Append("[");
-                sb.Append($"{p.Name}:{p.Type}");
-                if (!string.IsNullOrEmpty(p.Description)) sb.Append($"({p.Description})");
-                if (p.IsOptional) sb.Append("]");
+                sb.Append($" {p.Name}=\"...\"");
             }
             
             if (content != null)
             {
-                sb.Append($"> {content.Description} </{tagName}>");
+                sb.Append($">内容</{tagName}>");
             }
             else
             {
-                sb.Append("/>");
+                sb.Append(" />");
             }
             sb.AppendLine($": {description}");
         }

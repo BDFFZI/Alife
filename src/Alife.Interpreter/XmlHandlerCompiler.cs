@@ -229,27 +229,34 @@ public class XmlHandlerCompiler
 
     static object? ConvertValue(string value, Type t)
     {
-        if (t == typeof(string))
+        try
         {
-            return value;
+            if (t == typeof(string))
+            {
+                return value;
+            }
+            
+            Type? u = Nullable.GetUnderlyingType(t);
+            if (u != null)
+            {
+                return string.IsNullOrEmpty(value) ? null : Convert.ChangeType(value, u);
+            }
+            
+            if (t.IsEnum)
+            {
+                return Enum.Parse(t, value, true);
+            }
+            
+            if (t == typeof(bool))
+            {
+                return value is "1" or "true" or "True" or "TRUE";
+            }
+            
+            return Convert.ChangeType(value, t);
         }
-        
-        Type? u = Nullable.GetUnderlyingType(t);
-        if (u != null)
+        catch
         {
-            return string.IsNullOrEmpty(value) ? null : Convert.ChangeType(value, u);
+            return t.IsValueType ? Activator.CreateInstance(t) : null;
         }
-        
-        if (t.IsEnum)
-        {
-            return Enum.Parse(t, value, true);
-        }
-        
-        if (t == typeof(bool))
-        {
-            return value is "1" or "true" or "True" or "TRUE";
-        }
-        
-        return Convert.ChangeType(value, t);
     }
 }

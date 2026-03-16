@@ -29,23 +29,22 @@ public class InterpreterService : Plugin
         );
 
         //注入使用说明
-        string doc = handlerTable.GenerateDocumentation();
+        string doc = handlerTable.GenerateDocumentation();        //注入使用说明
         context.contextBuilder.ChatHistory.AddSystemMessage(
-            @$"InterpreterService
-功能说明：
-1. 你拥有通过某些xml标签修饰对话内容的能力，这些被标记的文字将会传递给外部系统进行处理，从而让你具有多模态输出的能力。
-2. 标签可能会支持参数，其解读方式为：参数名后面表示类型；如果是enum，则还会用花括号列出选项；如果参数用[]包裹，表示可选。
-3. 不要向用户解释标签功能：在回复中直接使用即可，这是你的默认输出方式，优先保持对话的自然性。
-4. 不要自己分词，解释器会自动分词，你只管把内容包裹就行。
+            @$"## 交互指令系统 (Interpreter)
+你拥有一套实时的 XML 指令来控制桌宠展示情绪和动作。
 
-使用案例：
-- 输入：今天天气怎么样？
-- 回复：<chat>我看看 <img src=""weather.jpg"" /><speak>天气非常好呢！</speak></chat>
-- 细节：chat中的文字“我看看 天气非常好呢！”被发送到聊天窗口，并穿插了一张图片，同时用户能听到语音“天气非常好呢！”。
+**核心规则：**
+1. **直接嵌入**：在回复中直接插入标签（例：`你好喵<pet_mtn>2</pet_mtn>`），严禁解释或复述标签。
+2. **内容优先**：参数统一写在标签中间，不再使用复杂的属性名。
+3. **流式兼容**：你可以放心连用多个标签。
 
-目前支持的标签列表：
+**支持标签说明：**
 {doc}
-（注意：不要自创此列表中未列出的标签！）
+
+**常用组合建议：**
+- 羞涩拒绝：`<pet_exp>06</pet_exp><pet_mtn>0</pet_mtn><pet_bubble>人家才没想你呢喵！</pet_bubble>`
+- 兴奋欢迎：`<pet_mtn>3</pet_mtn><pet_exp>01</pet_exp><pet_bubble>欢迎回来喵！</pet_bubble>`
 "
         );
 

@@ -5,7 +5,7 @@ obj/
 *.suo
 *.tmp
 *.log
-.gemini/
+# .gemini/
 __pycache__/
 *.pyc
 model/

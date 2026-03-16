@@ -118,7 +118,7 @@ public class XmlStreamExecutor
         // 我们应该立刻把它们当做独立的 chunk 触发掉，保证顺序流式处理
         if (contentBuffer.Length > 0 && tagStack.Count > 0)
         {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null);
+            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, false);
             contentBuffer.Clear();
         }
 
@@ -137,7 +137,7 @@ public class XmlStreamExecutor
             contentBuffer.Clear();
 
             // 执行这个闭合标签，并且让内容往外层（父标签）冒泡
-            await ProcessCurrentStackAsync(closedEntry, currentTagContent, null);
+            await ProcessCurrentStackAsync(closedEntry, currentTagContent, null, true);
             return;
         }
 
@@ -161,7 +161,7 @@ public class XmlStreamExecutor
                     int accumulatedLength = currentText.Length - breaker.Length;
                     if (accumulatedLength >= minResultLength)
                     {
-                        await ProcessCurrentStackAsync(null, currentText, breaker);
+                        await ProcessCurrentStackAsync(null, currentText, breaker, false);
                         contentBuffer.Clear();
                         break;
                     }
@@ -173,7 +173,7 @@ public class XmlStreamExecutor
     /// <summary>
     /// 处理当前标签栈中的所有处理器，从内向外冒泡传递内容执行。
     /// </summary>
-    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger)
+    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger, bool isClosing)
     {
         // 构建完整执行链：栈中现有标签 + 刚刚弹出的闭合标签
         var chain = tagStack.Reverse().ToList();
@@ -182,12 +182,13 @@ public class XmlStreamExecutor
             chain.Add(closingEntry);
         }
 
-        if (chain.Count == 0 || string.IsNullOrEmpty(currentChunk)) return;
+        if (chain.Count == 0) return;
+        if (string.IsNullOrEmpty(currentChunk) && !isClosing) return;
 
         XmlTagContext context = new(chain.Select(e => new TagInfo {
             Name = e.Name,
             Attributes = new Dictionary<string, string>(e.Attributes)
-        }).ToList(), trigger);
+        }).ToList(), trigger, isClosing);
 
         List<Task> tasks = new();
 

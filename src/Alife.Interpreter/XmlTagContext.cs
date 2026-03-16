@@ -21,10 +21,14 @@ public class XmlTagContext
     /// <summary>触发本次处理的字符串（如果是因标点断句触发则不为 null）</summary>
     public string? Trigger { get; }
 
-    public XmlTagContext(IReadOnlyList<TagInfo> stack, string? trigger)
+    /// <summary>当前正在处理的标签是否已经完全闭合（如果是，则表示这是该标签最后一次触发）</summary>
+    public bool IsClosing { get; }
+
+    public XmlTagContext(IReadOnlyList<TagInfo> stack, string? trigger, bool isClosing = false)
     {
         CallChain = stack;
         Trigger = trigger;
+        IsClosing = isClosing;
     }
 
     /// <summary>

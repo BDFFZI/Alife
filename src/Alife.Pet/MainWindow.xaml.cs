@@ -20,6 +20,10 @@ public partial class MainWindow : Window
 {
     public MainWindow()
     {
+        // 强制使用 UTF-8 编码进行 IPC 通讯
+        Console.InputEncoding = System.Text.Encoding.UTF8;
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+
         InitializeComponent();
         Debug.WriteLine("=== MainWindow Constructor ===");
         
@@ -57,11 +61,37 @@ public partial class MainWindow : Window
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
 
-            // 后续由其他程序通过 WebView2 接口控制
+            // 【关键新增】开启 IPC 监听任务
+            _ = Task.Run(StartIpcListener);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"CRITICAL ERROR: {ex.Message}\n{ex.StackTrace}");
+            Console.Error.WriteLine($"Pet Error: {ex.Message}");
+        }
+    }
+
+    private void StartIpcListener()
+    {
+        while (true)
+        {
+            try
+            {
+                string? line = Console.ReadLine();
+                if (line == null) break;
+                
+                // 将从 Host 接收到的命令转发给 WebView2
+                Dispatcher.Invoke(() => {
+                    if (webView.CoreWebView2 != null)
+                    {
+                        webView.CoreWebView2.PostWebMessageAsJson(line);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"IPC Listener Error: {ex.Message}");
+            }
         }
     }
 
@@ -70,6 +100,9 @@ public partial class MainWindow : Window
         try
         {
             var json = e.WebMessageAsJson;
+            // 将从 WebView2 接收到的事件转发给 Host
+            Console.WriteLine(json);
+
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             
@@ -79,15 +112,10 @@ public partial class MainWindow : Window
             if (type == "drag-request")
             {
                 Dispatcher.Invoke(() => {
-                    // 使用更加鲁棒的方法触发窗口拖动
                     var helper = new WindowInteropHelper(this);
-                    ReleaseCapture(); // 关键：释放当前鼠标捕获
+                    ReleaseCapture();
                     SendMessage(helper.Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
                 });
-            }
-            else if (type == "chat")
-            {
-                // Standalone 模式下不再处理 chat 逻辑
             }
         }
         catch (Exception ex)
