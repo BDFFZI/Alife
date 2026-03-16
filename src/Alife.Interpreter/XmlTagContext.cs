@@ -12,6 +12,19 @@ public readonly struct TagInfo
 }
 
 /// <summary>
+/// 标签处理状态。
+/// </summary>
+public enum TagStatus
+{
+    /// <summary>开区间：标签刚刚打开，尚未处理任何内容。</summary>
+    Opening,
+    /// <summary>内容：由于分词或标签嵌套触发的中间内容处理。</summary>
+    Content,
+    /// <summary>闭区间：标签即将关闭，处理最后的内容片段。</summary>
+    Closing
+}
+
+/// <summary>
 /// 解析器上下文信息，可选地注入到标签处理程序中。
 /// </summary>
 public class XmlTagContext
@@ -21,14 +34,22 @@ public class XmlTagContext
     /// <summary>触发本次处理的字符串（如果是因标点断句触发则不为 null）</summary>
     public string? Trigger { get; }
 
-    /// <summary>当前正在处理的标签是否已经完全闭合（如果是，则表示这是该标签最后一次触发）</summary>
-    public bool IsClosing { get; }
+    /// <summary>当前标签的处理状态（开区间、内容、或闭区间）</summary>
+    public TagStatus Status { get; }
 
-    public XmlTagContext(IReadOnlyList<TagInfo> stack, string? trigger, bool isClosing = false)
+    /// <summary>截至当前调用，该标签已积累的总内容（包含本次片段）</summary>
+    public string FullContent { get; }
+
+    /// <summary>本次触发所产生的片段内容</summary>
+    public string ChunkContent { get; }
+
+    public XmlTagContext(IReadOnlyList<TagInfo> stack, string? trigger, TagStatus status, string fullContent, string chunkContent)
     {
         CallChain = stack;
         Trigger = trigger;
-        IsClosing = isClosing;
+        Status = status;
+        FullContent = fullContent;
+        ChunkContent = chunkContent;
     }
 
     /// <summary>

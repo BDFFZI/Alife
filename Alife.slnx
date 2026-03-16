@@ -6,10 +6,10 @@
     <Project Path="src\Alife.Speech.Test\Alife.Speech.Test.csproj" Type="Classic C#" />
   </Folder>
   <Folder Name="/Plugins/">
-    <Project Path="src\Alife.OfficialPlugins.Tests\Alife.OfficialPlugins.Tests.csproj" Type="Classic C#" />
     <Project Path="src\Alife.OfficialPlugins\Alife.OfficialPlugins.csproj" Type="Classic C#" />
   </Folder>
   <Project Path="src\Alife.Core.Tests\Alife.Core.Tests.csproj" />
   <Project Path="src\Alife.Core\Alife.Core.csproj" Type="Classic C#" />
+  <Project Path="src\Alife.PetDemo\Alife.PetDemo.csproj" Type="Classic C#" />
   <Project Path="src\Alife\Alife.csproj" Type="Classic C#" />
 </Solution>

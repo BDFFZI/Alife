@@ -319,7 +319,7 @@ public class XmlStreamParser
         }
     }
 
-    static bool IsTagChar(char ch) => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.';
+    static bool IsTagChar(char ch) => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.' or ':';
     static bool IsAttrChar(char ch) => IsTagChar(ch);
     static bool IsWhitespace(char ch) => ch is ' ' or '\t' or '\r' or '\n';
 }

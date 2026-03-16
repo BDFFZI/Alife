@@ -30,6 +30,7 @@ public class XmlStreamExecutor
     {
         public required string Name { get; init; }
         public required Dictionary<string, string> Attributes { get; init; }
+        public StringBuilder Content { get; } = new();
     }
 
     public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handlerTable, IEnumerable<string>? sentenceBreakers = null, int minResultLength = 0)
@@ -115,29 +116,32 @@ public class XmlStreamExecutor
     async Task OnOpenTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes)
     {
         // 遇到新标签时，如果缓冲区有内容，说明这些内容属于它外层的 active 标签
-        // 我们应该立刻把它们当做独立的 chunk 触发掉，保证顺序流式处理
         if (contentBuffer.Length > 0 && tagStack.Count > 0)
         {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, false);
+            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, TagStatus.Content);
             contentBuffer.Clear();
         }
 
-        tagStack.Push(new TagEntry {
+        var entry = new TagEntry {
             Name = tagName,
             Attributes = new Dictionary<string, string>(attributes)
-        });
+        };
+        tagStack.Push(entry);
+
+        // [Specification 1] 开区间必定执行一次
+        await ProcessCurrentStackAsync(null, "", null, TagStatus.Opening);
     }
 
     async Task OnCloseTagAsync(string tagName)
     {
         if (TryPopTag(tagName, out TagEntry closedEntry))
         {
-            // 当前标签闭合，我们获取它闭合前累积的内容
-            string currentTagContent = contentBuffer.ToString();
+            // 当前标签闭合，获取它闭合前累积的内容（最后一个 chunk）
+            string lastChunk = contentBuffer.ToString();
             contentBuffer.Clear();
 
-            // 执行这个闭合标签，并且让内容往外层（父标签）冒泡
-            await ProcessCurrentStackAsync(closedEntry, currentTagContent, null, true);
+            // [Specification 1] 闭区间必定执行一次
+            await ProcessCurrentStackAsync(closedEntry, lastChunk, null, TagStatus.Closing);
             return;
         }
 
@@ -161,7 +165,8 @@ public class XmlStreamExecutor
                     int accumulatedLength = currentText.Length - breaker.Length;
                     if (accumulatedLength >= minResultLength)
                     {
-                        await ProcessCurrentStackAsync(null, currentText, breaker, false);
+                        // [Specification 2] 有内容时根据分词情况可能调用若干次
+                        await ProcessCurrentStackAsync(null, currentText, breaker, TagStatus.Content);
                         contentBuffer.Clear();
                         break;
                     }
@@ -173,7 +178,7 @@ public class XmlStreamExecutor
     /// <summary>
     /// 处理当前标签栈中的所有处理器，从内向外冒泡传递内容执行。
     /// </summary>
-    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger, bool isClosing)
+    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger, TagStatus eventStatus)
     {
         // 构建完整执行链：栈中现有标签 + 刚刚弹出的闭合标签
         var chain = tagStack.Reverse().ToList();
@@ -183,27 +188,46 @@ public class XmlStreamExecutor
         }
 
         if (chain.Count == 0) return;
-        if (string.IsNullOrEmpty(currentChunk) && !isClosing) return;
+        
+        // 如果既不是开也不是关，且没内容，则不触发
+        if (string.IsNullOrEmpty(currentChunk) && eventStatus == TagStatus.Content) return;
 
-        XmlTagContext context = new(chain.Select(e => new TagInfo {
-            Name = e.Name,
-            Attributes = new Dictionary<string, string>(e.Attributes)
-        }).ToList(), trigger, isClosing);
+        string tempChunk = currentChunk;
 
-        List<Task> tasks = new();
-
-        // 从内向外执行处理器
+        // [Specification 2] 从内向外顺序执行处理器，支持中间修改内容并冒泡
         for (int i = chain.Count - 1; i >= 0; i--)
         {
             TagEntry entry = chain[i];
 
-            // InvokeHandlerAsync 传入的是 ref currentChunk
-            // 内部 handler 对 currentChunk 的修改会直接影响它传递给更外层父标签的内容（即冒泡阶段的数据变化）
-            tasks.Add(InvokeHandlerAsync(entry, context, ref currentChunk));
+            // 如果内容已被之前的处理器拦截完了，且当前不是该事件的目标标签（目标标签即使内容为空也要触发 Opening/Closing）
+            if (i < chain.Count - 1 && string.IsNullOrEmpty(tempChunk)) break;
+
+            // 只有最内层才是真正的 Opening/Closing
+            TagStatus statusForThisTag = (i == chain.Count - 1) ? eventStatus : TagStatus.Content;
+            
+            // FullContent = 之前存的 + 本次处理的起点
+            string fullContentForThisTag = entry.Content.ToString() + tempChunk;
+
+            XmlTagContext context = new(
+                chain.Take(i + 1).Select(e => new TagInfo {
+                    Name = e.Name,
+                    Attributes = new Dictionary<string, string>(e.Attributes)
+                }).ToList(), 
+                trigger, 
+                statusForThisTag,
+                fullContentForThisTag, 
+                tempChunk
+            );
+
+            // 顺序执行，以便支持 ref 修改内容
+            await InvokeHandlerAsync(entry, context, ref tempChunk);
         }
 
-        // 所有的 handler task 返回后，统一 await 确保异步操作顺序完成（例如等待 think 标签中的异步延时）
-        await Task.WhenAll(tasks);
+        // [Specification 3] 运行完后，将最终（可能被修改过）的文本追加到还在栈中的每个标签自己的完整串中
+        foreach (var entry in tagStack)
+        {
+            entry.Content.Append(tempChunk);
+        }
     }
 
     // ═══════════════════════════════════════

@@ -54,12 +54,14 @@ public class XmlHandlerTable
             sb.Append($"- <{tagName}");
             foreach (var p in attrs)
             {
-                sb.Append($" {p.Name}=\"...\"");
+                string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $"({p.Description})";
+                sb.Append($" {p.Name}:{p.Type}{pDesc}");
             }
             
             if (content != null)
             {
-                sb.Append($">内容</{tagName}>");
+                string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : $"({content.Description})";
+                sb.Append($">{cDesc}</{tagName}>");
             }
             else
             {

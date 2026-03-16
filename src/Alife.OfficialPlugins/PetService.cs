@@ -14,7 +14,6 @@ public class PetService : Plugin, IAsyncDisposable
     private Process? _petProcess;
     private readonly ChatWindow _chatWindow;
     private ChatActivity? _chatActivity;
-    private readonly StringBuilder _bubbleBuffer = new();
 
     public PetService(InterpreterService interpreterService, ChatWindow chatWindow)
     {
@@ -25,13 +24,13 @@ public class PetService : Plugin, IAsyncDisposable
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         _chatActivity = chatActivity;
-        
+
         try
         {
             // 启动桌宠进程
             string assemblyDir = AppDomain.CurrentDomain.BaseDirectory;
             string petExePath = Path.Combine(assemblyDir, "Alife.Pet.exe");
-            
+
             if (!File.Exists(petExePath))
             {
                 petExePath = Path.Combine(assemblyDir, "src", "Alife.Pet", "bin", "Debug", "net10.0-windows", "Alife.Pet.exe");
@@ -43,12 +42,11 @@ public class PetService : Plugin, IAsyncDisposable
 
             if (!File.Exists(petExePath))
             {
-                 Console.WriteLine($"[PetService] Error: Could not find Pet EXE at {petExePath}");
-                 return Task.CompletedTask;
+                Console.WriteLine($"[PetService] Error: Could not find Pet EXE at {petExePath}");
+                return Task.CompletedTask;
             }
 
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
+            ProcessStartInfo psi = new ProcessStartInfo {
                 FileName = petExePath,
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -62,7 +60,9 @@ public class PetService : Plugin, IAsyncDisposable
 
             _petProcess = new Process { StartInfo = psi };
             _petProcess.OutputDataReceived += (s, e) => OnPetMessageReceived(e.Data);
-            _petProcess.ErrorDataReceived += (s, e) => { if (e.Data != null) Console.WriteLine($"[Pet Error] {e.Data}"); };
+            _petProcess.ErrorDataReceived += (s, e) => {
+                if (e.Data != null) Console.WriteLine($"[Pet Error] {e.Data}");
+            };
 
             _petProcess.Start();
             _petProcess.BeginOutputReadLine();
@@ -116,7 +116,7 @@ public class PetService : Plugin, IAsyncDisposable
     {
         if (_petProcess is { HasExited: false })
         {
-            try 
+            try
             {
                 string json = JsonSerializer.Serialize(msg);
                 _petProcess.StandardInput.WriteLine(json);
@@ -135,52 +135,55 @@ public class PetService : Plugin, IAsyncDisposable
 
     [XmlHandler("pet_bubble")]
     [Description("气泡文字喵。示例: <pet_bubble>你好喵</pet_bubble>")]
-    public Task PetBubble(
-        XmlTagContext context, 
-        [XmlTagContent] string? content = null)
+    public Task PetBubble(XmlTagContext context)
     {
-        if (!string.IsNullOrEmpty(content))
-        {
-            _bubbleBuffer.Append(content);
-        }
+        if (context.Status != TagStatus.Closing) return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(context.FullContent)) return Task.CompletedTask;
 
-        if (context.IsClosing)
-        {
-            string finalResult = _bubbleBuffer.ToString();
-            _bubbleBuffer.Clear();
-            if (!string.IsNullOrWhiteSpace(finalResult))
-            {
-                LookForward();
-                int duration = 2000 + (finalResult.Length * 100);
-                SendToPet(new { type = "bubble", text = finalResult, duration });
-            }
-        }
+        int duration = 2000 + context.FullContent.Length * 100;
+        SendToPet(new { type = "bubble", text = context.FullContent, duration });
         return Task.CompletedTask;
     }
 
     [XmlHandler("pet_exp")]
-    [Description("表情喵。示例: <pet_exp>06</pet_exp> (01-08)")]
-    public Task PetExpression([XmlTagContent] string id = "exp_01")
+    [Description("发表情喵。支持：开心, 闭眼, 晕乎, 悲伤, 害羞, 惊讶, 生气；示例: <pet_exp>害羞</pet_exp>")]
+    public Task PetExpression(XmlTagContext context)
     {
-        id = id.Trim();
-        if (id.Length <= 2 && int.TryParse(id, out _)) id = "exp_" + id.PadLeft(2, '0');
+        if (context.Status != TagStatus.Closing) return Task.CompletedTask;
+
+        string expression = context.FullContent.Trim();
+        string id = expression switch {
+            "开心" => "exp_01",
+            "闭眼" => "exp_03",
+            "晕" or "晕乎" => "exp_04",
+            "悲伤" or "委屈" => "exp_05",
+            "害羞" or "脸红" => "exp_06",
+            "惊讶" or "哇" => "exp_07",
+            "生气" or "哼" => "exp_08",
+            _ => int.TryParse(expression, out _) ? "exp_" + expression.PadLeft(2, '0') : "exp_01"
+        };
         SendToPet(new { type = "expression", id });
         return Task.CompletedTask;
     }
 
     [XmlHandler("pet_mtn")]
-    [Description("动作喵。示例: <pet_mtn>5</pet_mtn> (0-5)")]
-    public Task PetMotion([XmlTagContent] string motion = "2")
+    [Description("执行动作喵。支持：害羞，摇头，点头，欢迎，旋转，跳舞；示例: <pet_mtn>害羞</pet_mtn>")]
+    public Task PetMotion(XmlTagContext context)
     {
-        motion = motion.Trim();
-        int index = 0;
-        if (!int.TryParse(motion, out index))
-        {
-            index = motion switch {
-                "害羞" => 0, "摇头" => 1, "点头" => 2, "欢迎" => 3, "旋转" => 4, "跳舞" => 5,
-                _ => 2
-            };
-        }
+        if (context.Status != TagStatus.Closing) return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(context.FullContent)) return Task.CompletedTask;
+
+        string motion = context.FullContent.Trim();
+        int index = motion switch {
+            "害羞" => 0,
+            "摇头" => 1,
+            "点头" => 2,
+            "欢迎" => 3,
+            "旋转" => 4,
+            "跳舞" => 5,
+            _ => int.TryParse(motion, out var i) ? i : 2
+        };
+
         SendToPet(new { type = "motion", group = "TapBody", index });
         return Task.CompletedTask;
     }
@@ -194,10 +197,10 @@ public class PetService : Plugin, IAsyncDisposable
     {
         if (_petProcess != null && !_petProcess.HasExited)
         {
-             _petProcess.Kill();
-             await _petProcess.WaitForExitAsync();
-             _petProcess.Dispose();
-             _petProcess = null;
+            _petProcess.Kill();
+            await _petProcess.WaitForExitAsync();
+            _petProcess.Dispose();
+            _petProcess = null;
         }
     }
 }

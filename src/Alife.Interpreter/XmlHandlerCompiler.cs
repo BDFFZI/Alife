@@ -54,13 +54,12 @@ public class XmlHandlerCompiler
         foreach ((object? target, MethodInfo method, string? tagName, string description) in registrations)
         {
             string effectiveTagName = (tagName ?? method.Name).ToLowerInvariant();
-            string effectiveDescription = description;
+            // 优先使用 DescriptionAttribute (KernelFunction 风格)，若为空则回退
+            var descAttr = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+            string effectiveDescription = (descAttr != null && !string.IsNullOrEmpty(descAttr.Description)) 
+                ? descAttr.Description 
+                : description;
             
-            if (string.IsNullOrEmpty(effectiveDescription))
-            {
-                effectiveDescription = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "";
-            }
-
             descriptions[effectiveTagName] = effectiveDescription;
             ParameterMapping[] mappings = BuildParameterMappings(method);
             
@@ -75,7 +74,10 @@ public class XmlHandlerCompiler
                     string typeName = GetAITypeName(type);
                     string[]? possibleValues = type.IsEnum ? Enum.GetNames(type) : null;
                     
-                    string pDesc = ps[i].GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "";
+                    var pDescAttr = ps[i].GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+                    string pDesc = (pDescAttr != null && !string.IsNullOrEmpty(pDescAttr.Description))
+                        ? pDescAttr.Description
+                        : "";
                     
                     paramInfos.Add(new XmlParameterInfo(
                         mapping.AttributeName ?? ps[i].Name ?? "content", 
@@ -96,10 +98,10 @@ public class XmlHandlerCompiler
                 
                 object? result = mInfo.Invoke(tObj, args);
                 
-                // 回填 ref string (因为 Invoke 会更新 args 数组中的对象)
+                // 回填 ref string (只有当参数确实是 ref 类型，且被标记为 Content Role 时才允许回填到流内容中)
                 for (int j = 0; j < mappings.Length; j++)
                 {
-                    if (mappings[j].Role == ParameterRole.Content && args[j] is string newContent)
+                    if (mappings[j].Role == ParameterRole.Content && mappings[j].ParameterType.IsByRef && args[j] is string newContent)
                     {
                         content = newContent;
                         break;
@@ -168,63 +170,86 @@ public class XmlHandlerCompiler
                 {
                     throw new InvalidOperationException($"{method.DeclaringType?.Name}.{method.Name}: [XmlTagContent] 参数必须是 string 或 ref string");
                 }
-                map[i] = new(ParameterRole.Content, null, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
+                map[i] = new(ParameterRole.Content, ps[i].Name, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
                 contentFound = true;
             }
         }
 
         for (int i = 0; i < ps.Length; i++)
         {
-            if (map[i] != null)
-            {
-                continue;
-            }
+            if (map[i] != null) continue;
             
+            // 自动识别 Content 角色：首个 string 参数
             if (contentFound == false && (ps[i].ParameterType == typeof(string) || ps[i].ParameterType == typeof(string).MakeByRefType()))
             {
-                map[i] = new(ParameterRole.Content, null, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
+                map[i] = new(ParameterRole.Content, ps[i].Name, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
                 contentFound = true;
                 continue;
             }
+
+            // 其余为属性
             map[i] = new(ParameterRole.Attribute, ps[i].Name, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
         }
 
-        if (contentFound == false)
-        {
-            throw new InvalidOperationException($"{method.DeclaringType?.Name}.{method.Name}: 缺少内容参数");
-        }
+        // 注意：内容参数现在是可选的。如果没有找到 string 参数，处理器只是无法接收标签文本内容。
         return map!;
     }
 
     static object?[] ResolveArguments(ParameterMapping[] mappings, XmlTagContext ctx, string content, IReadOnlyDictionary<string, string> attrs)
     {
         object?[] args = new object?[mappings.Length];
+
+        // Rule 1: 先给 Context 和 Content 赋值
         for (int i = 0; i < mappings.Length; i++)
         {
-            args[i] = mappings[i].Role switch
+            if (mappings[i].Role == ParameterRole.Context)
             {
-                ParameterRole.Context => ctx,
-                ParameterRole.Content => content,
-                ParameterRole.Attribute => ResolveAttr(mappings[i], attrs),
-                _ => null
-            };
+                args[i] = ctx;
+            }
+            else if (mappings[i].Role == ParameterRole.Content)
+            {
+                args[i] = content;
+            }
         }
-        return args;
-    }
 
-    static object? ResolveAttr(ParameterMapping m, IReadOnlyDictionary<string, string> attrs)
-    {
-        if (attrs.TryGetValue(m.AttributeName!, out string? raw))
+        // Rule 2: 属性赋值与覆盖 (仅针对 Attribute 角色，内容参数不再被属性覆盖)
+        for (int i = 0; i < mappings.Length; i++)
         {
-            return ConvertValue(raw, m.ParameterType);
+            var m = mappings[i];
+            if (m.Role != ParameterRole.Attribute) continue;
+
+            string? attrKey = m.AttributeName;
+            string? attrValue = null;
+            if (attrKey != null && attrs.TryGetValue(attrKey, out attrValue))
+            {
+                // 尝试转换属性值
+                object? converted = ConvertValue(attrValue!, m.ParameterType);
+                if (converted != null || m.ParameterType.IsPointer || (Nullable.GetUnderlyingType(m.ParameterType) != null && string.IsNullOrEmpty(attrValue)))
+                {
+                    args[i] = converted;
+                }
+            }
         }
-        
-        if (m.HasDefaultValue)
+
+        // Rule 3: 默认值回退 (针对所有非 Context 参数，且尚未赋值的)
+        for (int i = 0; i < mappings.Length; i++)
         {
-            return m.DefaultValue;
+            var m = mappings[i];
+            if (m.Role == ParameterRole.Context) continue;
+            if (args[i] != null) continue;
+
+            if (m.HasDefaultValue)
+            {
+                args[i] = m.DefaultValue;
+            }
+            else
+            {
+                // 无默认值时的 fallback
+                args[i] = m.ParameterType.IsValueType ? Activator.CreateInstance(m.ParameterType) : null;
+            }
         }
-        
-        return m.ParameterType.IsValueType ? Activator.CreateInstance(m.ParameterType) : null;
+
+        return args;
     }
 
     static object? ConvertValue(string value, Type t)
