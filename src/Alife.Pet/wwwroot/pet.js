@@ -17,6 +17,74 @@
         logContainer.innerText = msg;
     }
 
+    // --- 核心变量 ---
+    let model;
+    let modelName = "";
+    let comboCount = 0;
+    let lastInteractionTime = 0;
+
+    // --- 表情配置 ---
+    const EXPS = {
+        SMILE: "exp_01",
+        BLUSH: "exp_06",
+        DIZZY: "exp_04",
+        ANGRY: "exp_08",
+        SAD: "exp_05",
+        SURPRISED: "exp_07",
+        CLOSED: "exp_03"
+    };
+
+    // --- 动作组映射 ---
+    const MOTIONS = {
+        IDLE: { group: "Idle", index: 0 },
+        PROUD: { group: "TapBody", index: 2 },
+        SHY: { group: "TapBody", index: 0 },
+        ANNOYED: { group: "TapBody", index: 1 },
+        SPECIAL_1: { group: "TapBody", index: 3 }, // 入场专用
+        SPECIAL_2: { group: "TapBody", index: 4 },
+        SPECIAL_3: { group: "TapBody", index: 5 }
+    };
+
+    // --- 台词配置 ---
+    const DIALOGUES = {
+        head: [
+            { text: "哎呀！弄乱真央的发型了喵~ (｡•́︿•̀｡)", exp: EXPS.SAD, mtn: MOTIONS.IDLE },
+            { text: "摸摸头... 真央最喜欢主人了喵！ฅ(๑*д*๑)ฅ", exp: EXPS.SURPRISED, mtn: MOTIONS.IDLE },
+            { text: "喵？主人是在和真央玩吗？(๑•́ ₃ •̀๑)", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "嘿嘿，主人的手暖暖的喵~", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "呜哇！真央的耳朵不可以用力摸喵！", exp: EXPS.BLUSH, mtn: MOTIONS.SHY },
+            { text: "主人摸得真舒服喵，都要睡着了喵... (´-ω-`)", exp: EXPS.CLOSED, mtn: MOTIONS.IDLE },
+            { text: "摸头杀！真央的能量补充完毕喵~", exp: EXPS.SMILE, mtn: MOTIONS.PROUD }
+        ],
+        body: [
+            { text: "喵呜！主人不可以乱碰这里喵~ (⁄ ⁄•⁄ω⁄•⁄ ⁄)", exp: EXPS.BLUSH, mtn: MOTIONS.SHY },
+            { text: "呜... 那里不可以喵，很痒的喵！( >﹏< )", exp: EXPS.BLUSH, mtn: MOTIONS.ANNOYED },
+            { text: "真央今天也很努力在工作喵！(*^▽^*)", exp: EXPS.SMILE, mtn: MOTIONS.PROUD },
+            { text: "肚子饿了喵... 突然好想吃小鱼干喵！(﹃ )", exp: EXPS.SURPRISED, mtn: MOTIONS.PROUD },
+            { text: "主人的手指... 闻起来有小鱼干的味道喵？", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "不准乱碰喵！不然真央要吃掉主人的钱包买罐罐喵！", exp: EXPS.ANGRY, mtn: MOTIONS.SHY },
+            { text: "哼，主人是个大色狼喵！( *・ω・)✄╰ひ╯", exp: EXPS.ANGRY, mtn: MOTIONS.ANNOYED },
+            { text: "喵喵喵，这里的毛毛很贵重的喵！", exp: EXPS.BLUSH, mtn: MOTIONS.SHY }
+        ],
+        random: [
+            { text: "喵~ 喵~ 喵~~", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "主人在做什么好玩的事情喵？(◕ᴗ◕✿)", exp: EXPS.SURPRISED, mtn: MOTIONS.IDLE },
+            { text: "真央会一直陪着你的喵~ (ฅ´ω`ฅ)", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "呼哇... 突然好想晒太阳喵... (´-ω-`)", exp: EXPS.CLOSED, mtn: MOTIONS.IDLE },
+            { text: "主人，记得偶尔要休息一下喵，别太累了喵！", exp: EXPS.SMILE, mtn: MOTIONS.IDLE },
+            { text: "真央刚才抓到了一只代码虫子喵！厉害吧喵？", exp: EXPS.SURPRISED, mtn: MOTIONS.PROUD },
+            { text: "真央在想，什么时候才能去小鱼干星球喵？", exp: EXPS.SMILE, mtn: MOTIONS.IDLE }
+        ],
+        combo: [
+            { text: "哇啊啊！主人太热情了喵，真央受不了了喵~~ (///Σ///)", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
+            { text: "喵——！！主人快住手喵，真的要晕了喵~~", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
+            { text: "坏主人！要把真央戳坏了喵喵喵！！( >﹏< )", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED },
+            { text: "救命喵！主人疯掉了喵！！Σ(っ °Д °;)っ", exp: EXPS.DIZZY, mtn: MOTIONS.SHY }
+        ]
+    };
+
+    // --- 功能函数 ---
+
     function showBubble(text, duration = 4000) {
         if (!bubble || !bubbleContainer) return;
         bubble.innerText = text;
@@ -27,35 +95,75 @@
         if (duration > 0) {
             window.bubbleTimeout = setTimeout(() => {
                 bubbleContainer.style.opacity = "0";
-                setTimeout(() => bubbleContainer.style.display = "none", 300);
+                setTimeout(() => {
+                    bubbleContainer.style.display = "none";
+                    if (model && model.expression) {
+                        model.expression(EXPS.SMILE); 
+                    }
+                }, 300);
             }, duration);
         }
     }
 
-    await new Promise(r => setTimeout(r, 500));
+    async function triggerInteraction(x, y) {
+        if (!model) return;
+        const hitAreas = await model.hitTest(x, y);
+        
+        const now = Date.now();
+        if (now - lastInteractionTime < 2500) {
+            comboCount++;
+        } else {
+            comboCount = 1;
+        }
+        lastInteractionTime = now;
 
-    const PIXI = window.PIXI;
-    const live2d = window.PIXI?.live2d || window.live2d;
+        if (!hitAreas || hitAreas.length === 0) {
+            const diag = DIALOGUES.random[Math.floor(Math.random() * DIALOGUES.random.length)];
+            model.expression(diag.exp);
+            showBubble(diag.text);
+            return;
+        }
 
-    if (!PIXI || !live2d) {
-        log(`Error: PIXI or Live2D missing.`);
-        return;
+        // 强连击判定 (5次以上才必出动作)
+        if (comboCount >= 5 && modelName === "Mao") {
+            const diag = DIALOGUES.combo[Math.floor(Math.random() * DIALOGUES.combo.length)];
+            model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+            model.expression(diag.exp);
+            showBubble(diag.text, 6000);
+            comboCount = 0;
+            return;
+        }
+
+        const h = hitAreas.map(i => i.toLowerCase());
+        let category = "random";
+        if (h.some(i => i.includes("body"))) category = "body";
+        else if (h.some(i => i.includes("head"))) category = "head";
+
+        const pool = DIALOGUES[category];
+        const diag = pool[Math.floor(Math.random() * pool.length)];
+        
+        // 【关键修复】动作概率上调到 40%，找回“灵动感”
+        const shouldPlayMotion = Math.random() < 0.4;
+        
+        log(`Interact: ${category} | Combo: ${comboCount} | Motion Chance: ${shouldPlayMotion}`);
+        
+        if (shouldPlayMotion && diag.mtn) {
+            model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+        }
+        model.expression(diag.exp);
+        showBubble(diag.text);
     }
 
+    // --- 初始化 ---
+    await new Promise(r => setTimeout(r, 500));
+    const PIXI = window.PIXI;
+    const live2d = window.PIXI?.live2d || window.live2d;
+    if (!PIXI || !live2d) { log("Error: Missing SDK"); return; }
     const { Live2DModel } = live2d;
-    
-    // 模型列表 - Mao 为首选
-    const models = [
-        "models/Mao/Mao.model3.json",
-        "models/Pio/index.json",
-        "models/Tia/index.json",
-        "models/Wanko/Wanko.model3.json",
-        "models/Rice/Rice.model3.json"
-    ];
-    let currentModelIndex = 0;
 
+    const models = ["models/Mao/Mao.model3.json"];
+    
     async function init() {
-        log("Initializing...");
         const app = new PIXI.Application({
             view: document.getElementById("canvas"),
             autoStart: true,
@@ -64,110 +172,75 @@
             backgroundAlpha: 0,
         });
 
-        let model;
-        let expressionTimeout;
-
         async function loadModel(url) {
             if (model) app.stage.removeChild(model);
-            const modelName = url.split('/').slice(-2, -1)[0];
-            log("Loading: " + modelName);
+            modelName = url.split('/').slice(-2, -1)[0];
             
             try {
                 model = await Live2DModel.from(url);
                 app.stage.addChild(model);
                 
-                // 适配缩放
                 const scale = (window.innerHeight * 0.8) / model.height;
                 model.scale.set(scale);
                 model.anchor.set(0.5, 0.5);
                 model.position.set(window.innerWidth / 2, window.innerHeight / 2);
-
-                model.on("hit", (hitAreas) => {
-                    log("Hit: " + hitAreas);
-                    const h = hitAreas.map(i => i.toLowerCase());
-                    
-                    if (modelName === "Mao") {
-                        if (h.some(i => i.includes("body"))) {
-                            const mtn = `mtn_0${Math.floor(Math.random() * 5) + 1}`;
-                            model.motion(mtn);
-                        }
-                        if (h.some(i => i.includes("head"))) {
-                            const exp = `exp_0${Math.floor(Math.random() * 8) + 1}`;
-                            model.expression(exp);
-                            model.motion("mtn_01");
-                            
-                            // 5秒后恢复正常表情
-                            clearTimeout(expressionTimeout);
-                            expressionTimeout = setTimeout(() => {
-                                // Live2DModel.expression() 不带参数通常清空当前表情
-                                if (model.expression) model.expression(); 
-                            }, 5000);
-                        }
-                    } else {
-                        if (h.some(i => i.includes("body"))) {
-                            model.motion("TapBody") || model.motion("tap_body") || model.motion("touch_01") || model.motion("Touch1") || model.motion("mtn_01");
-                        }
-                        if (h.some(i => i.includes("head"))) {
-                            model.motion("TapHead") || model.motion("tap_head") || model.motion("shake_01") || model.motion("Touch Dere1") || model.motion("mtn_02");
-                        }
-                    }
-                });
-
                 model.interactive = true;
-                log("Ready: " + modelName);
-                setTimeout(() => logContainer.style.display = "none", 2000);
+
+                // 【加固】模型加载后播放入场动画
+                setTimeout(() => {
+                    if (model && modelName === "Mao") {
+                        log("Startup Animation Triggered喵!");
+                        model.motion(MOTIONS.SPECIAL_1.group, MOTIONS.SPECIAL_1.index, PIXI.live2d.MotionPriority.FORCE);
+                        model.expression(EXPS.SMILE);
+                        showBubble("喵~ 主人你回来啦！真央一直在这里等你喵~(ฅ´ω`ฅ)");
+                    }
+                }, 1000);
                 
-                // 欢迎语
-                if (modelName === "Mao") {
-                    showBubble("喵~ 主人你回来啦！真央一直在这里等你喵~(ฅ´ω`ฅ)");
-                }
+                log("Pet System Ready.");
+                setTimeout(() => logContainer.style.display = "none", 2000);
             } catch (e) {
-                log("Error: " + e.message);
+                log("Load Error: " + e.message);
             }
         }
 
-        // --- 核心交互逻辑 ---
+        window.addEventListener("dblclick", (e) => {
+            if (e.button === 0 && (e.target.id === "canvas" || e.target.tagName === "CANVAS")) {
+                triggerInteraction(e.clientX, e.clientY);
+            }
+        });
 
-        // 1. 窗口拖动 (通过 postMessage 通知 C#)
-        let isMouseDown = false;
-        window.addEventListener("mousedown", (e) => {
-            // 点击的是画布（不是UI元素）且是左键
-            if (e.button === 0 && e.target.id === "canvas") {
-                isMouseDown = true;
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ type: 'drag-request' });
+        window.addEventListener("mousedown", async (e) => {
+            if (e.button === 0 && (e.target.id === "canvas" || e.target.tagName === "CANVAS")) {
+                if (!model) return;
+                const hitAreas = await model.hitTest(e.clientX, e.clientY);
+                if (hitAreas.length === 0) {
+                    if (window.chrome && window.chrome.webview) {
+                        window.chrome.webview.postMessage({ type: 'drag-request' });
+                    }
                 }
             }
         });
-        window.addEventListener("mouseup", () => isMouseDown = false);
 
-        // 2. 眩晕检测 (快速转圈)
-        let lastMousePos = { x: 0, y: 0 };
-        let totalDistance = 0;
-        let lastMoveTime = Date.now();
+        let lastPos = { x: 0, y: 0 };
+        let dist = 0;
+        let lastMove = Date.now();
         window.addEventListener("mousemove", (e) => {
             const now = Date.now();
-            const dt = now - lastMoveTime;
-            if (dt > 100) { totalDistance = 0; lastMoveTime = now; } // 停顿重置
+            if (now - lastMove > 100) dist = 0;
+            dist += Math.sqrt(Math.pow(e.clientX - lastPos.x, 2) + Math.pow(e.clientY - lastPos.y, 2));
+            lastPos = { x: e.clientX, y: e.clientY };
+            lastMove = now;
 
-            const dx = e.clientX - lastMousePos.x;
-            const dy = e.clientY - lastMousePos.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            totalDistance += dist;
-            lastMousePos = { x: e.clientX, y: e.clientY };
-            lastMoveTime = now;
-
-            if (totalDistance > 3000) { 
-                totalDistance = 0;
+            if (dist > 3500) {
+                dist = 0;
                 showBubble("呜哇... 别转了，真央要晕了喵！(＠_＠;)");
                 if (model && modelName === "Mao") {
-                    model.motion("mtn_02"); 
-                    model.expression("exp_04"); // 假设这个是晕的表情
+                    model.motion(MOTIONS.SHY.group, MOTIONS.SHY.index, PIXI.live2d.MotionPriority.FORCE);
+                    model.expression(EXPS.DIZZY);
                 }
             }
         });
 
-        // 3. 输入处理
         const handleSend = () => {
             const msg = chatInput.value.trim();
             if (msg) {
@@ -180,16 +253,9 @@
         };
         sendBtn.onclick = handleSend;
         chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
+        window.addEventListener("contextmenu", (e) => e.preventDefault());
 
-        // 右键切换
-        window.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            currentModelIndex = (currentModelIndex + 1) % models.length;
-            logContainer.style.display = "block";
-            loadModel(models[currentModelIndex]);
-        });
-
-        loadModel(models[currentModelIndex]);
+        loadModel(models[0]);
     }
 
     init();
