@@ -30,9 +30,8 @@ public class InteractiveExplorer
         
         Console.WriteLine("\n[指南]：");
         Console.WriteLine("1. 直接输入 XML 片段并回车，执行器会流式处理。");
-        Console.WriteLine("2. 输入 'clear' 清空屏幕并重置执行器。");
-        Console.WriteLine("3. 输入 'exit' 退出。");
-        Console.WriteLine("4. 尝试输入：<say>你好啊，<intercept>这句话被拦截</intercept>这一句会被收到。</say>");
+        Console.WriteLine("2. 输入 '<<<' 进入多行模式，输入 '>>>' 提交。");
+        Console.WriteLine("3. 输入 'clear' 重置；输入 'exit' 退出。");
         Console.WriteLine("--------------------------------------------------\n");
 
         while (true)
@@ -42,16 +41,39 @@ public class InteractiveExplorer
             Console.ResetColor();
             
             string? input = Console.ReadLine();
-            if (string.IsNullOrEmpty(input)) continue;
+            if (input == null) break;
 
-            string cmd = input.Trim().ToLower();
-            if (cmd == "exit") break;
-            if (cmd == "clear")
+            if (input.Trim() == "<<<")
             {
-                Console.Clear();
-                executor.Reset();
-                Console.WriteLine("[系统] 已重置。");
-                continue;
+                Console.WriteLine("[系统] 已进入多行模式，输入 '>>>' 结束并执行。");
+                var sb = new StringBuilder();
+                while (true)
+                {
+                    Console.Write("  | ");
+                    string? line = Console.ReadLine();
+                    if (line == null || line.Trim() == ">>>") break;
+                    sb.AppendLine(line);
+                }
+                input = sb.ToString();
+            }
+            else
+            {
+                string cmd = input.Trim().ToLower();
+                if (cmd == "exit") break;
+                if (cmd == "clear")
+                {
+                    Console.Clear();
+                    executor.Reset();
+                    Console.WriteLine("[系统] 已重置。");
+                    continue;
+                }
+                if (cmd.StartsWith("root "))
+                {
+                    string rootName = cmd.Substring(5).Trim();
+                    parser.RootTagName = rootName == "none" ? null : rootName;
+                    Console.WriteLine($"[系统] 根标签已设为: {parser.RootTagName ?? "无"}");
+                    continue;
+                }
             }
 
             // 模拟流式输入：逐字符喂入，可以清晰观察到分词触发
@@ -62,7 +84,7 @@ public class InteractiveExplorer
                 await Task.Delay(5);
             }
             
-            // 自动补齐点，为了方便交互，每次回车可以认为是一个小语块结束
+            // 自动补齐点
             await executor.FeedAsync("\n"); 
         }
 
@@ -84,6 +106,25 @@ public class InteractiveHandlers
     {
         Log("Intercept", ctx, $"拦截前: \"{content}\"", ConsoleColor.Red);
         content = "";
+    }
+
+    [XmlHandler(description: "执行简单的数学运算。")]
+    public void Calc(XmlTagContext ctx, [Description("第一个数字")] int a, [Description("第二个数字")] int b, [Description("操作符 (+, -, *, /)")] string op)
+    {
+        double result = op switch {
+            "+" => a + b,
+            "-" => a - b,
+            "*" => a * b,
+            "/" => b != 0 ? (double)a / b : 0,
+            _ => 0
+        };
+        Log("Calc", ctx, $"计算结果: {a} {op} {b} = {result}", ConsoleColor.Blue);
+    }
+
+    [XmlHandler(description: "你的专属python执行器（主人看不到噢~），每次请提供完整内容。用好了非常强大，但也很危险，妥善使用喵~")]
+    public void Python(XmlTagContext ctx, [Description("是否需要连续调用")] bool back = false)
+    {
+        Log("Python", ctx, $"Python 触发成功！back={back}", ConsoleColor.Yellow);
     }
 
     [XmlHandler(description: "元数据展示：显示当前上下文。")]

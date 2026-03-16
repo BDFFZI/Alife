@@ -5,7 +5,7 @@ using Alife.Components;
 
 Console.OutputEncoding = Encoding.UTF8;
 Console.InputEncoding = Encoding.UTF8;
-Assembly.Load("Alife.OfficialPlugins"); //官方插件没有直接依赖，所以不会自动加载，需要手动
+Assembly.Load("Alife.Function"); //官方插件没有直接依赖，所以不会自动加载，需要手动
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

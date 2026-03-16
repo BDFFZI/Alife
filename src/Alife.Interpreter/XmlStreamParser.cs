@@ -15,8 +15,8 @@ public class XmlStreamParser
         ReadCloseTag,
     }
 
-    /// <summary>开标签解析完成（标签名, 属性字典）</summary>
-    public event Func<string, IReadOnlyDictionary<string, string>, Task>? OpenTagParsed;
+    /// <summary>开标签解析完成（标签名, 属性字典, 是否自闭合）</summary>
+    public event Func<string, IReadOnlyDictionary<string, string>, bool, Task>? OpenTagParsed;
 
     /// <summary>闭标签解析完成（标签名）</summary>
     public event Func<string, Task>? CloseTagParsed;
@@ -32,6 +32,10 @@ public class XmlStreamParser
     Dictionary<string, string> currentTagAttrs = new();
     char quoteChar;
     bool isSelfClosing;
+
+    /// <summary>安全区根标签名。如果设置，则只有在该标签内部的内容才会被解析为 XML 标签。</summary>
+    public string? RootTagName { get; set; }
+    private int rootDepth = 0;
 
     public async Task FeedAsync(char ch)
     {
@@ -65,6 +69,7 @@ public class XmlStreamParser
         attrValueBuffer.Clear();
         currentTagAttrs.Clear();
         isSelfClosing = false;
+        rootDepth = 0;
     }
 
     // ═══════════════════════════════════════
@@ -232,6 +237,20 @@ public class XmlStreamParser
             return;
         }
 
+        if (ch == '>')
+        {
+            await EmitOpenTagAsync();
+            state = ParserState.Content;
+            return;
+        }
+
+        if (ch == '/')
+        {
+            isSelfClosing = true;
+            state = ParserState.WaitAttrOrClose;
+            return;
+        }
+
         await EmitRevertedTagAsTextAsync();
         await EmitTextAsync(ch);
         state = ParserState.Content;
@@ -247,6 +266,20 @@ public class XmlStreamParser
 
         if (IsWhitespace(ch))
         {
+            return;
+        }
+
+        if (ch == '>')
+        {
+            await EmitOpenTagAsync();
+            state = ParserState.Content;
+            return;
+        }
+
+        if (ch == '/')
+        {
+            isSelfClosing = true;
+            state = ParserState.WaitAttrOrClose;
             return;
         }
 
@@ -267,6 +300,20 @@ public class XmlStreamParser
 
         if (IsWhitespace(ch))
         {
+            return;
+        }
+
+        if (ch == '>')
+        {
+            await EmitOpenTagAsync();
+            state = ParserState.Content;
+            return;
+        }
+
+        if (ch == '/')
+        {
+            isSelfClosing = true;
+            state = ParserState.WaitAttrOrClose;
             return;
         }
 
@@ -292,7 +339,15 @@ public class XmlStreamParser
     {
         if (ch == '>')
         {
-            if (CloseTagParsed != null) await CloseTagParsed.Invoke(tagBuffer.ToString());
+            string tagName = tagBuffer.ToString();
+            if (RootTagName != null && tagName.Equals(RootTagName, StringComparison.OrdinalIgnoreCase))
+            {
+                rootDepth--;
+            }
+            else if (RootTagName == null || rootDepth > 0)
+            {
+                if (CloseTagParsed != null) await CloseTagParsed.Invoke(tagName);
+            }
             state = ParserState.Content;
             return;
         }
@@ -312,7 +367,25 @@ public class XmlStreamParser
     async Task EmitOpenTagAsync()
     {
         string tagName = tagBuffer.ToString();
-        if (OpenTagParsed != null) await OpenTagParsed.Invoke(tagName, currentTagAttrs);
+
+        // 处理根标签逻辑
+        if (RootTagName != null && tagName.Equals(RootTagName, StringComparison.OrdinalIgnoreCase))
+        {
+            rootDepth++;
+            if (isSelfClosing) rootDepth--; // 自闭合根标签瞬开瞬关
+            return; // 根标签本身不作为业务标签发射
+        }
+
+        // 如果设置了根标签且当前不在根标签内，则将标签还原为文本
+        if (RootTagName != null && rootDepth <= 0)
+        {
+            await EmitRevertedTagAsTextAsync();
+            if (isSelfClosing) await EmitTextAsync(" /");
+            await EmitTextAsync('>');
+            return;
+        }
+
+        if (OpenTagParsed != null) await OpenTagParsed.Invoke(tagName, currentTagAttrs, isSelfClosing);
         if (isSelfClosing)
         {
             if (CloseTagParsed != null) await CloseTagParsed.Invoke(tagName);

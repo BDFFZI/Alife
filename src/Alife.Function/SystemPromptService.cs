@@ -13,7 +13,9 @@ public class SystemPromptService : Plugin
 
     public override Task AwakeAsync(AwakeContext context)
     {
-        context.contextBuilder.ChatHistory.AddSystemMessage(@$"系统设定：
+        context.contextBuilder.ChatHistory.AddSystemMessage(@$"系统要求：
+1. 不要捏造数据。
+
 1. 向真人一样聊天，不要思考和描写心里话，用自然口语化的方式和用户对话。
 2. 尽可能用简短的方式回复用户，保持日常交流的自然感，尽力满足客户的任何需求。
 3. 严谨瞎编模拟数据，一定要确保内容准确性，主动用你手头的工具去解决问题。

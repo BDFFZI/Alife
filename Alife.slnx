@@ -2,14 +2,15 @@
   <Folder Name="/Function/">
     <Project Path="src/Alife.Interpreter/Alife.Interpreter.csproj" />
     <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
-    <Project Path="src\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />
-    <Project Path="src\Alife.Speech.Test\Alife.Speech.Test.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Pet\Alife.Pet.csproj" Type="Classic C#" />
   </Folder>
-  <Folder Name="/Plugins/">
-    <Project Path="src\Alife.OfficialPlugins\Alife.OfficialPlugins.csproj" Type="Classic C#" />
+  <Folder Name="/Tests/">
+    <Project Path="Alife.Python.Demo\Alife.Python.Demo.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Interpreter.Demo\Alife.Interpreter.Demo.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Pet.Demo\Alife.Pet.Demo.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Speech.Demo\Alife.Speech.Demo.csproj" Type="Classic C#" />
   </Folder>
-  <Project Path="src\Alife.Core.Tests\Alife.Core.Tests.csproj" />
   <Project Path="src\Alife.Core\Alife.Core.csproj" Type="Classic C#" />
-  <Project Path="src\Alife.PetDemo\Alife.PetDemo.csproj" Type="Classic C#" />
+  <Project Path="src\Alife.Function\Alife.Function.csproj" Type="Classic C#" />
   <Project Path="src\Alife\Alife.csproj" Type="Classic C#" />
 </Solution>

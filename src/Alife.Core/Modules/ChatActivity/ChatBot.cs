@@ -7,9 +7,9 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 public class ChatBot : IAsyncDisposable
 {
-    public event Action? ChatStart;
-    public event Action? ChatEnd;
-    public event Action<string>? ChatHandle;
+    public event Action<string>? ChatSent;
+    public event Action<string>? ChatReceived;
+    public event Action? ChatOver;
     public event Action<ChatMessageContent>? ChatHistoryAdd;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
     public bool IsChatting => isChatting.CurrentCount == 0;
@@ -18,9 +18,9 @@ public class ChatBot : IAsyncDisposable
     {
         if (IsChatting)
         {
-            if (cancellationTokenSource != null)
+            if (cancelChatSource != null)
             {
-                await cancellationTokenSource.CancelAsync();
+                await cancelChatSource.CancelAsync();
                 llmAgentThread.ChatHistory.RemoveAt(llmAgentThread.ChatHistory.Count - 1);
             }
         }
@@ -28,12 +28,12 @@ public class ChatBot : IAsyncDisposable
         await isChatting.WaitAsync();
         {
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, $"[{DateTime.Now}]{message}");
-            cancellationTokenSource = new CancellationTokenSource();
+            cancelChatSource = new CancellationTokenSource();
 
-            ChatStart?.Invoke();
+            ChatSent?.Invoke(message);
             string? error = null;
             var enumerator = llmAgent
-                .InvokeStreamingAsync(llmAgentThread, cancellationToken: cancellationTokenSource.Token)
+                .InvokeStreamingAsync(llmAgentThread, cancellationToken: cancelChatSource.Token)
                 .GetAsyncEnumerator();
             while (true)
             {
@@ -53,13 +53,13 @@ public class ChatBot : IAsyncDisposable
                 }
 
                 string? content = enumerator.Current.Message?.Content;
-                if (string.IsNullOrWhiteSpace(content) == false)
+                if (content != null) //只要不是空都要接受，包括空白符，因为会有回车之类的符号
                 {
                     yield return content;
-                    ChatHandle?.Invoke(content);
+                    ChatReceived?.Invoke(content);
                 }
             }
-            ChatEnd?.Invoke();
+            ChatOver?.Invoke();
 
             for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
                 ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
@@ -95,6 +95,7 @@ public class ChatBot : IAsyncDisposable
         while (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
         messageCache.Enqueue(message);
+        lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
     }
     public bool Flush()
     {
@@ -118,26 +119,16 @@ public class ChatBot : IAsyncDisposable
     readonly ChatCompletionAgent llmAgent;
     readonly ChatHistoryAgentThread llmAgentThread;
     readonly ConcurrentQueue<string> messageCache;
-    readonly PeriodicTimer periodicTimer;
     readonly SemaphoreSlim isChatting;
-    CancellationTokenSource? cancellationTokenSource;
+    CancellationTokenSource? cancelChatSource;
     int lastContentIndex;
+    //计时器
+    CancellationTokenSource? cancelTimerSource;
+    int currentTime;
+    int lastAutoFlushTime;
+    const int DeltaTime = 1;
 
-    async void Update()
-    {
-        try
-        {
-            while (await periodicTimer.WaitForNextTickAsync())
-            {
-                //定时推送缓存文本
-                Flush();
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-    }
+
     public ChatBot(ChatCompletionAgent llmAgent, ChatHistoryAgentThread llmAgentThread)
     {
         this.llmAgent = llmAgent;
@@ -145,16 +136,36 @@ public class ChatBot : IAsyncDisposable
         messageCache = new ConcurrentQueue<string>();
         isChatting = new SemaphoreSlim(1, 1);
 
-        periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         Update();
     }
 
     public async ValueTask DisposeAsync()
     {
-        periodicTimer.Dispose();
         await Task.Run(() => {
-            while (Flush() == false) { Thread.Sleep(1000); }
-            while (IsChatting) { Thread.Sleep(1000); }
+            while (Flush() == false) { Thread.Sleep(100); }
+            while (IsChatting) { Thread.Sleep(100); }
         });
+    }
+
+    async void Update()
+    {
+        try
+        {
+            cancelTimerSource = new CancellationTokenSource();
+            PeriodicTimer periodicTimer = new(TimeSpan.FromSeconds(DeltaTime));
+            while (await periodicTimer.WaitForNextTickAsync(cancelTimerSource.Token))
+            {
+                currentTime += DeltaTime;
+                if (currentTime - lastAutoFlushTime > 2)
+                {
+                    Flush();
+                    lastAutoFlushTime = currentTime;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 }

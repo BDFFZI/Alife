@@ -55,19 +55,17 @@ public class XmlHandlerTable
             foreach (var p in attrs)
             {
                 string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $"({p.Description})";
-                sb.Append($" {p.Name}:{p.Type}{pDesc}");
+                sb.Append($" {p.Name}=\"{p.Type}\"{pDesc}");
             }
             
-            if (content != null)
+            sb.Append(">");
+            if (content != null && !string.IsNullOrEmpty(content.Description))
             {
-                string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : $"({content.Description})";
-                sb.Append($">{cDesc}</{tagName}>");
+                sb.Append($"({content.Description})");
             }
-            else
-            {
-                sb.Append(" />");
-            }
-            sb.AppendLine($": {description}");
+            sb.Append($"({description})");
+            sb.Append($"</{tagName}>");
+            sb.AppendLine();
         }
         return sb.ToString();
     }

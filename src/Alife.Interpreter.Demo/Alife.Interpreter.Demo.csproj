@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsTestProject>false</IsTestProject>
+    <RootNamespace>Alife.Interpreter.Test</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

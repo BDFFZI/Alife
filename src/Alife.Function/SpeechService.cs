@@ -61,14 +61,14 @@ public class SpeechService : Plugin, IAsyncDisposable
 
         //持续追加上下文
         chatActivity.ChatBot.ChatHistoryAdd += OnChatHistoryAdd;
-        chatActivity.ChatBot.ChatStart += OnChatStart;
+        chatActivity.ChatBot.ChatSent += OnChatSent;
 
         //开始语音识别
         recognizer.Start();
 
         return Task.CompletedTask;
     }
-    void OnChatStart()
+    void OnChatSent(string _)
     {
         StopSynthesizer(); //新对话打断旧对话
     }

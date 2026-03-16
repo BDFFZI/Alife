@@ -21,7 +21,9 @@ public enum TagStatus
     /// <summary>内容：由于分词或标签嵌套触发的中间内容处理。</summary>
     Content,
     /// <summary>闭区间：标签即将关闭，处理最后的内容片段。</summary>
-    Closing
+    Closing,
+    /// <summary>单次调用：针对自闭合或孤儿标签的特殊状态，仅触发一次且无内容。</summary>
+    OneShot
 }
 
 /// <summary>

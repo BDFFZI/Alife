@@ -65,7 +65,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
             }
 
             //发生对话时重新计时
-            chatBot.ChatStart += () => {
+            chatBot.ChatSent += _ => {
                 currentTime = 0;
             };
 

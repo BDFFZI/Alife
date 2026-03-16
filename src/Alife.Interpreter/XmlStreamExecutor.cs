@@ -78,7 +78,20 @@ public class XmlStreamExecutor
     }
 
     /// <summary>刷新所有待执行的闭合标签调用（流结束时必须调用）。</summary>
-    public void Flush() { }
+    public async Task FlushAsync()
+    {
+        if (contentBuffer.Length > 0 && tagStack.Count > 0)
+        {
+            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, TagStatus.Content);
+            contentBuffer.Clear();
+        }
+
+        while (tagStack.Count > 0)
+        {
+            TagEntry entry = tagStack.Pop();
+            await ProcessCurrentStackAsync(entry, "", null, TagStatus.Closing);
+        }
+    }
 
     /// <summary>重置全部状态以便复用。当输入不完整 XML 导致状态错误时调用此方法恢复。</summary>
     public void Reset()
@@ -113,13 +126,16 @@ public class XmlStreamExecutor
     //  事件处理
     // ═══════════════════════════════════════
 
-    async Task OnOpenTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes)
+    async Task OnOpenTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes, bool isSelfClosing)
     {
         // 遇到新标签时，如果缓冲区有内容，说明这些内容属于它外层的 active 标签
-        if (contentBuffer.Length > 0 && tagStack.Count > 0)
+        if (contentBuffer.Length > 0)
         {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, TagStatus.Content);
-            contentBuffer.Clear();
+            if (tagStack.Count > 0)
+            {
+                await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, TagStatus.Content);
+            }
+            contentBuffer.Clear(); // 无论是否有外层，新标签开启时都应清空缓冲区，防止“你好<say>”中的“你好”流进 say 中
         }
 
         var entry = new TagEntry {
@@ -128,25 +144,40 @@ public class XmlStreamExecutor
         };
         tagStack.Push(entry);
 
+        if (isSelfClosing)
+        {
+            await ProcessCurrentStackAsync(entry, "", null, TagStatus.OneShot);
+            tagStack.Pop(); // 弹出
+            return;
+        }
+
         // [Specification 1] 开区间必定执行一次
         await ProcessCurrentStackAsync(null, "", null, TagStatus.Opening);
     }
 
     async Task OnCloseTagAsync(string tagName)
     {
-        if (TryPopTag(tagName, out TagEntry closedEntry))
+        // 查找栈中是否有匹配的标签
+        if (tagStack.Any(e => e.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase)))
         {
-            // 当前标签闭合，获取它闭合前累积的内容（最后一个 chunk）
-            string lastChunk = contentBuffer.ToString();
-            contentBuffer.Clear();
+            // 自动闭合所有嵌套在目标标签内部的其它未闭合标签
+            while (tagStack.Count > 0)
+            {
+                TagEntry entry = tagStack.Pop();
+                string lastChunk = contentBuffer.ToString();
+                contentBuffer.Clear();
 
-            // [Specification 1] 闭区间必定执行一次
-            await ProcessCurrentStackAsync(closedEntry, lastChunk, null, TagStatus.Closing);
+                await ProcessCurrentStackAsync(entry, lastChunk, null, TagStatus.Closing);
+
+                if (entry.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase))
+                    break;
+            }
             return;
         }
 
-        // 栈中无匹配标签，还原为文本内容
-        contentBuffer.Append($"</{tagName}>");
+        // 栈中无匹配标签（孤儿闭合标签）：触发一次 OneShot
+        var orphanEntry = new TagEntry { Name = tagName, Attributes = new() };
+        await ProcessCurrentStackAsync(orphanEntry, "", null, TagStatus.OneShot);
     }
 
     async Task OnTextAsync(char ch)
