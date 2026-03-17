@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
-        Title="Alife Pet" Height="600" Width="400"
+        Title="Alife Pet" Height="540" Width="360"
         WindowStyle="None" 
         AllowsTransparency="True" 
         Background="#01FFFFFF"

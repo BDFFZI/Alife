@@ -106,12 +106,13 @@ public class ChatBot : IAsyncDisposable
         {
             //组合消息
             StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("[来自系统的消息缓存](这不是主人的消息，请先用think思考后再看情况回复)");
             foreach (string message in messageCache)
                 stringBuilder.AppendLine(message);
             messageCache.Clear();
 
             //发送消息
-            Chat(stringBuilder.ToString(), AuthorRole.System);
+            Chat(stringBuilder.ToString());
         }
         return true;
     }

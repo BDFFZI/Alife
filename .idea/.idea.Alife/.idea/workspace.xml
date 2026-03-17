@@ -17,8 +17,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/src/Alife.Function/InterpreterService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/InterpreterService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,14 +53,14 @@
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9a6b1457cbcf17db31a383ba49ef9bcc786cf3ef77146d997eee499b27a46d/Object.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/a7099cf767e20d1d551f046f222848cbf36af5e38d079c8179e304666efc85/Process.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/e7d733c07fdf5a9514c7fbaed95d5211f53e38f3594d020fe2969f0e4c44a15/TaskCompletionSource.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Function/ChatService.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Function/ContextService.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Function/InterpreterService.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Function/SystemPromptService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="Toolset" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
@@ -70,24 +74,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    ".NET 启动设置配置文件.Alife: http.executor": "Debug",
-    ".NET 项目.Alife.Pet.executor": "Debug",
-    ".NET 项目.Alife.PetDemo.executor": "Debug",
-    ".NET 项目.Alife.Python.Demo.executor": "Debug",
-    ".NET 项目.Plugins\\Alife.Plugins.Official.Test.executor": "Debug",
-    "25bc1463-fe90-4ba7-8638-0cdfdd1843ae.executor": "Debug",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "XThreadsFramesViewSplitterKey": "0.21653543",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;.NET 启动设置配置文件.Alife: http.executor&quot;: &quot;Debug&quot;,
+    &quot;.NET 项目.Alife.Pet.executor&quot;: &quot;Debug&quot;,
+    &quot;.NET 项目.Alife.PetDemo.executor&quot;: &quot;Debug&quot;,
+    &quot;.NET 项目.Alife.Python.Demo.executor&quot;: &quot;Debug&quot;,
+    &quot;.NET 项目.Plugins\\Alife.Plugins.Official.Test.executor&quot;: &quot;Debug&quot;,
+    &quot;25bc1463-fe90-4ba7-8638-0cdfdd1843ae.executor&quot;: &quot;Debug&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;XThreadsFramesViewSplitterKey&quot;: &quot;0.21653543&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
-}]]></component>
-  <component name="RunManager" selected=".NET 项目.Alife.Python.Demo">
+}</component>
+  <component name="RunManager" selected=".NET 项目.Alife.Pet">
     <configuration name="Alife.Core.Test" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
       <option name="PROGRAM_PARAMETERS" value="" />
@@ -336,15 +341,15 @@
     </configuration>
     <list>
       <item itemvalue=".NET 启动设置配置文件.Alife: http" />
-      <item itemvalue=".NET 项目.Alife.Pet" />
-      <item itemvalue=".NET 项目.Alife.PetDemo" />
-      <item itemvalue=".NET 项目.Alife.Python.Demo" />
-      <item itemvalue=".NET 项目.Alife.Live2D.Test" />
-      <item itemvalue=".NET 项目.Alife.Speech" />
-      <item itemvalue=".NET 项目.Alife.Live2D" />
       <item itemvalue=".NET 项目.Alife.Core.Test" />
       <item itemvalue=".NET 项目.Alife.Interpreter.Test" />
+      <item itemvalue=".NET 项目.Alife.Live2D.Test" />
+      <item itemvalue=".NET 项目.Alife.Live2D" />
+      <item itemvalue=".NET 项目.Alife.PetDemo" />
+      <item itemvalue=".NET 项目.Alife.Pet" />
+      <item itemvalue=".NET 项目.Alife.Python.Demo" />
       <item itemvalue=".NET 项目.Alife.Speech.Test" />
+      <item itemvalue=".NET 项目.Alife.Speech" />
       <item itemvalue=".NET 项目.Plugins\Alife.Plugins.Official.Test" />
     </list>
     <recent_temporary>
@@ -362,6 +367,9 @@
       <updated>1773488672824</updated>
     </task>
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
   </component>
   <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />

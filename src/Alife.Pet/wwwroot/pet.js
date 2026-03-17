@@ -1,5 +1,5 @@
-(async function() {
-    const logContainer = document.getElementById("log-container") || (function() {
+(async function () {
+    const logContainer = document.getElementById("log-container") || (function () {
         const el = document.createElement("div");
         el.id = "log-container";
         el.style.cssText = "position:fixed; top:10px; left:10px; color:white; background:rgba(0,0,0,0.5); font-family:sans-serif; font-size:12px; pointer-events:none; z-index:9999; padding:5px; border-radius:4px;";
@@ -123,7 +123,7 @@
         bubbleContainer.style.transition = "opacity 0.3s";
         // 强制重新渲染并显示
         setTimeout(() => bubbleContainer.style.opacity = "1", 10);
-        
+
         if (duration > 0) {
             isSpeaking = true;
             // 说话时正视前方
@@ -136,7 +136,7 @@
                     isSpeaking = false;
                     // 彻底清除说话状态后再看鼠标
                     if (model && model.expression) {
-                        model.expression(EXPS.SMILE); 
+                        model.expression(EXPS.SMILE);
                     }
                 }, 300);
             }, duration);
@@ -146,7 +146,7 @@
     async function triggerInteraction(x, y) {
         if (!model) return;
         const hitAreas = await model.hitTest(x, y);
-        
+
         const now = Date.now();
         if (now - lastInteractionTime < 2500) {
             comboCount++;
@@ -162,7 +162,7 @@
             if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
             model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
             model.expression(diag.exp);
-            
+
             // 发送 Poke 事件给 AI
             postToHost({ type: "poke", text: `(连击干扰) 主人一直在连戳真央（Combo ${comboCount}），真央感觉要坏掉了喵！` });
             return; // 【关键】如果是特殊交互，不再弹出本地的随机气泡，防止冲突喵
@@ -176,10 +176,10 @@
 
         const pool = DIALOGUES[category];
         const diag = pool[Math.floor(Math.random() * pool.length)];
-        
+
         const shouldPlayMotion = Math.random() < 0.4;
         log(`Interact: ${category} | Combo: ${comboCount} | Motion: ${shouldPlayMotion}`);
-        
+
         if (shouldPlayMotion && diag.mtn) {
             model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
         }
@@ -195,9 +195,10 @@
     const { Live2DModel } = live2d;
 
     const models = ["models/Mao/Mao.model3.json"];
-    
+
     function resetGaze() {
         if (model && model.internalModel?.coreModel) {
+            console.log(lastMouseMoveTime);
             const core = model.internalModel.coreModel;
             const params = ["ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeBallX", "ParamEyeBallY", "ParamBodyAngleX"];
             params.forEach(p => {
@@ -218,15 +219,15 @@
         async function loadModel(url) {
             if (model) app.stage.removeChild(model);
             modelName = url.split('/').slice(-2, -1)[0];
-            
+
             try {
                 model = await Live2DModel.from(url);
                 app.stage.addChild(model);
-                
-                const scale = (window.innerHeight * 0.8) / model.height;
+
+                const scale = (window.innerHeight * 0.9) / model.height;
                 model.scale.set(scale);
                 model.anchor.set(0.5, 0.5);
-                model.position.set(window.innerWidth / 2, window.innerHeight / 2);
+                model.position.set(window.innerWidth / 2, window.innerHeight / 2 + window.innerHeight * -0.08);
                 model.interactive = true;
 
                 setTimeout(() => {
@@ -237,7 +238,7 @@
                         showBubble("喵~ 主人你回来啦！真央一直在这里等你喵~(ฅ´ω`ฅ)");
                     }
                 }, 1000);
-                
+
                 log("Pet System Ready.");
                 setTimeout(() => logContainer.style.display = "none", 2000);
             } catch (e) {
@@ -288,7 +289,7 @@
                         // 播放“散步/小跑”动作，并尝试循环（如果支持）
                         // 简单处理：如果时间较长，连播两次或增加循环逻辑
                         model.motion(MOTIONS.SPECIAL_2.group, MOTIONS.SPECIAL_2.index, PIXI.live2d.MotionPriority.FORCE);
-                        
+
                         // 如果位移时间较长，在中间点再补一个动画以维持视觉效果
                         if (duration > 2000) {
                             setTimeout(() => {
@@ -331,7 +332,7 @@
                 // 将屏幕坐标转换为相对于窗口中心的偏移 (-1 ~ 1)
                 const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
                 const ndcY = (e.clientY / window.innerHeight) * 2 - 1;
-                
+
                 if (model.internalModel?.coreModel) {
                     const core = model.internalModel.coreModel;
                     const setParam = (id, val) => {
@@ -347,10 +348,10 @@
 
             // 快速移动检测 (原有逻辑)
             const move = Math.sqrt(Math.pow(e.clientX - lastPos.x, 2) + Math.pow(e.clientY - lastPos.y, 2));
-            
+
             if (now - lastMove > 100) dist *= 0.5; // 恢复适中的衰减
             dist += move;
-            
+
             lastPos = { x: e.clientX, y: e.clientY };
             lastMove = now;
 
@@ -384,8 +385,8 @@
 
         // 视线重置计时器 (如果鼠标 3 秒不动，视线回归正前方)
         setInterval(() => {
-            const now = Date.now();
             // 条件：鼠标超过 3 秒没动，且当前不是说话状态
+            const now = Date.now();
             if (now - lastMouseMoveTime > 3000 && !isSpeaking) {
                 resetGaze();
             }

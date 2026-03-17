@@ -19,10 +19,17 @@ public class OneBotService : Plugin
     private long _botId = 0;
     private bool _isGroupEnabled = true;
 
+    // 表情包资产：文件名 -> 完整路径
+    private readonly Dictionary<string, string> _emoteInventory = new();
+
     // 运行时上下文，分类型缓存最后一次互动的目标
     private long _lastPrivateTarget = 0;
     private long _lastGroupTarget = 0;
     private string _lastType = "private"; // 整体最后一次互动的类型
+
+    // 简单的出站去重：防止 AI 在短时间内对同一目标发送完全相同的消息
+    private string _lastSentMessage = "";
+    private long _lastSentTarget = 0;
 
     // 群消息缓存：groupId -> 内容序列
     private readonly Dictionary<long, StringBuilder> _groupBuffers = new();
@@ -39,6 +46,14 @@ public class OneBotService : Plugin
     {
         var config = _configurationSystem.GetConfiguration(typeof(OneBotService)) as OneBotConfig ?? new OneBotConfig();
         _isGroupEnabled = config.IsGroupEnabled;
+        
+        // 扫描并注入表情包库说明
+        string emotePrompt = ScanEmotesToPrompt();
+        if (!string.IsNullOrEmpty(emotePrompt))
+        {
+            context.contextBuilder.ChatHistory.AddSystemMessage(emotePrompt);
+        }
+
         Console.WriteLine($"[OneBot] 插件唤醒，群消息监控状态: {(_isGroupEnabled ? "开启" : "关闭")}");
         return Task.CompletedTask;
     }
@@ -55,6 +70,53 @@ public class OneBotService : Plugin
         await ConnectAsync();
     }
 
+    private string ScanEmotesToPrompt()
+    {
+        try
+        {
+            string emotePath = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
+            if (!Directory.Exists(emotePath))
+            {
+                Directory.CreateDirectory(emotePath);
+                return string.Empty;
+            }
+
+            var files = Directory.GetFiles(emotePath, "*.*")
+                .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
+                .ToList();
+
+            if (files.Count == 0) return string.Empty;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("# QQ 表情包使用指南");
+            sb.AppendLine("你拥有一个本地表情包库。当你想表达特定情绪或与群友斗图时，请使用 `<qimage />` 标签。");
+            sb.AppendLine("**重要规则：**");
+            sb.AppendLine("1. 必须使用 `<Interpreter><qimage file=\"...\" /></Interpreter>` 完整格式。");
+            sb.AppendLine("2. 即使是自闭合标签，也必须放在 `<Interpreter>` 块中才能生效。");
+            sb.AppendLine("\n**当前可用的本地表情包（file 路径）：**");
+            
+            _emoteInventory.Clear();
+            foreach (var file in files)
+            {
+                string name = Path.GetFileNameWithoutExtension(file);
+                string fullPath = Path.GetFullPath(file);
+                _emoteInventory[name] = fullPath;
+                sb.AppendLine($"- {name}: `{fullPath}`");
+            }
+
+            sb.AppendLine("\n**用法示例：**");
+            sb.AppendLine("如果你想发送“生气”的表情，回复：`<Interpreter><qimage file=\"[对应生气图片的绝对路径]\" /></Interpreter>`");
+            
+            Console.WriteLine($"[OneBot] 自动发现 {files.Count} 个表情包并注入提示词。");
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OneBot] 发现表情包异常: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
     private Task FlushGroupBuffer(long groupId)
     {
         string batch;
@@ -64,7 +126,7 @@ public class OneBotService : Plugin
             batch = sb.ToString();
             _groupBuffers.Remove(groupId);
         }
-        Console.WriteLine($"[OneBot] 缓冲区强制刷新：推送群 {groupId} 的聚合消息。");
+        Console.WriteLine($"[OneBot] 强制刷新群 {groupId} 缓存：\n---\n{batch}\n---");
         _chatActivity.ChatBot.Poke(batch);
         return Task.CompletedTask;
     }
@@ -88,10 +150,10 @@ public class OneBotService : Plugin
                 }
             }
 
-            foreach (var batch in batches.Values)
+            foreach (var pair in batches)
             {
-                Console.WriteLine("[OneBot] 全局周期同步：批量推送已缓存的群消息。");
-                _chatActivity.ChatBot.Poke(batch);
+                Console.WriteLine($"[OneBot] 循环推送群 {pair.Key} 缓存：\n---\n{pair.Value}\n---");
+                _chatActivity.ChatBot.Poke(pair.Value);
             }
         }
     }
@@ -113,9 +175,18 @@ public class OneBotService : Plugin
 
         if (finalTarget == 0)
         {
-            Console.WriteLine($"[OneBot] 发送失败：无法确定 {finalType} 类型下的目标 ID (请告知 AI 明确目标)。");
+            Console.WriteLine($"[OneBot] 发送失败：无法确定 {finalType} 类型下的目标 ID。");
             return;
         }
+
+        // 程序端去重：如果 AI 试图对同一目标重复完全相同的话，直接拦截
+        if (finalTarget == _lastSentTarget && message == _lastSentMessage)
+        {
+            Console.WriteLine($"[OneBot] 拦截重复发送请求 (Target: {finalTarget}): {message.Replace("\n", " ")}");
+            return;
+        }
+        _lastSentMessage = message;
+        _lastSentTarget = finalTarget;
 
         string action = finalType == "group" ? "send_group_msg" : "send_private_msg";
         
@@ -141,6 +212,46 @@ public class OneBotService : Plugin
     }
 
     [XmlHandler]
+    [Description("发送 QQ 图片。file: 图片 URL、本地路径或 Base64 (必选)；target: QQ/群号 (可选)；type: 'private'/'group' (可选)。")]
+    public async Task QImage(XmlTagContext ctx, string file, long target = 0, string type = "")
+    {
+        if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
+        if (string.IsNullOrWhiteSpace(file)) return;
+
+        string finalType = !string.IsNullOrEmpty(type) ? type : _lastType;
+        long finalTarget = target != 0 ? target : (finalType == "group" ? _lastGroupTarget : _lastPrivateTarget);
+
+        if (finalTarget == 0)
+        {
+            Console.WriteLine($"[OneBot] 图片发送失败：无法确定 {finalType} 类型下的目标 ID。");
+            return;
+        }
+
+        string message = $"[CQ:image,file={file}]";
+        string action = finalType == "group" ? "send_group_msg" : "send_private_msg";
+        
+        var payload = new {
+            action = action,
+            @params = new Dictionary<string, object> {
+                { finalType == "group" ? "group_id" : "user_id", finalTarget },
+                { "message", message }
+            }
+        };
+
+        var json = JsonConvert.SerializeObject(payload);
+        if (_ws.State == WebSocketState.Open)
+        {
+            await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)), 
+                WebSocketMessageType.Text, true, CancellationToken.None);
+            Console.WriteLine($"[OneBot] 已通过 {action} 发送图片至 {finalTarget}: {file}");
+        }
+        else
+        {
+            Console.WriteLine($"[OneBot] 图片发送失败，WebSocket 未开启: {finalTarget}");
+        }
+    }
+
+    [XmlHandler]
     [Description("开启或关闭普通群聊消息监听。关闭后仅响应私聊和 @ 提到。")]
     public void QToggleGroup(XmlTagContext ctx, bool enabled)
     {
@@ -150,7 +261,6 @@ public class OneBotService : Plugin
         
         string stateStr = enabled ? "开启" : "关闭";
         Console.WriteLine($"[OneBot] 群聊监听已人工切换为: {stateStr}");
-        _chatActivity.ChatBot.Poke($"[系统] 群聊监听已成功{stateStr}");
     }
 
     private void UpdateGroupMonitoring(bool enabled)
@@ -168,6 +278,13 @@ public class OneBotService : Plugin
             _ws = new ClientWebSocket();
             await _ws.ConnectAsync(new Uri(_wsUrl), CancellationToken.None);
             Console.WriteLine($"[OneBot] 成功连接至 WebSocket: {_wsUrl}");
+            
+            // 主动请求登录信息以获取 Bot ID
+            var getInfo = new { action = "get_login_info", @params = new { }, echo = "init_bot_id" };
+            var json = JsonConvert.SerializeObject(getInfo);
+            await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)), 
+                WebSocketMessageType.Text, true, CancellationToken.None);
+
             _ = Task.Run(ReceiveLoop);
         } catch (Exception ex) {
             Console.WriteLine($"[OneBot] 连接失败: {ex.Message}");
@@ -186,7 +303,8 @@ public class OneBotService : Plugin
                 await HandleMessage(json);
             }
         } catch (Exception ex) {
-            Console.WriteLine($"[OneBot] 链路异常: {ex.Message}");
+            if (_ws.State != WebSocketState.Aborted)
+                Console.WriteLine($"[OneBot] 链路异常: {ex.Message}");
             await Task.Delay(5000);
             _ = ConnectAsync();
         }
@@ -197,12 +315,24 @@ public class OneBotService : Plugin
         try {
             var data = JObject.Parse(json);
             
-            // 基础调试：检测 Bot 账号 ID
+            // 处理 API 响应（如 get_login_info）
+            if (data["echo"]?.ToString() == "init_bot_id")
+            {
+                var userIdNode = data["data"]?["user_id"];
+                if (userIdNode != null)
+                {
+                    _botId = userIdNode.Value<long>();
+                    Console.WriteLine($"[OneBot] 初始化成功，检测到 Bot ID: {_botId}");
+                }
+                return;
+            }
+
+            // 基础调试：从任何包含 self_id 的推送中同步 Bot ID
             if (data["self_id"] != null) {
                 long sid = data["self_id"]?.Value<long>() ?? 0;
                 if (sid != 0 && _botId != sid) {
                     _botId = sid;
-                    Console.WriteLine($"[OneBot] 识别到登录账号 ID: {_botId}");
+                    Console.WriteLine($"[OneBot] 同步 Bot 账号 ID: {_botId}");
                 }
             }
 
@@ -216,9 +346,17 @@ public class OneBotService : Plugin
 
             long userId = data["user_id"]?.Value<long>() ?? 0;
             long groupId = data["group_id"]?.Value<long>() ?? 0;
+            long selfIdInPacket = data["self_id"]?.Value<long>() ?? 0;
 
-            // 重要：如果是机器人自己发的同步/回显消息，必须拦截，否则会造成对话死循环
+            // 绝杀屏蔽：如果是机器人自己发的消息（不论是回显还是同步），直接无视屏蔽
+            // 优先使用数据包自带的 self_id 进行对比，这是最瞬时且可靠的判断方式
+            if (selfIdInPacket != 0 && userId == selfIdInPacket) return;
             if (_botId != 0 && userId == _botId) return;
+            
+            // 兜底：某些 OneBot 版本的 sender 结构体检查
+            var senderId = data["sender"]?["user_id"]?.Value<long>() ?? 0;
+            if (selfIdInPacket != 0 && senderId == selfIdInPacket) return;
+            if (_botId != 0 && senderId == _botId) return;
 
             // 更新细分上下文 ID（只要是他人消息就更新）
             _lastType = type;
@@ -228,10 +366,10 @@ public class OneBotService : Plugin
                 _lastPrivateTarget = userId;
             }
 
-            // 格式化消息标题
+            // 格式化消息标题：去除冗余的回复指令，让 AI 根据 System Prompt 里的规则自行判断
             string contextTag = type == "group" 
-                ? $"[消息来源: 群聊 {groupId}, 正在发言的人 ID: {userId}]（注：如果需要回复此人，请在回复开头加上 [CQ:at,qq={userId}]）"
-                : $"[消息来源: 私聊 {userId}]";
+                ? $"[群聊 {groupId}, 发言人 ID: {userId}]"
+                : $"[私聊 {userId}]";
                 
             string formattedMsg = $"{contextTag} {message}";
 
@@ -244,15 +382,17 @@ public class OneBotService : Plugin
                 {
                     UpdateGroupMonitoring(true);
                     Console.WriteLine($"[OneBot] 群 {groupId} 的 @ 提到触发了自动唤醒。");
+                    // 仅在自动唤醒时给 AI 一个微小的暗示，让它知道自己进入了全量监听状态
+                    _chatActivity.ChatBot.Poke($"[系统] 已由针对你的艾特触发自动开启群聊监听。");
                 }
                 
-                // 被 @ 时立即清空该群之前的未处理缓存
+                // 被 @ 时立即清空该群之前的未处理缓存，保证语境连贯
                 if (type == "group") await FlushGroupBuffer(groupId);
             }
 
             if (type == "private" || isOwner || isAtMe)
             {
-                Console.WriteLine($"[OneBot] 转发实时指令 -> AI: {formattedMsg}");
+                Console.WriteLine($"[OneBot] 转发实时消息 -> AI: {formattedMsg}");
                 await _chatActivity.ChatBot.ChatAsync(formattedMsg);
             }
             else if (type == "group" && _isGroupEnabled)
@@ -266,7 +406,7 @@ public class OneBotService : Plugin
                     }
                     sb.AppendLine(formattedMsg);
                 }
-                Console.WriteLine($"[OneBot] 已记录群 {groupId} 缓存消息。");
+                Console.WriteLine($"[OneBot] 已记录来自群 {groupId} 的缓存消息。");
             }
         } catch (Exception ex) {
             Console.WriteLine($"[OneBot] 处理消息异常: {ex.Message}");
@@ -283,27 +423,28 @@ public class OneBotService : Plugin
             foreach (var item in token)
             {
                 string segmentType = item["type"]?.ToString() ?? "text";
-                var data = item["data"];
+                var dataObj = item["data"] as JObject;
                 if (segmentType == "text")
                 {
-                    sb.Append(data?["text"]?.ToString());
+                    sb.Append(dataObj?["text"]?.ToString());
                 }
                 else if (segmentType == "at")
                 {
-                    sb.Append($"[CQ:at,qq={data?["qq"]}]");
+                    sb.Append($"[CQ:at,qq={dataObj?["qq"]}]");
                 }
                 else if (segmentType == "face")
                 {
-                    sb.Append($"[CQ:face,id={data?["id"]}]");
+                    sb.Append($"[CQ:face,id={dataObj?["id"]}]");
                 }
                 else if (segmentType == "image")
                 {
-                    sb.Append($"[CQ:image,file={data?["file"]}]");
+                    sb.Append($"[CQ:image,file={dataObj?["file"]}]");
                 }
                 else
                 {
-                    // 通用 CQ 码转化
-                    var args = data != null ? string.Join(",", data.Children<JProperty>().Select(p => $"{p.Name}={p.Value}")) : "";
+                    // 通用字段展开
+                    var props = dataObj?.Properties();
+                    var args = props != null ? string.Join(",", props.Select(p => $"{p.Name}={p.Value}")) : "";
                     sb.Append($"[CQ:{segmentType}{(string.IsNullOrEmpty(args) ? "" : "," + args)}]");
                 }
             }
