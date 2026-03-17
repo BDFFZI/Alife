@@ -452,27 +452,20 @@ public class OneBotService : Plugin
             bool isOwner = userId == _ownerId;
             bool isAtMe = _botId != 0 && (message.Contains($"[CQ:at,qq={_botId}]") || message.Contains($"[CQ:at,qq={_botId},"));
 
-            if (isAtMe)
+            if (type == "private")
             {
-                if (!_isGroupEnabled)
+                Console.WriteLine($"[OneBot] 转发私聊实时消息 -> AI: {formattedMsg}");
+                await _chatActivity.ChatBot.ChatAsync(formattedMsg);
+            }
+            else if (type == "group" && (_isGroupEnabled || isAtMe))
+            {
+                if (isAtMe && !_isGroupEnabled)
                 {
                     UpdateGroupMonitoring(true);
                     Console.WriteLine($"[OneBot] 群 {groupId} 的 @ 提到触发了自动唤醒。");
-                    // 仅在自动唤醒时给 AI 一个微小的暗示，让它知道自己进入了全量监听状态
                     _chatActivity.ChatBot.Poke($"[系统] 已由针对你的艾特触发自动开启群聊监听。");
                 }
-                
-                // 被 @ 时立即清空该群之前的未处理缓存，保证语境连贯
-                if (type == "group") await FlushGroupBuffer(groupId);
-            }
 
-            if (type == "private" || isOwner || isAtMe)
-            {
-                Console.WriteLine($"[OneBot] 转发实时消息 -> AI: {formattedMsg}");
-                await _chatActivity.ChatBot.ChatAsync(formattedMsg);
-            }
-            else if (type == "group" && _isGroupEnabled)
-            {
                 lock (_groupBuffers)
                 {
                     if (!_groupBuffers.TryGetValue(groupId, out var sb))
@@ -482,7 +475,7 @@ public class OneBotService : Plugin
                     }
                     sb.AppendLine(formattedMsg);
                 }
-                Console.WriteLine($"[OneBot] 已记录来自群 {groupId} 的缓存消息。");
+                Console.WriteLine($"[OneBot] 已记录来自群 {groupId} 的缓存消息 (已进入 Poke 队列)。");
             }
         } catch (Exception ex) {
             Console.WriteLine($"[OneBot] 处理消息异常: {ex.Message}");

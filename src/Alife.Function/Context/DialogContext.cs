@@ -10,7 +10,7 @@ public class ChatMessage
 }
 
 [Plugin("框架-聊天窗口", "提供一个公用的有配套界面的聊天窗口。")]
-public class ChatWindow : Plugin
+public class DialogContext : Plugin
 {
     public event Action<ChatMessage>? MessageAdded;
     public event Action<ChatMessage>? MessageUpdated;
@@ -31,7 +31,7 @@ public class ChatWindow : Plugin
 
     readonly List<ChatMessage> messages;
 
-    public ChatWindow(List<ChatMessage>? messages = null)
+    public DialogContext(List<ChatMessage>? messages = null)
     {
         this.messages = messages ?? new List<ChatMessage>();
     }

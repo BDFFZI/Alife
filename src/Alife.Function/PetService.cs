@@ -12,13 +12,13 @@ namespace Alife.OfficialPlugins;
 public class PetService : Plugin, IAsyncDisposable
 {
     private Process? _petProcess;
-    private readonly ChatWindow _chatWindow;
+    private readonly DialogContext dialogContext;
     private ChatActivity? _chatActivity;
     private TaskCompletionSource? _moveTcs;
 
-    public PetService(InterpreterService interpreterService, ChatWindow chatWindow)
+    public PetService(InterpreterService interpreterService, DialogContext dialogContext)
     {
-        _chatWindow = chatWindow;
+        this.dialogContext = dialogContext;
         interpreterService.RegisterHandler(this);
     }
 
@@ -29,6 +29,11 @@ public class PetService : Plugin, IAsyncDisposable
 你会收到来自系统的特殊消息（Poke），表示主人正在与你进行物理互动。请根据互动类型给出极其自然的回复：
 1. **(物理干扰)**：表示主人在拖动、摇晃或旋转你。请表现出相应的生理反应（如晕、惊讶、开心等），并巧妙地衔接对话。
 2. **(连击干扰)**：表示主人在疯狂戳你。请表现出被打扰或者害羞的反应。
+3. **通过属性表达 (参数控制)**：你可以通过 `<pet_param name="参数名" value="数值" duration="毫秒" />` 直接控制我的身体姿态。
+   - `ParamAngleX/Y/Z`: 头部转动 (-30 到 30)
+   - `ParamBodyAngleX`: 身体侧歪 (-10 到 10)
+   - `ParamEyeBallX/Y`: 眼神位置 (-1 到 1)
+   示例：`<pet_param name="ParamBodyAngleX" value="10" duration="1500" />` 表示身体缓缓向右歪。
 不要在回复中复读这些提示语，直接进入角色进行互动喵！
 """);
         return Task.CompletedTask;
@@ -109,7 +114,7 @@ public class PetService : Plugin, IAsyncDisposable
                 var text = root.GetProperty("text").GetString();
                 if (!string.IsNullOrEmpty(text))
                 {
-                    _chatWindow.AddMessage(new ChatMessage { content = text, isUser = true });
+                    dialogContext.AddMessage(new ChatMessage { content = text, isUser = true });
                 }
             }
             else if (type == "poke")
@@ -246,6 +251,32 @@ public class PetService : Plugin, IAsyncDisposable
         };
 
         SendToPet(new { type = "motion", group = "TapBody", index });
+        return Task.CompletedTask;
+    }
+
+    [XmlHandler("pet_param")]
+    [Description("直接控制 Live2D 参数喵。示例: <pet_param name=\"ParamBodyAngleX\" value=\"10\" duration=\"1000\" />")]
+    public Task PetParameter(XmlTagContext context)
+    {
+        if (context.Status == TagStatus.Opening) return Task.CompletedTask;
+
+        var currentTag = context.CallChain.LastOrDefault();
+        string? name = null, sValue = null, sDuration = null;
+
+        if (currentTag.Attributes != null)
+        {
+            currentTag.Attributes.TryGetValue("name", out name);
+            currentTag.Attributes.TryGetValue("value", out sValue);
+            currentTag.Attributes.TryGetValue("duration", out sDuration);
+        }
+
+        if (string.IsNullOrEmpty(name)) return Task.CompletedTask;
+
+        float.TryParse(sValue, out float value);
+        int.TryParse(sDuration, out int duration);
+        if (duration <= 0) duration = 1000;
+
+        SendToPet(new { type = "parameter", name, value, duration });
         return Task.CompletedTask;
     }
 

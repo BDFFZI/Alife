@@ -45,7 +45,7 @@ public class PythonService : Plugin
             tool = nameof(PythonService),
             content = context.FullContent
         };
-        chatWindow.AddMessage(chatMessage);
+        dialogContext.AddMessage(chatMessage);
 
         string output = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
@@ -54,7 +54,7 @@ public class PythonService : Plugin
 
         chatMessage.isInputting = false;
         chatMessage.content += "\n\n执行结果：\n" + output;
-        chatWindow.UpdateMessage(chatMessage);
+        dialogContext.UpdateMessage(chatMessage);
 
         if (string.IsNullOrWhiteSpace(output) == false)
             chatBot.Poke("[来自系统的消息：这是刚刚Python的执行结果，你看是否有问题)]" + output); //向ai反馈执行结果
@@ -148,13 +148,13 @@ public class PythonService : Plugin
     // }
 
     readonly StorageSystem storageSystem;
-    readonly ChatWindow chatWindow;
+    readonly DialogContext dialogContext;
     ChatBot chatBot = null!;
 
-    public PythonService(StorageSystem storageSystem, ChatWindow chatWindow, InterpreterService interpreterService)
+    public PythonService(StorageSystem storageSystem, DialogContext dialogContext, InterpreterService interpreterService)
     {
         this.storageSystem = storageSystem;
-        this.chatWindow = chatWindow;
+        this.dialogContext = dialogContext;
 
         interpreterService.RegisterHandler(this);
     }

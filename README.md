@@ -1,48 +1,19 @@
-# Alife
+# Alife Project
 
-**Alife** is an experimental project focused on creating an interactive "Artificial Life" companion. It combines a flexible XML-based response interpreter with natural speech synthesis and high-accuracy offline speech recognition.
+**Alife** 是一个基于 AI 的桌面伴侣实验室。
 
-## Project Structure
+## 快速导航
 
-The solution consists of several modular components:
+- **[OneBot QQ 机器人演示](src/Alife.OneBot.Demo/README.md)**：集成 QQ 与表情包斗图，掌握海量表情资产。
+- **[真央桌宠交互演示](src/Alife.Pet.Demo/README.md)**：桌宠可视化渲染、物理反馈及 AI 姿态调节。
+- **[AI 语音助理演示](src/Alife.Speech.Demo/README.md)**：针对耳机触发的硬件敏感型 AI 语音交互，保护隐私。
+- **[视觉识别演示](src/Alife.Vision.Demo/README.md)**：基于 OpenCV 的图像处理与人脸检测实验。
 
-### Core Components
-- **[Alife.Interpreter](src/Alife.Interpreter)**: A streaming XML interpreter that allows granular control over AI responses using custom tag handlers.
-- **[Alife.Speech.Recognition](src/Alife.Speech.Recognition)**: High-accuracy local STT using the **Vosk** engine and neural models.
-- **[Alife.Speech.Synthesis](src/Alife.Speech.Synthesis)**: Natural-sounding local TTS leveraging **Edge-TTS** and NAudio.
+## 本地启动全家桶
+1. **QQ 机器人**: `cd src/Alife.OneBot.Demo && dotnet run`
+2. **桌面桌宠**: `cd src/Alife.Pet && dotnet run`
+3. **语音助手**: `cd src/Alife.Speech.Demo && dotnet run`
+4. **视觉预览**: `cd src/Alife.Vision.Demo && dotnet run`
 
-### Tests & Samples
-- **[Alife.Interpreter.Test](src/Alife.Interpreter.Test)**: Examples of XML-driven logic and streaming processing.
-- **[Alife.Speech.Test](src/Alife.Speech.Test)**: A complete demonstration of a voice-interactive loop with interruption support.
-
-## Getting Started
-
-### Prerequisites
-
-1. **.NET 9 SDK**: Ensure you have the latest .NET environment.
-2. **Python 3**: Required for speech synthesis.
-   - Install dependencies: `pip install edge-tts`
-3. **Vosk Model**: The `Alife.Speech.Recognition` library requires a Vosk model folder (included in the source for Chinese speech).
-
-### Building the Project
-
-Open the solution in Visual Studio 2022 / VS Code or use the CLI:
-
-```powershell
-dotnet build Alife.slnx
-```
-
-### Running the Voice Demo
-
-```powershell
-cd src/Alife.Speech.Test
-dotnet run
-```
-
-## Features
-- **Key-free & Offline**: Optimized for local execution without expensive API subscriptions.
-- **User Interruption**: Intelligent speech logic that allows users to talk over the AI.
-- **Micro-Animations Friendly**: Designed for "desktop pet" scenarios where low-latency feedback is critical.
-
-## License
-MIT
+---
+*更多技术细节请参考各子目录 README。*

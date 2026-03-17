@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.73.0" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260317" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260302" />
+  </ItemGroup>
+
+</Project>

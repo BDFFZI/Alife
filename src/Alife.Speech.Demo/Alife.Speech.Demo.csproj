@@ -8,6 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
+    <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
   </ItemGroup>
 </Project>

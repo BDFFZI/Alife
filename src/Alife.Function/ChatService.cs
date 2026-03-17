@@ -8,12 +8,12 @@ using Alife.Interpreter;
 public class ChatService : Plugin
 {
     ChatBot chatBot = null!;
-    readonly ChatWindow chatWindow;
+    readonly DialogContext dialogContext;
 
-    public ChatService(ChatWindow chatWindow)
+    public ChatService(DialogContext dialogContext)
     {
-        this.chatWindow = chatWindow;
-        chatWindow.MessageAdded += OnMessageAdded;
+        this.dialogContext = dialogContext;
+        dialogContext.MessageAdded += OnMessageAdded;
     }
 
     ChatMessage? assistantMessage;
@@ -25,7 +25,7 @@ public class ChatService : Plugin
         chatBot.ChatSent += (m) => {
             if (chatBot.IsChatting) {
                 assistantMessage = new() { content = "", isUser = false, isInputting = true };
-                chatWindow.AddMessage(assistantMessage);
+                dialogContext.AddMessage(assistantMessage);
             }
         };
         // 接收到流式内容
@@ -33,7 +33,7 @@ public class ChatService : Plugin
             if (assistantMessage != null)
             {
                 assistantMessage.content += content;
-                chatWindow.UpdateMessage(assistantMessage);
+                dialogContext.UpdateMessage(assistantMessage);
             }
         };
         // 会话结束
@@ -41,7 +41,7 @@ public class ChatService : Plugin
             if (assistantMessage != null)
             {
                 assistantMessage.isInputting = false;
-                chatWindow.UpdateMessage(assistantMessage);
+                dialogContext.UpdateMessage(assistantMessage);
                 assistantMessage = null;
             }
         };

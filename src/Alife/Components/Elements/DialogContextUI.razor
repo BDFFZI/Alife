@@ -87,7 +87,7 @@
 </script>
 
 @code {
-    [Parameter] public ChatWindow Context { get; set; } = null!;
+    [Parameter] public DialogContext Context { get; set; } = null!;
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 

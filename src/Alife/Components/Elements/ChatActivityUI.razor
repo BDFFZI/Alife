@@ -20,7 +20,7 @@
             <Button Type="@ButtonType.Primary" OnClick="@(() => isLogging = true)">日志</Button>
             <ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
             <Button Type="@ButtonType.Primary" OnClick="@(() => isChatting = true)">对话</Button>
-            <ChatWindowUI Context="@(chatWindow)" @bind-Visible="isChatting"></ChatWindowUI>
+            <ChatWindowUI Context="@(dialogContext)" @bind-Visible="isChatting"></ChatWindowUI>
             <Button Type="@ButtonType.Primary" Danger OnClick="Stopped">停止</Button>
         </Flex>
     </ChildContent>
@@ -30,7 +30,7 @@
     [Parameter] public ChatActivity Context { get; set; } = null!;
     [Parameter] public EventCallback Stopped { get; set; }
 
-    ChatWindow chatWindow = null!;
+    DialogContext dialogContext = null!;
     bool isEditing;
     bool isChatting;
     bool isLogging;
@@ -40,7 +40,7 @@
     {
         base.OnInitialized();
 
-        chatWindow = Context.PluginService.GetRequiredService<ChatWindow>();
+        dialogContext = Context.PluginService.GetRequiredService<DialogContext>();
         systemPrompts = Context.KernelService.Plugins.GetFunctionsMetadata()
             .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
             .Select(chatTool => new JObject() {

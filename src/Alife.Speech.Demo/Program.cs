@@ -1,112 +1,137 @@
-using Alife.Speech;
 using System.Text;
+using Alife;
+using Alife.OfficialPlugins;
+using Alife.Plugins.Official.Implement;
+using Alife.Speech;
+using Microsoft.SemanticKernel;
+using NAudio.CoreAudioApi;
+using System.Diagnostics;
 
-Console.OutputEncoding = Encoding.UTF8;
+namespace Alife.Speech.Test;
 
-Console.WriteLine("========================================");
-Console.WriteLine("   Alife 语音识别与合成 交互示例");
-Console.WriteLine("========================================");
-
-// 1. 初始化语音合成器
-var synth = new LocalSpeechSynthesizer();
-Console.WriteLine("[系统] 语音合成器已就绪。");
-
-// 在大模型加载前先选择模式
-Console.WriteLine("\n[选择模式]: 1. 麦克风交互  2. 连续拼读压力测试");
-string? choice = Console.ReadLine();
-
-if (choice == "2")
+class Program
 {
-    Console.WriteLine("[压力测试] 正在依次合成并播放多个分段...");
-    string[] segments = {
-        "你好，欢迎使用我的语音合成引擎。",
-        "这是一个无缝连接测试。",
-        "我们正在检测首尾静音是否已经被完美裁切。",
-        "如果听到的是连贯的声音，说明优化成功了。",
-        "再见！"
-    };
+    private static ChatActivity? _chatActivity;
+    private static SpeechService? _speechService;
+    private static bool _isRecognitionEnabled = false;
 
-    foreach (var text in segments)
+    static async Task Main(string[] args)
     {
-        Console.WriteLine($"[合成中]: {text}");
-        await synth.SpeakAsync(text);
-    }
-    Console.WriteLine("[压力测试] 完成。");
-    return;
-}
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.WriteLine("========================================");
+        Console.WriteLine("   Alife AI 语音助手 (插件集成模式)");
+        Console.WriteLine("========================================");
 
-// 2. 初始化语音识别器
-string? modelPath = GetModelPath();
-if (modelPath == null)
-{
-    Console.WriteLine("[错误] 未找到语音模型，请确保模型已下载到 'model' 目录。");
-    return;
-}
+        // 1. 初始化环境
+        var storageSystem = new StorageSystem();
+        var configSystem = new ConfigurationSystem(storageSystem);
 
-Console.WriteLine($"[系统] 正在加载语音模型: {modelPath}");
-try 
-{
-    using var recognizer = new LocalSpeechRecognizer(modelPath);
-    Console.WriteLine("[系统] 语音识别器已就绪。");
+        // 2. 配置角色与插件
+        // 注意：SpeechService 内部会自动初始化自己的 Recognizer 和 Synthesizer
+        var character = new Character {
+            ID = "SpeechMao",
+            Name = "真央",
+            Prompt = "你是一个桌面上名为真央的 AI 语音助手。你非常活泼，喜欢模仿猫娘（说话带喵）。\n" +
+                     "主人正在通过语音与你交流。请保持回答简短有力（回复控制在 30 字以内），适合语音播报。\n" +
+                     "你非常在意主人的隐私，只有当主人插上耳机时，你才会开启‘听力’喵！",
+            Plugins = new HashSet<Type> {
+                typeof(OpenAIChatService),
+                typeof(InterpreterService),
+                typeof(ChatService),
+                typeof(DialogContext),
+                typeof(SpeechService) // 核心：使用语音插件
+            }
+        };
 
-    // 3. 设置识别回调
-    recognizer.OnPartial += (text) => 
-    {
-        Console.Write($"\r[识别中]: {text}        ");
-        Console.Out.Flush();
-    };
+        Console.WriteLine("[系统] 正在准备 AI 大脑及插件环境...");
+        
+        // 确保模型文件夹在运行目录下可用，或者 SpeechService 能找到
+        // SpeechService.cs:33 行会从 AppDomain.CurrentDomain.BaseDirectory 寻找 "model"
+        
+        _chatActivity = await ChatActivity.Create(character, configSystem, null, new object[] {
+            configSystem, storageSystem
+        });
 
-    recognizer.OnRecognized += async (text, confidence) => 
-    {
-        if (string.IsNullOrWhiteSpace(text)) return;
+        // 获取语插件实例以便控制
+        _speechService = _chatActivity.Plugins.OfType<SpeechService>().FirstOrDefault();
 
-        Console.WriteLine($"\r[您说]: {text} (置信度: {confidence:P1})");
-
-        if (text.Contains("退出") || text.Contains("再见") || text.Contains("exit"))
+        if (_speechService == null)
         {
-            Console.WriteLine("[系统] 正在退出...");
-            await synth.SpeakAsync("好的，再见！");
-            Environment.Exit(0);
+            Console.WriteLine("[错误] 无法初始化语音服务插件。");
+            return;
         }
 
-        // 语音反馈
-        Console.WriteLine("[系统] 正在回复...");
-        await synth.SpeakAsync($"我听到您说：{text}");
-    };
+        // 3. 初始状态设置为关闭（等待耳机）
+        _speechService.StopRecognition();
+        _isRecognitionEnabled = false;
 
-    // 麦克风交互模式
-    Console.WriteLine("\n[提示] 麦克风已开启，请开始说话...");
-    Console.WriteLine("[提示] 说出 '退出' 或 'exit' 以结束程序。\n");
+        // 4. 开启耳机监控
+        StartHeadphoneMonitoring();
 
-    recognizer.Start();
+        Console.WriteLine("\n[提示] 程序已启动。");
+        Console.WriteLine("[规则] 插上耳机激活语音识别，拔掉耳机自动待机保护隐私。");
+        Console.WriteLine("[提示] 按 Ctrl+C 退出。\n");
 
-    // 保持程序运行
-    while (true)
-    {
-        await Task.Delay(1000);
+        await Task.Delay(-1);
     }
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"\n[终端错误] 无法初始化语音识别: {ex.Message}");
-    Console.WriteLine("提示: 这通常是因为 Vosk 模型与库版本不匹配导致的（当前库版本 0.3.38 不支持 HCLr.fst 动态模型）。");
-}
 
-static string? GetModelPath()
-{
-    var candidates = new[]
+    private static void StartHeadphoneMonitoring()
     {
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model"),
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "Alife.Speech", "model"),
-        "model"
-    };
+        var enumerator = new MMDeviceEnumerator();
+        Task.Run(async () => {
+            while (true)
+            {
+                try
+                {
+                    var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    bool hasHeadphones = device.FriendlyName.Contains("耳机") ||
+                                         device.FriendlyName.Contains("Headphones") ||
+                                         device.FriendlyName.Contains("Headset");
 
-    foreach (var path in candidates)
+                    if (hasHeadphones && !_isRecognitionEnabled)
+                    {
+                        _isRecognitionEnabled = true;
+                        _speechService?.StartRecognition();
+                        Console.WriteLine("\n[状态] 检测到耳机拔插：开启语音识别流程喵！");
+                        SendNotification("语音助手已上线", "真央检测到耳机，已通过 SpeechService 开启实时识别喵！");
+                    }
+                    else if (!hasHeadphones && _isRecognitionEnabled)
+                    {
+                        _isRecognitionEnabled = false;
+                        _speechService?.StopRecognition();
+                        Console.WriteLine("\n[状态] 检测到耳机拔插：已进入保护隐私的待机模式。");
+                        SendNotification("语音助手已离线", "真央因为未检测到耳机，已自动关闭语音识别喵！");
+                    }
+                }
+                catch { }
+                await Task.Delay(1000);
+            }
+        });
+    }
+
+    private static void SendNotification(string title, string message)
     {
-        if (Directory.Exists(path) && Directory.Exists(Path.Combine(path, "am")))
+        try
         {
-            return Path.GetFullPath(path);
+            string script = $"$Title='{title}'; $Message='{message}'; " +
+                            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
+                            "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
+                            "$TextNodes = $Template.GetElementsByTagName('text'); " +
+                            "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
+                            "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
+                            "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
+                            "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
+
+            Process.Start(new ProcessStartInfo {
+                FileName = "powershell",
+                Arguments = $"-Command \"{script}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Notification failed: {ex.Message}");
         }
     }
-    return null;
 }

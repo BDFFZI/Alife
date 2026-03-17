@@ -15,7 +15,7 @@ public class SpeechService : Plugin, IAsyncDisposable
 {
     readonly LocalSpeechSynthesizer synthesizer;
     readonly LocalSpeechRecognizer recognizer;
-    readonly ChatWindow chatWindow;
+    readonly DialogContext dialogContext;
     Task lastSynthesizer;
     ChatCompletionAgent validator = null!;
     ChatHistoryAgentThread validatorThread = null!;
@@ -24,10 +24,10 @@ public class SpeechService : Plugin, IAsyncDisposable
 
     bool IsSpeaking => lastSynthesizer.Status == TaskStatus.Running;
 
-    public SpeechService(InterpreterService interpreterService, ChatWindow chatWindow)
+    public SpeechService(InterpreterService interpreterService, DialogContext dialogContext)
     {
         interpreterService.RegisterHandler(this);
-        this.chatWindow = chatWindow;
+        this.dialogContext = dialogContext;
 
         //初始化语音识别
         string assemblyDir = Path.GetDirectoryName(typeof(SpeechService).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
@@ -51,7 +51,7 @@ public class SpeechService : Plugin, IAsyncDisposable
 2. 参杂对方说话的声音，这些识别结果通常意义不明、语序混乱，或不符合背景。
 3. 是用户说话，但部分误识别，这类结果通过读音可以理解出含义，且通常带有主动要求性的语气。
 4. 多次收到内容基本相同的消息，这通常是用户语音识别失败，所以其尝试再次说话，因此此类消息要放低检测要求。
-你要将这些情况检测出来，尤其是otherSpeaking期间，这里面是肯定会混合他人声音的，注意分析角色立场和语境。
+你要在检测出这些情况，尤其是otherSpeaking期间，这里面是肯定会混合他人声音的，注意分析角色立场和语境。
 当你检测出用户在发言时，返回‘true’，否则返回‘false’。"
         };
         validator.Kernel.Plugins.Clear();
@@ -64,9 +64,19 @@ public class SpeechService : Plugin, IAsyncDisposable
         chatActivity.ChatBot.ChatSent += OnChatSent;
 
         //开始语音识别
-        recognizer.Start();
+        StartRecognition();
 
         return Task.CompletedTask;
+    }
+
+    public void StartRecognition()
+    {
+        recognizer.Start();
+    }
+
+    public void StopRecognition()
+    {
+        recognizer.Stop();
     }
     void OnChatSent(string _)
     {
@@ -112,7 +122,7 @@ public class SpeechService : Plugin, IAsyncDisposable
             // if (isValidated)
             {
                 StopSynthesizer(); //用户说话，打断
-                chatWindow.AddMessage(new ChatMessage() {
+                dialogContext.AddMessage(new ChatMessage() {
                     content = text,
                     isUser = true
                 });
@@ -137,7 +147,7 @@ public class SpeechService : Plugin, IAsyncDisposable
             content = content,
             isInputting = true
         };
-        chatWindow.AddMessage(chatMessage);
+        dialogContext.AddMessage(chatMessage);
 
         try
         {
@@ -153,7 +163,7 @@ public class SpeechService : Plugin, IAsyncDisposable
         finally
         {
             chatMessage.isInputting = false;
-            chatWindow.UpdateMessage(chatMessage);
+            dialogContext.UpdateMessage(chatMessage);
         }
     }
 

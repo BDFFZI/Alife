@@ -18,7 +18,7 @@ async Task AIPythonTest()
                  "你可以通过控制桌宠应用来表达情感。",
         Plugins = new HashSet<Type> {
             typeof(OpenAIChatService),
-            typeof(ChatWindow),
+            typeof(DialogContext),
             typeof(InterpreterService),
             typeof(PythonService),
         }

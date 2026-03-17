@@ -31,7 +31,7 @@ var pluginSystem = new PluginSystem(storageSystem);
 var configSystem = new ConfigurationSystem(storageSystem);
 
 // 2. 模拟 ChatWindow (Console 模式)
-var chatWindow = new ChatWindow();
+var chatWindow = new DialogContext();
 chatWindow.MessageAdded += (msg) => {
     // 只有非输入状态的消息或者用户消息才打印，避免干扰控制台
     if (!msg.isInputting || msg.isUser)

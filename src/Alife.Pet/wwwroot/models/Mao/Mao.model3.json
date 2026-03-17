@@ -46,9 +46,6 @@
 			"Idle": [
 				{
 					"File": "motions/mtn_01.motion3.json"
-				},
-				{
-					"File": "motions/sample_01.motion3.json"
 				}
 			],
 			"TapBody": [
@@ -60,15 +57,6 @@
 				},
 				{
 					"File": "motions/mtn_04.motion3.json"
-				},
-				{
-					"File": "motions/special_01.motion3.json"
-				},
-				{
-					"File": "motions/special_02.motion3.json"
-				},
-				{
-					"File": "motions/special_03.motion3.json"
 				}
 			]
 		}

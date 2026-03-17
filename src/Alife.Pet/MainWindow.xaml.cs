@@ -32,12 +32,25 @@ public partial class MainWindow : Window
         
         Debug.WriteLine("=== MainWindow Constructor ===");
 
-        // 允许拖动窗口 (备用方案)
+        // 允许拖动窗口 (手动实现非阻塞方案)
         this.MouseLeftButtonDown += (s, e) => {
             if (e.ChangedButton == MouseButton.Left)
             {
-                try { this.DragMove(); }
-                catch { }
+                OnManualDragStart(e);
+            }
+        };
+
+        this.MouseMove += (s, e) => {
+            if (_isDragging)
+            {
+                OnManualDragMove(e);
+            }
+        };
+
+        this.MouseLeftButtonUp += (s, e) => {
+            if (_isDragging)
+            {
+                OnManualDragEnd();
             }
         };
 
@@ -178,8 +191,11 @@ public partial class MainWindow : Window
                 Debug.WriteLine($"IPC Listener Error: {ex.Message}");
             }
         }
-        // 当 StandardInput 关闭时（Host 退出），自动退出桌宠
-        Dispatcher.Invoke(() => Application.Current.Shutdown());
+        // 当 StandardInput 关闭时（且是在重定向模式下），自动退出桌宠
+        if (Console.IsInputRedirected)
+        {
+            Dispatcher.Invoke(() => Application.Current.Shutdown());
+        }
     }
 
     private bool _isProgrammaticMove = false;
@@ -304,6 +320,36 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"WebMessage processing error: {ex.Message}");
         }
+    }
+
+    private bool _isDragging = false;
+    private Point _dragStartPoint;
+    private double _dragStartLeft;
+    private double _dragStartTop;
+
+    private void OnManualDragStart(MouseButtonEventArgs e)
+    {
+        _isDragging = true;
+        _dragStartPoint = PointToScreen(e.GetPosition(this));
+        _dragStartLeft = this.Left;
+        _dragStartTop = this.Top;
+        this.CaptureMouse();
+    }
+
+    private void OnManualDragMove(MouseEventArgs e)
+    {
+        var currentPoint = PointToScreen(e.GetPosition(this));
+        double dx = currentPoint.X - _dragStartPoint.X;
+        double dy = currentPoint.Y - _dragStartPoint.Y;
+
+        this.Left = _dragStartLeft + dx;
+        this.Top = _dragStartTop + dy;
+    }
+
+    private void OnManualDragEnd()
+    {
+        _isDragging = false;
+        MainWindow.ReleaseCapture();
     }
 
     // Windows API

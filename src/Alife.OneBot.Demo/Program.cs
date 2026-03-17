@@ -21,7 +21,7 @@ class Program
         var storageSystem = new StorageSystem();
         var pluginSystem = new PluginSystem(storageSystem);
         var configSystem = new ConfigurationSystem(storageSystem);
-        var chatWindow = new ChatWindow();
+        var chatWindow = new DialogContext();
 
         // 2. 配置 (针对 OneBotService 插件)
         configSystem.SetConfiguration(typeof(OneBotService), new OneBotConfig {
