@@ -1,87 +1,108 @@
 using System.Text;
 using Alife.Vision;
+using Alife.Test;
+using Alife.Abstractions;
+using Alife.OfficialPlugins;
+using Alife.Plugins.Official.Implement;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
-Console.OutputEncoding = Encoding.UTF8;
-Console.WriteLine("========================================");
-Console.WriteLine("   Alife Vision 图像识别验证 Demo");
-Console.WriteLine("========================================");
+Terminal.Log("========================================", ConsoleColor.Magenta);
+Terminal.Log("   Alife Vision AI 智能场景集成 Demo", ConsoleColor.Magenta);
+Terminal.Log("========================================", ConsoleColor.Magenta);
 
+// 1. 定义视觉 AI 角色
+var character = new Character {
+    ID = "VisionMao",
+    Name = "真央",
+    Prompt = "你是一个桌面上名为真央的 AI 视觉侦探。你非常活泼，喜欢模仿猫娘（说话带喵）。\n" +
+             "你拥有通过 OpenCV 提取图像特征的能力。主人会提供图片，我会作为系统向你描述图片中的特征（标签）。\n" +
+             "请根据我提供的视觉线索，以一种调皮且充满好奇心的方式与主人讨论这些图片内容喵！",
+    Plugins = new HashSet<Type> {
+        typeof(OpenAIChatService),
+        typeof(InterpreterService),
+        typeof(ChatService),
+        typeof(DialogContext)
+    }
+};
+
+// 2. 初始化套件
+var suite = await DemoSuite.InitializeAsync(character);
 var analyzer = new ImageAnalyzer();
 string workDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Results");
 if (!Directory.Exists(workDir)) Directory.CreateDirectory(workDir);
 
-Console.WriteLine($"[系统] 工作目录: {workDir}");
+Terminal.LogInfo($"工作目录: {workDir}");
+Terminal.LogInfo("提示：您可以直接输入图片路径进行分析，或者输入文字与真央交流。输入 'exit' 退出。");
 
-// 1. 获取测试图片
-Console.WriteLine("\n[提示] 请输入测试图片路径 (直接回车将搜索 samples 下的图片):");
-string? inputPath = Console.ReadLine();
-
-if (string.IsNullOrWhiteSpace(inputPath))
+// 3. 级联分类器准备
+var cascades = new Dictionary<string, string> {
+    { "人脸", "haarcascade_frontalface_default.xml" },
+    { "眼睛", "haarcascade_eye.xml" },
+    { "猫脸", "haarcascade_frontalcatface.xml" }
+};
+foreach (var kvp in cascades)
 {
-    // 尝试找一个现有的图片，或者提示用户
-    Console.WriteLine("[警告] 未提供路径。请确保工作目录下有图片喵！");
-    return;
-}
-
-if (!File.Exists(inputPath))
-{
-    Console.WriteLine($"[错误] 找不到文件: {inputPath}");
-    return;
-}
-
-try 
-{
-    // --- 任务 1: 灰度化 ---
-    string grayOutput = Path.Combine(workDir, "result_gray.jpg");
-    Console.WriteLine("[演示] 正在生成灰度图...");
-    analyzer.MakeGrayScale(inputPath, grayOutput);
-    Console.WriteLine($"[完成] 灰度图已保存至: {grayOutput}");
-
-    // --- 任务 2: 边缘检测 ---
-    string edgeOutput = Path.Combine(workDir, "result_edges.jpg");
-    Console.WriteLine("[演示] 正在执行 Canny 边缘检测...");
-    analyzer.DetectEdges(inputPath, edgeOutput);
-    Console.WriteLine($"[完成] 边缘图已保存至: {edgeOutput}");
-
-    // --- 任务 3: 人脸检测 ---
-    string faceOutput = Path.Combine(workDir, "result_faces.jpg");
-    string cascadePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "haarcascade_frontalface_default.xml");
-    if (File.Exists(cascadePath))
+    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, kvp.Value);
+    if (!File.Exists(path))
     {
-        Console.WriteLine("[演示] 正在尝试检测人脸...");
-        int count = analyzer.DetectAndDrawFaces(inputPath, faceOutput, cascadePath);
-        Console.WriteLine($"[完成] 检测到 {count} 张人脸。结果已保存至: {faceOutput}");
+        Terminal.LogSystem($"正在下载 {kvp.Key} 识别模型...");
+        await DownloadFileAsync($"https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{kvp.Value}", path);
     }
-
-    // --- 任务 4: AI 语义识别 (多模态) ---
-    Console.WriteLine("\n[系统] 是否尝试使用多模态 AI 进行语义识别？(y/n)");
-    string? choice = Console.ReadLine()?.ToLower();
-    if (choice == "y" || choice == "yes")
-    {
-        Console.WriteLine("[配置] 请输入 Vision 模型的 API Key (或留空使用默认设置调试):");
-        string? apiKey = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(apiKey)) apiKey = "YOUR_VISION_API_KEY";
-
-        Console.WriteLine("[配置] 正在启动 Vision AI (建议模型: gpt-4o 或 gpt-4o-mini)...");
-        // 注意：DeepSeek 目前暂不支持原生视觉。建议配置为 OpenAI/Gemini/Claude 的视觉地址。
-        var visionService = new VisionAIService(
-            endpoint: "https://api.openai.com/v1", // 演示默认地址
-            modelId: "gpt-4o-mini",
-            apiKey: apiKey
-        );
-
-        Console.WriteLine("[演示] 正在请求 AI 描述图片内容喵...");
-        string description = await visionService.DescribeImageAsync(inputPath);
-        Console.WriteLine("\n----------------------------------------");
-        Console.WriteLine("【AI 语义描述成果】");
-        Console.WriteLine(description);
-        Console.WriteLine("----------------------------------------");
-    }
-
-    Console.WriteLine("\n[系统] 所有演示任务完成！你可以去 Results 文件夹查看效果喵！");
 }
-catch (Exception ex)
+
+// 4. 交互循环
+while (true)
 {
-    Console.WriteLine($"[异常] 处理失败: {ex.Message}");
-    if (ex.InnerException != null) Console.WriteLine($"[内部详细信息]: {ex.InnerException.Message}");
+    Console.Write("\n> ");
+    string? input = Console.ReadLine();
+
+    if (string.IsNullOrWhiteSpace(input) || input.ToLower() == "exit") break;
+
+    // 检查是否是合法的图片路径
+    if (File.Exists(input) && (input.EndsWith(".jpg") || input.EndsWith(".png") || input.EndsWith(".jpeg")))
+    {
+        try
+        {
+            Terminal.LogSystem($"正在用 OpenCV 解码图像 '{Path.GetFileName(input)}' ...");
+            
+            // 执行分析
+            string faceOutput = Path.Combine(workDir, "result_faces.jpg");
+            analyzer.DetectAndDrawFaces(input, faceOutput, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, cascades["人脸"]));
+            
+            var cascadeFullPaths = cascades.ToDictionary(k => k.Key, v => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, v.Value));
+            var tags = analyzer.GetSemanticTags(input, cascadeFullPaths);
+
+            // 构建视觉观察结果，喂给 AI
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine($"[视觉观察结果] 真央在图片中看到了以下特征喵：");
+            foreach (var tag in tags)
+            {
+                sb.AppendLine($" - {tag}");
+                Terminal.LogSuccess($"[CV Tag] {tag}");
+            }
+            sb.AppendLine("\n请基于这些线索给主人一个惊喜的反馈喵！");
+
+            // 作为系统提示注入（或用户消息，这里作为用户视角观察）
+            suite.Activity.ChatBot.Chat(sb.ToString(), AuthorRole.User);
+        }
+        catch (Exception ex)
+        {
+            Terminal.LogError($"处理失败: {ex.Message}");
+        }
+    }
+    else
+    {
+        // 普通文字交流
+        suite.Activity.ChatBot.Chat(input);
+    }
+}
+
+Terminal.Log("演示结束，再见喵！", ConsoleColor.Magenta);
+
+static async Task DownloadFileAsync(string url, string path)
+{
+    using HttpClient client = new HttpClient();
+    byte[] data = await client.GetByteArrayAsync(url);
+    await File.WriteAllBytesAsync(path, data);
 }

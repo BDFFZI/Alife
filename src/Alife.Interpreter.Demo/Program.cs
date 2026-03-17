@@ -1,4 +1,4 @@
-using Alife.Interpreter.Test;
+using Alife.Interpreter.Demo;
 
 public class Program
 {

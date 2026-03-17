@@ -5,10 +5,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsTestProject>false</IsTestProject>
-    <RootNamespace>Alife.Interpreter.Test</RootNamespace>
+    <RootNamespace>Alife.Interpreter.Demo</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
+    <ProjectReference Include="..\Alife.Test.Framework\Alife.Test.Framework.csproj" />
+    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
+    <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
   </ItemGroup>
 </Project>

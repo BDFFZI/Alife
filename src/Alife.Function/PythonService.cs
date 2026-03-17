@@ -39,22 +39,22 @@ public class PythonService : Plugin
         process.StartInfo = startInfo;
         process.Start();
 
-        ChatMessage chatMessage = new ChatMessage() {
+        DialogItem dialogItem = new DialogItem() {
             isDefaultHiding = true,
             isInputting = true,
             tool = nameof(PythonService),
             content = context.FullContent
         };
-        dialogContext.AddMessage(chatMessage);
+        dialogContext.AddMessage(dialogItem);
 
         string output = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
         if (process.ExitCode != 0)
             output = await process.StandardError.ReadToEndAsync();
 
-        chatMessage.isInputting = false;
-        chatMessage.content += "\n\n执行结果：\n" + output;
-        dialogContext.UpdateMessage(chatMessage);
+        dialogItem.isInputting = false;
+        dialogItem.content += "\n\n执行结果：\n" + output;
+        dialogContext.UpdateMessage(dialogItem);
 
         if (string.IsNullOrWhiteSpace(output) == false)
             chatBot.Poke("[来自系统的消息：这是刚刚Python的执行结果，你看是否有问题)]" + output); //向ai反馈执行结果

@@ -16,7 +16,7 @@ public class ChatService : Plugin
         dialogContext.MessageAdded += OnMessageAdded;
     }
 
-    ChatMessage? assistantMessage;
+    DialogItem? assistantMessage;
 
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
@@ -48,9 +48,9 @@ public class ChatService : Plugin
         return Task.CompletedTask;
     }
 
-    void OnMessageAdded(ChatMessage chatMessage)
+    void OnMessageAdded(DialogItem dialogItem)
     {
-        if (chatMessage.isUser)
-            chatBot.Chat(chatMessage.content);
+        if (dialogItem.isUser)
+            chatBot.Chat(dialogItem.content!);
     }
 }

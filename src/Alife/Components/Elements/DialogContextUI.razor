@@ -1,3 +1,4 @@
+@using Alife.Abstractions
 @inject IJSRuntime JsRuntime
 
 <Modal Title="对话窗口"
@@ -22,7 +23,7 @@
         }
         else
         {
-            @foreach (ChatMessage message in Context.GetMessages())
+            @foreach (DialogItem message in Context.GetMessages())
             {
                 <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
                     <Alert
@@ -92,13 +93,13 @@
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
     string inputText = "";
-    Dictionary<ChatMessage, bool> isHiding = null!;
+    Dictionary<DialogItem, bool> isHiding = null!;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
 
-        isHiding = new Dictionary<ChatMessage, bool>();
+        isHiding = new Dictionary<DialogItem, bool>();
         Context.MessageAdded += OnMessageAdded;
         Context.MessageUpdated += OnMessageUpdated;
     }
@@ -115,14 +116,14 @@
 
         string text = inputText;
         inputText = "";
-        Context.AddMessage(new ChatMessage() { content = text, isUser = true });
+        Context.AddMessage(new DialogItem() { content = text, isUser = true });
     }
     void OnVisibleChanged(bool obj)
     {
         Visible = obj;
         VisibleChanged.InvokeAsync(obj);
     }
-    void OnMessageAdded(ChatMessage obj)
+    void OnMessageAdded(DialogItem obj)
     {
         if (obj.isDefaultHiding)
             isHiding[obj] = true;
@@ -134,7 +135,7 @@
                 JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }
-    void OnMessageUpdated(ChatMessage obj)
+    void OnMessageUpdated(DialogItem obj)
     {
         InvokeAsync(() => {
             StateHasChanged();

@@ -114,7 +114,7 @@ public class PetService : Plugin, IAsyncDisposable
                 var text = root.GetProperty("text").GetString();
                 if (!string.IsNullOrEmpty(text))
                 {
-                    dialogContext.AddMessage(new ChatMessage { content = text, isUser = true });
+                    dialogContext.AddMessage(new DialogItem { content = text, isUser = true });
                 }
             }
             else if (type == "poke")

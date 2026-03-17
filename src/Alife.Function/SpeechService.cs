@@ -37,6 +37,7 @@ public class SpeechService : Plugin, IAsyncDisposable
         //初始化语音合成
         synthesizer = new LocalSpeechSynthesizer();
         lastSynthesizer = Task.CompletedTask;
+        validationCancelSource = new CancellationTokenSource();
     }
 
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
@@ -98,39 +99,32 @@ public class SpeechService : Plugin, IAsyncDisposable
     {
         try
         {
-            Console.WriteLine($"{text} : {confidence} ");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"[RECOGNIZER <-] {text} (conf: {confidence:P0})");
+            Console.ResetColor();
 
-            if (confidence < 0.75) return;
+            if (confidence < 0.75) 
+            {
+                Console.WriteLine("识别置信度过低，已忽略。");
+                return;
+            }
 
             if (validationCancelSource != null)
                 await validationCancelSource.CancelAsync();
 
-            //ai验证语音识别内容是否正确
-            // bool isValidated = false;
-            // validatorThread.ChatHistory.AddUserMessage("待识别内容 > " + JsonConvert.SerializeObject(new {
-            //     text,
-            //     confidence,
-            //     otherSpeaking = IsSpeaking,
-            // }));
-            // validationCancelSource = new CancellationTokenSource();
-            // await foreach (var item in validator.InvokeAsync(validatorThread, cancellationToken: validationCancelSource.Token))
-            // {
-            //     bool.TryParse(item.Message.Content, out isValidated);
-            // }
-            // Console.WriteLine($"{text} : {confidence} : {isValidated}");
-
-            // if (isValidated)
-            {
-                StopSynthesizer(); //用户说话，打断
-                dialogContext.AddMessage(new ChatMessage() {
-                    content = text,
-                    isUser = true
-                });
-            }
+            StopSynthesizer(); //用户说话，打断
+            dialogContext.AddMessage(new DialogItem() {
+                content = text,
+                isUser = true
+            });
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"OnRecognized 异常: {e.Message}");
+            Console.ResetColor();
         }
     }
 
@@ -142,12 +136,18 @@ public class SpeechService : Plugin, IAsyncDisposable
         if (string.IsNullOrWhiteSpace(content))
             return;
 
-        ChatMessage chatMessage = new ChatMessage() {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"[USER ->] {content}");
+        Console.ResetColor();
+
+        DialogItem dialogItem = new DialogItem() {
             tool = "speak",
             content = content,
             isInputting = true
         };
-        dialogContext.AddMessage(chatMessage);
+        dialogContext.AddMessage(dialogItem);
 
         try
         {
@@ -160,10 +160,16 @@ public class SpeechService : Plugin, IAsyncDisposable
                     await synthesizer.PlayAudioAsync(output);
             });
         }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"语音合成/播放异常: {ex.Message}");
+            Console.ResetColor();
+        }
         finally
         {
-            chatMessage.isInputting = false;
-            dialogContext.UpdateMessage(chatMessage);
+            dialogItem.isInputting = false;
+            dialogContext.UpdateMessage(dialogItem);
         }
     }
 
