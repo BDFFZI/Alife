@@ -1,7 +1,8 @@
 namespace Alife.OfficialPlugins;
 
-using Abstractions;
+using Alife.Abstractions;
 using Microsoft.SemanticKernel;
+using Alife.Interpreter;
 
 [Plugin("窗口对话", "通过借助系统预设的聊天窗口实现对话功能。")]
 public class ChatService : Plugin
@@ -15,42 +16,41 @@ public class ChatService : Plugin
         chatWindow.MessageAdded += OnMessageAdded;
     }
 
+    ChatMessage? assistantMessage;
+
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
+        // 当 AI 开始回复时（或者发送任何消息给 AI 时），准备显示
+        chatBot.ChatSent += (m) => {
+            if (chatBot.IsChatting) {
+                assistantMessage = new() { content = "", isUser = false, isInputting = true };
+                chatWindow.AddMessage(assistantMessage);
+            }
+        };
+        // 接收到流式内容
+        chatBot.ChatReceived += (content) => {
+            if (assistantMessage != null)
+            {
+                assistantMessage.content += content;
+                chatWindow.UpdateMessage(assistantMessage);
+            }
+        };
+        // 会话结束
+        chatBot.ChatOver += () => {
+            if (assistantMessage != null)
+            {
+                assistantMessage.isInputting = false;
+                chatWindow.UpdateMessage(assistantMessage);
+                assistantMessage = null;
+            }
+        };
         return Task.CompletedTask;
     }
 
     void OnMessageAdded(ChatMessage chatMessage)
     {
         if (chatMessage.isUser)
-            ChatToBot(chatMessage.content);
-    }
-
-    async void ChatToBot(string? message)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(message))
-                return;
-
-            ChatMessage assistantMessage = new() {
-                content = "", isUser = false, isInputting = true
-            };
-            chatWindow.AddMessage(assistantMessage);
-
-            await foreach (string content in chatBot.ChatStreamingAsync(message))
-            {
-                assistantMessage.content += content;
-                chatWindow.UpdateMessage(assistantMessage);
-            }
-
-            assistantMessage.isInputting = false;
-            chatWindow.UpdateMessage(assistantMessage);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
+            chatBot.Chat(chatMessage.content);
     }
 }

@@ -14,6 +14,7 @@ public class PetService : Plugin, IAsyncDisposable
     private Process? _petProcess;
     private readonly ChatWindow _chatWindow;
     private ChatActivity? _chatActivity;
+    private TaskCompletionSource? _moveTcs;
 
     public PetService(InterpreterService interpreterService, ChatWindow chatWindow)
     {
@@ -21,9 +22,22 @@ public class PetService : Plugin, IAsyncDisposable
         interpreterService.RegisterHandler(this);
     }
 
+    public override Task AwakeAsync(AwakeContext context)
+    {
+        context.contextBuilder.ChatHistory.AddSystemMessage("""
+# 互动指南 (针对 Poke 消息)
+你会收到来自系统的特殊消息（Poke），表示主人正在与你进行物理互动。请根据互动类型给出极其自然的回复：
+1. **(物理干扰)**：表示主人在拖动、摇晃或旋转你。请表现出相应的生理反应（如晕、惊讶、开心等），并巧妙地衔接对话。
+2. **(连击干扰)**：表示主人在疯狂戳你。请表现出被打扰或者害羞的反应。
+不要在回复中复读这些提示语，直接进入角色进行互动喵！
+""");
+        return Task.CompletedTask;
+    }
+
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         _chatActivity = chatActivity;
+        chatActivity.ChatBot.ChatSent += (s) => InternalReset();
 
         try
         {
@@ -81,6 +95,7 @@ public class PetService : Plugin, IAsyncDisposable
     private void OnPetMessageReceived(string? data)
     {
         if (string.IsNullOrWhiteSpace(data)) return;
+        Console.WriteLine($"[IPC <- Pet] {data}");
 
         try
         {
@@ -104,6 +119,10 @@ public class PetService : Plugin, IAsyncDisposable
                 {
                     _chatActivity.ChatBot.Poke(text);
                 }
+            }
+            else if (type == "move-finished")
+            {
+                _moveTcs?.TrySetResult();
             }
         }
         catch
@@ -166,6 +185,48 @@ public class PetService : Plugin, IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    [XmlHandler("pet_move")]
+    [Description("移动桌宠喵。示例: <pet_move x=\"100\" y=\"50\" duration=\"3000\" /> - 表示向右移100像素，下移50像素")]
+    public async Task PetMove(XmlTagContext context)
+    {
+        if (context.Status == TagStatus.Opening) return;
+
+        var currentTag = context.CallChain.LastOrDefault();
+        string? sx = null, sy = null, sd = null;
+        
+        if (currentTag.Attributes != null)
+        {
+            currentTag.Attributes.TryGetValue("x", out sx);
+            currentTag.Attributes.TryGetValue("y", out sy);
+            currentTag.Attributes.TryGetValue("duration", out sd);
+        }
+
+        // 如果属性没有，尝试从内容解析 (x,y 格式)
+        if (string.IsNullOrEmpty(sx) && !string.IsNullOrEmpty(context.FullContent))
+        {
+            var parts = context.FullContent.Split(',');
+            if (parts.Length >= 2)
+            {
+                sx = parts[0].Trim();
+                sy = parts[1].Trim();
+            }
+        }
+
+        double.TryParse(sx, out double x);
+        double.TryParse(sy, out double y);
+        int.TryParse(sd, out int duration);
+        if (duration <= 0) duration = 1000; // 默认 1 秒
+
+        // 创建等待任务
+        _moveTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        SendToPet(new { type = "window-move", x, y, duration });
+
+        // 等待位移完成（附带安全超时，防止 UI 崩溃导致整个 AI 卡住）
+        await Task.WhenAny(_moveTcs.Task, Task.Delay(duration + 1000));
+        _moveTcs = null;
+    }
+
     [XmlHandler("pet_mtn")]
     [Description("执行动作喵。支持：害羞，摇头，点头，欢迎，旋转，跳舞；示例: <pet_mtn>害羞</pet_mtn>")]
     public Task PetMotion(XmlTagContext context)
@@ -186,6 +247,11 @@ public class PetService : Plugin, IAsyncDisposable
 
         SendToPet(new { type = "motion", group = "TapBody", index });
         return Task.CompletedTask;
+    }
+
+    private void InternalReset()
+    {
+        _moveTcs?.TrySetCanceled();
     }
 
     public override async Task DestroyAsync()

@@ -8,8 +8,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\src\Alife.Core\Alife.Core.csproj" />
-      <ProjectReference Include="..\src\Alife.Function\Alife.Function.csproj" />
+      <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+      <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
     </ItemGroup>
 
 </Project>

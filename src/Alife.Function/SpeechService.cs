@@ -5,9 +5,9 @@ using Newtonsoft.Json;
 
 namespace Alife.OfficialPlugins;
 
-using Abstractions;
-using Interpreter;
-using Speech;
+using Alife.Abstractions;
+using Alife.Interpreter;
+using Alife.Speech;
 using Microsoft.SemanticKernel;
 
 [Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。")]

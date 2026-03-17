@@ -15,7 +15,10 @@ public class XmlStreamExecutor
     readonly int minResultLength;
 
     // ── 内部缓冲区（Channel） ──
-    readonly Channel<char> inputChannel = Channel.CreateUnbounded<char>(new UnboundedChannelOptions {
+    private enum CommandType { Feed, Flush, Reset }
+    private record struct StreamCommand(CommandType Type, char Data = default, TaskCompletionSource? Completion = null);
+
+    readonly Channel<StreamCommand> commandChannel = Channel.CreateUnbounded<StreamCommand>(new UnboundedChannelOptions {
         SingleReader = true,
         SingleWriter = false
     });
@@ -51,34 +54,42 @@ public class XmlStreamExecutor
     }
 
     /// <summary>向内部缓冲区输入一个字符（同步）。</summary>
-    public void Feed(char ch) => inputChannel.Writer.TryWrite(ch);
+    public void Feed(char ch) => commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Feed, ch));
 
     /// <summary>向内部缓冲区输入一个字符串（同步）。</summary>
     public void Feed(string text)
     {
-        foreach (char ch in text)
-        {
-            inputChannel.Writer.TryWrite(ch);
-        }
+        foreach (char ch in text) Feed(ch);
     }
 
     /// <summary>向解析器输入一个字符（异步版本）。</summary>
     public async Task FeedAsync(char ch)
     {
-        await inputChannel.Writer.WriteAsync(ch);
+        await commandChannel.Writer.WriteAsync(new StreamCommand(CommandType.Feed, ch));
     }
 
     /// <summary>向解析器输入一个字符串（异步版本）。</summary>
     public async Task FeedAsync(string text)
     {
-        foreach (char ch in text)
-        {
-            await inputChannel.Writer.WriteAsync(ch);
-        }
+        foreach (char ch in text) await FeedAsync(ch);
     }
 
-    /// <summary>刷新所有待执行的闭合标签调用（流结束时必须调用）。</summary>
+    /// <summary>刷新所有待执行的闭合标签调用（流结束时必须调用，调用者会等待执行结束）。</summary>
     public async Task FlushAsync()
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // [FIX] 将 Flush 请求发送到通道中，确保在前面的字符处理完后顺序执行
+        await commandChannel.Writer.WriteAsync(new StreamCommand(CommandType.Flush, Completion: tcs));
+        await tcs.Task;
+    }
+
+    /// <summary>顺着队列发送刷新指令，但调用者不等待结果（火发即忘）。</summary>
+    public void Flush()
+    {
+        commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Flush));
+    }
+
+    private async Task InternalFlushAsync()
     {
         if (contentBuffer.Length > 0 && tagStack.Count > 0)
         {
@@ -93,12 +104,22 @@ public class XmlStreamExecutor
         }
     }
 
-    /// <summary>重置全部状态以便复用。当输入不完整 XML 导致状态错误时调用此方法恢复。</summary>
+    /// <summary>重置全部状态以便复用。会立即清空当前指令队列中所有待处理的任务。</summary>
     public void Reset()
     {
-        // 清空内部通道中的待处理字符
-        while (inputChannel.Reader.TryRead(out _)) { }
+        // 1. 立即清空当前指令队列
+        while (commandChannel.Reader.TryRead(out var cmd))
+        {
+            // 如果有正在等待 FlushAsync 的任务，通知其已取消
+            cmd.Completion?.TrySetCanceled();
+        }
 
+        // 2. 发送一个重置指令，确保在当前正在执行的异步任务（如果有的话）完成后立即重置
+        commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Reset));
+    }
+
+    private void InternalReset()
+    {
         parser.Reset();
         tagStack.Clear();
         contentBuffer.Clear();
@@ -106,17 +127,30 @@ public class XmlStreamExecutor
 
     private async Task ProcessInputLoopAsync()
     {
-        while (await inputChannel.Reader.WaitToReadAsync())
+        while (await commandChannel.Reader.WaitToReadAsync())
         {
-            while (inputChannel.Reader.TryRead(out char ch))
+            while (commandChannel.Reader.TryRead(out StreamCommand cmd))
             {
                 try
                 {
-                    await parser.FeedAsync(ch);
+                    switch (cmd.Type)
+                    {
+                        case CommandType.Feed:
+                            await parser.FeedAsync(cmd.Data);
+                            break;
+                        case CommandType.Flush:
+                            await InternalFlushAsync();
+                            cmd.Completion?.TrySetResult();
+                            break;
+                        case CommandType.Reset:
+                            InternalReset();
+                            break;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex);
+                    Console.WriteLine($"[Executor Error]: {ex}");
+                    cmd.Completion?.TrySetException(ex);
                 }
             }
         }

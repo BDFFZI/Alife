@@ -5,7 +5,7 @@ namespace Alife.OfficialPlugins;
 
 using System.Diagnostics;
 using System.Text;
-using Abstractions;
+using Alife.Abstractions;
 using Microsoft.SemanticKernel;
 
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]

@@ -386,10 +386,8 @@ public class XmlStreamParser
         }
 
         if (OpenTagParsed != null) await OpenTagParsed.Invoke(tagName, currentTagAttrs, isSelfClosing);
-        if (isSelfClosing)
-        {
-            if (CloseTagParsed != null) await CloseTagParsed.Invoke(tagName);
-        }
+        // [FIX] Self-closing tags should NOT emit CloseTagParsed again, 
+        // as the executor already handles the one-shot/pop logic in OnOpenTagAsync.
     }
 
     static bool IsTagChar(char ch) => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.' or ':';

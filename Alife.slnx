@@ -5,7 +5,7 @@
     <Project Path="src\Alife.Pet\Alife.Pet.csproj" Type="Classic C#" />
   </Folder>
   <Folder Name="/Tests/">
-    <Project Path="Alife.Python.Demo\Alife.Python.Demo.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Python.Demo\Alife.Python.Demo.csproj" Type="Classic C#" />
     <Project Path="src\Alife.Interpreter.Demo\Alife.Interpreter.Demo.csproj" Type="Classic C#" />
     <Project Path="src\Alife.Pet.Demo\Alife.Pet.Demo.csproj" Type="Classic C#" />
     <Project Path="src\Alife.Speech.Demo\Alife.Speech.Demo.csproj" Type="Classic C#" />

@@ -35,7 +35,70 @@ public partial class MainWindow : Window
             }
         };
 
-        this.Loaded += (s, e) => InitializeWebView();
+        this.Loaded += (s, e) => {
+            InitializeWebView();
+            // 初始化逻辑坐标和记账坐标
+            _logicalLeft = this.Left;
+            _logicalTop = this.Top;
+            _lastManualLeft = this.Left;
+            _lastManualTop = this.Top; // [FIX] 纠正之前的笔误
+        };
+
+        this.LocationChanged += (s, e) => {
+            if (_isProgrammaticMove) return;
+
+            // [FIX] 手动拖拽时同步更新逻辑坐标，确保下一次程序位移基于真实当前位置
+            _logicalLeft = this.Left;
+            _logicalTop = this.Top;
+
+            long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            
+            // 如果停顿超过 300ms，重置状态
+            if (now - _lastMoveTime > 300) {
+                _totalPath = 0;
+                _directionChanges = 0;
+            }
+
+            double dx = this.Left - _lastManualLeft;
+            double dy = this.Top - _lastManualTop;
+            double stepDist = Math.Sqrt(dx * dx + dy * dy);
+
+            // 过滤极小位移
+            if (stepDist < 2) return;
+
+            _totalPath += stepDist;
+
+            // 检测方向变化（反向移动）
+            if (_lastManualDx != 0 && Math.Sign(dx) != Math.Sign(_lastManualDx)) _directionChanges++;
+            if (_lastManualDy != 0 && Math.Sign(dy) != Math.Sign(_lastManualDy)) _directionChanges++;
+
+            _lastManualLeft = this.Left;
+            _lastManualTop = this.Top;
+            _lastManualDx = dx;
+            _lastManualDy = dy;
+            _lastMoveTime = now;
+
+            // 逻辑：
+            // 1. 如果积累了一定路程且方向改变频繁 -> 抖动 (Shake)
+            if (_totalPath > 1000 && _directionChanges >= 4) {
+                _totalPath = 0;
+                _directionChanges = 0;
+                SendToWebView(new { type = "shake" });
+            }
+            // 2. 如果只是单向移动了很远 -> 搬家 (Move)
+            else if (_totalPath > 5000 && _directionChanges < 2) {
+                _totalPath = 0;
+                _directionChanges = 0;
+                SendToWebView(new { type = "move" });
+            }
+        };
+    }
+
+    private void SendToWebView(object data)
+    {
+        if (webView.CoreWebView2 == null) return;
+        string json = JsonSerializer.Serialize(data);
+        webView.CoreWebView2.PostWebMessageAsJson(json);
     }
 
     private async void InitializeWebView()
@@ -86,12 +149,111 @@ public partial class MainWindow : Window
                     {
                         webView.CoreWebView2.PostWebMessageAsJson(line);
                     }
+                    HandleHostCommand(line);
                 });
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"IPC Listener Error: {ex.Message}");
             }
+        }
+        // 当 StandardInput 关闭时（Host 退出），自动退出桌宠
+        Dispatcher.Invoke(() => Application.Current.Shutdown());
+    }
+
+    private bool _isProgrammaticMove = false;
+    private double _logicalLeft;
+    private double _logicalTop;
+
+    // 拖拽与抖动检测状态同步到字段，方便程序位移后校准
+    private double _lastManualLeft = 0, _lastManualTop = 0;
+    private double _totalPath = 0;
+    private int _directionChanges = 0;
+    private double _lastManualDx = 0, _lastManualDy = 0;
+    private long _lastMoveTime = 0;
+
+    private void HandleHostCommand(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeProp)) return;
+            var type = typeProp.GetString();
+
+            if (type == "window-move")
+            {
+                double x = root.GetProperty("x").GetDouble();
+                double y = root.GetProperty("y").GetDouble();
+                int duration = root.GetProperty("duration").GetInt32();
+
+                _isProgrammaticMove = true;
+                
+                // [FIX] 坐标堆叠逻辑：基于逻辑终点叠加位移，防止连发指令导致的步长缩减/乱走
+                _logicalLeft += x;
+                _logicalTop += y;
+
+                // [FIX] 边界检测：使用 VirtualScreen 允许跨显示器移动，防止被强制吸回主屏
+                double vLeft = SystemParameters.VirtualScreenLeft;
+                double vTop = SystemParameters.VirtualScreenTop;
+                double vWidth = SystemParameters.VirtualScreenWidth;
+                double vHeight = SystemParameters.VirtualScreenHeight;
+
+                _logicalLeft = Math.Max(vLeft, Math.Min(_logicalLeft, vLeft + vWidth - this.ActualWidth));
+                _logicalTop = Math.Max(vTop, Math.Min(_logicalTop, vTop + vHeight - this.ActualHeight));
+
+                double targetLeft = _logicalLeft;
+                double targetTop = _logicalTop;
+
+                // 使用 WPF 动画平滑移动 (从当前实际位置到最新逻辑终点)
+                var animX = new System.Windows.Media.Animation.DoubleAnimation(this.Left, targetLeft, TimeSpan.FromMilliseconds(duration))
+                {
+                    EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                var animY = new System.Windows.Media.Animation.DoubleAnimation(this.Top, targetTop, TimeSpan.FromMilliseconds(duration))
+                {
+                    EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+
+                // 为防止动画结束后属性被锁定，在完成后清理并将值设回本地区
+                int completedCount = 0;
+                void OnComplete()
+                {
+                    completedCount++;
+                    if (completedCount >= 2)
+                    {
+                        // 结束动画前先更新本地区的值，确保坐标固化，防止回弹
+                        this.BeginAnimation(Window.LeftProperty, null);
+                        this.BeginAnimation(Window.TopProperty, null);
+                        this.Left = targetLeft;
+                        this.Top = targetTop;
+
+                        // [FIX] 同步手动记账坐标，防止位移后瞬间触发错误的“拖拽检测”或“坐标回跳反馈”
+                        _lastManualLeft = targetLeft;
+                        _lastManualTop = targetTop;
+                        _lastManualDx = 0;
+                        _lastManualDy = 0;
+                        _totalPath = 0;
+
+                        _isProgrammaticMove = false;
+                        
+                        // 【关键】通知 Host 移动已完成，解除 AI 的等待
+                        Console.WriteLine(JsonSerializer.Serialize(new { type = "move-finished" }));
+                    }
+                }
+
+                animX.Completed += (s, e) => OnComplete();
+                animY.Completed += (s, e) => OnComplete();
+
+                this.BeginAnimation(Window.LeftProperty, animX);
+                this.BeginAnimation(Window.TopProperty, animY);
+            }
+        }
+        catch (Exception ex) {
+            Debug.WriteLine($"Move Error: {ex.Message}");
+            _isProgrammaticMove = false;
+            // 发生异常也尝试通知，防止 AI 永久挂起
+            Console.WriteLine(JsonSerializer.Serialize(new { type = "move-finished" }));
         }
     }
 

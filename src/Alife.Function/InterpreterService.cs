@@ -2,8 +2,8 @@ using System.ComponentModel;
 
 namespace Alife.OfficialPlugins;
 
-using Abstractions;
-using Interpreter;
+using Alife.Abstractions;
+using Alife.Interpreter;
 using Microsoft.SemanticKernel;
 
 [Plugin("框架-口译员", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
@@ -48,20 +48,7 @@ public class InterpreterService : Plugin
 注意：如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
 ";
 
-//         @"
-        // **使用规则：**
-        //     1. **直接嵌入**：在回复中直接插入标签。
-        // 2. **流式兼容**：你可以放心连用多个标签。
-        // 2. **可选参数**：如果标签支持可以携带属性。
-// **标签语法**
-// <p>(在这里填写主要内容)</p>
-// <p size:int(这种标签可以携带参数)></p>
-// <p><img>joy.png</img>开心！<p>(标签也可以嵌套)
-// ";
-
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);
-        Console.WriteLine(prompt);
-
         return Task.CompletedTask;
     }
 
@@ -79,7 +66,7 @@ public class InterpreterService : Plugin
     }
     void OnChatOver()
     {
-        executor.FlushAsync().Wait();
+        executor.Flush();
     }
     void OnChatReceived(string obj)
     {

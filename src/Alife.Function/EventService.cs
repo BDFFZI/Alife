@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace Alife.OfficialPlugins;
 
-using Abstractions;
+using Alife.Abstractions;
 using Microsoft.SemanticKernel;
 
 public class EventServiceData

@@ -28,6 +28,8 @@
     let modelName = "";
     let comboCount = 0;
     let lastInteractionTime = 0;
+    let lastMouseMoveTime = 0;
+    let isSpeaking = false;
 
     // --- 表情配置 ---
     const EXPS = {
@@ -86,6 +88,24 @@
             { text: "喵——！！主人快住手喵，真的要晕了喵~~", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
             { text: "坏主人！要把真央戳坏了喵喵喵！！( >﹏< )", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED },
             { text: "救命喵！主人疯掉了喵！！Σ(っ °Д °;)っ", exp: EXPS.DIZZY, mtn: MOTIONS.SHY }
+        ],
+        rotate: [
+            { text: "呜哇... 别转了，真央要变旋风猫娘了喵！(＠_＠;)", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED },
+            { text: "天旋地转喵！主人是在把真央当陀螺玩吗喵？", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED },
+            { text: "喵呜... 感觉整个世界都在转喵，救命喵！", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED },
+            { text: "旋转，跳跃，我不停歇... 停！真央真的不行了喵！", exp: EXPS.DIZZY, mtn: MOTIONS.ANNOYED }
+        ],
+        shake: [
+            { text: "喵喵喵！别抖了，真央的午饭待会就要吐出来了喵！( >﹏< )", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
+            { text: "地震了喵？！不对，是主人在捣乱喵！别摇了喵！", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
+            { text: "呜呜... 真央要被晃散架了喵，主人快停下喵！", exp: EXPS.DIZZY, mtn: MOTIONS.SHY },
+            { text: "这种感觉... 像是在坐破损的海盗船喵，唔喵...", exp: EXPS.DIZZY, mtn: MOTIONS.SHY }
+        ],
+        move: [
+            { text: "出发咯！主人这是要带真央去哪里玩呀？(๑•́ ₃ •̀๑)", exp: EXPS.SMILE, mtn: MOTIONS.PROUD },
+            { text: "搬新家了喵？这里的风景看起来不错喵！", exp: EXPS.SMILE, mtn: MOTIONS.PROUD },
+            { text: "去冒险喵！只要和主人在一起，去哪里都行喵！", exp: EXPS.SMILE, mtn: MOTIONS.PROUD },
+            { text: "这就是传说中的‘瞬间移动’吗喵？真神奇喵！", exp: EXPS.SMILE, mtn: MOTIONS.PROUD }
         ]
     };
 
@@ -93,16 +113,28 @@
 
     function showBubble(text, duration = 4000) {
         if (!bubble || !bubbleContainer) return;
+
+        // 清除所有正在进行的隐藏计时器
+        clearTimeout(window.bubbleHideTimeout);
+        clearTimeout(window.bubbleNoneTimeout);
+
         bubble.innerText = text;
         bubbleContainer.style.display = "block";
+        bubbleContainer.style.transition = "opacity 0.3s";
+        // 强制重新渲染并显示
         setTimeout(() => bubbleContainer.style.opacity = "1", 10);
         
-        clearTimeout(window.bubbleTimeout);
         if (duration > 0) {
-            window.bubbleTimeout = setTimeout(() => {
+            isSpeaking = true;
+            // 说话时正视前方
+            resetGaze();
+
+            window.bubbleHideTimeout = setTimeout(() => {
                 bubbleContainer.style.opacity = "0";
-                setTimeout(() => {
+                window.bubbleNoneTimeout = setTimeout(() => {
                     bubbleContainer.style.display = "none";
+                    isSpeaking = false;
+                    // 彻底清除说话状态后再看鼠标
                     if (model && model.expression) {
                         model.expression(EXPS.SMILE); 
                     }
@@ -123,18 +155,17 @@
         }
         lastInteractionTime = now;
 
-        // 强连击判定 (5次以上触发 Poke)
-        if (comboCount >= 5 && modelName === "Mao") {
+        // 强连击判定 (每 5 次触发一次 Poke)
+        if (comboCount >= 5 && comboCount % 5 === 0 && modelName === "Mao") {
             const diag = DIALOGUES.combo[Math.floor(Math.random() * DIALOGUES.combo.length)];
+            // 简单重置动作
+            if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
             model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
             model.expression(diag.exp);
-            showBubble(diag.text, 6000);
             
             // 发送 Poke 事件给 AI
-            postToHost({ type: "poke", text: `主人对真央进行了连续互动（Combo ${comboCount}），真央现在有点晕头转向喵！` });
-            
-            comboCount = 0;
-            return;
+            postToHost({ type: "poke", text: `(连击干扰) 主人一直在连戳真央（Combo ${comboCount}），真央感觉要坏掉了喵！` });
+            return; // 【关键】如果是特殊交互，不再弹出本地的随机气泡，防止冲突喵
         }
 
         const h = hitAreas.map(i => i.toLowerCase());
@@ -165,7 +196,17 @@
 
     const models = ["models/Mao/Mao.model3.json"];
     
-    async function init() {
+    function resetGaze() {
+        if (model && model.internalModel?.coreModel) {
+            const core = model.internalModel.coreModel;
+            const params = ["ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeBallX", "ParamEyeBallY", "ParamBodyAngleX"];
+            params.forEach(p => {
+                if (core.getParameterIndex(p) !== -1) core.setParameterValueById(p, 0);
+            });
+        }
+    }
+
+    function init() {
         const app = new PIXI.Application({
             view: document.getElementById("canvas"),
             autoStart: true,
@@ -219,13 +260,41 @@
                 } else if (msg.type === "motion") {
                     if (model) model.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE);
                 } else if (msg.type === "look") {
-                    if (model && model.internalModel && model.internalModel.coreModel) {
-                        const core = model.internalModel.coreModel;
-                        // 强制重置视角参数（通常是这几个，不同模型可能略有不同）
-                        ["ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeBallX", "ParamEyeBallY", "ParamBodyAngleX"]
-                            .forEach(p => {
-                                if (core.getParameterIndex(p) !== -1) core.setParameterValueById(p, 0);
-                            });
+                    resetGaze();
+                } else if (msg.type === "shake") {
+                    const pool = DIALOGUES.shake;
+                    const diag = pool[Math.floor(Math.random() * pool.length)];
+                    // AI 会根据 Poke 回应，这里只播动作
+                    if (model && modelName === "Mao") {
+                        if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
+                        model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+                        model.expression(diag.exp);
+                        postToHost({ type: "poke", text: `(物理干扰) 主人在疯狂抖动真央，真央觉得超级晕喵！` });
+                    }
+                } else if (msg.type === "move") {
+                    const pool = DIALOGUES.move;
+                    const diag = pool[Math.floor(Math.random() * pool.length)];
+                    // AI 会根据 Poke 回应，这里只播动作
+                    if (model && modelName === "Mao") {
+                        if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
+                        model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+                        model.expression(diag.exp);
+                        postToHost({ type: "poke", text: `(物理干扰) 主人在挪动真央的位置，真央不知道要去哪里喵。` });
+                    }
+                } else if (msg.type === "window-move") {
+                    if (model && modelName === "Mao") {
+                        if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
+                        const duration = msg.duration || 2000;
+                        // 播放“散步/小跑”动作，并尝试循环（如果支持）
+                        // 简单处理：如果时间较长，连播两次或增加循环逻辑
+                        model.motion(MOTIONS.SPECIAL_2.group, MOTIONS.SPECIAL_2.index, PIXI.live2d.MotionPriority.FORCE);
+                        
+                        // 如果位移时间较长，在中间点再补一个动画以维持视觉效果
+                        if (duration > 2000) {
+                            setTimeout(() => {
+                                if (model) model.motion(MOTIONS.SPECIAL_2.group, MOTIONS.SPECIAL_2.index, PIXI.live2d.MotionPriority.FORCE);
+                            }, duration / 2);
+                        }
                     }
                 }
             });
@@ -253,19 +322,48 @@
         let lastMove = Date.now();
         window.addEventListener("mousemove", (e) => {
             const now = Date.now();
-            if (now - lastMove > 100) dist = 0;
-            dist += Math.sqrt(Math.pow(e.clientX - lastPos.x, 2) + Math.pow(e.clientY - lastPos.y, 2));
+            lastMouseMoveTime = now;
+
+            // [FIX] 视线追踪逻辑保护：说话期间直接拦截，防止每秒几十次的 resetGaze() 调用导致视觉卡顿
+            if (isSpeaking) return;
+
+            if (model) {
+                // 将屏幕坐标转换为相对于窗口中心的偏移 (-1 ~ 1)
+                const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+                const ndcY = (e.clientY / window.innerHeight) * 2 - 1;
+                
+                if (model.internalModel?.coreModel) {
+                    const core = model.internalModel.coreModel;
+                    const setParam = (id, val) => {
+                        if (core.getParameterIndex(id) !== -1) core.setParameterValueById(id, val);
+                    };
+                    setParam("ParamAngleX", ndcX * 30);
+                    setParam("ParamAngleY", -ndcY * 30);
+                    setParam("ParamEyeBallX", ndcX);
+                    setParam("ParamEyeBallY", -ndcY);
+                    setParam("ParamBodyAngleX", ndcX * 10);
+                }
+            }
+
+            // 快速移动检测 (原有逻辑)
+            const move = Math.sqrt(Math.pow(e.clientX - lastPos.x, 2) + Math.pow(e.clientY - lastPos.y, 2));
+            
+            if (now - lastMove > 100) dist *= 0.5; // 恢复适中的衰减
+            dist += move;
+            
             lastPos = { x: e.clientX, y: e.clientY };
             lastMove = now;
 
-            if (dist > 3500) {
+            // 阈值提高到 2500，减少误触
+            if (dist > 2500) {
                 dist = 0;
-                showBubble("呜哇... 别转了，真央要晕了喵！(＠_＠;)");
+                const pool = DIALOGUES.rotate;
+                const diag = pool[Math.floor(Math.random() * pool.length)];
                 if (model && modelName === "Mao") {
-                    model.motion(MOTIONS.SHY.group, MOTIONS.SHY.index, PIXI.live2d.MotionPriority.FORCE);
-                    model.expression(EXPS.DIZZY);
-                    // 发送 Poke 事件给 AI
-                    postToHost({ type: "poke", text: "主人在疯狂晃动鼠标，真央被转晕了喵！" });
+                    if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
+                    model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+                    model.expression(diag.exp);
+                    postToHost({ type: "poke", text: `(物理干扰) 主人在对着真央疯狂转圈圈，真央感觉变成了旋风猫娘喵！` });
                 }
             }
         });
@@ -273,7 +371,7 @@
         const handleSend = () => {
             const msg = chatInput.value.trim();
             if (msg) {
-                showBubble("收到！正在转达给 AI 喵~", 2000);
+                // 去掉中间提示，直接发送
                 postToHost({ type: 'chat', text: msg });
                 chatInput.value = "";
             }
@@ -283,6 +381,15 @@
         window.addEventListener("contextmenu", (e) => e.preventDefault());
 
         loadModel(models[0]);
+
+        // 视线重置计时器 (如果鼠标 3 秒不动，视线回归正前方)
+        setInterval(() => {
+            const now = Date.now();
+            // 条件：鼠标超过 3 秒没动，且当前不是说话状态
+            if (now - lastMouseMoveTime > 3000 && !isSpeaking) {
+                resetGaze();
+            }
+        }, 500);
     }
 
     init();
