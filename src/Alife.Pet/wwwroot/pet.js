@@ -198,14 +198,10 @@
 
     function resetGaze() {
         if (model && model.internalModel?.coreModel) {
-            console.log(lastMouseMoveTime);
-            const core = model.internalModel.coreModel;
-            const params = ["ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeBallX", "ParamEyeBallY", "ParamBodyAngleX"];
-            params.forEach(p => {
-                if (core.getParameterIndex(p) !== -1) core.setParameterValueById(p, 0);
-            });
+            model.focus(window.innerWidth * 0.5, window.innerHeight * 0.5);
         }
     }
+
 
     function init() {
         const app = new PIXI.Application({
@@ -221,7 +217,7 @@
             modelName = url.split('/').slice(-2, -1)[0];
 
             try {
-                model = await Live2DModel.from(url);
+                model = await Live2DModel.from(url, { autoInteract: false });
                 app.stage.addChild(model);
 
                 const scale = (window.innerHeight * 0.9) / model.height;
@@ -318,56 +314,7 @@
             }
         });
 
-        let lastPos = { x: 0, y: 0 };
-        let dist = 0;
-        let lastMove = Date.now();
-        window.addEventListener("mousemove", (e) => {
-            const now = Date.now();
-            lastMouseMoveTime = now;
 
-            // [FIX] 视线追踪逻辑保护：说话期间直接拦截，防止每秒几十次的 resetGaze() 调用导致视觉卡顿
-            if (isSpeaking) return;
-
-            if (model) {
-                // 将屏幕坐标转换为相对于窗口中心的偏移 (-1 ~ 1)
-                const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
-                const ndcY = (e.clientY / window.innerHeight) * 2 - 1;
-
-                if (model.internalModel?.coreModel) {
-                    const core = model.internalModel.coreModel;
-                    const setParam = (id, val) => {
-                        if (core.getParameterIndex(id) !== -1) core.setParameterValueById(id, val);
-                    };
-                    setParam("ParamAngleX", ndcX * 30);
-                    setParam("ParamAngleY", -ndcY * 30);
-                    setParam("ParamEyeBallX", ndcX);
-                    setParam("ParamEyeBallY", -ndcY);
-                    setParam("ParamBodyAngleX", ndcX * 10);
-                }
-            }
-
-            // 快速移动检测 (原有逻辑)
-            const move = Math.sqrt(Math.pow(e.clientX - lastPos.x, 2) + Math.pow(e.clientY - lastPos.y, 2));
-
-            if (now - lastMove > 100) dist *= 0.5; // 恢复适中的衰减
-            dist += move;
-
-            lastPos = { x: e.clientX, y: e.clientY };
-            lastMove = now;
-
-            // 阈值提高到 2500，减少误触
-            if (dist > 2500) {
-                dist = 0;
-                const pool = DIALOGUES.rotate;
-                const diag = pool[Math.floor(Math.random() * pool.length)];
-                if (model && modelName === "Mao") {
-                    if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
-                    model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
-                    model.expression(diag.exp);
-                    postToHost({ type: "poke", text: `(物理干扰) 主人在对着真央疯狂转圈圈，真央感觉变成了旋风猫娘喵！` });
-                }
-            }
-        });
 
         const handleSend = () => {
             const msg = chatInput.value.trim();
@@ -391,6 +338,45 @@
                 resetGaze();
             }
         }, 500);
+
+        let lastPos = { x: 0, y: 0 };
+        let dist = 0;
+        let lastMove = Date.now();
+
+        window.handleMouseMove = function (data) {
+            const now = Date.now();
+            lastMouseMoveTime = now;
+
+            // [FIX] 视线追踪逻辑保护：说话期间直接拦截，防止每秒几十次的 resetGaze() 调用导致视觉卡顿
+            if (isSpeaking) return;
+
+            if (model) {
+                // 将屏幕坐标转换为相对于窗口中心的偏移 (-1 ~ 1)
+                model.focus(data.x, data.y);
+            }
+
+            // 快速移动检测 (原有逻辑)
+            const move = Math.sqrt(Math.pow(data.x - lastPos.x, 2) + Math.pow(data.y - lastPos.y, 2));
+
+            if (now - lastMove > 100) dist *= 0.5; // 恢复适中的衰减
+            dist += move;
+
+            lastPos = { x: data.x, y: data.y };
+            lastMove = now;
+
+            // 阈值提高到 2500，减少误触
+            if (dist > 2500) {
+                dist = 0;
+                const pool = DIALOGUES.rotate;
+                const diag = pool[Math.floor(Math.random() * pool.length)];
+                if (model && modelName === "Mao") {
+                    if (model.internalModel?.motionManager) model.internalModel.motionManager.stopAllMotions();
+                    model.motion(diag.mtn.group, diag.mtn.index, PIXI.live2d.MotionPriority.FORCE);
+                    model.expression(diag.exp);
+                    postToHost({ type: "poke", text: `(物理干扰) 主人在对着真央疯狂转圈圈，真央感觉变成了旋风猫娘喵！` });
+                }
+            }
+        };
     }
 
     init();

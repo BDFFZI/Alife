@@ -172,18 +172,21 @@ public class XmlStreamExecutor
             contentBuffer.Clear(); // 无论是否有外层，新标签开启时都应清空缓冲区，防止“你好<say>”中的“你好”流进 say 中
         }
 
-        var entry = new TagEntry {
+        if (isSelfClosing)
+        {
+            var entry = new TagEntry {
+                Name = tagName,
+                Attributes = new Dictionary<string, string>(attributes)
+            };
+            await ProcessCurrentStackAsync(entry, "", null, TagStatus.OneShot);
+            return;
+        }
+
+        var openEntry = new TagEntry {
             Name = tagName,
             Attributes = new Dictionary<string, string>(attributes)
         };
-        tagStack.Push(entry);
-
-        if (isSelfClosing)
-        {
-            await ProcessCurrentStackAsync(entry, "", null, TagStatus.OneShot);
-            tagStack.Pop(); // 弹出
-            return;
-        }
+        tagStack.Push(openEntry);
 
         // [Specification 1] 开区间必定执行一次
         await ProcessCurrentStackAsync(null, "", null, TagStatus.Opening);

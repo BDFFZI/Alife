@@ -5,8 +5,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
-using System.Reflection;
 using Microsoft.Web.WebView2.Core;
+using System.Reflection;
+
 // 导入相关命名空间
 // using Alife.Abstractions;
 // using Alife.OfficialPlugins; // Decoupled
@@ -18,6 +19,9 @@ namespace Alife.Pet;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private MouseTracker mouseTracker;
+
+    
     public MainWindow()
     {
         // 强制使用 UTF-8 编码进行 IPC 通讯
@@ -25,13 +29,15 @@ public partial class MainWindow : Window
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
         InitializeComponent();
-        Debug.WriteLine("=== MainWindow Constructor ===");
         
+        Debug.WriteLine("=== MainWindow Constructor ===");
+
         // 允许拖动窗口 (备用方案)
         this.MouseLeftButtonDown += (s, e) => {
             if (e.ChangedButton == MouseButton.Left)
             {
-                try { this.DragMove(); } catch { }
+                try { this.DragMove(); }
+                catch { }
             }
         };
 
@@ -52,9 +58,10 @@ public partial class MainWindow : Window
             _logicalTop = this.Top;
 
             long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // 如果停顿超过 300ms，重置状态
-            if (now - _lastMoveTime > 300) {
+            if (now - _lastMoveTime > 300)
+            {
                 _totalPath = 0;
                 _directionChanges = 0;
             }
@@ -80,19 +87,33 @@ public partial class MainWindow : Window
 
             // 逻辑：
             // 1. 如果积累了一定路程且方向改变频繁 -> 抖动 (Shake)
-            if (_totalPath > 1000 && _directionChanges >= 4) {
+            if (_totalPath > 1000 && _directionChanges >= 4)
+            {
                 _totalPath = 0;
                 _directionChanges = 0;
                 SendToWebView(new { type = "shake" });
             }
             // 2. 如果只是单向移动了很远 -> 搬家 (Move)
-            else if (_totalPath > 5000 && _directionChanges < 2) {
+            else if (_totalPath > 5000 && _directionChanges < 2)
+            {
                 _totalPath = 0;
                 _directionChanges = 0;
                 SendToWebView(new { type = "move" });
             }
         };
+        
+        try
+        {
+            // 初始化鼠标追踪
+            mouseTracker = new MouseTracker(webView);
+            mouseTracker.Initialize();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"初始化失败: {ex.Message}");
+        }
     }
+    
 
     private void SendToWebView(object data)
     {
@@ -142,7 +163,7 @@ public partial class MainWindow : Window
             {
                 string? line = Console.ReadLine();
                 if (line == null) break;
-                
+
                 // 将从 Host 接收到的命令转发给 WebView2
                 Dispatcher.Invoke(() => {
                     if (webView.CoreWebView2 != null)
@@ -188,7 +209,7 @@ public partial class MainWindow : Window
                 int duration = root.GetProperty("duration").GetInt32();
 
                 _isProgrammaticMove = true;
-                
+
                 // [FIX] 坐标堆叠逻辑：基于逻辑终点叠加位移，防止连发指令导致的步长缩减/乱走
                 _logicalLeft += x;
                 _logicalTop += y;
@@ -206,12 +227,10 @@ public partial class MainWindow : Window
                 double targetTop = _logicalTop;
 
                 // 使用 WPF 动画平滑移动 (从当前实际位置到最新逻辑终点)
-                var animX = new System.Windows.Media.Animation.DoubleAnimation(this.Left, targetLeft, TimeSpan.FromMilliseconds(duration))
-                {
+                var animX = new System.Windows.Media.Animation.DoubleAnimation(this.Left, targetLeft, TimeSpan.FromMilliseconds(duration)) {
                     EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
                 };
-                var animY = new System.Windows.Media.Animation.DoubleAnimation(this.Top, targetTop, TimeSpan.FromMilliseconds(duration))
-                {
+                var animY = new System.Windows.Media.Animation.DoubleAnimation(this.Top, targetTop, TimeSpan.FromMilliseconds(duration)) {
                     EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
                 };
 
@@ -236,7 +255,7 @@ public partial class MainWindow : Window
                         _totalPath = 0;
 
                         _isProgrammaticMove = false;
-                        
+
                         // 【关键】通知 Host 移动已完成，解除 AI 的等待
                         Console.WriteLine(JsonSerializer.Serialize(new { type = "move-finished" }));
                     }
@@ -249,7 +268,8 @@ public partial class MainWindow : Window
                 this.BeginAnimation(Window.TopProperty, animY);
             }
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             Debug.WriteLine($"Move Error: {ex.Message}");
             _isProgrammaticMove = false;
             // 发生异常也尝试通知，防止 AI 永久挂起
@@ -267,7 +287,7 @@ public partial class MainWindow : Window
 
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            
+
             if (!root.TryGetProperty("type", out var typeProp)) return;
             var type = typeProp.GetString();
 
@@ -295,4 +315,4 @@ public partial class MainWindow : Window
 
     private const int WM_NCLBUTTONDOWN = 0xA1;
     private const int HTCAPTION = 0x2;
-}
+}

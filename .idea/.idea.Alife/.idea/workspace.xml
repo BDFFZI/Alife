@@ -18,10 +18,14 @@
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/ChatActivity/ChatBot.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerTable.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerTable.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Assets/Emotes/angry.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Assets/Emotes/confused.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Assets/Emotes/happy.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Assets/Emotes/shy.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/MainWindow.xaml.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet/wwwroot/pet.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -40,7 +44,9 @@
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/11aa0e509b4c4eeeaed9547dab1ff52b4c400/98/686755d7/Mock`1.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/21ad5042aa7448e695f385809e24ad632a420/be/b85ab5fa/Agent.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/32cef1b359f3483e8d9a2bee33c99ab426908/4b/a58e01e7/Channel`1.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/361fba0f18c842e0957ebf8ce829d5eff15938/0f/5f9efe62/FrameworkElement.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/6aa57ddeb02b4bef8365bcdc6f7c52dd22938/69/915a9399/ServiceProviderServiceExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/b15db1dc85994999ae8baa86e073ffa57ec908/0b/af5fd596/MouseDevice.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/d2fc4e5236f74a0d8789f902be54d3bbf48938/9c/29ffad5a/AssemblyName.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/d2fc4e5236f74a0d8789f902be54d3bbf48938/f8/b4cafc49/MethodBaseInvoker.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/f11699c1106c41ddafae8e8920e227ee2b848/3d/5a5c355b/ChatCompletionAgent.cs" root0="FORCE_HIGHLIGHTING" />
@@ -53,9 +59,10 @@
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9a6b1457cbcf17db31a383ba49ef9bcc786cf3ef77146d997eee499b27a46d/Object.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/a7099cf767e20d1d551f046f222848cbf36af5e38d079c8179e304666efc85/Process.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/e7d733c07fdf5a9514c7fbaed95d5211f53e38f3594d020fe2969f0e4c44a15/TaskCompletionSource.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="mock://C:/Users/13309/Desktop/Alife/src/Alife.Function/ChatService.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Function/ContextService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Function/SystemPromptService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Alife.Pet/GlobalMouseHook.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Alife.Pet/MouseTracker.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
@@ -74,24 +81,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;.NET 启动设置配置文件.Alife: http.executor&quot;: &quot;Debug&quot;,
-    &quot;.NET 项目.Alife.Pet.executor&quot;: &quot;Debug&quot;,
-    &quot;.NET 项目.Alife.PetDemo.executor&quot;: &quot;Debug&quot;,
-    &quot;.NET 项目.Alife.Python.Demo.executor&quot;: &quot;Debug&quot;,
-    &quot;.NET 项目.Plugins\\Alife.Plugins.Official.Test.executor&quot;: &quot;Debug&quot;,
-    &quot;25bc1463-fe90-4ba7-8638-0cdfdd1843ae.executor&quot;: &quot;Debug&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;XThreadsFramesViewSplitterKey&quot;: &quot;0.21653543&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    ".NET 启动设置配置文件.Alife: http.executor": "Debug",
+    ".NET 项目.Alife.Pet.executor": "Run",
+    ".NET 项目.Alife.PetDemo.executor": "Debug",
+    ".NET 项目.Alife.Python.Demo.executor": "Debug",
+    ".NET 项目.Plugins\\Alife.Plugins.Official.Test.executor": "Debug",
+    "25bc1463-fe90-4ba7-8638-0cdfdd1843ae.executor": "Debug",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "XThreadsFramesViewSplitterKey": "0.21653543",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected=".NET 项目.Alife.Pet">
     <configuration name="Alife.Core.Test" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />

@@ -51,20 +51,32 @@ public class XmlHandlerTable
             var attrs = parameters.Where(p => !p.IsContent).ToList();
             var content = parameters.FirstOrDefault(p => p.IsContent);
 
-            sb.Append($"- <{tagName}");
-            foreach (var p in attrs)
+            if (content == null && attrs.Count == 0)
             {
-                string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $"({p.Description})";
-                sb.Append($" {p.Name}=\"{p.Type}\"{pDesc}");
+                sb.Append($"- <{tagName} /> : {description}");
             }
-            
-            sb.Append(">");
-            if (content != null && !string.IsNullOrEmpty(content.Description))
+            else
             {
-                sb.Append($"({content.Description})");
+                sb.Append($"- <{tagName}");
+                foreach (var p in attrs)
+                {
+                    string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $" (可选：{p.Description})";
+                    sb.Append($" {p.Name}=\"{p.Type}{pDesc}\"");
+                }
+
+                if (content != null)
+                {
+                    sb.Append(">");
+                    string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : content.Description;
+                    sb.Append(cDesc);
+                    sb.Append($"</{tagName}> : {description}");
+                }
+                else
+                {
+                    sb.Append(" />");
+                    sb.Append($" : {description}");
+                }
             }
-            sb.Append($"({description})");
-            sb.Append($"</{tagName}>");
             sb.AppendLine();
         }
         return sb.ToString();

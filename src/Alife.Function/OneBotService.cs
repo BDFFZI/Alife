@@ -70,44 +70,80 @@ public class OneBotService : Plugin
         await ConnectAsync();
     }
 
+    // 外部表情包库 (渐进式加载)
+    private string _externalEmotePath = @"c:\Users\13309\Desktop\Alife\EmojiPackage-2.0";
+    private readonly List<string> _emoteCategories = new();
+
     private string ScanEmotesToPrompt()
     {
         try
         {
-            string emotePath = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
-            if (!Directory.Exists(emotePath))
-            {
-                Directory.CreateDirectory(emotePath);
-                return string.Empty;
-            }
+            // 1. 扫描本地精品库
+            string localEmotePath = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
+            if (!Directory.Exists(localEmotePath)) Directory.CreateDirectory(localEmotePath);
 
-            var files = Directory.GetFiles(emotePath, "*.*")
+            var localFiles = Directory.GetFiles(localEmotePath, "*.*")
                 .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
                 .ToList();
 
-            if (files.Count == 0) return string.Empty;
+            // 2. 扫描外部海量库分类
+            _emoteCategories.Clear();
+            if (Directory.Exists(_externalEmotePath))
+            {
+                var dirs = Directory.GetDirectories(_externalEmotePath);
+                foreach (var dir in dirs)
+                {
+                    _emoteCategories.Add(Path.GetFileName(dir));
+                }
+            }
+
+            var descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                { "angry", "讨厌/不屑 (菲比风格)" },
+                { "tongue", "略略略/调皮 (菲比风格)" },
+                { "judge", "盯着你/审视 (菲比风格)" },
+                { "eh", "哦.../无语/放空 (菲比风格)" },
+                { "shock", "你说啥!!?/震惊/质问 (菲比风格)" },
+                { "cult", "威严/认真/入教 (菲比风格)" },
+                { "loopy_evil_smile", "计划通/坏笑/我有主意了 (露比风格)" },
+                { "chiikawa_screaming", "尖叫/崩溃/害怕 (吉伊卡哇风格)" },
+                { "abstract_mental_collapse", "脑干缺失/疯狂/精神错乱 (抽象风格)" },
+                { "panda_contempt", "蔑视/看垃圾/这种话你也说得出口 (熊猫头经典风格)" }
+            };
 
             var sb = new StringBuilder();
             sb.AppendLine("# QQ 表情包使用指南");
-            sb.AppendLine("你拥有一个本地表情包库。当你想表达特定情绪或与群友斗图时，请使用 `<qimage />` 标签。");
-            sb.AppendLine("**重要规则：**");
-            sb.AppendLine("1. 必须使用 `<Interpreter><qimage file=\"...\" /></Interpreter>` 完整格式。");
-            sb.AppendLine("2. 即使是自闭合标签，也必须放在 `<Interpreter>` 块中才能生效。");
-            sb.AppendLine("\n**当前可用的本地表情包（file 路径）：**");
+            sb.AppendLine("你拥有两个表情包库：**精品库**（固定路径）和**海量库**（按分类/Tag调用）。");
+            sb.AppendLine("当你想表达特定情绪、吐槽、或者想和群友“斗图”时，请务必使用 `<qimage />` 标签。");
+            sb.AppendLine("**核心规则：**");
+            sb.AppendLine("1. **必须包裹**：必须使用 `<Interpreter><qimage ... /></Interpreter>` 完整格式。");
+            sb.AppendLine("2. **图文结合**：建议在文字回复的同时穿插表情包，增加互动感。");
             
             _emoteInventory.Clear();
-            foreach (var file in files)
+            if (localFiles.Count > 0)
             {
-                string name = Path.GetFileNameWithoutExtension(file);
-                string fullPath = Path.GetFullPath(file);
-                _emoteInventory[name] = fullPath;
-                sb.AppendLine($"- {name}: `{fullPath}`");
+                sb.AppendLine("\n**【精品库】（精准控制，推荐优先使用）：**");
+                foreach (var file in localFiles)
+                {
+                    string name = Path.GetFileNameWithoutExtension(file);
+                    string fullPath = Path.GetFullPath(file);
+                    _emoteInventory[name] = fullPath;
+                    string desc = descriptions.TryGetValue(name, out var d) ? d : "通用搞怪";
+                    sb.AppendLine($"- **{name}**: `<qimage file=\"{fullPath}\" />` (用途: {desc})");
+                }
             }
 
-            sb.AppendLine("\n**用法示例：**");
-            sb.AppendLine("如果你想发送“生气”的表情，回复：`<Interpreter><qimage file=\"[对应生气图片的绝对路径]\" /></Interpreter>`");
+            if (_emoteCategories.Count > 0)
+            {
+                sb.AppendLine("\n**【海量库】（通过 tag 属性随机调用指定分类的图片）：**");
+                sb.AppendLine("用法示例：`<qimage tag=\"程序员\" />` (系统会从该分类中随机挑一张图发送)");
+                sb.AppendLine("可用分类（Tag）：" + string.Join("、", _emoteCategories));
+            }
+
+            sb.AppendLine("\n**综合示例：**");
+            sb.AppendLine("- 计划搞恶作剧：`嘿嘿... <Interpreter><qimage file=\".../loopy_evil_smile.png\" /></Interpreter>`");
+            sb.AppendLine("- 程序员日常破防：`<Interpreter><qimage tag=\"程序员\" /></Interpreter>`");
             
-            Console.WriteLine($"[OneBot] 自动发现 {files.Count} 个表情包并注入提示词。");
+            Console.WriteLine($"[OneBot] 发现 {localFiles.Count} 个精品表情 & {_emoteCategories.Count} 个外部分类。");
             return sb.ToString();
         }
         catch (Exception ex)
@@ -159,13 +195,13 @@ public class OneBotService : Plugin
     }
 
     [XmlHandler]
-    [Description("发送 QQ 消息。target: QQ/群号 (可选，默认回复当前类型)；type: 'private'/'group' (可选)。内容写在标签中间。")]
-    public async Task QChat(XmlTagContext ctx, long target = 0, string type = "")
+    [Description("发送 QQ 文本消息。")]
+    public async Task QChat(XmlTagContext ctx, [Description("内容"), XmlTagContent] string message = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "")
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
         
-        string message = ctx.FullContent;
-        if (string.IsNullOrWhiteSpace(message)) return;
+        string msgToSend = !string.IsNullOrEmpty(message) ? message : ctx.FullContent;
+        if (string.IsNullOrWhiteSpace(msgToSend)) return;
 
         // 确定类型：显式指定 > 上次互动类型
         string finalType = !string.IsNullOrEmpty(type) ? type : _lastType;
@@ -180,12 +216,12 @@ public class OneBotService : Plugin
         }
 
         // 程序端去重：如果 AI 试图对同一目标重复完全相同的话，直接拦截
-        if (finalTarget == _lastSentTarget && message == _lastSentMessage)
+        if (finalTarget == _lastSentTarget && msgToSend == _lastSentMessage)
         {
-            Console.WriteLine($"[OneBot] 拦截重复发送请求 (Target: {finalTarget}): {message.Replace("\n", " ")}");
+            Console.WriteLine($"[OneBot] 拦截重复发送请求 (Target: {finalTarget}): {msgToSend.Replace("\n", " ")}");
             return;
         }
-        _lastSentMessage = message;
+        _lastSentMessage = msgToSend;
         _lastSentTarget = finalTarget;
 
         string action = finalType == "group" ? "send_group_msg" : "send_private_msg";
@@ -194,7 +230,7 @@ public class OneBotService : Plugin
             action = action,
             @params = new Dictionary<string, object> {
                 { finalType == "group" ? "group_id" : "user_id", finalTarget },
-                { "message", message }
+                { "message", msgToSend }
             }
         };
 
@@ -203,7 +239,7 @@ public class OneBotService : Plugin
         {
             await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)), 
                 WebSocketMessageType.Text, true, CancellationToken.None);
-            Console.WriteLine($"[OneBot] 已通过 {action} 发送至 {finalTarget}: {message}");
+            Console.WriteLine($"[OneBot] 已通过 {action} 发送至 {finalTarget}: {msgToSend}");
         }
         else
         {
@@ -212,11 +248,32 @@ public class OneBotService : Plugin
     }
 
     [XmlHandler]
-    [Description("发送 QQ 图片。file: 图片 URL、本地路径或 Base64 (必选)；target: QQ/群号 (可选)；type: 'private'/'group' (可选)。")]
-    public async Task QImage(XmlTagContext ctx, string file, long target = 0, string type = "")
+    [Description("发送 QQ 图片。")]
+    public async Task QImage(XmlTagContext ctx, [Description("URL、本地路径或精品库文件名")] string file = "", [Description("表情分类(Tag)")] string tag = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "", [XmlTagContent] string _ = "")
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
-        if (string.IsNullOrWhiteSpace(file)) return;
+
+        string finalFile = file;
+
+        // 如果没有直接提供文件路径，但提供了 tag，则从分类中随机挑一个
+        if (string.IsNullOrWhiteSpace(finalFile) && !string.IsNullOrWhiteSpace(tag))
+        {
+            string categoryPath = Path.Combine(_externalEmotePath, tag);
+            if (Directory.Exists(categoryPath))
+            {
+                var files = Directory.GetFiles(categoryPath, "*.*")
+                    .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
+                    .ToList();
+                
+                if (files.Count > 0)
+                {
+                    finalFile = files[new Random().Next(files.Count)];
+                    Console.WriteLine($"[OneBot] 从分类 '{tag}' 中随机选择表情: {Path.GetFileName(finalFile)}");
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(finalFile)) return;
 
         string finalType = !string.IsNullOrEmpty(type) ? type : _lastType;
         long finalTarget = target != 0 ? target : (finalType == "group" ? _lastGroupTarget : _lastPrivateTarget);
@@ -227,7 +284,7 @@ public class OneBotService : Plugin
             return;
         }
 
-        string message = $"[CQ:image,file={file}]";
+        string message = $"[CQ:image,file={finalFile}]";
         string action = finalType == "group" ? "send_group_msg" : "send_private_msg";
         
         var payload = new {
@@ -243,7 +300,7 @@ public class OneBotService : Plugin
         {
             await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)), 
                 WebSocketMessageType.Text, true, CancellationToken.None);
-            Console.WriteLine($"[OneBot] 已通过 {action} 发送图片至 {finalTarget}: {file}");
+            Console.WriteLine($"[OneBot] 已通过 {action} 发送图片至 {finalTarget}: {finalFile}");
         }
         else
         {
