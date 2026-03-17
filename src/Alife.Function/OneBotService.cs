@@ -21,6 +21,7 @@ public class OneBotService : Plugin
 
     // 表情包资产：文件名 -> 完整路径
     private readonly Dictionary<string, string> _emoteInventory = new();
+    private readonly List<string> _emoteCategories = new();
 
     // 运行时上下文，分类型缓存最后一次互动的目标
     private long _lastPrivateTarget = 0;
@@ -70,85 +71,80 @@ public class OneBotService : Plugin
         await ConnectAsync();
     }
 
-    // 外部表情包库 (渐进式加载)
-    private string _externalEmotePath = @"c:\Users\13309\Desktop\Alife\EmojiPackage-2.0";
-    private readonly List<string> _emoteCategories = new();
-
     private string ScanEmotesToPrompt()
     {
         try
         {
-            // 1. 扫描本地精品库
-            string localEmotePath = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
-            if (!Directory.Exists(localEmotePath)) Directory.CreateDirectory(localEmotePath);
+            string emotePath = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
+            if (!Directory.Exists(emotePath)) Directory.CreateDirectory(emotePath);
 
-            var localFiles = Directory.GetFiles(localEmotePath, "*.*")
+            _emoteInventory.Clear();
+            _emoteCategories.Clear();
+
+            // 1. 扫描顶级文件 (作为直接表情项)
+            var topLevelFiles = Directory.GetFiles(emotePath, "*.*")
                 .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
                 .ToList();
 
-            // 2. 扫描外部海量库分类
-            _emoteCategories.Clear();
-            if (Directory.Exists(_externalEmotePath))
+            foreach (var file in topLevelFiles)
             {
-                var dirs = Directory.GetDirectories(_externalEmotePath);
-                foreach (var dir in dirs)
-                {
-                    _emoteCategories.Add(Path.GetFileName(dir));
-                }
+                string name = Path.GetFileNameWithoutExtension(file);
+                _emoteInventory[name] = Path.GetFullPath(file);
+            }
+
+            // 2. 扫描顶级文件夹 (作为分类/Tag)
+            var subDirs = Directory.GetDirectories(emotePath);
+            foreach (var dir in subDirs)
+            {
+                _emoteCategories.Add(Path.GetFileName(dir));
             }
 
             var descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
-                { "angry", "讨厌/不屑 (菲比风格)" },
-                { "tongue", "略略略/调皮 (菲比风格)" },
-                { "judge", "盯着你/审视 (菲比风格)" },
-                { "eh", "哦.../无语/放空 (菲比风格)" },
-                { "shock", "你说啥!!?/震惊/质问 (菲比风格)" },
-                { "cult", "威严/认真/入教 (菲比风格)" },
-                { "loopy_evil_smile", "计划通/坏笑/我有主意了 (露比风格)" },
-                { "chiikawa_screaming", "尖叫/崩溃/害怕 (吉伊卡哇风格)" },
-                { "abstract_mental_collapse", "脑干缺失/疯狂/精神错乱 (抽象风格)" },
-                { "panda_contempt", "蔑视/看垃圾/这种话你也说得出口 (熊猫头经典风格)" }
+                { "angry", "讨厌/不屑" },
+                { "tongue", "调皮" },
+                { "judge", "审视" },
+                { "eh", "无语" },
+                { "shock", "震惊" },
+                { "cult", "威严" },
+                { "害怕", "害怕/怂了" },
+                { "讨厌", "讨厌/不想要" }
             };
 
             var sb = new StringBuilder();
             sb.AppendLine("# QQ 表情包使用指南");
-            sb.AppendLine("你拥有两个表情包库：**精品库**（固定路径）和**海量库**（按分类/Tag调用）。");
-            sb.AppendLine("当你想表达特定情绪、吐槽、或者想和群友“斗图”时，请务必使用 `<qimage />` 标签。");
-            sb.AppendLine("**核心规则：**");
-            sb.AppendLine("1. **必须包裹**：必须使用 `<Interpreter><qimage ... /></Interpreter>` 完整格式。");
-            sb.AppendLine("2. **图文结合**：建议在文字回复的同时穿插表情包，增加互动感。");
+            sb.AppendLine("你拥有一个强大的表情包库。当你想表达特定情绪或与群友斗图时，请使用 `<qimage />` 标签。");
+            sb.AppendLine("**使用规则：**");
+            sb.AppendLine("1. **标签格式**：必须使用 `<Interpreter><qimage file=\"名称\" /></Interpreter>`。");
+            sb.AppendLine("2. **智能解析**：");
+            sb.AppendLine("   - 如果“名称”是一个**具体文件名**，系统会发送该图。");
+            sb.AppendLine("   - 如果“名称”是一个**分类文件夹**，系统会从中随机挑一张图发送。");
             
-            _emoteInventory.Clear();
-            if (localFiles.Count > 0)
+            if (_emoteInventory.Count > 0)
             {
-                sb.AppendLine("\n**【精品库】（精准控制，推荐优先使用）：**");
-                foreach (var file in localFiles)
+                sb.AppendLine("\n**【精品表情】（指定文件名即可调用）：**");
+                foreach (var kvp in _emoteInventory)
                 {
-                    string name = Path.GetFileNameWithoutExtension(file);
-                    string fullPath = Path.GetFullPath(file);
-                    _emoteInventory[name] = fullPath;
-                    string desc = descriptions.TryGetValue(name, out var d) ? d : "通用搞怪";
-                    sb.AppendLine($"- **{name}**: `<qimage file=\"{fullPath}\" />` (用途: {desc})");
+                    string desc = descriptions.TryGetValue(kvp.Key, out var d) ? d : "通用";
+                    sb.AppendLine($"- **{kvp.Key}**: (用途: {desc})");
                 }
             }
 
             if (_emoteCategories.Count > 0)
             {
-                sb.AppendLine("\n**【海量库】（通过 tag 属性随机调用指定分类的图片）：**");
-                sb.AppendLine("用法示例：`<qimage tag=\"程序员\" />` (系统会从该分类中随机挑一张图发送)");
-                sb.AppendLine("可用分类（Tag）：" + string.Join("、", _emoteCategories));
+                sb.AppendLine("\n**【海量分类】（指定分类名将随机发图）：**");
+                sb.AppendLine("可用分类：" + string.Join("、", _emoteCategories));
             }
 
             sb.AppendLine("\n**综合示例：**");
-            sb.AppendLine("- 计划搞恶作剧：`嘿嘿... <Interpreter><qimage file=\".../loopy_evil_smile.png\" /></Interpreter>`");
-            sb.AppendLine("- 程序员日常破防：`<Interpreter><qimage tag=\"程序员\" /></Interpreter>`");
+            sb.AppendLine("- 发送一张讨厌的图：`<Interpreter><qimage file=\"angry\" /></Interpreter>`");
+            sb.AppendLine("- 发送一张程序员相关的随机图：`<Interpreter><qimage file=\"程序员\" /></Interpreter>`");
             
-            Console.WriteLine($"[OneBot] 发现 {localFiles.Count} 个精品表情 & {_emoteCategories.Count} 个外部分类。");
+            Console.WriteLine($"[OneBot] 表情库扫描完成：{_emoteInventory.Count} 个独立表情，{_emoteCategories.Count} 个分类。");
             return sb.ToString();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[OneBot] 发现表情包异常: {ex.Message}");
+            Console.WriteLine($"[OneBot] 扫描表情包异常: {ex.Message}");
             return string.Empty;
         }
     }
@@ -249,26 +245,49 @@ public class OneBotService : Plugin
 
     [XmlHandler]
     [Description("发送 QQ 图片。")]
-    public async Task QImage(XmlTagContext ctx, [Description("URL、本地路径或精品库文件名")] string file = "", [Description("表情分类(Tag)")] string tag = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "", [XmlTagContent] string _ = "")
+    public async Task QImage(XmlTagContext ctx, [Description("表情名称 (文件名或分类名)")] string file = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "", [XmlTagContent] string _ = "")
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
 
-        string finalFile = file;
+        if (string.IsNullOrWhiteSpace(file)) return;
 
-        // 如果没有直接提供文件路径，但提供了 tag，则从分类中随机挑一个
-        if (string.IsNullOrWhiteSpace(finalFile) && !string.IsNullOrWhiteSpace(tag))
+        string emoteRoot = Path.Combine(AppContext.BaseDirectory, "Storage", "Emotes");
+        string finalFile = "";
+
+        // 1. 优先检查是否是分类文件夹
+        string categoryPath = Path.Combine(emoteRoot, file);
+        if (Directory.Exists(categoryPath))
         {
-            string categoryPath = Path.Combine(_externalEmotePath, tag);
-            if (Directory.Exists(categoryPath))
+            var files = Directory.GetFiles(categoryPath, "*.*")
+                .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
+                .ToList();
+            
+            if (files.Count > 0)
             {
-                var files = Directory.GetFiles(categoryPath, "*.*")
-                    .Where(f => f.EndsWith(".png") || f.EndsWith(".jpg") || f.EndsWith(".gif") || f.EndsWith(".jpeg"))
-                    .ToList();
-                
-                if (files.Count > 0)
+                finalFile = files[new Random().Next(files.Count)];
+                Console.WriteLine($"[OneBot] 从分类 '{file}' 中随机选择表情: {Path.GetFileName(finalFile)}");
+            }
+        }
+        
+        // 2. 检查是否是精确文件名
+        if (string.IsNullOrEmpty(finalFile))
+        {
+            if (_emoteInventory.TryGetValue(file, out var path))
+            {
+                finalFile = path;
+            }
+            else
+            {
+                // 尝试补全后缀查找
+                var possibleExts = new[] { ".jpg", ".png", ".gif", ".jpeg" };
+                foreach (var ext in possibleExts)
                 {
-                    finalFile = files[new Random().Next(files.Count)];
-                    Console.WriteLine($"[OneBot] 从分类 '{tag}' 中随机选择表情: {Path.GetFileName(finalFile)}");
+                    string tryPath = Path.Combine(emoteRoot, file + ext);
+                    if (File.Exists(tryPath))
+                    {
+                        finalFile = tryPath;
+                        break;
+                    }
                 }
             }
         }
