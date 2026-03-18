@@ -9,6 +9,7 @@ using System.ComponentModel;
 namespace Alife.OfficialPlugins;
 
 [Plugin("真央桌宠", "将真央桌宠接入AI系统，实现表现力同步 and 互动反馈。")]
+[Description("真央桌宠插件：提供气泡消息、表情控制、动作执行以及 Live2D 参数的底层控制能力。")]
 public class PetService : Plugin, IAsyncDisposable
 {
     [XmlHandler("pet_bubble")]
@@ -32,9 +33,8 @@ public class PetService : Plugin, IAsyncDisposable
 
         string expression = context.FullContent.Trim();
         string id = expression switch {
-            "开心" => "exp_01",
+            "开心" or "晕" or "晕乎" => "exp_04", // exp_04 是繁星眼，适合表现开心或晕
             "闭眼" => "exp_03",
-            "晕" or "晕乎" => "exp_04",
             "悲伤" or "委屈" => "exp_05",
             "害羞" or "脸红" => "exp_06",
             "惊讶" or "哇" => "exp_07",
@@ -96,9 +96,6 @@ public class PetService : Plugin, IAsyncDisposable
             "害羞" => 0,
             "摇头" => 1,
             "点头" => 2,
-            "欢迎" => 3,
-            "旋转" => 4,
-            "跳舞" => 5,
             _ => int.TryParse(motion, out var i) ? i : 2
         };
 
@@ -144,16 +141,18 @@ public class PetService : Plugin, IAsyncDisposable
     public override Task AwakeAsync(AwakeContext context)
     {
         context.contextBuilder.ChatHistory.AddSystemMessage("""
-                                                            # 互动指南 (针对 Poke 消息)
-                                                            你会收到来自系统的特殊消息（Poke），表示主人正在与你进行物理互动。请根据互动类型给出极其自然的回复：
-                                                            1. **(物理干扰)**：表示主人在拖动、摇晃或旋转你。请表现出相应的生理反应（如晕、惊讶、开心等），并巧妙地衔接对话。
-                                                            2. **(连击干扰)**：表示主人在疯狂戳你。请表现出被打扰或者害羞的反应。
-                                                            3. **通过属性表达 (参数控制)**：你可以通过 `<pet_param name="参数名" value="数值" duration="毫秒" />` 直接控制我的身体姿态。
+                                                            # 宠物互动指南
+                                                            你可以通过特殊标签控制我的表现，请根据对话情境使用：
+                                                            1. **发气泡**：`<pet_bubble>内容</pet_bubble>` (会自动正视主人回复)
+                                                            2. **表情控制**：`<pet_exp>类型</pet_exp>`
+                                                               - 支持：`开心` (繁星眼), `害羞`, `闭眼`, `悲伤`, `惊讶`, `生气`
+                                                            3. **动作控制**：`<pet_mtn>类型</pet_mtn>`
+                                                               - 支持：`点头`, `摇头`, `害羞`
+                                                            4. **生理反应 (Poke)**：当你收到系统的物理干扰消息时，可以使用 `开心` 或 `惊讶` 来回应。
+                                                            5. **高级控制 (参数)**：`<pet_param name="参数名" value="数值" duration="毫秒" />`
                                                                - `ParamAngleX/Y/Z`: 头部转动 (-30 到 30)
                                                                - `ParamBodyAngleX`: 身体侧歪 (-10 到 10)
                                                                - `ParamEyeBallX/Y`: 眼神位置 (-1 到 1)
-                                                               示例：`<pet_param name="ParamBodyAngleX" value="10" duration="1500" />` 表示身体缓缓向右歪。
-                                                            不要在回复中复读这些提示语，直接进入角色进行互动喵！
                                                             """);
         return Task.CompletedTask;
     }

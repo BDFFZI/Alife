@@ -100,7 +100,7 @@
 
         if (duration > 0) {
             isSpeaking = true;
-            updateModelFocus(window.innerWidth / 2, window.innerHeight / 2, false); // Look center during speech
+            updateModelFocus(window.innerWidth / 2, window.innerHeight / 2, true); // Look center instantly during speech
 
             window.bubbleHideTimeout = setTimeout(() => {
                 bubbleContainer.style.opacity = "0";
@@ -118,7 +118,7 @@
      */
     function updateModelFocus(x, y, instant = false) {
         if (!model) return;
-        if (isSpeaking && !instant) return; // Ignore tracking while speaking unless forced
+        if (isSpeaking && !instant) return; // Ignore tracking while speaking unless forced (e.g. bubble start)
         model.focus(x, y, instant);
     }
 
@@ -175,55 +175,52 @@
     }
 
     // --- Parameter Tweaning ---
-    const parameterTweens = {};
+    const activeTweens = new Map();
 
     /**
      * Smoothly transitions a Live2D parameter to a target value, 
      * stays there for a while, and then returns to 0.
+     * Logic is moved to the ticker to ensure persistence.
      */
     function updateParameter(name, targetValue, duration = 1000) {
         if (!model) return;
         
-        // Cancel existing tween for this parameter
-        if (parameterTweens[name]) {
-            cancelAnimationFrame(parameterTweens[name].id);
-        }
-
         const core = model.internalModel.coreModel;
-        const startValue = core.getParameterValueById(name);
-        const startTime = performance.now();
-        const holdDuration = 2000; // Time to stay at target value
+        activeTweens.set(name, {
+            startValue: core.getParameterValueById(name),
+            targetValue: targetValue,
+            duration: duration,
+            holdDuration: 2000,
+            startTime: performance.now()
+        });
+    }
 
-        function animate(time) {
-            const elapsed = time - startTime;
-            
-            if (elapsed < duration) {
-                // Transitioning to target
-                const t = elapsed / duration;
-                const easeT = t * (2 - t); // Ease out
-                const current = startValue + (targetValue - startValue) * easeT;
-                model.internalModel.coreModel.setParameterValueById(name, current);
-                parameterTweens[name].id = requestAnimationFrame(animate);
-            } else if (elapsed < duration + holdDuration) {
-                // Holding at target
-                model.internalModel.coreModel.setParameterValueById(name, targetValue);
-                parameterTweens[name].id = requestAnimationFrame(animate);
-            } else if (elapsed < duration * 2 + holdDuration) {
-                // Returning to 0
-                const returnElapsed = elapsed - (duration + holdDuration);
-                const t = returnElapsed / duration;
-                const easeT = t * (2 - t); // Ease out
-                const current = targetValue + (0 - targetValue) * easeT;
-                model.internalModel.coreModel.setParameterValueById(name, current);
-                parameterTweens[name].id = requestAnimationFrame(animate);
+    function processParameterTweens(time) {
+        if (!model) return;
+        const now = performance.now();
+        const core = model.internalModel.coreModel;
+
+        for (const [name, tween] of activeTweens.entries()) {
+            const elapsed = now - tween.startTime;
+            let current = 0;
+
+            if (elapsed < tween.duration) {
+                const t = elapsed / tween.duration;
+                const easeT = t * (2 - t);
+                current = tween.startValue + (tween.targetValue - tween.startValue) * easeT;
+            } else if (elapsed < tween.duration + tween.holdDuration) {
+                current = tween.targetValue;
+            } else if (elapsed < tween.duration * 2 + tween.holdDuration) {
+                const returnElapsed = elapsed - (tween.duration + tween.holdDuration);
+                const t = returnElapsed / tween.duration;
+                const easeT = t * (2 - t);
+                current = tween.targetValue + (0 - tween.targetValue) * easeT;
             } else {
-                // Done
-                model.internalModel.coreModel.setParameterValueById(name, 0);
-                delete parameterTweens[name];
+                current = 0;
+                activeTweens.delete(name);
             }
+            core.setParameterValueById(name, current);
         }
-
-        parameterTweens[name] = { id: requestAnimationFrame(animate) };
     }
 
     // --- Initialization & Scene Setup ---
@@ -248,6 +245,9 @@
 
             model = await live2d.Live2DModel.from(url, { autoInteract: false });
             app.stage.addChild(model);
+
+            // Important: Override parameters in the Ticker to ensure they persist
+            app.ticker.add(() => processParameterTweens());
 
             // Refine Gaze Smoothing
             const ctrl = model.internalModel.focusController;

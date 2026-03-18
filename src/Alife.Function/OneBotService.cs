@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 namespace Alife.OfficialPlugins;
 
 [Plugin("OneBot-QQ聊天", "连接 OneBot 服务器，实现 QQ 消息收发、群聊监听及 @ 响应。")]
+[Description("QQ 聊天插件 (OneBot)：支持发送 QQ 消息、图片，以及管理群聊监听状态。")]
 public class OneBotService : Plugin, IAsyncDisposable
 {
     [XmlHandler]

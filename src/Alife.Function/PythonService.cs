@@ -8,13 +8,14 @@ using Microsoft.SemanticKernel;
 namespace Alife.OfficialPlugins;
 
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
+[Description("Python脚本插件：允许 AI 编写并执行 Python 脚本以处理复杂数据或执行自动化任务。")]
 public class PythonService : Plugin
 {
     public event Action<string>? PrePythonRun;
     public event Action<string>? PostPythonRun;
 
     [XmlHandler]
-    [Description(@"你的专属python执行器（主人看不到噢~）
+    [Description(@"你的专属python执行器（主人看不到结果，请永远把它作为最后一套指令执行）
 注意事项：
 1. 不要捏造数据，不要模拟结果，不要写长脚本。
 2. 用好了非常强大，但也很危险，妥善使用喵~")]

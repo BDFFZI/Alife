@@ -1,6 +1,5 @@
-using Alife.OfficialPlugins;
-using Alife.Plugins.Official.Implement;
-using Alife.Test;
+using Alife.Interpreter;
+using System.ComponentModel;
 
 namespace Alife.Interpreter.Demo;
 
@@ -8,31 +7,144 @@ public class InteractiveExplorer
 {
     public static async Task RunAsync()
     {
-        Terminal.Log("========================================", ConsoleColor.Magenta);
-        Terminal.Log("   Alife Interpreter 协议集成验证 Demo", ConsoleColor.Magenta);
-        Terminal.Log("========================================", ConsoleColor.Magenta);
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.ForegroundColor = ConsoleColor.Magenta;
+        Console.WriteLine("========================================");
+        Console.WriteLine("   Alife Interpreter 纯协议解析验证器");
+        Console.WriteLine("========================================");
+        Console.ResetColor();
 
-        // 1. 配置通用工具人角色
-        var character = new Character {
-            ID = "InterpreterMao",
-            Name = "真央",
-            Prompt = "你是一个桌宠助理真央喵！你非常活泼，喜欢模仿猫娘（说话带喵）。\n" +
-                     "这个演示环境专门用于测试你的 XML 协议理解能力。你可以随时尝试使用 <speak>, <motion>, <expression> 等标签喵！",
-            Plugins = new HashSet<Type> {
-                typeof(InterpreterService),
-                typeof(OpenAIChatService),
+        // 1. 初始化编译器与处理器
+        var compiler = new XmlHandlerCompiler();
+        compiler.Register(new MockPetHandler());
+        compiler.Register(new MockSpeechHandler());
+        compiler.Register(new MockSystemHandler());
+
+        var handlerTable = compiler.Compile();
+        var parser = new XmlStreamParser { RootTagName = "Interpreter" };
+        var executor = new XmlStreamExecutor(
+            parser,
+            handlerTable,
+            ["，", "。", "！", "？", "......", "~"],
+            minResultLength: 1
+        );
+
+        Console.WriteLine("已加载标签文档：");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(handlerTable.GenerateDocumentation());
+        Console.ResetColor();
+
+        Console.WriteLine("\n[操作说明]");
+        Console.WriteLine("- 直接输入文字：模拟 LLM 吐字至解析器。");
+        Console.WriteLine("- 输入 'test'：运行预设的自动解析用例。");
+        Console.WriteLine("- 输入 'clear'：重置解析器状态。");
+        Console.WriteLine("- 输入 'exit'：退出。");
+        Console.WriteLine("--------------------------------------------------\n");
+
+        while (true)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write("LLM Output > ");
+            Console.ResetColor();
+            
+            string? input = Console.ReadLine();
+            if (string.IsNullOrEmpty(input) || input.ToLower() == "exit") break;
+
+            if (input.ToLower() == "clear")
+            {
+                executor.Reset();
+                Console.WriteLine("解析器已重置。");
+                continue;
             }
-        };
 
-        // 2. 初始化套件
-        var suite = await DemoSuite.InitializeAsync(character);
+            if (input.ToLower() == "test")
+            {
+                await RunTestCases(executor);
+                continue;
+            }
 
-        Terminal.LogInfo("提示：此环境用于测试 AI 如何自主决定调用哪些工具。输入文字开启对话喵！");
-        Terminal.Log("--------------------------------------------------\n", ConsoleColor.Gray);
+            // 模拟流式喂入
+            executor.Feed(input);
+            executor.Flush();
+        }
 
-        // 3. 运行交互循环
-        await suite.RunAsync();
+        Console.WriteLine("验证器已关闭。");
+    }
 
-        Terminal.Log("演示结束，再见喵！", ConsoleColor.Magenta);
+    static async Task RunTestCases(XmlStreamExecutor executor)
+    {
+        string[] cases = [
+            "<Interpreter><speak>你好啊！</speak><pet_exp>开心</pet_exp></Interpreter>",
+            "<Interpreter><pet_move x=\"100\" y=\"200\" /><speak>我动了一下喵~</speak></Interpreter>",
+            "这是一段普通文字。<Interpreter><speak>这是标签内的文字</speak></Interpreter>这是后续文字。",
+            "<Interpreter><pet_bubble>分步测试开始...</pet_bubble>",
+            "接着输入其余部分</Interpreter>"
+        ];
+
+        foreach (var c in cases)
+        {
+            Console.WriteLine($"\n[Test Case] Feed: {c}");
+            executor.Feed(c);
+            executor.Flush();
+            await Task.Delay(500);
+        }
+    }
+}
+
+[Description("Mock 宠物处理器：用于验证桌宠相关标签的解析。")]
+public class MockPetHandler
+{
+    [XmlHandler("pet_exp")]
+    [Description("模拟表情切换。")]
+    public void PetExpression(XmlTagContext context)
+    {
+        if (context.Status == TagStatus.Closing)
+            LogTag("pet_exp", context.FullContent);
+    }
+
+    [XmlHandler("pet_move")]
+    [Description("模拟位移。")]
+    public void PetMove(XmlTagContext context, double x = 0, double y = 0, int duration = 1000)
+    {
+        if (context.Status == TagStatus.OneShot)
+            LogTag("pet_move", $"x={x}, y={y}, duration={duration}");
+    }
+
+    [XmlHandler("pet_bubble")]
+    public void PetBubble(XmlTagContext context)
+    {
+        if (context.Status == TagStatus.Closing)
+            LogTag("pet_bubble", context.FullContent);
+    }
+
+    private void LogTag(string tag, string info)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"  [EXEC Pet] <{tag}> : {info}");
+        Console.ResetColor();
+    }
+}
+
+[Description("Mock 语音处理器：用于验证语音输出标签。")]
+public class MockSpeechHandler
+{
+    [XmlHandler("speak")]
+    public void Speak(string content)
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"  [EXEC Speech] <speak> : {content}");
+        Console.ResetColor();
+    }
+}
+
+[Description("Mock 系统处理器：提供基础系统指令。")]
+public class MockSystemHandler
+{
+    [XmlHandler("continue")]
+    public void Continue()
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("  [EXEC System] <continue /> : 触发主动唤醒。");
+        Console.ResetColor();
     }
 }

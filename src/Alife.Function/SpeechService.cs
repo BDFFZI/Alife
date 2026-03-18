@@ -9,6 +9,7 @@ using System.Diagnostics;
 namespace Alife.OfficialPlugins;
 
 [Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。")]
+[Description("语音对话插件：提供语音合成（说话）能力，能够将文本转为语音播放。")]
 public class SpeechService : Plugin, IAsyncDisposable
 {
     public event Action<string, Task>? Speaking;

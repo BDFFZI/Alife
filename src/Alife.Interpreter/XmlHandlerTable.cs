@@ -24,17 +24,23 @@ public class XmlHandlerTable
     internal IReadOnlyDictionary<string, CompiledTagInvoker> Handlers { get; }
     public IReadOnlyDictionary<string, string> Descriptions { get; }
     public IReadOnlyDictionary<string, List<XmlParameterInfo>> TagParameters { get; }
+    public IReadOnlyDictionary<string, string> ClassDescriptions { get; }
+    public IReadOnlyDictionary<string, string> TagToClass { get; }
 
     public IEnumerable<string> RegisteredTags => Handlers.Keys;
 
     internal XmlHandlerTable(
         Dictionary<string, CompiledTagInvoker> handlers,
         Dictionary<string, string> descriptions,
-        Dictionary<string, List<XmlParameterInfo>> tagParameters)
+        Dictionary<string, List<XmlParameterInfo>> tagParameters,
+        Dictionary<string, string> classDescriptions,
+        Dictionary<string, string> tagToClass)
     {
         Handlers = handlers;
         Descriptions = descriptions;
         TagParameters = tagParameters;
+        ClassDescriptions = classDescriptions;
+        TagToClass = tagToClass;
     }
 
     /// <summary>
@@ -43,42 +49,62 @@ public class XmlHandlerTable
     public string GenerateDocumentation()
     {
         var sb = new System.Text.StringBuilder();
-        foreach (var tagName in RegisteredTags)
+
+        // 按类名分组
+        var tagsByClass = RegisteredTags
+            .GroupBy(t => TagToClass.TryGetValue(t, out var className) ? className : "其它")
+            .OrderBy(g => g.Key);
+
+        foreach (var group in tagsByClass)
         {
-            string description = Descriptions.TryGetValue(tagName, out var desc) ? desc : "无说明";
-            var parameters = TagParameters.TryGetValue(tagName, out var @params) ? @params : new List<XmlParameterInfo>();
+            string className = group.Key;
+            string classDesc = ClassDescriptions.TryGetValue(className, out var d) ? d : "";
 
-            var attrs = parameters.Where(p => !p.IsContent).ToList();
-            var content = parameters.FirstOrDefault(p => p.IsContent);
-
-            if (content == null && attrs.Count == 0)
+            sb.AppendLine($"### {className}");
+            if (!string.IsNullOrEmpty(classDesc))
             {
-                sb.Append($"- <{tagName} /> : {description}");
+                sb.AppendLine($"> {classDesc}");
             }
-            else
-            {
-                sb.Append($"- <{tagName}");
-                foreach (var p in attrs)
-                {
-                    string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $" (可选：{p.Description})";
-                    sb.Append($" {p.Name}=\"{p.Type}{pDesc}\"");
-                }
+            sb.AppendLine();
 
-                if (content != null)
+            foreach (var tagName in group)
+            {
+                string description = Descriptions.TryGetValue(tagName, out var desc) ? desc : "无说明";
+                var parameters = TagParameters.TryGetValue(tagName, out var @params) ? @params : new List<XmlParameterInfo>();
+
+                var attrs = parameters.Where(p => !p.IsContent).ToList();
+                var content = parameters.FirstOrDefault(p => p.IsContent);
+
+                if (content == null && attrs.Count == 0)
                 {
-                    sb.Append(">");
-                    string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : content.Description;
-                    sb.Append(cDesc);
-                    sb.Append($"</{tagName}> : {description}");
+                    sb.Append($"- <{tagName} /> : {description}");
                 }
                 else
                 {
-                    sb.Append(" />");
-                    sb.Append($" : {description}");
+                    sb.Append($"- <{tagName}");
+                    foreach (var p in attrs)
+                    {
+                        string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $" (可选：{p.Description})";
+                        sb.Append($" {p.Name}=\"{p.Type}{pDesc}\"");
+                    }
+
+                    if (content != null)
+                    {
+                        sb.Append(">");
+                        string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : content.Description;
+                        sb.Append(cDesc);
+                        sb.Append($"</{tagName}> : {description}");
+                    }
+                    else
+                    {
+                        sb.Append(" />");
+                        sb.Append($" : {description}");
+                    }
                 }
+                sb.AppendLine();
             }
             sb.AppendLine();
         }
-        return sb.ToString();
+        return sb.ToString().TrimEnd();
     }
 }

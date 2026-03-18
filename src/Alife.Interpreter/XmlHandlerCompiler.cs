@@ -14,7 +14,7 @@ public class XmlHandlerCompiler
         ParameterRole Role, string? AttributeName, Type ParameterType,
         bool HasDefaultValue, object? DefaultValue);
 
-    readonly List<(object? Target, MethodInfo Method, string? TagName, string Description)> registrations = new();
+    readonly List<(object? Target, MethodInfo Method, string? TagName, string Description, Type DeclaringType)> registrations = new();
 
     public XmlHandlerCompiler Register(object handlerInstance)
     {
@@ -25,7 +25,7 @@ public class XmlHandlerCompiler
             XmlHandlerAttribute? attr = method.GetCustomAttribute<XmlHandlerAttribute>();
             if (attr != null)
             {
-                registrations.Add((method.IsStatic ? null : handlerInstance, method, attr.TagName, attr.Description));
+                registrations.Add((method.IsStatic ? null : handlerInstance, method, attr.TagName, attr.Description, type));
             }
         }
         return this;
@@ -39,7 +39,7 @@ public class XmlHandlerCompiler
             XmlHandlerAttribute? attr = method.GetCustomAttribute<XmlHandlerAttribute>();
             if (attr != null)
             {
-                registrations.Add((null, method, attr.TagName, attr.Description));
+                registrations.Add((null, method, attr.TagName, attr.Description, typeof(T)));
             }
         }
         return this;
@@ -50,10 +50,22 @@ public class XmlHandlerCompiler
         Dictionary<string, CompiledTagInvoker> handlers = new();
         Dictionary<string, string> descriptions = new();
         Dictionary<string, List<XmlParameterInfo>> tagParameters = new();
+        Dictionary<string, string> classDescriptions = new();
+        Dictionary<string, string> tagToClass = new();
 
-        foreach ((object? target, MethodInfo method, string? tagName, string description) in registrations)
+        foreach ((object? target, MethodInfo method, string? tagName, string description, Type declaringType) in registrations)
         {
             string effectiveTagName = (tagName ?? method.Name).ToLowerInvariant();
+            
+            // 处理类说明
+            string className = declaringType.Name;
+            if (!classDescriptions.ContainsKey(className))
+            {
+                var classDescAttr = declaringType.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+                classDescriptions[className] = classDescAttr?.Description ?? "";
+            }
+            tagToClass[effectiveTagName] = className;
+
             // 优先使用 DescriptionAttribute (KernelFunction 风格)，若为空则回退
             var descAttr = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
             string effectiveDescription = (descAttr != null && !string.IsNullOrEmpty(descAttr.Description)) 
@@ -129,7 +141,7 @@ public class XmlHandlerCompiler
             
             handlers[effectiveTagName] = invoker;
         }
-        return new XmlHandlerTable(handlers, descriptions, tagParameters);
+        return new XmlHandlerTable(handlers, descriptions, tagParameters, classDescriptions, tagToClass);
     }
 
     static string GetAITypeName(Type t)
