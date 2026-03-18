@@ -45,7 +45,10 @@ public class InterpreterService : Plugin
 你可以给你的回复套上一些可选的xml标签，来使内容发挥一些特定作用。
 **目前可用的标签：**
 {handlerTable.GenerateDocumentation()}
-注意：如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
+注意事项：
+1. 如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
+2. 先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
+3. 指令可以嵌套使用，例如将消息类指令嵌套使用，从而实现发文字消息的同时语音。
 ";
 
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);

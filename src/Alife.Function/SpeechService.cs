@@ -11,7 +11,7 @@ namespace Alife.OfficialPlugins;
 [Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。")]
 public class SpeechService : Plugin, IAsyncDisposable
 {
-    public event Action<string>? AudioPlay;
+    public event Action<string, Task>? Speaking;
 
     public void StartRecognition()
     {
@@ -38,13 +38,13 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizerCancelSource = new CancellationTokenSource();
         Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
         await lastSynthesizer;
-        lastSynthesizer = Task.Run(async () =>
-        {
+        lastSynthesizer = Task.Run(async () => {
             string? output = await task;
             if (output != null)
             {
-                AudioPlay?.Invoke(output);
-                await synthesizer.PlayAudioAsync(output);
+                Task speak = synthesizer.PlayAudioAsync(output);
+                Speaking?.Invoke(output, speak);
+                await speak;
             }
         });
     }
@@ -75,7 +75,7 @@ public class SpeechService : Plugin, IAsyncDisposable
     {
         chatBot = chatActivity.ChatBot;
         chatActivity.ChatBot.ChatSent += _ => StopSynthesizer(); //增加打断功能                             
-        StartHeadphoneMonitoring();//根据耳机情况开关语音识别
+        StartHeadphoneMonitoring(); //根据耳机情况开关语音识别
 
         return Task.CompletedTask;
     }
@@ -97,8 +97,7 @@ public class SpeechService : Plugin, IAsyncDisposable
     void StartHeadphoneMonitoring()
     {
         var enumerator = new MMDeviceEnumerator();
-        Task.Run(async () =>
-        {
+        Task.Run(async () => {
             while (true)
             {
                 try
@@ -139,8 +138,7 @@ public class SpeechService : Plugin, IAsyncDisposable
                             "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
                             "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
 
-            Process.Start(new ProcessStartInfo
-            {
+            Process.Start(new ProcessStartInfo {
                 FileName = "powershell",
                 Arguments = $"-Command \"{script}\"",
                 CreateNoWindow = true,

@@ -21,19 +21,20 @@
     <ChildContent>
         <Flex Justify="FlexJustify.Center" Gap="FlexGap.Middle">
             <Button Type="@ButtonType.Primary" OnClick="@(() => isLogging = true)">日志</Button>
-            <ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
             <Button Type="@ButtonType.Primary" OnClick="@(() => isChatting = true)">对话</Button>
-            <DialogContextUI Context="@(dialogContext)" @bind-Visible="isChatting"></DialogContextUI>
             <Button Type="@ButtonType.Primary" Danger OnClick="Stopped">停止</Button>
         </Flex>
     </ChildContent>
 </Card>
 
+<ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
+<ChatWindowUI ChatBot="@(Context.ChatBot)" ChatWindow="@(chatWindow)" @bind-Visible="isChatting"></ChatWindowUI>
+
 @code {
     [Parameter] public ChatActivity Context { get; set; } = null!;
     [Parameter] public EventCallback Stopped { get; set; }
 
-    DialogContext dialogContext = null!;
+    ChatWindow chatWindow = null!;
     bool isEditing;
     bool isChatting;
     bool isLogging;
@@ -43,7 +44,7 @@
     {
         base.OnInitialized();
 
-        dialogContext = Context.PluginService.GetRequiredService<DialogContext>();
+        chatWindow = Context.PluginService.GetRequiredService<ChatWindow>();
 
         systemPrompts = Context.KernelService.Plugins.GetFunctionsMetadata()
             .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
@@ -55,4 +56,4 @@
                 ["FunctionSchemaIsStrict"] = chatTool.FunctionSchemaIsStrict
             }).Select(jObject => jObject.ToString());
     }
-}
+}

@@ -20,21 +20,17 @@
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Alife.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Alife.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Demo.Framework/Alife.Demo.Framework.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Demo.Framework/Alife.Demo.Framework.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Demo.Framework/DemoSuite.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Demo.Framework/DemoSuite.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/Alife.Foundation.Interpreter.csproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerAttribute.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerCompiler.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerTable.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlStreamExecutor.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlStreamParser.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlTagContext.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Function/Alife.Function.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/Alife.Function.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/Alife.Services.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/Alife.Services.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/InterpreterService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/InterpreterService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/PetService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/PetService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/PythonService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/PythonService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/SpeechService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/SpeechService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Python.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Python.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatActivityUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatActivityUI.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/DialogContextUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatWindowUI.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife/Modules/Context/Connectors.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife/Modules/Context/DialogContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Modules/Context/ChatWindow.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Program.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,6 +69,9 @@
     <setting file="file://$PROJECT_DIR$/src/Alife.Pet/MouseTracker.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Python.Demo/Program.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Alife/Modules/Context/PetChatMessage.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Alife/Modules/Context/PythonChatMessage.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Alife/Modules/Context/SpeechChatMessage.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProblemsViewState">
@@ -119,7 +118,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected=".NET 项目.Tests\Alife.Python.Demo">
+  <component name="RunManager" selected=".NET 启动设置配置文件.Alife: http">
     <configuration name="Alife.Core.Test" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
       <option name="PROGRAM_PARAMETERS" value="" />

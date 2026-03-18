@@ -1,5 +1,5 @@
-@using Alife.Abstractions
 @using Alife.Modules.Context
+@implements IDisposable
 @inject IJSRuntime JsRuntime
 
 <Modal Title="对话窗口"
@@ -9,12 +9,12 @@
        BodyStyle="display:flex;flex-direction:column;gap:12px"
        Footer="null"
        MaskClosable="false"
-       Maximizable="true">
+       DefaultMaximized="true">
     <Flex Style="height: 100%;width: 100%; flex: 1; overflow-y: scroll; "
           Direction="FlexDirection.Vertical"
           Gap="@(FlexGap.Small)"
           Id="messageArea">
-        @if (Context.GetMessages().Any() == false)
+        @if (ChatWindow.GetMessages().Any() == false)
         {
             <Empty>
                 <DescriptionTemplate>
@@ -24,7 +24,7 @@
         }
         else
         {
-            @foreach (DialogItem message in Context.GetMessages())
+            @foreach (ChatMessage message in ChatWindow.GetMessages())
             {
                 <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
                     <Alert
@@ -78,7 +78,6 @@
     </Flex>
 </Modal>
 
-
 <script type="text/javascript">
     window.scrollMessageArea = () => {
         setTimeout(() => {
@@ -89,42 +88,64 @@
 </script>
 
 @code {
-    [Parameter] public DialogContext Context { get; set; } = null!;
+    [Parameter] public ChatBot ChatBot { get; set; } = null!;
+    [Parameter] public ChatWindow ChatWindow { get; set; } = null!;
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
+    Dictionary<ChatMessage, bool> isHiding = null!;
     string inputText = "";
-    Dictionary<DialogItem, bool> isHiding = null!;
+    ChatMessage aiMessage = null!;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
 
-        isHiding = new Dictionary<DialogItem, bool>();
-        Context.MessageAdded += OnMessageAdded;
-        Context.MessageUpdated += OnMessageUpdated;
+        isHiding = new Dictionary<ChatMessage, bool>();
+        ChatWindow.MessageAdded += OnMessageAdded;
+        ChatWindow.MessageUpdated += OnMessageUpdated;
+        ChatBot.ChatSent += OnChatSent;
+        ChatBot.ChatReceived += OnChatReceived;
+        ChatBot.ChatOver += OnChatOver;
     }
     public void Dispose()
     {
-        Context.MessageAdded -= OnMessageAdded;
-        Context.MessageUpdated -= OnMessageUpdated;
+        ChatWindow.MessageAdded -= OnMessageAdded;
+        ChatWindow.MessageUpdated -= OnMessageUpdated;
+        ChatBot.ChatSent -= OnChatSent;
+        ChatBot.ChatReceived -= OnChatReceived;
+        ChatBot.ChatOver -= OnChatOver;
     }
 
-    void OnSend()
+    void OnChatSent(string obj)
     {
-        if (string.IsNullOrWhiteSpace(inputText))
-            return;
+        ChatMessage userMessage = new() {
+            content = obj, isUser = true
+        };
+        ChatWindow.AddMessage(userMessage);
 
-        string text = inputText;
-        inputText = "";
-        Context.AddMessage(new DialogItem() { content = text, isUser = true });
+        aiMessage = new() {
+            isUser = false, isInputting = true
+        };
+        ChatWindow.AddMessage(aiMessage);
     }
+    void OnChatReceived(string obj)
+    {
+        aiMessage.content += obj;
+        ChatWindow.UpdateMessage(aiMessage);
+    }
+    void OnChatOver()
+    {
+        aiMessage.isInputting = false;
+        ChatWindow.UpdateMessage(aiMessage);
+    }
+
     void OnVisibleChanged(bool obj)
     {
         Visible = obj;
         VisibleChanged.InvokeAsync(obj);
     }
-    void OnMessageAdded(DialogItem obj)
+    void OnMessageAdded(ChatMessage obj)
     {
         if (obj.isDefaultHiding)
             isHiding[obj] = true;
@@ -136,13 +157,24 @@
                 JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
     }
-    void OnMessageUpdated(DialogItem obj)
+    void OnMessageUpdated(ChatMessage obj)
     {
         InvokeAsync(() => {
             StateHasChanged();
 
-            if (obj is { isDefaultHiding: false, tool: null } && obj == Context.GetMessages().Last())
+            if (obj is { isDefaultHiding: false, tool: null } && obj == ChatWindow.GetMessages().Last())
                 JsRuntime.InvokeVoidAsync("scrollMessageArea");
         });
+    }
+
+    void OnSend()
+    {
+        string text = inputText;
+        inputText = "";
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        ChatBot.Chat(text);
     }
 }

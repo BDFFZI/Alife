@@ -10,6 +10,9 @@ namespace Alife.OfficialPlugins;
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
 public class PythonService : Plugin
 {
+    public event Action<string>? PrePythonRun;
+    public event Action<string>? PostPythonRun;
+
     [XmlHandler]
     [Description(@"你的专属python执行器（主人看不到噢~）
 注意事项：
@@ -34,6 +37,8 @@ public class PythonService : Plugin
             StandardErrorEncoding = Encoding.UTF8,
         };
 
+        PrePythonRun?.Invoke(context.FullContent);
+
         using Process process = new Process();
         process.StartInfo = startInfo;
         process.Start();
@@ -42,6 +47,8 @@ public class PythonService : Plugin
         await process.WaitForExitAsync();
         if (process.ExitCode != 0)
             output = await process.StandardError.ReadToEndAsync();
+
+        PostPythonRun?.Invoke(output);
 
         if (string.IsNullOrWhiteSpace(output) == false)
             chatBot.Poke("[来自系统的消息：这是刚刚Python的执行结果，你看是否有问题)]" + output);

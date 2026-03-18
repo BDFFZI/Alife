@@ -233,8 +233,9 @@ public class PetService : Plugin, IAsyncDisposable
 
     void OnPetMessageReceived(string? data)
     {
-        if (string.IsNullOrWhiteSpace(data)) return;
-        Console.WriteLine($"[IPC <- Pet] {data}");
+        if (string.IsNullOrWhiteSpace(data))
+            return;
+        // Console.WriteLine($"[{nameof(PetService)}] {data}");
 
         using var doc = JsonDocument.Parse(data);
         var root = doc.RootElement;

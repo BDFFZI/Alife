@@ -15,8 +15,7 @@ class Program
     static async Task Main(string[] args)
     {
         // 1. 配置角色与插件
-        var character = new Character
-        {
+        var character = new Character {
             ID = "SpeechMao",
             Name = "真央",
             Prompt = "你是一个桌面上名为真央的 AI 语音助手。你非常活泼，喜欢模仿猫娘（说话带喵）。\n" +
@@ -33,7 +32,7 @@ class Program
         _suite = await DemoSuite.InitializeAsync(character);
 
         _speechService = _suite.Activity.Plugins.OfType<SpeechService>().First();
-        _speechService.AudioPlay += (msg) => Terminal.LogInfo("合成声音：" + msg);
+        _speechService.Speaking += (msg, _) => Terminal.LogInfo("合成声音：" + msg);
 
         if (_speechService == null)
         {
@@ -46,6 +45,4 @@ class Program
 
         await _suite.RunAsync();
     }
-
-
 }
