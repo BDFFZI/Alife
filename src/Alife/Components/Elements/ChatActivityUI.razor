@@ -1,5 +1,7 @@
-﻿@using System.Text
+@using System.Text
 @using Alife.Abstractions
+@using Alife.OfficialPlugins
+@using Alife.Modules.Context
 @using Alife.Components.Elements.Utility
 @using Microsoft.SemanticKernel
 @using Microsoft.SemanticKernel.Connectors.OpenAI
@@ -21,7 +23,7 @@
             <Button Type="@ButtonType.Primary" OnClick="@(() => isLogging = true)">日志</Button>
             <ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
             <Button Type="@ButtonType.Primary" OnClick="@(() => isChatting = true)">对话</Button>
-            <ChatWindowUI Context="@(dialogContext)" @bind-Visible="isChatting"></ChatWindowUI>
+            <DialogContextUI Context="@(dialogContext)" @bind-Visible="isChatting"></DialogContextUI>
             <Button Type="@ButtonType.Primary" Danger OnClick="Stopped">停止</Button>
         </Flex>
     </ChildContent>
@@ -42,6 +44,7 @@
         base.OnInitialized();
 
         dialogContext = Context.PluginService.GetRequiredService<DialogContext>();
+
         systemPrompts = Context.KernelService.Plugins.GetFunctionsMetadata()
             .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
             .Select(chatTool => new JObject() {
@@ -52,4 +55,4 @@
                 ["FunctionSchemaIsStrict"] = chatTool.FunctionSchemaIsStrict
             }).Select(jObject => jObject.ToString());
     }
-}
+}

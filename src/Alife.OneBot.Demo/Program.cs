@@ -1,6 +1,8 @@
 using System.Text;
 using Alife;
 using Alife.Abstractions;
+using Alife.Modules.Context;
+using Alife.OneBot;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
 using Alife.Test;

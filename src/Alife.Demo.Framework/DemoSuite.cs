@@ -2,6 +2,9 @@ using System;
 using System.Linq;
 using System.Text;
 using Alife.Abstractions;
+using DialogContext = global::Alife.Modules.Context.DialogContext;
+using DialogItem = global::Alife.Modules.Context.DialogItem;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -18,8 +21,8 @@ public class DemoSuite : IAsyncDisposable
     public ChatActivity Activity => _activity;
     public ChatBot Bot => _activity.ChatBot;
     public DialogContext? Context => _activity.Plugins.OfType<DialogContext>().FirstOrDefault();
-    public ConfigurationSystem ConfigSystem => _activity.Plugins.OfType<ConfigurationSystem>().First();
-    public StorageSystem StorageSystem => _activity.Plugins.OfType<StorageSystem>().First();
+    public ConfigurationSystem ConfigSystem => _activity.PluginService.GetRequiredService<ConfigurationSystem>();
+    public StorageSystem StorageSystem => _activity.PluginService.GetRequiredService<StorageSystem>();
 
     private bool _isStreamingResponse = false;
 

@@ -2,6 +2,7 @@ using System.Text;
 using Alife.Vision;
 using Alife.Test;
 using Alife.Abstractions;
+using Alife.Modules.Context;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
 using Microsoft.SemanticKernel;

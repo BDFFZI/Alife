@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Alife.Abstractions;
+using Microsoft.SemanticKernel;
 
-namespace Alife.Abstractions;
+namespace Alife.Modules.Context;
 
 public class DialogItem
 {
@@ -11,13 +13,12 @@ public class DialogItem
     public bool isInputting;
     public bool isDefaultHiding;
 }
-
-[Plugin("框架-聊天窗口", "提供一个公用的有配套界面的聊天窗口。")]
+[Plugin("背景-对话窗口", "提供一个传统的聊天窗口平台来显示内容。")]
 public class DialogContext : Plugin
 {
     public event Action<DialogItem>? MessageAdded;
     public event Action<DialogItem>? MessageUpdated;
-
+    
     public List<DialogItem> GetMessages()
     {
         return messages;
@@ -32,10 +33,5 @@ public class DialogContext : Plugin
         MessageUpdated?.Invoke(dialogItem);
     }
 
-    readonly List<DialogItem> messages;
-
-    public DialogContext(List<DialogItem>? messages = null)
-    {
-        this.messages = messages ?? new List<DialogItem>();
-    }
+    readonly List<DialogItem> messages = new();
 }

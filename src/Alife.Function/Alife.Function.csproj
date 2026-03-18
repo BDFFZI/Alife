@@ -9,8 +9,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
+    <ProjectReference Include="..\Alife.Foundation.Interpreter\Alife.Foundation.Interpreter.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
+    <ProjectReference Include="..\Alife.OneBot\Alife.OneBot.csproj" />
   </ItemGroup>
 
   <ItemGroup>

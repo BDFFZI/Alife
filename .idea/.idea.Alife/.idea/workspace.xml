@@ -19,33 +19,44 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b555f1c0-d240-48cb-8733-19a6553be5ac" name="更改" comment="-">
-      <change afterPath="$PROJECT_DIR$/src/Alife.Core/Modules/Context/DialogContext.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Alife.Test.Framework/Alife.Test.Framework.csproj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Alife.Test.Framework/DemoSuite.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Alife.Test.Framework/Terminal.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Alife.Demo.Framework/Alife.Demo.Framework.csproj" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/Alife.Foundation.Interpreter.csproj" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Alife.OneBot/Alife.OneBot.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Alife/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Function/ChatService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/ChatService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Function/Context/DialogContext.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Alife.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Alife.slnx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Core/Modules/Context/DialogContext.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/Alife.Function.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/Alife.Function.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/ChatService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/OneBotService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/PetService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/PetService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/PythonService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/PythonService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Function/SpeechService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Function/SpeechService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/Alife.Interpreter.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/Alife.Interpreter.Demo.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/InteractiveExplorer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/InteractiveExplorer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Interpreter.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/Alife.Interpreter.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerAttribute.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerAttribute.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerCompiler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerCompiler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlHandlerTable.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlHandlerTable.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamExecutor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlStreamExecutor.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlStreamParser.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlStreamParser.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Interpreter/XmlTagContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Foundation.Interpreter/XmlTagContext.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Alife.OneBot.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Alife.OneBot.Demo.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OneBot.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.OneBot.Demo/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.OneBot.Demo/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Pet.Demo/Alife.Pet.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet.Demo/Alife.Pet.Demo.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Pet.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet.Demo/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Pet.Demo/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Pet.Demo/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Python.Demo/Alife.Python.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Python.Demo/Alife.Python.Demo.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Python.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Python.Demo/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Demo/Alife.Speech.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech.Demo/Alife.Speech.Demo.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech.Demo/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechRecognizer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech/LocalSpeechRecognizer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Speech.Demo/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Speech.Demo/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Test.Framework/Alife.Test.Framework.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Test.Framework/DemoSuite.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Demo.Framework/DemoSuite.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Test.Framework/Terminal.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Demo.Framework/Terminal.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Vision.Demo/Alife.Vision.Demo.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Vision.Demo/Alife.Vision.Demo.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife.Vision.Demo/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Vision.Demo/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Vision/Alife.Vision.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Vision/Alife.Vision.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Vision/ImageAnalyzer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Vision/ImageAnalyzer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Alife.Vision/VisionAIService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Alife.Vision.Demo/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife.Vision.Demo/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatActivityUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/ChatActivityUI.razor" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Alife/Components/Elements/DialogContextUI.razor" beforeDir="false" afterPath="$PROJECT_DIR$/src/Alife/Components/Elements/DialogContextUI.razor" afterDir="false" />
     </list>
@@ -116,19 +127,22 @@
     "25bc1463-fe90-4ba7-8638-0cdfdd1843ae.executor": "Debug",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "XThreadsFramesViewSplitterKey": "0.21653543",
     "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
+    "junie.onboarding.icon.badge.shown": "true",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "preferences.pluginManager",
+    "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected=".NET 项目.Alife.PetDemo">
+  <component name="RunManager" selected=".NET 项目.Alife.Vision.Demo">
     <configuration name="Alife.Core.Test" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
       <option name="PROGRAM_PARAMETERS" value="" />
@@ -446,26 +460,20 @@
     </configuration>
     <list>
       <item itemvalue=".NET 启动设置配置文件.Alife: http" />
-      <item itemvalue=".NET 项目.Alife.OneBot.Demo" />
-      <item itemvalue=".NET 项目.Alife.Vision.Demo" />
       <item itemvalue=".NET 项目.Alife.Core.Test" />
       <item itemvalue=".NET 项目.Alife.Interpreter.Test" />
-      <item itemvalue=".NET 项目.Alife.Live2D.Test" />
       <item itemvalue=".NET 项目.Alife.Live2D" />
-      <item itemvalue=".NET 项目.Alife.PetDemo" />
+      <item itemvalue=".NET 项目.Alife.Live2D.Test" />
+      <item itemvalue=".NET 项目.Alife.OneBot.Demo" />
       <item itemvalue=".NET 项目.Alife.Pet" />
+      <item itemvalue=".NET 项目.Alife.PetDemo" />
       <item itemvalue=".NET 项目.Alife.Python.Demo" />
-      <item itemvalue=".NET 项目.Alife.Speech.Test" />
       <item itemvalue=".NET 项目.Alife.Speech" />
-      <item itemvalue=".NET 项目.Tests\Alife.Python.Demo" />
+      <item itemvalue=".NET 项目.Alife.Speech.Test" />
+      <item itemvalue=".NET 项目.Alife.Vision.Demo" />
       <item itemvalue=".NET 项目.Plugins\Alife.Plugins.Official.Test" />
+      <item itemvalue=".NET 项目.Tests\Alife.Python.Demo" />
     </list>
-    <recent_temporary>
-      <list>
-        <item itemvalue=".NET 项目.Tests\Alife.Python.Demo" />
-        <item itemvalue=".NET 项目.Plugins\Alife.Plugins.Official.Test" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">

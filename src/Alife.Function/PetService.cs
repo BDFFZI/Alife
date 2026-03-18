@@ -8,17 +8,17 @@ using System.ComponentModel;
 
 namespace Alife.OfficialPlugins;
 
-[Plugin("真央桌宠", "将真央桌宠接入AI系统，实现表现力同步和互动反馈。")]
+[Plugin("真央桌宠", "将真央桌宠接入AI系统，实现表现力同步 and 互动反馈。")]
 public class PetService : Plugin, IAsyncDisposable
 {
+    public event Action<string>? OnPetChatReceived;
+
     private Process? _petProcess;
-    private readonly DialogContext dialogContext;
     private ChatActivity? _chatActivity;
     private TaskCompletionSource? _moveTcs;
 
-    public PetService(InterpreterService interpreterService, DialogContext dialogContext)
+    public PetService(InterpreterService interpreterService)
     {
-        this.dialogContext = dialogContext;
         interpreterService.RegisterHandler(this);
     }
 
@@ -46,7 +46,6 @@ public class PetService : Plugin, IAsyncDisposable
 
         try
         {
-            // 启动桌宠进程
             string assemblyDir = AppDomain.CurrentDomain.BaseDirectory;
             string petExePath = Path.Combine(assemblyDir, "Alife.Pet.exe");
 
@@ -114,7 +113,7 @@ public class PetService : Plugin, IAsyncDisposable
                 var text = root.GetProperty("text").GetString();
                 if (!string.IsNullOrEmpty(text))
                 {
-                    dialogContext.AddMessage(new DialogItem { content = text, isUser = true });
+                    OnPetChatReceived?.Invoke(text);
                 }
             }
             else if (type == "poke")
@@ -132,7 +131,6 @@ public class PetService : Plugin, IAsyncDisposable
         }
         catch
         {
-            // 忽略非 JSON 输出
         }
     }
 
@@ -150,11 +148,6 @@ public class PetService : Plugin, IAsyncDisposable
                 Console.WriteLine($"[PetService] Send Error: {ex.Message}");
             }
         }
-    }
-
-    private void LookForward()
-    {
-        SendToPet(new { type = "look" });
     }
 
     [XmlHandler("pet_bubble")]
@@ -206,7 +199,6 @@ public class PetService : Plugin, IAsyncDisposable
             currentTag.Attributes.TryGetValue("duration", out sd);
         }
 
-        // 如果属性没有，尝试从内容解析 (x,y 格式)
         if (string.IsNullOrEmpty(sx) && !string.IsNullOrEmpty(context.FullContent))
         {
             var parts = context.FullContent.Split(',');
@@ -220,14 +212,10 @@ public class PetService : Plugin, IAsyncDisposable
         double.TryParse(sx, out double x);
         double.TryParse(sy, out double y);
         int.TryParse(sd, out int duration);
-        if (duration <= 0) duration = 1000; // 默认 1 秒
+        if (duration <= 0) duration = 1000;
 
-        // 创建等待任务
         _moveTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        
         SendToPet(new { type = "window-move", x, y, duration });
-
-        // 等待位移完成（附带安全超时，防止 UI 崩溃导致整个 AI 卡住）
         await Task.WhenAny(_moveTcs.Task, Task.Delay(duration + 1000));
         _moveTcs = null;
     }
