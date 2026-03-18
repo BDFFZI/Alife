@@ -1,11 +1,6 @@
-using System.Text;
-using Alife;
-using Alife.Abstractions;
-using Alife.Modules.Context;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
 using Alife.Test;
-using Microsoft.SemanticKernel;
 
 Terminal.Log("========================================", ConsoleColor.Magenta);
 Terminal.Log("   真央 Python 脚本集成验证 Demo", ConsoleColor.Magenta);
@@ -22,8 +17,6 @@ var character = new Character {
         typeof(OpenAIChatService),
         typeof(InterpreterService),
         typeof(PythonService),
-        typeof(ChatService),
-        typeof(DialogContext)
     }
 };
 

@@ -1,15 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Alife.OfficialPlugins</RootNamespace>
+    <RootNamespace>Alife.Services</RootNamespace>
   </PropertyGroup>
 
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife.Foundation.Interpreter\Alife.Foundation.Interpreter.csproj" />
+    <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
     <ProjectReference Include="..\Alife.OneBot\Alife.OneBot.csproj" />
   </ItemGroup>

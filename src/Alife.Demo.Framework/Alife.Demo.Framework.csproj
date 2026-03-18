@@ -4,12 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Alife.Test.Framework</RootNamespace>
+    <RootNamespace>Alife.Demo.Framework</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife\Alife.csproj" />
   </ItemGroup>
 
   <ItemGroup>

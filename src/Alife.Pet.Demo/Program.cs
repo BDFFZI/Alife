@@ -1,10 +1,6 @@
-using System.Text;
-using Alife;
-using Alife.Abstractions;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
 using Alife.Test;
-using Microsoft.SemanticKernel;
 
 Terminal.Log("========================================", ConsoleColor.Magenta);
 Terminal.Log("   真央桌宠 AI 交互集成验证 Demo", ConsoleColor.Magenta);
@@ -20,7 +16,6 @@ var character = new Character {
         typeof(InterpreterService),
         typeof(PetService),
         typeof(OpenAIChatService),
-        typeof(ChatService) 
     }
 };
 

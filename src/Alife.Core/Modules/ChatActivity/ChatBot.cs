@@ -30,6 +30,9 @@ public class ChatBot : IAsyncDisposable
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, $"[{DateTime.Now}]{message}");
             cancelChatSource = new CancellationTokenSource();
 
+            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
+                ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
+
             ChatSent?.Invoke(message);
             string? error = null;
             var enumerator = llmAgent

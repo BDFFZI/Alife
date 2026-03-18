@@ -1,21 +1,21 @@
 <Solution>
   <Folder Name="/Demos/">
     <Project Path="src/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
-    <Project Path="src\Alife.Demo.Framework\Alife.Demo.Framework.csproj" Type="Classic C#" />
+    <Project Path="src\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
     <Project Path="src\Alife.Interpreter.Demo\Alife.Interpreter.Demo.csproj" />
     <Project Path="src\Alife.OneBot.Demo\Alife.OneBot.Demo.csproj" />
     <Project Path="src\Alife.Pet.Demo\Alife.Pet.Demo.csproj" />
     <Project Path="src\Alife.Python.Demo\Alife.Python.Demo.csproj" />
     <Project Path="src\Alife.Speech.Demo\Alife.Speech.Demo.csproj" />
   </Folder>
-  <Folder Name="/Foundations/">
+  <Folder Name="/Functions/">
     <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
     <Project Path="src/Alife.Vision/Alife.Vision.csproj" />
-    <Project Path="src\Alife.Foundation.Interpreter\Alife.Foundation.Interpreter.csproj" />
+    <Project Path="src\Alife.Interpreter\Alife.Interpreter.csproj" />
     <Project Path="src\Alife.OneBot\Alife.OneBot.csproj" />
     <Project Path="src\Alife.Pet\Alife.Pet.csproj" />
   </Folder>
+  <Project Path="src/Alife.Function/Alife.Services.csproj" />
   <Project Path="src\Alife.Core\Alife.Core.csproj" />
-  <Project Path="src\Alife.Function\Alife.Function.csproj" />
   <Project Path="src\Alife\Alife.csproj" />
 </Solution>

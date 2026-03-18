@@ -26,47 +26,33 @@ public static class Terminal
     public static void LogError(string message) => Log($"[ERROR] {message}", ConsoleColor.Red);
     public static void LogSystem(string message) => Log($"[SYS] {message}", ConsoleColor.DarkYellow);
 
-    public static void LogReceived(string sender, string message)
+    public static void LogSent(string sender, string message)
     {
         lock (_lock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.Write($"{sender} RECV < ");
+            Console.Write($"{sender} SENT > ");
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine(message);
             Console.ResetColor();
         }
     }
 
-    public static void LogSent(string receiver, string message)
+    public static void LogReceivedStart(string receiver)
     {
         lock (_lock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Write($"{receiver} SENT > ");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(message);
-            Console.ResetColor();
-        }
-    }
-
-    public static void LogStreamStart(string receiver)
-    {
-        lock (_lock)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Write($"{receiver} SENT > ");
+            Console.Write($"RECV {receiver} < ");
             Console.ForegroundColor = ConsoleColor.White;
         }
     }
 
-    public static void LogStreamChunk(string chunk)
+    public static void LogReceivedChunk(string chunk)
     {
         lock (_lock)
         {

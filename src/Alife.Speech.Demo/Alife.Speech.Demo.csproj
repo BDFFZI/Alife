@@ -4,16 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Alife.Speech.Test</RootNamespace>
+    <RootNamespace>Alife.Speech.Demo</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
     <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
-    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
-    <ProjectReference Include="..\Alife.Foundation.Interpreter\Alife.Foundation.Interpreter.csproj" />
+    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.Function\Alife.Services.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
-    <ProjectReference Include="..\Alife\Alife.csproj" />
   </ItemGroup>
 </Project>
 

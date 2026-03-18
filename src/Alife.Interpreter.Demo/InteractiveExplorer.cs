@@ -1,11 +1,6 @@
-using System.Text;
-using Alife;
-using Alife.Abstractions;
-using Alife.Modules.Context;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
 using Alife.Test;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Interpreter.Demo;
 
@@ -26,9 +21,6 @@ public class InteractiveExplorer
             Plugins = new HashSet<Type> {
                 typeof(InterpreterService),
                 typeof(OpenAIChatService),
-                typeof(ChatService),
-                typeof(DialogContext),
-                typeof(PetService) 
             }
         };
 

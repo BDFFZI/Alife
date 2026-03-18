@@ -1,11 +1,8 @@
 using System.Text;
 using Alife.Vision;
 using Alife.Test;
-using Alife.Abstractions;
-using Alife.Modules.Context;
 using Alife.OfficialPlugins;
 using Alife.Plugins.Official.Implement;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 Terminal.Log("========================================", ConsoleColor.Magenta);
@@ -22,8 +19,6 @@ var character = new Character {
     Plugins = new HashSet<Type> {
         typeof(OpenAIChatService),
         typeof(InterpreterService),
-        typeof(ChatService),
-        typeof(DialogContext)
     }
 };
 
