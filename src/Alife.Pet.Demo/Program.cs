@@ -14,7 +14,7 @@ var character = new Character {
              "你可以通过控制桌宠应用来表达情感。请在对话中适时使用表情和动作喵！",
     Plugins = new HashSet<Type> {
         typeof(InterpreterService),
-        typeof(PetService),
+        typeof(DeskPetService),
         typeof(OpenAIChatService),
     }
 };

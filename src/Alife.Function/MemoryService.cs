@@ -5,12 +5,12 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.OfficialPlugins;
 
-public class ContextServiceData
+public class MemoryServiceData
 {
     public int MaxMessageCount { get; set; } = 100;
 }
-[Plugin("上下文存储", "自动在AI停止和启动时保存或恢复上一次的聊天上下文", LaunchOrder = -110)]
-public class ContextService : Plugin, IConfigurable<ContextServiceData>
+[Plugin("记忆存储", "引导AI编写日记并自动在活动开始结束前进行上下文的备份和恢复", LaunchOrder = -110)]
+public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
 {
     struct ContextItem
     {
@@ -18,16 +18,56 @@ public class ContextService : Plugin, IConfigurable<ContextServiceData>
         public bool isUser;
     }
 
-    public ContextService(StorageSystem storageSystem)
+    readonly StorageSystem storageSystem;
+    string storageKey = null!;
+    ChatHistoryAgentThread chatContext = null!;
+    Character character = null!;
+    MemoryServiceData configuration = null!;
+
+    public MemoryService(StorageSystem storageSystem)
     {
         this.storageSystem = storageSystem;
+    }
+
+    public void Configure(MemoryServiceData configuration)
+    {
+        this.configuration = configuration;
     }
 
     public override Task AwakeAsync(AwakeContext context)
     {
         chatContext = context.contextBuilder;
+        character = context.character;
         storageKey = $"ContextService/{context.character.ID}";
 
+        LoadContext();
+        InjectPrompt();
+
+        return Task.CompletedTask;
+    }
+    public override Task DestroyAsync()
+    {
+        SaveContext();
+
+        return Task.CompletedTask;
+    }
+
+    void InjectPrompt()
+    {
+        chatContext.ChatHistory.AddSystemMessage($@"# MemoryService
+你拥有存储和读取长期记忆的能力，你的记忆文件夹在这：
+{storageSystem.GetRootPath()}/Memories/{character.ID}
+这些记忆文件的结构如下：
+- 每1日记忆
+  1.md
+- 每5日记忆
+  2.md
+- 每30日记忆
+- 每150日记忆
+");
+    }
+    void LoadContext()
+    {
         List<ContextItem> lastContext = storageSystem.GetObject(storageKey, new List<ContextItem>())!;
         foreach (ContextItem contextItem in lastContext)
         {
@@ -36,11 +76,8 @@ public class ContextService : Plugin, IConfigurable<ContextServiceData>
             else
                 chatContext.ChatHistory.AddAssistantMessage(contextItem.content);
         }
-
-        return Task.CompletedTask;
     }
-
-    public override Task DestroyAsync()
+    void SaveContext()
     {
         List<ContextItem> lastContext = new(chatContext.ChatHistory.Count);
         foreach (ChatMessageContent contextItem in chatContext.ChatHistory
@@ -56,17 +93,5 @@ public class ContextService : Plugin, IConfigurable<ContextServiceData>
                 lastContext.Add(new ContextItem() { content = contextItem.Content, isUser = false });
         }
         storageSystem.SetObject(storageKey, lastContext);
-
-        return Task.CompletedTask;
-    }
-
-    readonly StorageSystem storageSystem;
-    string storageKey = null!;
-    ChatHistoryAgentThread chatContext = null!;
-    ContextServiceData configuration = null!;
-
-    public void Configure(ContextServiceData configuration)
-    {
-        this.configuration = configuration;
     }
 }

@@ -1,5 +1,5 @@
-using Alife.Interpreter;
 using System.ComponentModel;
+using Alife.Interpreter;
 
 namespace Alife.Interpreter.Demo;
 
@@ -46,7 +46,7 @@ public class InteractiveExplorer
             Console.ForegroundColor = ConsoleColor.Green;
             Console.Write("LLM Output > ");
             Console.ResetColor();
-            
+
             string? input = Console.ReadLine();
             if (string.IsNullOrEmpty(input) || input.ToLower() == "exit") break;
 
@@ -137,7 +137,6 @@ public class MockSpeechHandler
     }
 }
 
-[Description("Mock 系统处理器：提供基础系统指令。")]
 public class MockSystemHandler
 {
     [XmlHandler("continue")]

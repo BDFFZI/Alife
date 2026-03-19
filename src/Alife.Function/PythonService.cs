@@ -1,24 +1,24 @@
 using System.ComponentModel;
-using Alife.Interpreter;
 using System.Diagnostics;
 using System.Text;
 using Alife.Abstractions;
+using Alife.Interpreter;
 using Microsoft.SemanticKernel;
 
 namespace Alife.OfficialPlugins;
 
 [Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
-[Description("Python脚本插件：允许 AI 编写并执行 Python 脚本以处理复杂数据或执行自动化任务。")]
+[Description("此服务能让你获得执行python的能力，可用于文件管理、设备控制、网页爬取等各自复杂的自定义需求。")]
 public class PythonService : Plugin
 {
     public event Action<string>? PrePythonRun;
     public event Action<string>? PostPythonRun;
 
     [XmlHandler]
-    [Description(@"你的专属python执行器（主人看不到结果，请永远把它作为最后一套指令执行）
+    [Description(@"你的专属python执行器，如果执行有结果，还会在之后返回给你。
 注意事项：
-1. 不要捏造数据，不要模拟结果，不要写长脚本。
-2. 用好了非常强大，但也很危险，妥善使用喵~")]
+1. 永远把它作为最后一条指令执行，不要捏造结果，调用后请停止说话，并等待结果返回。
+2. 主人看不到结果，包括其返回的结果，所以除非是窗口应用，不然不要让主人操作。")]
     public async Task Python(XmlTagContext context)
     {
         if (context.Status != TagStatus.Closing)
@@ -26,7 +26,8 @@ public class PythonService : Plugin
 
         string filePath = storageSystem.GetTempPath("pythonScript.py");
         await File.WriteAllTextAsync(filePath, context.FullContent);
-        ProcessStartInfo startInfo = new ProcessStartInfo {
+        ProcessStartInfo startInfo = new ProcessStartInfo
+        {
             FileName = "python",
             Arguments = filePath,
             UseShellExecute = false,
@@ -52,7 +53,7 @@ public class PythonService : Plugin
         PostPythonRun?.Invoke(output);
 
         if (string.IsNullOrWhiteSpace(output) == false)
-            chatBot.Poke("[来自系统的消息：这是刚刚Python的执行结果，你看是否有问题)]" + output);
+            chatBot.Poke("[PythonService] Python执行结果如下：" + output);
     }
 
     readonly StorageSystem storageSystem;

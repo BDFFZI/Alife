@@ -1,5 +1,5 @@
-using Alife.OneBot;
 using Alife.OfficialPlugins;
+using Alife.OneBot;
 using Alife.Plugins.Official.Implement;
 using Alife.Test;
 
@@ -8,7 +8,8 @@ Terminal.Log("   Alife OneBot AI Plugin 集成验证 Demo", ConsoleColor.Magenta
 Terminal.Log("========================================", ConsoleColor.Magenta);
 
 // 1. 配置角色 (真央)
-var character = new Character {
+var character = new Character
+{
     ID = "OneBotMao",
     Name = "真央",
     Prompt = "你是一个集成在 QQ 中的 AI 助手，名叫真央。你非常活泼，喜欢用猫娘语说话（每句话带喵）。\n" +
@@ -20,7 +21,7 @@ var character = new Character {
     Plugins = new HashSet<Type> {
         typeof(OpenAIChatService),
         typeof(InterpreterService),
-        typeof(OneBotService),
+        typeof(QChatService),
     }
 };
 
@@ -28,9 +29,10 @@ var character = new Character {
 var suite = await DemoSuite.InitializeAsync(character);
 
 // 3. OneBot 特有配置 (从 suite 的 ConfigSystem 获取)
-suite.ConfigSystem.SetConfiguration(typeof(OneBotService), new OneBotConfig {
+suite.ConfigSystem.SetConfiguration(typeof(QChatService), new OneBotConfig
+{
     Url = "ws://127.0.0.1:3001",
-    OwnerId = 1330958515L 
+    OwnerId = 1330958515L
 });
 
 Terminal.LogInfo("提示：OneBot 插件已加载。您可以直接在此输入消息模拟 QQ 互动，所有发送到 OneBot 的消息都会在日志中拦截显示喵！");

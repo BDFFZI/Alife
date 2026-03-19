@@ -1,15 +1,15 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using Alife.Abstractions;
 using Alife.Interpreter;
 using Alife.Speech;
 using Microsoft.SemanticKernel;
 using NAudio.CoreAudioApi;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace Alife.OfficialPlugins;
 
 [Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。")]
-[Description("语音对话插件：提供语音合成（说话）能力，能够将文本转为语音播放。")]
+[Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public class SpeechService : Plugin, IAsyncDisposable
 {
     public event Action<string, Task>? Speaking;
@@ -39,7 +39,8 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizerCancelSource = new CancellationTokenSource();
         Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
         await lastSynthesizer;
-        lastSynthesizer = Task.Run(async () => {
+        lastSynthesizer = Task.Run(async () =>
+        {
             string? output = await task;
             if (output != null)
             {
@@ -93,12 +94,13 @@ public class SpeechService : Plugin, IAsyncDisposable
     {
         if (confidence < 0.75)
             return;
-        chatBot.Chat(text);
+        chatBot.Chat("[SpeechService] " + text);
     }
     void StartHeadphoneMonitoring()
     {
         var enumerator = new MMDeviceEnumerator();
-        Task.Run(async () => {
+        Task.Run(async () =>
+        {
             while (true)
             {
                 try
@@ -139,7 +141,8 @@ public class SpeechService : Plugin, IAsyncDisposable
                             "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
                             "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
 
-            Process.Start(new ProcessStartInfo {
+            Process.Start(new ProcessStartInfo
+            {
                 FileName = "powershell",
                 Arguments = $"-Command \"{script}\"",
                 CreateNoWindow = true,
