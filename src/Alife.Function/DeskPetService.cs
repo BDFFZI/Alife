@@ -104,33 +104,6 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "motion", group = "TapBody", index });
     }
 
-    [XmlHandler("pet_param")]
-    [Description("底层参数控制：直接控制 Live2D 参数。示例: <pet_param name=\"ParamBodyAngleX\" value=\"10\" duration=\"1000\" />")]
-    public void PetParameter(XmlTagContext context)
-    {
-        if (context.Status != TagStatus.OneShot)
-            return;
-
-        var currentTag = context.CallChain.LastOrDefault();
-        string? name = null, sValue = null, sDuration = null;
-
-        if (currentTag.Attributes != null)
-        {
-            currentTag.Attributes.TryGetValue("name", out name);
-            currentTag.Attributes.TryGetValue("value", out sValue);
-            currentTag.Attributes.TryGetValue("duration", out sDuration);
-        }
-
-        if (string.IsNullOrEmpty(name))
-            return;
-
-        float.TryParse(sValue, out float value);
-        int.TryParse(sDuration, out int duration);
-        if (duration <= 0) duration = 1000;
-
-        SendToPet(new { type = "parameter", name, value, duration });
-    }
-
     Process? petProcess;
     ChatBot chatBot = null!;
     TaskCompletionSource? moveTcs;

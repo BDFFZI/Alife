@@ -19,8 +19,4 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Functions\" />
-  </ItemGroup>
-
 </Project>

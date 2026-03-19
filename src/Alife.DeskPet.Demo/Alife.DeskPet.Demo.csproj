@@ -17,7 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife.Function\Alife.Services.csproj" />
+    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
   </ItemGroup>
 
 </Project>
