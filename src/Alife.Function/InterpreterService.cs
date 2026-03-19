@@ -16,10 +16,20 @@ public class InterpreterService : Plugin
 
     [XmlHandler]
     [Description("当添加这个标签后，你就可以主动继续说话或操作了（但不要一直用，不要死循环！）。所以当遇到特别复杂的任务时，可以借此可以将其拆分成很多子任务来执行。")]
-    public void Continue(XmlTagContext context)
+    public async void Continue(XmlTagContext context, [Description("延迟的秒数，默认为0")] int delay = 0)
     {
-        if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
-            chatActivity.ChatBot.Poke("[来自continue标签的唤起：你可以机会继续说话啦！但不要一直使用噢，要让主人有说话的机会。]");
+        try
+        {
+            if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
+            {
+                await Task.Delay(delay * 1000);
+                chatActivity.ChatBot.Poke("[由你刚刚调用的continue指令，引起的唤醒事件已触发]");
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     readonly XmlHandlerCompiler compiler = new();
@@ -48,7 +58,7 @@ public class InterpreterService : Plugin
 注意事项：
 1. 如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
 2. 先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
-3. 指令可以嵌套使用，例如将消息类指令嵌套使用，从而实现发文字消息的同时语音。
+3. 指令可以嵌套使用，例如<pet_bubble><speak></speak></pet_bubble>，就可以实现同时发语音和气泡消息。
 ";
 
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);

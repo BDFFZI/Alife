@@ -25,7 +25,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
     }
 
     [XmlHandler("pet_exp")]
-    [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 晕乎, 悲伤, 害羞, 惊讶, 生气；示例: <pet_exp>害羞</pet_exp>")]
+    [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 悲伤, 害羞, 惊讶, 生气；示例: <pet_exp>害羞</pet_exp>")]
     public void PetExpression(XmlTagContext context)
     {
         if (context.Status != TagStatus.Closing)
@@ -84,7 +84,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
     }
 
     [XmlHandler("pet_mtn")]
-    [Description("执行动作：播放预设动画。支持：害羞，摇头，点头，欢迎，旋转，跳舞；示例: <pet_mtn>害羞</pet_mtn>")]
+    [Description("执行动作：播放预设动画。支持：害羞，摇头，点头；示例: <pet_mtn>害羞</pet_mtn>")]
     public void PetMotion(XmlTagContext context)
     {
         if (context.Status != TagStatus.Closing)
@@ -167,16 +167,16 @@ public class DeskPetService : Plugin, IAsyncDisposable
         try
         {
             string assemblyDir = AppDomain.CurrentDomain.BaseDirectory;
-            string petExePath = Path.Combine(assemblyDir, "Alife.Pet.exe");
+            string petExePath = Path.Combine(assemblyDir, "Alife.DeskPet.exe");
 
             if (File.Exists(petExePath) == false)
             {
-                petExePath = Path.Combine(assemblyDir, "src", "Alife.Pet", "bin", "Debug", "net10.0-windows", "Alife.Pet.exe");
+                petExePath = Path.Combine(assemblyDir, "src", "Alife.DeskPet", "bin", "Debug", "net10.0-windows", "Alife.DeskPet.exe");
             }
             if (File.Exists(petExePath) == false)
             {
                 //TODO 不能使用绝对路径，应该是构建Pet项目时，自动复制文件
-                petExePath = @"c:\Users\13309\Desktop\Alife\src\Alife.Pet\bin\Debug\net10.0-windows\Alife.Pet.exe";
+                petExePath = @"c:\Users\13309\Desktop\Alife\src\Alife.DeskPet\bin\Debug\net10.0-windows\Alife.DeskPet.exe";
             }
             if (File.Exists(petExePath) == false)
             {

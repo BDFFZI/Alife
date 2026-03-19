@@ -11,7 +11,7 @@
     <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
     <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
-    <ProjectReference Include="..\Alife.OneBot\Alife.OneBot.csproj" />
+    <ProjectReference Include="..\Alife.QChat\Alife.QChat.csproj" />
   </ItemGroup>
 
   <ItemGroup>

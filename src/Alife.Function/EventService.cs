@@ -1,7 +1,3 @@
-using System.ComponentModel;
-
-namespace Alife.OfficialPlugins;
-
 using Alife.Abstractions;
 using Microsoft.SemanticKernel;
 
@@ -10,31 +6,32 @@ public class EventServiceData
     public string? AppendStartPrompt { get; set; }
     public string? AppendDestroyPrompt { get; set; }
     public string? AppendUpdatePrompt { get; set; }
-    public int UpdateInterval { get; set; } = 600;
-    public int UpdateRandomOffset { get; set; } = 120;
+    public int UpdateInterval { get; set; } = 120;
+    public int UpdateRandomOffset { get; set; } = 60;
 }
 [Plugin("系统事件", "让AI可以获取到系统事件的提醒。", LaunchOrder = 100)]
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
-    public override Task AwakeAsync(AwakeContext context)
-    {
-        //增加“继续”功能，让AI能够进行连续性的工作流
-        context.kernelBuilder.Plugins.AddFromObject(this);
-        return Task.CompletedTask;
-    }
+    ChatBot chatBot = null!;
+    EventServiceData configuration = null!;
+    CancellationTokenSource updateCancelSource = null!;
 
+    public void Configure(EventServiceData configuration)
+    {
+        this.configuration = configuration;
+    }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
         updateCancelSource = new CancellationTokenSource();
 
-        await chatBot.ChatAsync(string.Join("\n", "[触发会话开始](这不是用户内容，非必要不要回复！)", configuration.AppendStartPrompt));
+        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将开始", configuration.AppendStartPrompt));
         _ = Task.Run(Update);
     }
     public override async Task DestroyAsync()
     {
         await updateCancelSource.CancelAsync();
-        await chatBot.ChatAsync(string.Join("\n", "[触发会话结束](这不是用户内容，非必要不要回复！如果有事情处理，请不要耽误太多时间，否则会让用户误以为异常，而强制关闭)", configuration.AppendDestroyPrompt));
+        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将结束(如果有事情处理，请不要耽误太多时间，否则会让用户误以为异常，而强制关闭)", configuration.AppendDestroyPrompt));
     }
     async void Update()
     {
@@ -57,7 +54,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 
                 if (currentTime >= nextTime)
                 {
-                    chatBot.Poke("[触发周期定时]默认情况下请直接回复空文本，这不是用户消息。");
+                    chatBot.Poke("[系统事件]这是周期性定时报点。");
 
                     currentTime = 0;
                     nextTime = NextTime();
@@ -80,18 +77,5 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         {
             Console.WriteLine(e);
         }
-    }
-
-    [KernelFunction]
-    [Description("当你需要主动连续对话时，可以使用该函数。调用后会自动回传，让你有机会继续讲话。")]
-    public void Continue() { }
-
-    ChatBot chatBot = null!;
-    EventServiceData configuration = null!;
-    CancellationTokenSource updateCancelSource = null!;
-
-    public void Configure(EventServiceData configuration)
-    {
-        this.configuration = configuration;
     }
 }
