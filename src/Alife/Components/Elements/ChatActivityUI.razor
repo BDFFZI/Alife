@@ -1,7 +1,4 @@
 @using System.Text
-@using Alife.Abstractions
-@using Alife.OfficialPlugins
-@using Alife.Modules.Context
 @using Alife.Components.Elements.Utility
 @using Microsoft.SemanticKernel
 @using Microsoft.SemanticKernel.Connectors.OpenAI
@@ -28,13 +25,12 @@
 </Card>
 
 <ChatHistoryUI Context="@(Context.ChatBot.ChatHistory)" @bind-Visible="isLogging"></ChatHistoryUI>
-<ChatWindowUI ChatBot="@(Context.ChatBot)" ChatWindow="@(chatWindow)" @bind-Visible="isChatting"></ChatWindowUI>
+<ChatWindowUI ChatBot="@(Context.ChatBot)" @bind-Visible="isChatting"></ChatWindowUI>
 
 @code {
     [Parameter] public ChatActivity Context { get; set; } = null!;
     [Parameter] public EventCallback Stopped { get; set; }
-
-    ChatWindow chatWindow = null!;
+    
     bool isEditing;
     bool isChatting;
     bool isLogging;
@@ -43,9 +39,7 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
-
-        chatWindow = Context.PluginService.GetRequiredService<ChatWindow>();
-
+        
         systemPrompts = Context.KernelService.Plugins.GetFunctionsMetadata()
             .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
             .Select(chatTool => new JObject() {

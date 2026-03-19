@@ -1,11 +1,11 @@
 bin/
 obj/
 .vs/
+.idea/
 *.user
 *.suo
 *.tmp
 *.log
-# .gemini/
 __pycache__/
 *.pyc
 model/

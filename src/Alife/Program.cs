@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Text;
 using Alife;
 using Alife.Components;
-using Alife.Modules.Context;
 
 Console.OutputEncoding = Encoding.UTF8;
 Console.InputEncoding = Encoding.UTF8;
