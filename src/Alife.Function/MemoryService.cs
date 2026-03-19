@@ -54,9 +54,9 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
 
     void InjectPrompt()
     {
-        chatContext.ChatHistory.AddSystemMessage($@"# MemoryService
+        chatContext.ChatHistory.AddSystemMessage($@"# {nameof(MemoryService)}
 你拥有存储和读取长期记忆的能力，你的记忆文件夹在这：
-{storageSystem.GetRootPath()}/Memories/{character.ID}
+{storageSystem.GetStoragePath()}/Memories/{character.ID}
 你首次拥有记忆的时间（出生时间）是：
 {character.Birthday}
 

@@ -24,12 +24,11 @@ public class SpeechService : Plugin, IAsyncDisposable
     }
     public void StopSynthesizer()
     {
-        synthesizer.Stop();
         synthesizerCancelSource?.Cancel();
     }
 
     [XmlHandler("speak")]
-    [Description("使用语音的方式向用户发送消息（优先使用speak和用户发送消息！）")]
+    [Description("使用语音的方式向用户发送消息。")]
     public async Task Speak(string content)
     {
         content = content.Trim();

@@ -4,13 +4,17 @@ namespace Alife;
 
 public class StorageSystem
 {
-    public string GetRootPath()
+    public string GetStoragePath()
     {
-        return Path.GetRelativePath(".", AppContext.BaseDirectory).Replace(Path.DirectorySeparatorChar, '/');
+        string? storagePath = Environment.GetEnvironmentVariable("OneDrive");
+        if (storagePath == null)
+            storagePath = Path.GetRelativePath(".", AppContext.BaseDirectory);
+        return $"{storagePath}/Alife.Storage".Replace(Path.DirectorySeparatorChar, '/');
     }
+
     public string GetTempPath(string filename)
     {
-        string path = $"{GetRootPath()}/Cache/{filename}";
+        string path = $"{Path.GetTempPath()}/{filename}";
         if (Directory.Exists(Path.GetDirectoryName(path)) == false)
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         return path;
@@ -57,14 +61,14 @@ public class StorageSystem
 
     public string? GetValue(string key, string type, string? defaultValue = null)
     {
-        string path = $"{AppContext.BaseDirectory}/Storage/{key}.{type}";
+        string path = $"{GetStoragePath()}/{key}.{type}";
         if (File.Exists(path))
             return File.ReadAllText(path);
         return defaultValue;
     }
     public void SetValue(string key, string type, string value)
     {
-        string path = $"{AppContext.BaseDirectory}/Storage/{key}.{type}";
+        string path = $"{GetStoragePath()}/{key}.{type}";
         if (Directory.Exists(Path.GetDirectoryName(path)) == false)
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, value);

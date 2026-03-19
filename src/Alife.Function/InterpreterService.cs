@@ -42,7 +42,7 @@ public class InterpreterService : Plugin
         //创建xml解析执行器等
         compiler.Register(this);
         XmlHandlerTable handlerTable = compiler.Compile();
-        parser = new XmlStreamParser { RootTagName = "Interpreter" };
+        parser = new XmlStreamParser();
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
@@ -51,14 +51,14 @@ public class InterpreterService : Plugin
         );
 
         //注入使用说明
-        string prompt = @$"# 内容标记功能
-你可以给你的回复套上一些可选的xml标签，来使内容发挥一些特定作用。
+        string prompt = @$"# {nameof(InterpreterService)}
+你拥有给文字套上部分xml标签来执行特殊功能的能力。
 **目前可用的标签：**
 {handlerTable.GenerateDocumentation()}
 注意事项：
-1. 如果你要使用上述功能，必须先用<Interpreter></Interpreter>包裹。
-2. 先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
-3. 指令可以嵌套使用，例如<pet_bubble><speak></speak></pet_bubble>，就可以实现同时发语音和气泡消息。
+1. 你要先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
+2. 你要嵌套使用消息类指令，如<pet_bubble><speak></speak></pet_bubble>，从而实现同时发送语音和气泡消息。
+3. 不要分段使用消息类指令，每次必须将完整的话放在一条消息类指令中，如<pet_bubble>开始...结束</pet_bubble>。
 ";
 
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);

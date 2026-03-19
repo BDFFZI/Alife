@@ -16,18 +16,16 @@ public class ChatBot : IAsyncDisposable
 
     public async IAsyncEnumerable<string> ChatStreamingAsync(string message, AuthorRole? role = null)
     {
-        if (IsChatting)
+        if (IsChatting) //打断上一次的聊天
         {
             if (cancelChatSource != null)
-            {
                 await cancelChatSource.CancelAsync();
-                llmAgentThread.ChatHistory.RemoveAt(llmAgentThread.ChatHistory.Count - 1);
-            }
         }
 
         await isChatting.WaitAsync();
         {
-            llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, $"[{DateTime.Now}]{message}");
+            message = $"[发送时间：{DateTime.Now}]{message}";
+            llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, message);
             cancelChatSource = new CancellationTokenSource();
 
             for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
@@ -146,8 +144,11 @@ public class ChatBot : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Task.Run(() => {
-            while (Flush() == false) { Thread.Sleep(100); }
-            while (IsChatting) { Thread.Sleep(100); }
+            while (IsChatting)
+            {
+                while (messageCache.Count != 0)
+                    Flush();
+            }
         });
     }
 

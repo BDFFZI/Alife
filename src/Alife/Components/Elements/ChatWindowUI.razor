@@ -116,11 +116,6 @@
     void OnChatReceived(string obj)
     {
         aiMessage.content += obj;
-
-        InvokeAsync(() => {
-            StateHasChanged();
-            JsRuntime.InvokeVoidAsync("scrollMessageArea");
-        });
     }
     void OnChatOver()
     {

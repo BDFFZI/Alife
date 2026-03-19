@@ -25,7 +25,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         chatBot = chatActivity.ChatBot;
         updateCancelSource = new CancellationTokenSource();
 
-        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将开始", configuration.AppendStartPrompt));
+        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将开始(用消息类指令给用户打个招呼吧)", configuration.AppendStartPrompt));
         _ = Task.Run(Update);
     }
     public override async Task DestroyAsync()
@@ -40,7 +40,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
             int currentTime = 0;
             int nextTime = NextTime();
 
-            const int DeltaTime = 10;
+            const int DeltaTime = 1;
             PeriodicTimer updateTimer = new(TimeSpan.FromSeconds(DeltaTime));
             updateCancelSource = new CancellationTokenSource();
 
@@ -54,7 +54,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 
                 if (currentTime >= nextTime)
                 {
-                    chatBot.Poke("[系统事件]这是周期性定时报点。");
+                    chatBot.Poke("[系统事件]这是周期性定时报点(你可以借此做些想做的事，但不要告诉用户有报点信息)。");
 
                     currentTime = 0;
                     nextTime = NextTime();

@@ -283,6 +283,10 @@ public partial class MainWindow : Window
                 this.BeginAnimation(Window.LeftProperty, animX);
                 this.BeginAnimation(Window.TopProperty, animY);
             }
+            else if (type == "get-position")
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = this.Left, y = this.Top }));
+            }
         }
         catch (Exception ex)
         {

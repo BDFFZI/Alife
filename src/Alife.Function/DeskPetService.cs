@@ -14,14 +14,13 @@ public class DeskPetService : Plugin, IAsyncDisposable
 {
     [XmlHandler("pet_bubble")]
     [Description("气泡文字：显示一段浮动文字。示例: <pet_bubble>你好</pet_bubble>")]
-    public Task PetBubble(XmlTagContext context)
+    public void PetBubble(XmlTagContext context)
     {
-        if (context.Status != TagStatus.Closing) return Task.CompletedTask;
-        if (string.IsNullOrWhiteSpace(context.FullContent)) return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(context.ChunkContent))
+            return;
 
-        int duration = 2000 + context.FullContent.Length * 100;
-        SendToPet(new { type = "bubble", text = context.FullContent, duration });
-        return Task.CompletedTask;
+        int duration = 2000 + context.ChunkContent.Length * 100;
+        SendToPet(new { type = "bubble", text = context.ChunkContent, duration });
     }
 
     [XmlHandler("pet_exp")]
@@ -32,8 +31,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
             return;
 
         string expression = context.FullContent.Trim();
-        string id = expression switch
-        {
+        string id = expression switch {
             "开心" or "晕" or "晕乎" => "exp_04", // exp_04 是繁星眼，适合表现开心或晕
             "闭眼" => "exp_03",
             "悲伤" or "委屈" => "exp_05",
@@ -93,8 +91,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
             return;
 
         string motion = context.FullContent.Trim();
-        int index = motion switch
-        {
+        int index = motion switch {
             "害羞" => 0,
             "摇头" => 1,
             "点头" => 2,
@@ -104,9 +101,33 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "motion", group = "TapBody", index });
     }
 
+    [XmlHandler("pet_pos")]
+    [Description("获取位置：获取当前在屏幕上的绝对坐标。示例: <pet_pos />")]
+    public async Task PetPos(XmlTagContext context)
+    {
+        if (context.Status != TagStatus.OneShot)
+            return;
+
+        posTcs = new TaskCompletionSource<(double, double)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        SendToPet(new { type = "get-position" });
+
+        var result = await Task.WhenAny(posTcs.Task, Task.Delay(2000));
+        if (result == posTcs.Task)
+        {
+            var (x, y) = await posTcs.Task;
+            chatBot.Poke($"[DeskPetService] 当前坐标: x={x}, y={y}");
+        }
+        else
+        {
+            chatBot.Poke("[DeskPetService] 获取坐标超时");
+        }
+        posTcs = null;
+    }
+
     Process? petProcess;
     ChatBot chatBot = null!;
     TaskCompletionSource? moveTcs;
+    TaskCompletionSource<(double, double)>? posTcs;
 
     public DeskPetService(InterpreterService interpreterService)
     {
@@ -124,10 +145,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
                                                             3. **动作控制**：`<pet_mtn>类型</pet_mtn>`
                                                                - 支持：`点头`, `摇头`, `害羞`
                                                             4. **生理反应 (Poke)**：当你收到系统的物理干扰消息时，应根据你的角色设定做出自然的反应（如惊讶、头晕、脸红等）。
-                                                            5. **高级控制 (参数)**：`<pet_param name="参数名" value="数值" duration="毫秒" />`
-                                                               - `ParamAngleX/Y/Z`: 头部转动 (-30 到 30)
-                                                               - `ParamBodyAngleX`: 身体侧歪 (-10 到 10)
-                                                               - `ParamEyeBallX/Y`: 眼神位置 (-1 到 1)
+                                                            5. **获取位置**：`<pet_pos />` (获取桌宠当前在屏幕上的坐标)
                                                             """);
         return Task.CompletedTask;
     }
@@ -157,8 +175,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
                 return Task.CompletedTask;
             }
 
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
+            ProcessStartInfo psi = new ProcessStartInfo {
                 FileName = petExePath,
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -172,8 +189,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
             petProcess = new Process { StartInfo = psi };
             petProcess.OutputDataReceived += (s, e) => OnPetMessageReceived(e.Data);
-            petProcess.ErrorDataReceived += (s, e) =>
-            {
+            petProcess.ErrorDataReceived += (s, e) => {
                 if (e.Data != null) Console.WriteLine($"[Pet Error] {e.Data}");
             };
 
@@ -238,6 +254,12 @@ public class DeskPetService : Plugin, IAsyncDisposable
         {
             moveTcs?.TrySetResult();
         }
+        else if (type == "position")
+        {
+            double x = root.GetProperty("x").GetDouble();
+            double y = root.GetProperty("y").GetDouble();
+            posTcs?.TrySetResult((x, y));
+        }
     }
 
     void SendToPet(object msg)
@@ -259,5 +281,6 @@ public class DeskPetService : Plugin, IAsyncDisposable
     void InternalReset()
     {
         moveTcs?.TrySetCanceled();
+        posTcs?.TrySetCanceled();
     }
 }
