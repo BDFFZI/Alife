@@ -1,136 +1,98 @@
-using System;
-using System.Text.Json;
-using Vosk;
-using NAudio.Wave;
-
-namespace Alife.Speech;
-
-/// <summary>
-/// 本地语音识别器（Vosk + NAudio）
-/// </summary>
-public class LocalSpeechRecognizer : IDisposable
+namespace Alife.Speech
 {
-    private readonly Model _model;
-    private readonly VoskRecognizer _recognizer;
-    private WaveInEvent? _waveIn;
-    
-    /// <summary>识别到完整一句话。参数：(文本, 置信度)</summary>
-    public event Action<string, float>? OnRecognized;
-    
-    /// <summary>识别过程中的中间结果。</summary>
-    public event Action<string>? OnPartial;
-
-    public LocalSpeechRecognizer(string modelPath)
+    public class LocalSpeechRecognizer : System.IDisposable
     {
-        // Vosk.Vosk.SetLogLevel(0);
-        _model = new Model(modelPath);
-        _recognizer = new VoskRecognizer(_model, 16000.0f);
-        _recognizer.SetMaxAlternatives(0);
-        _recognizer.SetWords(true);
-    }
+        private readonly SherpaOnnx.OfflineRecognizer _recognizer;
+        private readonly SherpaOnnx.VoiceActivityDetector _vad;
+        private NAudio.Wave.WaveInEvent? _waveIn;
+        
+        public event System.Action<string, float>? OnRecognized;
+        public event System.Action<string>? OnPartial;
 
-    private DateTime _lastPartialTime = DateTime.MinValue;
-    private string _lastPartialText = "";
-    
-    /// <summary>静音自动断句时间（毫秒）。调小可以加快响应，调大可以防止长句断裂。</summary>
-    public int SilenceTimeoutMs { get; set; } = 800;
-
-    public void Start()
-    {
-        if (_waveIn != null) return;
-
-        _waveIn = new WaveInEvent();
-        _waveIn.WaveFormat = new WaveFormat(16000, 1);
-        _waveIn.DataAvailable += (s, e) =>
+        public LocalSpeechRecognizer(string modelPath)
         {
-            AcceptWaveform(e.Buffer, e.BytesRecorded);
-        };
+            var config = new SherpaOnnx.OfflineRecognizerConfig();
+            config.ModelConfig.SenseVoice.Model = System.IO.Path.Combine(modelPath, "sensevoice-small", "model.int8.onnx");
+            config.ModelConfig.Tokens = System.IO.Path.Combine(modelPath, "sensevoice-small", "tokens.txt");
+            config.ModelConfig.SenseVoice.Language = ""; 
+            config.ModelConfig.SenseVoice.UseInverseTextNormalization = 1;
+            config.ModelConfig.NumThreads = 1;
+            config.ModelConfig.Debug = 0;
 
-        _lastPartialTime = DateTime.Now;
-        _waveIn.StartRecording();
-    }
+            _recognizer = new SherpaOnnx.OfflineRecognizer(config);
 
-    public void AcceptWaveform(byte[] buffer, int bytesRecorded)
-    {
-        if (_recognizer.AcceptWaveform(buffer, bytesRecorded))
-        {
-            FinalizeResult();
+            var vadConfig = new SherpaOnnx.VadModelConfig();
+            vadConfig.SileroVad.Model = System.IO.Path.Combine(modelPath, "silero_vad.onnx");
+            vadConfig.SileroVad.Threshold = 0.5f;
+            vadConfig.SileroVad.MinSilenceDuration = 0.5f;
+            vadConfig.SileroVad.MinSpeechDuration = 0.25f;
+            vadConfig.SampleRate = 16000;
+            
+            _vad = new SherpaOnnx.VoiceActivityDetector(vadConfig, bufferSizeInSeconds: 60);
         }
-        else
+
+        public void Start()
         {
-            var partialJson = _recognizer.PartialResult();
-            var partial = JsonSerializer.Deserialize<VoskPartialResult>(partialJson);
-            if (!string.IsNullOrWhiteSpace(partial?.partial))
+            if (_waveIn != null) return;
+            _waveIn = new NAudio.Wave.WaveInEvent();
+            _waveIn.WaveFormat = new NAudio.Wave.WaveFormat(16000, 16, 1);
+            _waveIn.DataAvailable += (s, e) => AcceptWaveform(e.Buffer, e.BytesRecorded);
+            _waveIn.StartRecording();
+        }
+
+        public void AcceptWaveform(byte[] buffer, int bytesRecorded)
+        {
+            var samples = new float[bytesRecorded / 2];
+            for (int i = 0; i < samples.Length; i++)
+                samples[i] = System.BitConverter.ToInt16(buffer, i * 2) / 32768.0f;
+
+            _vad.AcceptWaveform(samples);
+            while (!_vad.IsEmpty())
             {
-                if (partial.partial != _lastPartialText)
-                {
-                    _lastPartialText = partial.partial;
-                    _lastPartialTime = DateTime.Now;
-                    OnPartial?.Invoke(partial.partial);
-                }
-                else if ((DateTime.Now - _lastPartialTime).TotalMilliseconds > SilenceTimeoutMs)
-                {
-                    // 超过静音阈值，强制获取结果
-                    FinalizeResult();
-                }
+                var segment = _vad.Front();
+                if (segment.Samples != null && segment.Samples.Length > 0) ProcessSegment(segment.Samples);
+                _vad.Pop();
             }
         }
-    }
 
-    private void FinalizeResult()
-    {
-        var resultJson = _recognizer.Result();
-        var result = JsonSerializer.Deserialize<VoskResult>(resultJson);
-        _lastPartialText = "";
-        _lastPartialTime = DateTime.Now;
-
-        if (!string.IsNullOrWhiteSpace(result?.text))
+        private void ProcessSegment(float[] samples)
         {
-            float confidence = 0.0f;
-            if (result.result != null && result.result.Count > 0)
+            try
             {
-                float sum = 0;
-                foreach (var word in result.result)
-                {
-                    sum += word.conf;
-                }
-                confidence = sum / result.result.Count;
+                using var stream = _recognizer.CreateStream();
+                stream.AcceptWaveform(16000, samples);
+                _recognizer.Decode(stream);
+                var result = stream.Result;
+                string text = CleanResult(result.Text);
+                if (!string.IsNullOrWhiteSpace(text)) OnRecognized?.Invoke(text, 1.0f);
             }
-            else
+            catch (System.Exception ex)
             {
-                confidence = 1.0f;
+                System.Console.WriteLine($"[STT Error] {ex.Message}");
             }
+        }
 
-            OnRecognized?.Invoke(result.text, confidence);
+        private string CleanResult(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]", "");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"<\|.*?\|>", "");
+            return text.Trim();
+        }
+
+        public void Stop()
+        {
+            _waveIn?.StopRecording();
+            _waveIn?.Dispose();
+            _waveIn = null;
+        }
+
+        public void Dispose()
+        {
+            Stop();
+            _recognizer.Dispose();
+            _vad.Dispose();
+            System.GC.SuppressFinalize(this);
         }
     }
-
-    public void Stop()
-    {
-        _waveIn?.StopRecording();
-        _waveIn?.Dispose();
-        _waveIn = null;
-    }
-
-    public void Dispose()
-    {
-        Stop();
-        _recognizer.Dispose();
-        _model.Dispose();
-        GC.SuppressFinalize(this);
-    }
-
-    private class VoskResult 
-    { 
-        public string text { get; set; } = ""; 
-        public List<VoskWord>? result { get; set; }
-    }
-
-    private class VoskWord
-    {
-        public string word { get; set; } = "";
-        public float conf { get; set; }
-    }
-
-    private class VoskPartialResult { public string partial { get; set; } = ""; }
 }

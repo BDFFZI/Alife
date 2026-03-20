@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using Alife.Abstractions;
@@ -107,7 +108,8 @@ public class SpeechService : Plugin, IAsyncDisposable
                     var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
                     bool hasHeadphones = device.FriendlyName.Contains("耳机") ||
                                          device.FriendlyName.Contains("Headphones") ||
-                                         device.FriendlyName.Contains("Headset");
+                                         device.FriendlyName.Contains("Headset") ||
+                                         device.FriendlyName.Contains("Earphone");
 
                     if (hasHeadphones && !isRecognitionEnabled)
                     {

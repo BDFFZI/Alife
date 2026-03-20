@@ -21,7 +21,7 @@ public partial class MainWindow : Window
 {
     private MouseTracker mouseTracker;
 
-    
+
     public MainWindow()
     {
         // 强制使用 UTF-8 编码进行 IPC 通讯
@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
         InitializeComponent();
-        
+
         Debug.WriteLine("=== MainWindow Constructor ===");
 
         // 允许拖动窗口 (手动实现非阻塞方案)
@@ -114,7 +114,7 @@ public partial class MainWindow : Window
                 SendToWebView(new { type = "move" });
             }
         };
-        
+
         try
         {
             // 初始化鼠标追踪
@@ -126,7 +126,7 @@ public partial class MainWindow : Window
             MessageBox.Show($"初始化失败: {ex.Message}");
         }
     }
-    
+
 
     private void SendToWebView(object data)
     {
@@ -236,17 +236,17 @@ public partial class MainWindow : Window
                 double vWidth = SystemParameters.VirtualScreenWidth;
                 double vHeight = SystemParameters.VirtualScreenHeight;
 
-                _logicalLeft = Math.Max(vLeft, Math.Min(_logicalLeft, vLeft + vWidth - this.ActualWidth));
-                _logicalTop = Math.Max(vTop, Math.Min(_logicalTop, vTop + vHeight - this.ActualHeight));
+                _logicalLeft = Math.Max(vLeft, Math.Min(_logicalLeft, vLeft + vWidth - ActualWidth));
+                _logicalTop = Math.Max(vTop, Math.Min(_logicalTop, vTop + vHeight - ActualHeight));
 
                 double targetLeft = _logicalLeft;
                 double targetTop = _logicalTop;
 
                 // 使用 WPF 动画平滑移动 (从当前实际位置到最新逻辑终点)
-                var animX = new System.Windows.Media.Animation.DoubleAnimation(this.Left, targetLeft, TimeSpan.FromMilliseconds(duration)) {
+                var animX = new System.Windows.Media.Animation.DoubleAnimation(Left, targetLeft, TimeSpan.FromMilliseconds(duration)) {
                     EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
                 };
-                var animY = new System.Windows.Media.Animation.DoubleAnimation(this.Top, targetTop, TimeSpan.FromMilliseconds(duration)) {
+                var animY = new System.Windows.Media.Animation.DoubleAnimation(Top, targetTop, TimeSpan.FromMilliseconds(duration)) {
                     EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
                 };
 
@@ -258,10 +258,10 @@ public partial class MainWindow : Window
                     if (completedCount >= 2)
                     {
                         // 结束动画前先更新本地区的值，确保坐标固化，防止回弹
-                        this.BeginAnimation(Window.LeftProperty, null);
-                        this.BeginAnimation(Window.TopProperty, null);
-                        this.Left = targetLeft;
-                        this.Top = targetTop;
+                        BeginAnimation(LeftProperty, null);
+                        BeginAnimation(TopProperty, null);
+                        Left = targetLeft;
+                        Top = targetTop;
 
                         // [FIX] 同步手动记账坐标，防止位移后瞬间触发错误的“拖拽检测”或“坐标回跳反馈”
                         _lastManualLeft = targetLeft;
@@ -280,12 +280,14 @@ public partial class MainWindow : Window
                 animX.Completed += (s, e) => OnComplete();
                 animY.Completed += (s, e) => OnComplete();
 
-                this.BeginAnimation(Window.LeftProperty, animX);
-                this.BeginAnimation(Window.TopProperty, animY);
+                BeginAnimation(LeftProperty, animX);
+                BeginAnimation(TopProperty, animY);
             }
             else if (type == "get-position")
             {
-                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = this.Left, y = this.Top }));
+                double centerX = Left + Width / 2;
+                double centerY = Top + Height / 2;
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = centerX, y = centerY }));
             }
         }
         catch (Exception ex)

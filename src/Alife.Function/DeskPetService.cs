@@ -207,11 +207,6 @@ public class DeskPetService : Plugin, IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    public override async Task DestroyAsync()
-    {
-        await DisposeAsync();
-    }
-
     public async ValueTask DisposeAsync()
     {
         if (petProcess != null && !petProcess.HasExited)

@@ -1,0 +1,8 @@
+C:\Users\13309\Desktop\Alife\src\Alife.Speech\LocalSpeechRecognizer.cs(56,26): error CS1061: 'VoiceActivityDetector' does not contain a definition for 'Empty' and no accessible extension method 'Empty' accepting a first argument of type 'VoiceActivityDetector' could be found (are you missing a using directive or an assembly reference?) [C:\Users\13309\Desktop\Alife\src\Alife.Speech\Alife.Speech.csproj]
+
+Build FAILED.
+    1 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:00.90
+
