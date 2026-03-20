@@ -116,6 +116,9 @@
     void OnChatReceived(string obj)
     {
         aiMessage.content += obj;
+        InvokeAsync(() => {
+            StateHasChanged();
+        });
     }
     void OnChatOver()
     {

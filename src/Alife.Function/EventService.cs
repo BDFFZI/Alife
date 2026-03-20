@@ -1,4 +1,7 @@
+using System.ComponentModel;
 using Alife.Abstractions;
+using Alife.Interpreter;
+using Alife.OfficialPlugins;
 using Microsoft.SemanticKernel;
 
 public class EventServiceData
@@ -9,13 +12,29 @@ public class EventServiceData
     public int UpdateInterval { get; set; } = 120;
     public int UpdateRandomOffset { get; set; } = 60;
 }
-[Plugin("系统事件", "让AI可以获取到系统事件的提醒。", LaunchOrder = 100)]
+[Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 100)]
+[Description("你获得了被动接受系统事件的能力，例如开始、结束、定时报点事件，但你可以使用如下指令控制这些信息的收发。")]
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
+    [XmlHandler]
+    [Description("能够暂停周期性定时报点事件一段时间。")]
+    public void PauseTimer(XmlTagContext context, int second = 0)
+    {
+        if (context.Status == TagStatus.OneShot || context.Status == TagStatus.Closing)
+            nextTime += second;
+    }
+
     ChatBot chatBot = null!;
     EventServiceData configuration = null!;
     CancellationTokenSource updateCancelSource = null!;
+    const int DeltaTime = 1;
+    int currentTime;
+    int nextTime;
 
+    public EventService(InterpreterService interpreterService)
+    {
+        interpreterService.RegisterHandler(this);
+    }
     public void Configure(EventServiceData configuration)
     {
         this.configuration = configuration;
@@ -37,14 +56,11 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
     {
         try
         {
-            int currentTime = 0;
-            int nextTime = NextTime();
-
-            const int DeltaTime = 1;
             PeriodicTimer updateTimer = new(TimeSpan.FromSeconds(DeltaTime));
             updateCancelSource = new CancellationTokenSource();
 
             //进入定时循环
+            nextTime = NextTime();
             while (await updateTimer.WaitForNextTickAsync(updateCancelSource.Token))
             {
                 if (chatBot.IsChatting)
@@ -54,7 +70,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 
                 if (currentTime >= nextTime)
                 {
-                    chatBot.Poke("[系统事件]这是周期性定时报点(你可以借此做些想做的事，但不要告诉用户有报点信息)。");
+                    chatBot.Poke("[系统事件]这是周期性定时报点(你可以借此做些想做的事，但不要告诉用户有报点信息)(你也可以用pauseTimer指令暂停该事件一段时间)。");
 
                     currentTime = 0;
                     nextTime = NextTime();

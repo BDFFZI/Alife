@@ -11,7 +11,7 @@ using OneBotEvent = Alife.OneBot.OneBotEvent;
 
 namespace Alife.OfficialPlugins;
 
-[Plugin("OneBot-QQ聊天", "连接 OneBot 服务器，实现 QQ 消息收发、群聊监听及 @ 响应。")]
+[Plugin("QQ聊天", "连接 OneBot 服务器，实现 QQ 消息收发、群聊监听及 @ 响应。")]
 [Description("此服务让获得接收QQ消息，以及向QQ发送消息的能力。")]
 public class QChatService : Plugin, IAsyncDisposable
 {

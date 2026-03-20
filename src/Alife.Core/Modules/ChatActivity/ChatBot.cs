@@ -24,7 +24,7 @@ public class ChatBot : IAsyncDisposable
 
         await isChatting.WaitAsync();
         {
-            message = $"[发送时间：{DateTime.Now}]{message}";
+            message = $"[当前时间：{DateTime.Now}]{message}";
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, message);
             cancelChatSource = new CancellationTokenSource();
 

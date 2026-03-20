@@ -6,7 +6,7 @@ using Alife.Abstractions;
 using Alife.Interpreter;
 using Microsoft.SemanticKernel;
 
-[Plugin("框架-口译员", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
+[Plugin("口译员", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
 public class InterpreterService : Plugin
 {
     public void RegisterHandler(object handler)
