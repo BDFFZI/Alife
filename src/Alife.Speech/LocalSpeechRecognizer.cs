@@ -1,33 +1,32 @@
 namespace Alife.Speech
 {
-    public class LocalSpeechRecognizer : System.IDisposable
+    public class LocalSpeechRecognizer : IDisposable
     {
-        private readonly SherpaOnnx.OfflineRecognizer _recognizer;
-        private readonly SherpaOnnx.VoiceActivityDetector _vad;
-        private NAudio.Wave.WaveInEvent? _waveIn;
-        
-        public event System.Action<string, float>? OnRecognized;
-        public event System.Action<string>? OnPartial;
+        public event Action<string, float>? OnRecognized;
 
+        readonly SherpaOnnx.OfflineRecognizer _recognizer;
+        readonly SherpaOnnx.VoiceActivityDetector _vad;
+        NAudio.Wave.WaveInEvent? _waveIn;
+        
         public LocalSpeechRecognizer(string modelPath)
         {
             var config = new SherpaOnnx.OfflineRecognizerConfig();
-            config.ModelConfig.SenseVoice.Model = System.IO.Path.Combine(modelPath, "sensevoice-small", "model.int8.onnx");
-            config.ModelConfig.Tokens = System.IO.Path.Combine(modelPath, "sensevoice-small", "tokens.txt");
+            config.ModelConfig.SenseVoice.Model = Path.Combine(modelPath, "sensevoice-small", "model.int8.onnx");
             config.ModelConfig.SenseVoice.Language = "zh"; 
             config.ModelConfig.SenseVoice.UseInverseTextNormalization = 1;
+            config.ModelConfig.Tokens = Path.Combine(modelPath, "sensevoice-small", "tokens.txt");
             config.ModelConfig.NumThreads = 1;
             config.ModelConfig.Debug = 0;
 
             _recognizer = new SherpaOnnx.OfflineRecognizer(config);
 
             var vadConfig = new SherpaOnnx.VadModelConfig();
-            vadConfig.SileroVad.Model = System.IO.Path.Combine(modelPath, "silero_vad.onnx");
+            vadConfig.SileroVad.Model = Path.Combine(modelPath, "silero-vad", "silero_vad.onnx");
             vadConfig.SileroVad.Threshold = 0.5f;
             vadConfig.SileroVad.MinSilenceDuration = 0.25f;
             vadConfig.SileroVad.MinSpeechDuration = 0.25f;
             vadConfig.SampleRate = 16000;
-            
+
             _vad = new SherpaOnnx.VoiceActivityDetector(vadConfig, bufferSizeInSeconds: 60);
         }
 
@@ -44,7 +43,7 @@ namespace Alife.Speech
         {
             var samples = new float[bytesRecorded / 2];
             for (int i = 0; i < samples.Length; i++)
-                samples[i] = System.BitConverter.ToInt16(buffer, i * 2) / 32768.0f;
+                samples[i] = BitConverter.ToInt16(buffer, i * 2) / 32768.0f;
 
             _vad.AcceptWaveform(samples);
             while (!_vad.IsEmpty())
@@ -55,7 +54,7 @@ namespace Alife.Speech
             }
         }
 
-        private void ProcessSegment(float[] samples)
+        void ProcessSegment(float[] samples)
         {
             try
             {
@@ -63,21 +62,15 @@ namespace Alife.Speech
                 stream.AcceptWaveform(16000, samples);
                 _recognizer.Decode(stream);
                 var result = stream.Result;
-                string text = CleanResult(result.Text);
-                if (!string.IsNullOrWhiteSpace(text)) OnRecognized?.Invoke(text, 1.0f);
+                
+                // 直接输出原生 Text 供你处理
+                if (!string.IsNullOrWhiteSpace(result.Text))
+                    OnRecognized?.Invoke(result.Text, 1.0f);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                System.Console.WriteLine($"[STT Error] {ex.Message}");
+                Console.WriteLine($"[STT Error] {ex.Message}");
             }
-        }
-
-        private string CleanResult(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return "";
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]", "");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"<\|.*?\|>", "");
-            return text.Trim();
         }
 
         public void Stop()
@@ -92,7 +85,7 @@ namespace Alife.Speech
             Stop();
             _recognizer.Dispose();
             _vad.Dispose();
-            System.GC.SuppressFinalize(this);
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -14,6 +14,7 @@
   - 架构：Python Bridge 长驻进程（`qwen_vision_bridge.py`），C# 通过 `VisionAnalyzer.cs` 调用。
   - 功能：图像描述（caption）、视觉问答（query）。
   - Demo 项目：`Alife.Vision.Demo`（控制台交互）。
+  - 备注：尝试过 LLamaSharp/GGUF 方案，但 llama.cpp 主分支尚未支持 Qwen2.5-VL 视觉组件。
   - 后续计划：封装为 `VisionService.cs` 接入 `Alife.Function`。
 
 ## 用户偏好/反馈

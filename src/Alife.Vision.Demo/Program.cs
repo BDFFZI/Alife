@@ -16,7 +16,8 @@ class Program
         using var analyzer = new VisionAnalyzer();
         try
         {
-            await analyzer.InitAsync(timeoutSeconds: 180);
+            string modelPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "models", "Qwen2.5-VL-3B-Instruct"));
+            await analyzer.InitAsync(modelPath: modelPath, timeoutSeconds: 300);
         }
         catch (Exception ex)
         {

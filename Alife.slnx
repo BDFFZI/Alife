@@ -1,2 +1,22 @@
 <Solution>
+  <Folder Name="/Demo/">
+    <Project Path="src/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
+    <Project Path="src\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
+    <Project Path="src\Alife.DeskPet.Demo\Alife.DeskPet.Demo.csproj" />
+    <Project Path="src\Alife.Interpreter.Demo\Alife.Interpreter.Demo.csproj" />
+    <Project Path="src\Alife.Python.Demo\Alife.Python.Demo.csproj" />
+    <Project Path="src\Alife.QChat.Demo\Alife.QChat.Demo.csproj" />
+    <Project Path="src\Alife.Speech.Demo\Alife.Speech.Demo.csproj" />
+  </Folder>
+  <Folder Name="/Foundation/">
+    <Project Path="src/Alife.Speech/Alife.Speech.csproj" />
+    <Project Path="src/Alife.Vision/Alife.Vision.csproj" />
+    <Project Path="src/Alife.Environment/Alife.Environment.csproj" />
+    <Project Path="src\Alife.DeskPet\Alife.DeskPet.csproj" />
+    <Project Path="src\Alife.Interpreter\Alife.Interpreter.csproj" />
+    <Project Path="src\Alife.QChat\Alife.QChat.csproj" />
+  </Folder>
+  <Project Path="src/Alife.Function/Alife.Function.csproj" />
+  <Project Path="src\Alife.Core\Alife.Core.csproj" />
+  <Project Path="src\Alife\Alife.csproj" />
 </Solution>

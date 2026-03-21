@@ -28,7 +28,7 @@ public class VisionAnalyzer : IDisposable
     /// </summary>
     /// <param name="scriptPath">qwen_vision_bridge.py 的路径，默认为当前程序目录</param>
     /// <param name="timeoutSeconds">等待模型加载的超时时间（秒），默认 120s</param>
-    public async Task InitAsync(string? scriptPath = null, int timeoutSeconds = 120)
+    public async Task InitAsync(string? scriptPath = null, string? modelPath = null, int timeoutSeconds = 120)
     {
         if (_ready) return;
 
@@ -38,10 +38,16 @@ public class VisionAnalyzer : IDisposable
         if (!File.Exists(script))
             throw new FileNotFoundException($"Vision bridge script not found: {script}");
 
+        string arguments = $"\"{script}\"";
+        if (!string.IsNullOrEmpty(modelPath))
+        {
+            arguments += $" --model_path \"{modelPath}\"";
+        }
+
         var psi = new ProcessStartInfo
         {
             FileName = "python",
-            Arguments = $"\"{script}\"",
+            Arguments = arguments,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

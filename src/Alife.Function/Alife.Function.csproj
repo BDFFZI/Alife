@@ -24,4 +24,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Environment\Alife.Environment.csproj" />
+  </ItemGroup>
 </Project>

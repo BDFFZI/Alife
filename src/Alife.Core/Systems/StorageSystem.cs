@@ -1,24 +1,12 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Alife;
 
 public class StorageSystem
 {
-    public string GetStoragePath()
-    {
-        string? storagePath = Environment.GetEnvironmentVariable("OneDrive");
-        if (storagePath == null)
-            storagePath = Path.GetRelativePath(".", AppContext.BaseDirectory);
-        return $"{storagePath}/Alife.Storage".Replace(Path.DirectorySeparatorChar, '/');
-    }
+    public string GetStoragePath() => PathEnvironment.StoragePath;
 
-    public string GetTempPath(string filename)
-    {
-        string path = $"{Path.GetTempPath()}/{filename}";
-        if (Directory.Exists(Path.GetDirectoryName(path)) == false)
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        return path;
-    }
+    public string GetTempPath(string filename) => $"{PathEnvironment.StoragePath}/{filename}";
     public string? GetJson(string key, string? defaultValue = null)
     {
         return GetValue(key, "json", defaultValue);

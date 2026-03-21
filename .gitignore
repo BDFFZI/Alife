@@ -1,5 +1,6 @@
 bin/
 obj/
+output/
 .vs/
 .idea/
 *.user
@@ -8,4 +9,4 @@ obj/
 *.log
 __pycache__/
 *.pyc
-model/
+models/

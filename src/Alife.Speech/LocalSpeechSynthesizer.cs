@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
@@ -51,10 +52,10 @@ public class LocalSpeechSynthesizer : IDisposable
         var psi = new ProcessStartInfo {
             FileName = "python",
             Arguments = $"-m edge_tts --text \"{safeText}\" --voice {voice} --write-media \"{outputPath}\"",
+            UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
 
         using var process = Process.Start(psi);
@@ -69,12 +70,17 @@ public class LocalSpeechSynthesizer : IDisposable
 
             if (completedTask == timeoutTask)
                 throw new OperationCanceledException();
-            if (process.ExitCode == 0 && File.Exists(outputPath))
-                return outputPath;
+            if (process.ExitCode != 0)
+                throw new Exception($"{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}");
+            if (File.Exists(outputPath) == false)
+                throw new Exception($"Speech file {outputPath} does not exist");
+
+            return outputPath;
         }
-        catch
+        catch (Exception e)
         {
             process.Kill();
+            Console.WriteLine(e);
         }
 
         return null;

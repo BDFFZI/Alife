@@ -23,23 +23,25 @@ import traceback
 
 # ───────────────────────── 模型加载 ─────────────────────────
 
-def load_model():
+def load_model(model_path_or_name: str):
     import torch
     from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
 
-    model_name = "Qwen/Qwen2.5-VL-3B-Instruct"
+    print(f"Loading model from: {model_path_or_name}", file=sys.stderr, flush=True)
 
-    processor = AutoProcessor.from_pretrained(model_name)
+    processor = AutoProcessor.from_pretrained(model_path_or_name, trust_remote_code=True)
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_name,
+        model_path_or_name,
         torch_dtype=dtype,
         device_map={"": device},
+        trust_remote_code=True
     )
     model.eval()
     return model, processor, device
+
 
 
 # ───────────────────────── 推理核心 ─────────────────────────
@@ -110,8 +112,14 @@ def handle_request(model, processor, device: str, req: dict) -> dict:
 # ───────────────────────── 主循环 ─────────────────────────
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
+    args = parser.parse_args()
+
     try:
-        model, processor, device = load_model()
+        model, processor, device = load_model(args.model_path)
+
     except Exception as e:
         print(json.dumps({"status": "error", "message": f"Model load failed: {e}"}), flush=True)
         sys.exit(1)

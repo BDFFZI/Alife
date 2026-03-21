@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using Alife.Abstractions;
@@ -39,8 +38,7 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizerCancelSource = new CancellationTokenSource();
         Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
         await lastSynthesizer;
-        lastSynthesizer = Task.Run(async () =>
-        {
+        lastSynthesizer = Task.Run(async () => {
             string? output = await task;
             if (output != null)
             {
@@ -63,9 +61,7 @@ public class SpeechService : Plugin, IAsyncDisposable
         interpreterService.RegisterHandler(this);
 
         //创建识别器
-        string assemblyDir = Path.GetDirectoryName(typeof(SpeechService).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
-        string modelPath1 = Path.Combine(assemblyDir, "model");
-        recognizer = new LocalSpeechRecognizer(modelPath1);
+        recognizer = new LocalSpeechRecognizer(PathEnvironment.ModelsPath);
         recognizer.OnRecognized += (text, conf) => OnRecognized(text, conf);
 
         //创建合成器
@@ -99,8 +95,7 @@ public class SpeechService : Plugin, IAsyncDisposable
     void StartHeadphoneMonitoring()
     {
         var enumerator = new MMDeviceEnumerator();
-        Task.Run(async () =>
-        {
+        Task.Run(async () => {
             while (true)
             {
                 try
@@ -124,7 +119,10 @@ public class SpeechService : Plugin, IAsyncDisposable
                         SendNotification("语音助手已离线", "真央因为未检测到耳机，已自动关闭语音识别喵！");
                     }
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
                 await Task.Delay(1000);
             }
         });
@@ -142,8 +140,7 @@ public class SpeechService : Plugin, IAsyncDisposable
                             "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
                             "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
 
-            Process.Start(new ProcessStartInfo
-            {
+            Process.Start(new ProcessStartInfo {
                 FileName = "powershell",
                 Arguments = $"-Command \"{script}\"",
                 CreateNoWindow = true,

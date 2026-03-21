@@ -13,4 +13,7 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Environment\Alife.Environment.csproj" />
+  </ItemGroup>
 </Project>

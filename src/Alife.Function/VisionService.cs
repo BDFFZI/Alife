@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Alife.Abstractions;
 using Alife.Interpreter;
 using Alife.Vision;
+using Alife;
 using Microsoft.SemanticKernel;
 
 namespace Alife.OfficialPlugins;
@@ -96,16 +97,17 @@ public class VisionService : Plugin, IAsyncDisposable
     private string CaptureScreen()
     {
         // 获取虚拟屏幕总尺寸（多显示器支持）
-        int left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
-        int top    = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        int width  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        int left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
         int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
         if (width <= 0 || height <= 0)
         {
             // 回退到主屏幕
-            left = 0; top = 0;
-            width  = GetSystemMetrics(SM_CXSCREEN);
+            left = 0;
+            top = 0;
+            width = GetSystemMetrics(SM_CXSCREEN);
             height = GetSystemMetrics(SM_CYSCREEN);
         }
 
@@ -124,12 +126,17 @@ public class VisionService : Plugin, IAsyncDisposable
     {
         if (_initialized) return;
         _initialized = true;
-        await _analyzer.InitAsync(timeoutSeconds: 180);
+
+        // 使用统一的环境库获取模型路径
+        string modelsDir = PathEnvironment.ModelsPath;
+        string qwenPath = Path.Combine(modelsDir, "Qwen2.5-VL-3B-Instruct");
+        await _analyzer.InitAsync(modelPath: qwenPath, timeoutSeconds: 300);
     }
 
     private static void TryDeleteFile(string path)
     {
-        try { File.Delete(path); } catch { }
+        try { File.Delete(path); }
+        catch { }
     }
 
     public async ValueTask DisposeAsync()
@@ -140,8 +147,8 @@ public class VisionService : Plugin, IAsyncDisposable
 
     // ─────────────────────── Win32 PInvoke ───────────────────────
 
-    private const int SM_CXSCREEN       = 0;
-    private const int SM_CYSCREEN       = 1;
+    private const int SM_CXSCREEN = 0;
+    private const int SM_CYSCREEN = 1;
     private const int SM_XVIRTUALSCREEN = 76;
     private const int SM_YVIRTUALSCREEN = 77;
     private const int SM_CXVIRTUALSCREEN = 78;
