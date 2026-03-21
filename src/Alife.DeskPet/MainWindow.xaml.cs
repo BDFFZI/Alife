@@ -226,18 +226,17 @@ public partial class MainWindow : Window
 
                 _isProgrammaticMove = true;
 
+                // 因为 host 端(大脑)也是基于 1920*1080 的物理像素下发移动偏移量，
+                // 所以我们在此处将要移动的 x 和 y 从物理像素转回 WPF 能接受的逻辑像素再进行叠加：
+                var dpiInfo = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+                double logicalX = x / dpiInfo.DpiScaleX;
+                double logicalY = y / dpiInfo.DpiScaleY;
+
                 // [FIX] 坐标堆叠逻辑：基于逻辑终点叠加位移，防止连发指令导致的步长缩减/乱走
-                _logicalLeft += x;
-                _logicalTop += y;
+                _logicalLeft += logicalX;
+                _logicalTop += logicalY;
 
-                // [FIX] 边界检测：使用 VirtualScreen 允许跨显示器移动，防止被强制吸回主屏
-                double vLeft = SystemParameters.VirtualScreenLeft;
-                double vTop = SystemParameters.VirtualScreenTop;
-                double vWidth = SystemParameters.VirtualScreenWidth;
-                double vHeight = SystemParameters.VirtualScreenHeight;
-
-                _logicalLeft = Math.Max(vLeft, Math.Min(_logicalLeft, vLeft + vWidth - ActualWidth));
-                _logicalTop = Math.Max(vTop, Math.Min(_logicalTop, vTop + vHeight - ActualHeight));
+                // 用户要求：去掉 AI 移动时的范围限制，所以这里不再约束 _logicalLeft 和 _logicalTop 必须在 VirtualScreen 内
 
                 double targetLeft = _logicalLeft;
                 double targetTop = _logicalTop;
@@ -287,7 +286,13 @@ public partial class MainWindow : Window
             {
                 double centerX = Left + Width / 2;
                 double centerY = Top + Height / 2;
-                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = centerX, y = centerY }));
+
+                // 转换为系统真实的物理像素 (贴合 1920*1080 坐标系)
+                var dpiInfo = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+                double physicalX = centerX * dpiInfo.DpiScaleX;
+                double physicalY = centerY * dpiInfo.DpiScaleY;
+
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = physicalX, y = physicalY }));
             }
         }
         catch (Exception ex)
