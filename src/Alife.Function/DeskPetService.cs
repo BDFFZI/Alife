@@ -157,26 +157,15 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
         try
         {
-            string assemblyDir = AppDomain.CurrentDomain.BaseDirectory;
-            string petExePath = Path.Combine(assemblyDir, "Alife.DeskPet.exe");
-
-            if (File.Exists(petExePath) == false)
+            const string PetExePath = "../../Alife.DeskPet/debug/Alife.DeskPet.exe";
+            if (File.Exists(PetExePath) == false)
             {
-                petExePath = Path.Combine(assemblyDir, "src", "Alife.DeskPet", "bin", "Debug", "net10.0-windows", "Alife.DeskPet.exe");
-            }
-            if (File.Exists(petExePath) == false)
-            {
-                //TODO 不能使用绝对路径，应该是构建Pet项目时，自动复制文件
-                petExePath = @"c:\Users\13309\Desktop\Alife\src\Alife.DeskPet\bin\Debug\net10.0-windows\Alife.DeskPet.exe";
-            }
-            if (File.Exists(petExePath) == false)
-            {
-                Console.WriteLine($"[PetService] Error: Could not find Pet EXE at {petExePath}");
+                Console.WriteLine($"[PetService] Error: Could not find Pet EXE at {PetExePath}");
                 return Task.CompletedTask;
             }
 
             ProcessStartInfo psi = new ProcessStartInfo {
-                FileName = petExePath,
+                FileName = PetExePath,
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -184,7 +173,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
                 StandardInputEncoding = Encoding.UTF8,
                 StandardOutputEncoding = Encoding.UTF8,
                 CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(petExePath)
+                WorkingDirectory = Path.GetDirectoryName(PetExePath)
             };
 
             petProcess = new Process { StartInfo = psi };
