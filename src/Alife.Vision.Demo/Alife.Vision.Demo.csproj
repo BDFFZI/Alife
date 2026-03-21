@@ -1,27 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-    <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
-    <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
-    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="haarcascade_frontalface_default.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260317" />
-  </ItemGroup>
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Alife.Vision.Demo</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
+  </ItemGroup>
 
 </Project>

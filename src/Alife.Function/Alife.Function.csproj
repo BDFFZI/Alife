@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -12,6 +12,11 @@
     <ProjectReference Include="..\Alife.Interpreter\Alife.Interpreter.csproj" />
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
     <ProjectReference Include="..\Alife.QChat\Alife.QChat.csproj" />
+    <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
