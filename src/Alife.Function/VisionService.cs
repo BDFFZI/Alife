@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -7,15 +8,101 @@ using Alife.Interpreter;
 using Alife.Vision;
 using Alife;
 using Microsoft.SemanticKernel;
+using System.Net.Http;
 
 namespace Alife.OfficialPlugins;
 
 [Plugin("视觉感知", "让 AI 能够看到屏幕内容，理解图片，观察世界。")]
-[Description("此服务让你拥有视觉感知能力：你可以截取屏幕画面并理解其内容，或者分析用户提供的图片。")]
+[Description("此服务让你拥有视觉感知能力：你可以截取屏幕画面并理解其内容，或者分析用户提供的图片。（注意！分析系统并不准确，所以你需要配合结果，自己洞察出真正的实际情况）")]
 public class VisionService : Plugin, IAsyncDisposable
 {
+    
+    /// <summary>
+    /// 截取屏幕并进行视觉理解，将结果反馈给 AI。
+    /// </summary>
+    [XmlHandler("look_screen")]
+    [Description("截取当前整个屏幕并自动分析其内容。你可以附带问题，例如：<look_screen>屏幕上有什么？</look_screen>")]
+    public async Task LookScreen(XmlTagContext context)
+    {
+        if (context.Status != TagStatus.Closing) return;
+
+        string question = context.FullContent.Trim();
+        if (string.IsNullOrWhiteSpace(question))
+            question = "请用中文详细描述屏幕上的内容。";
+
+        await EnsureInitializedAsync();
+
+        string screenshotPath = CaptureScreen();
+        try
+        {
+            string windowInfo = GetRunningWindowTitles();
+            string visionResult = await _analyzer.QueryAsync(screenshotPath, question);
+
+            _chatBot.Poke($"[VisionService] 窗口信息：{windowInfo}\n视觉分析结果：{visionResult}");
+        }
+        finally
+        {
+            TryDeleteFile(screenshotPath);
+        }
+    }
+
+    /// <summary>
+    /// 分析指定路径的图片。
+    /// </summary>
+    [XmlHandler("look_image")]
+    [Description(@"分析指定路径或 URL 的图片内容，用视觉模型理解后告知你。
+用法示例：<look_image path=""xxx.jpg"">这张图里有什么？</look_image>")]
+    public async Task LookImage(XmlTagContext context, 
+        [Description("图片文件的本地完整路径或网络 URL")] string path, 
+        [XmlTagContent][Description("你对这张图片的具体问题")] string question)
+    {
+        if (context.Status != TagStatus.Closing) return;
+
+        string imagePath = path;
+        if (string.IsNullOrWhiteSpace(imagePath))
+        {
+            _chatBot.Poke("[VisionService] 图片路径不能为空。");
+            return;
+        }
+
+        string? tempDownloadedPath = null;
+        try
+        {
+            // 处理网络图片
+            if (imagePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || 
+                imagePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                tempDownloadedPath = await DownloadImageAsync(imagePath);
+                imagePath = tempDownloadedPath;
+            }
+
+            if (!File.Exists(imagePath))
+            {
+                _chatBot.Poke($"[VisionService] 图片路径无效或文件不存在：{imagePath}");
+                return;
+            }
+
+            string finalQuestion = string.IsNullOrWhiteSpace(question) ? "请用中文详细描述这张图片的内容。" : question;
+
+            await EnsureInitializedAsync();
+
+            string result = await _analyzer.QueryAsync(imagePath, finalQuestion);
+            _chatBot.Poke($"[VisionService] 图片分析结果：{result}");
+        }
+        catch (Exception ex)
+        {
+            _chatBot.Poke($"[VisionService] 图片处理失败：{ex.Message}");
+        }
+        finally
+        {
+            if (tempDownloadedPath != null) TryDeleteFile(tempDownloadedPath);
+        }
+    }
+
+    
     private readonly VisionAnalyzer _analyzer;
     private readonly StorageSystem _storageSystem;
+    private static readonly HttpClient _httpClient = new();
     private ChatBot _chatBot = null!;
     private bool _initialized = false;
 
@@ -31,69 +118,7 @@ public class VisionService : Plugin, IAsyncDisposable
         _chatBot = chatActivity.ChatBot;
         await EnsureInitializedAsync();
     }
-
-    // ─────────────────────── XML Handlers ───────────────────────
-
-    /// <summary>
-    /// 截取屏幕并进行视觉理解，将结果反馈给 AI。
-    /// </summary>
-    [XmlHandler("look_screen")]
-    [Description(@"截取当前屏幕画面，用视觉模型分析后将内容告知你。
-适用场景：了解用户正在做什么、观察屏幕上的文字或图像内容。
-用法示例：<look_screen>请描述屏幕上的内容</look_screen>
-          <look_screen>屏幕上有错误信息吗？</look_screen>")]
-    public async Task LookScreen(XmlTagContext context)
-    {
-        if (context.Status != TagStatus.Closing) return;
-
-        string question = context.FullContent.Trim();
-        if (string.IsNullOrWhiteSpace(question))
-            question = "请用中文详细描述屏幕上的内容。";
-
-        await EnsureInitializedAsync();
-
-        string screenshotPath = CaptureScreen();
-        try
-        {
-            string result = await _analyzer.QueryAsync(screenshotPath, question);
-            _chatBot.Poke($"[VisionService] 屏幕内容如下：{result}");
-        }
-        finally
-        {
-            TryDeleteFile(screenshotPath);
-        }
-    }
-
-    /// <summary>
-    /// 分析指定路径的图片。
-    /// </summary>
-    [XmlHandler("look_image")]
-    [Description(@"分析指定路径的图片文件，用视觉模型理解其内容后告知你。
-用法示例：<look_image path=""C:\Users\user\photo.jpg"">这张图片里有什么人？</look_image>")]
-    public async Task LookImage(XmlTagContext context)
-    {
-        if (context.Status != TagStatus.Closing) return;
-
-        string imagePath = context.CallChain[^1].Attributes.TryGetValue("path", out var p) ? p : string.Empty;
-        string question = context.FullContent.Trim();
-
-        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
-        {
-            _chatBot.Poke("[VisionService] 图片路径无效或文件不存在。");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(question))
-            question = "请用中文详细描述这张图片的内容。";
-
-        await EnsureInitializedAsync();
-
-        string result = await _analyzer.QueryAsync(imagePath, question);
-        _chatBot.Poke($"[VisionService] 图片分析结果：{result}");
-    }
-
-    // ─────────────────────── Screen Capture ───────────────────────
-
+    
     private string CaptureScreen()
     {
         // 获取虚拟屏幕总尺寸（多显示器支持）
@@ -129,14 +154,22 @@ public class VisionService : Plugin, IAsyncDisposable
 
         // 使用统一的环境库获取模型路径
         string modelsDir = PathEnvironment.ModelsPath;
-        string qwenPath = Path.Combine(modelsDir, "Qwen2.5-VL-3B-Instruct");
-        await _analyzer.InitAsync(modelPath: qwenPath, timeoutSeconds: 300, onLog: msg => Console.Write(msg));
+        string modelPath = Path.Combine(modelsDir, "InternVL2_5-1B");
+        await _analyzer.InitAsync(modelPath: modelPath, timeoutSeconds: 300, onLog: msg => Console.Write(msg));
     }
 
     private static void TryDeleteFile(string path)
     {
         try { File.Delete(path); }
         catch { }
+    }
+
+    private async Task<string> DownloadImageAsync(string url)
+    {
+        string tempPath = _storageSystem.GetTempPath($"download_{Guid.NewGuid():N}.png");
+        var data = await _httpClient.GetByteArrayAsync(url);
+        await File.WriteAllBytesAsync(tempPath, data);
+        return tempPath;
     }
 
     public async ValueTask DisposeAsync()
@@ -154,6 +187,54 @@ public class VisionService : Plugin, IAsyncDisposable
     private const int SM_CXVIRTUALSCREEN = 78;
     private const int SM_CYVIRTUALSCREEN = 79;
 
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
+
+    private string GetRunningWindowTitles()
+    {
+        var titles = new List<string>();
+        IntPtr foregroundWnd = GetForegroundWindow();
+
+        EnumWindows((hWnd, lParam) =>
+        {
+            if (IsWindowVisible(hWnd))
+            {
+                int length = GetWindowTextLength(hWnd);
+                if (length > 0)
+                {
+                    var sb = new StringBuilder(length + 1);
+                    GetWindowText(hWnd, sb, sb.Capacity);
+                    string title = sb.ToString();
+                    if (!string.IsNullOrWhiteSpace(title) && title != "Program Manager")
+                    {
+                        if (hWnd == foregroundWnd)
+                        {
+                            title = $"(聚焦) {title}";
+                        }
+                        titles.Add(title);
+                    }
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        return titles.Count > 0 ? string.Join(", ", titles) : "无可见窗口";
+    }
 }

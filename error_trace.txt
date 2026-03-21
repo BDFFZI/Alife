@@ -1,0 +1,5 @@
+[Bridge] Loading internvl model from: C:\Users\13309\Desktop\Alife\models\InternVL2_5-1B
+The tokenizer you are loading from 'C:\Users\13309\Desktop\Alife\models\InternVL2_5-1B' with an incorrect regex pattern: https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503/discussions/84#69121093e8b480e709447d5e. This will lead to incorrect tokenization. You should set the `fix_mistral_regex=True` flag when loading this tokenizer to fix this issue.
+`torch_dtype` is deprecated! Use `dtype` instead!
+C:\Users\13309\AppData\Local\Programs\Python\Python312\Lib\site-packages\timm\models\layers\__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)

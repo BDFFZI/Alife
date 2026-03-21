@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Alife.Vision;
 
 /// <summary>
-/// 使用 Qwen2.5-VL-3B 进行图像理解。
+/// 使用 InternVL2.5-1B 进行图像理解。
 /// 内部维护一个长驻 Python 子进程，模型只加载一次。
 /// </summary>
 public class VisionAnalyzer : IDisposable

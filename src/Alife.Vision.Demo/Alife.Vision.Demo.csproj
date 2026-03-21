@@ -9,8 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.73.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
+    <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
     <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
     <ProjectReference Include="..\Alife.Environment\Alife.Environment.csproj" />
+    <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
   </ItemGroup>
 
 </Project>
