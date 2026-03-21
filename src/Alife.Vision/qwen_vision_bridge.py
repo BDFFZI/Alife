@@ -1,61 +1,74 @@
 """
-Qwen2.5-VL-3B Vision Bridge
+Qwen2.5-VL-3B & Moondream2 Vision Bridge
 长驻进程模式：模型只加载一次，通过 stdin/stdout 与 C# 通信。
-
-Protocol:
-  Input  (stdin, one JSON per line):
-    {"action": "caption",  "image_path": "C:/test.jpg"}
-    {"action": "query",    "image_path": "C:/test.jpg", "question": "图里有什么？"}
-    {"action": "describe", "image_path": "C:/test.jpg"}   # alias for caption
-
-  Output (stdout, one JSON per line):
-    {"status": "ok",    "result": "一只猫坐在桌子上。"}
-    {"status": "error", "message": "..."}
-
-  Special signals:
-    stdout "READY\n" — emitted once when model is loaded and ready
 """
 
 import sys
 import json
 import traceback
 
-
 # ───────────────────────── 模型加载 ─────────────────────────
 
 def load_model(model_path_or_name: str):
     import torch
-    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-
+    import os
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
 
-    print(f"Loading model from: {model_path_or_name}", file=sys.stderr, flush=True)
+    # 如果传进来的本地文件夹不存在，自动向 HuggingFace 官方拉取
+    load_path = model_path_or_name
+    if not os.path.exists(model_path_or_name):
+        if "moondream" in model_path_or_name.lower():
+            load_path = "vikhyatk/moondream2"
+        else:
+            load_path = "Qwen/Qwen2.5-VL-3B-Instruct"
 
-    processor = AutoProcessor.from_pretrained(model_path_or_name, trust_remote_code=True)
+    print(f"Loading model from: {load_path}", file=sys.stderr, flush=True)
+
+    if "moondream" in load_path.lower():
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        processor = AutoTokenizer.from_pretrained(load_path, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            load_path,
+            trust_remote_code=True,
+            torch_dtype=dtype
+        ).to(device)
+        model.eval()
+        return model, processor, device
+
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+    processor = AutoProcessor.from_pretrained(load_path, trust_remote_code=True)
+    
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_path_or_name,
+        load_path,
         torch_dtype=dtype,
-        device_map={"": device},
+        device_map="auto",
         trust_remote_code=True
     )
     model.eval()
     return model, processor, device
-
-
 
 # ───────────────────────── 推理核心 ─────────────────────────
 
 def run_vision_query(model, processor, device: str, image_path: str, question: str) -> str:
     import torch
     from PIL import Image
-    from qwen_vl_utils import process_vision_info
 
+    if model.__class__.__name__ == "Moondream":
+        image = Image.open(image_path)
+        enc_image = model.encode_image(image)
+        return model.answer_question(enc_image, question, processor)
+
+    from qwen_vl_utils import process_vision_info
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "image", "image": image_path},
+                {
+                    "type": "image", 
+                    "image": image_path,
+                    "max_pixels": 250880
+                },
                 {"type": "text",  "text": question},
             ],
         }
@@ -86,10 +99,7 @@ def run_vision_query(model, processor, device: str, image_path: str, question: s
     )[0]
     return answer.strip()
 
-
 # ───────────────────────── 请求处理 ─────────────────────────
-
-CAPTION_PROMPT = "请用中文详细描述这张图片的内容。"
 
 def handle_request(model, processor, device: str, req: dict) -> dict:
     action = req.get("action", "")
@@ -99,15 +109,20 @@ def handle_request(model, processor, device: str, req: dict) -> dict:
         return {"status": "error", "message": "image_path is required"}
 
     if action in ("caption", "describe"):
-        question = CAPTION_PROMPT
+        if model.__class__.__name__ == "Moondream":
+            question = req.get("question", "Please describe this image in detail.")
+        else:
+            question = req.get("question", "请用中文详细描述这张图片的内容。")
     elif action == "query":
-        question = req.get("question", "这张图片里有什么？")
+        if model.__class__.__name__ == "Moondream":
+            question = req.get("question", "What is in this image?")
+        else:
+            question = req.get("question", "这张图片里有什么？")
     else:
         return {"status": "error", "message": f"Unknown action: {action}"}
 
     result = run_vision_query(model, processor, device, image_path, question)
     return {"status": "ok", "result": result}
-
 
 # ───────────────────────── 主循环 ─────────────────────────
 
@@ -119,12 +134,10 @@ def main():
 
     try:
         model, processor, device = load_model(args.model_path)
-
     except Exception as e:
         print(json.dumps({"status": "error", "message": f"Model load failed: {e}"}), flush=True)
         sys.exit(1)
 
-    # 通知 C# 已就绪
     print("READY", flush=True)
 
     for line in sys.stdin:
@@ -144,7 +157,6 @@ def main():
             response = {"status": "error", "message": traceback.format_exc()}
 
         print(json.dumps(response, ensure_ascii=False), flush=True)
-
 
 if __name__ == "__main__":
     main()

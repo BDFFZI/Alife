@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
+    <ProjectReference Include="..\Alife.Environment\Alife.Environment.csproj" />
   </ItemGroup>
 
 </Project>

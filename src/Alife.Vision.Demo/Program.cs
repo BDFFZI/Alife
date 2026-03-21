@@ -1,5 +1,5 @@
+using Alife;
 using Alife.Vision;
-
 namespace Alife.Vision.Demo;
 
 class Program
@@ -16,8 +16,9 @@ class Program
         using var analyzer = new VisionAnalyzer();
         try
         {
-            string modelPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "models", "Qwen2.5-VL-3B-Instruct"));
-            await analyzer.InitAsync(modelPath: modelPath, timeoutSeconds: 300);
+            string modelsDir = PathEnvironment.ModelsPath;
+            string qwenPath = Path.Combine(modelsDir, "Qwen2.5-VL-3B-Instruct");
+            await analyzer.InitAsync(modelPath: qwenPath, timeoutSeconds: 300, onLog: msg => Console.Write(msg));
         }
         catch (Exception ex)
         {

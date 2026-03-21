@@ -130,7 +130,7 @@ public class VisionService : Plugin, IAsyncDisposable
         // 使用统一的环境库获取模型路径
         string modelsDir = PathEnvironment.ModelsPath;
         string qwenPath = Path.Combine(modelsDir, "Qwen2.5-VL-3B-Instruct");
-        await _analyzer.InitAsync(modelPath: qwenPath, timeoutSeconds: 300);
+        await _analyzer.InitAsync(modelPath: qwenPath, timeoutSeconds: 300, onLog: msg => Console.Write(msg));
     }
 
     private static void TryDeleteFile(string path)

@@ -69,7 +69,7 @@ public class LocalSpeechSynthesizer : IDisposable
             Task completedTask = await Task.WhenAny(timeoutTask, processTask);
 
             if (completedTask == timeoutTask)
-                throw new OperationCanceledException();
+                throw new TimeoutException();
             if (process.ExitCode != 0)
                 throw new Exception($"{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}");
             if (File.Exists(outputPath) == false)
@@ -77,6 +77,7 @@ public class LocalSpeechSynthesizer : IDisposable
 
             return outputPath;
         }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             process.Kill();

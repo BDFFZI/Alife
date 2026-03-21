@@ -28,7 +28,7 @@ public class VisionAnalyzer : IDisposable
     /// </summary>
     /// <param name="scriptPath">qwen_vision_bridge.py 的路径，默认为当前程序目录</param>
     /// <param name="timeoutSeconds">等待模型加载的超时时间（秒），默认 120s</param>
-    public async Task InitAsync(string? scriptPath = null, string? modelPath = null, int timeoutSeconds = 120)
+    public async Task InitAsync(string? scriptPath = null, string? modelPath = null, int timeoutSeconds = 120, Action<string>? onLog = null)
     {
         if (_ready) return;
 
@@ -53,15 +53,34 @@ public class VisionAnalyzer : IDisposable
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardInputEncoding = Encoding.UTF8,
-            StandardOutputEncoding = Encoding.UTF8,
+            StandardInputEncoding = new UTF8Encoding(false),
+            StandardOutputEncoding = new UTF8Encoding(false),
         };
+        psi.Environment["PYTHONIOENCODING"] = "utf-8";
 
         _process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start Python vision bridge.");
 
         _stdin = _process.StandardInput;
         _stdout = _process.StandardOutput;
+
+        if (onLog != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                var stderr = _process.StandardError;
+                char[] buffer = new char[256];
+                int read;
+                try
+                {
+                    while ((read = await stderr.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        onLog(new string(buffer, 0, read));
+                    }
+                }
+                catch { }
+            });
+        }
 
         // 等待 "READY" 信号
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
