@@ -1,12 +1,20 @@
+# 输出和中间文件
 bin/
 obj/
 output/
+
+# 编辑器文件
 .vs/
+.vscode/
 .idea/
+
+# 模型文件
+models/
+
 *.user
 *.suo
 *.tmp
 *.log
 __pycache__/
 *.pyc
-models/
+
