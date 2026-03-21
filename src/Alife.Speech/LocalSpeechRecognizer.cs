@@ -14,7 +14,7 @@ namespace Alife.Speech
             var config = new SherpaOnnx.OfflineRecognizerConfig();
             config.ModelConfig.SenseVoice.Model = System.IO.Path.Combine(modelPath, "sensevoice-small", "model.int8.onnx");
             config.ModelConfig.Tokens = System.IO.Path.Combine(modelPath, "sensevoice-small", "tokens.txt");
-            config.ModelConfig.SenseVoice.Language = ""; 
+            config.ModelConfig.SenseVoice.Language = "zh"; 
             config.ModelConfig.SenseVoice.UseInverseTextNormalization = 1;
             config.ModelConfig.NumThreads = 1;
             config.ModelConfig.Debug = 0;
@@ -24,7 +24,7 @@ namespace Alife.Speech
             var vadConfig = new SherpaOnnx.VadModelConfig();
             vadConfig.SileroVad.Model = System.IO.Path.Combine(modelPath, "silero_vad.onnx");
             vadConfig.SileroVad.Threshold = 0.5f;
-            vadConfig.SileroVad.MinSilenceDuration = 0.5f;
+            vadConfig.SileroVad.MinSilenceDuration = 0.25f;
             vadConfig.SileroVad.MinSpeechDuration = 0.25f;
             vadConfig.SampleRate = 16000;
             
