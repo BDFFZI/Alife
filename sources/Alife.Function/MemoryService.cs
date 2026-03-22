@@ -26,11 +26,13 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
     Character character = null!;
     MemoryServiceData configuration = null!;
     ChatCompletionAgent summaryAgent = null!;
+    readonly SemaphoreSlim isCompressing;
 
 
     public MemoryService(StorageSystem storageSystem, OpenAIChatService openAIChatService)
     {
         this.storageSystem = storageSystem;
+        isCompressing = new SemaphoreSlim(1);
     }
 
     public void Configure(MemoryServiceData configuration)
@@ -68,21 +70,25 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
     }
     async void OnChatHistoryAdd(ChatMessageContent obj)
     {
-        // if (chatContext.ChatHistory.Count > configuration.MaxFullMessageCount)
+        if (chatContext.ChatHistory.Count < configuration.MaxFullMessageCount)
+            return;
+
+        await isCompressing.WaitAsync(TimeSpan.Zero);
         {
             List<ContextItem> history = FetchHistory(configuration.MaxFullMessageCount / 3, false);
-            string message = $"[{nameof(MemoryService)}][系统消息]这是你和用户的早期聊天记录，现在要将其压缩为回忆，请你简要总结一下：\n" + JsonConvert.SerializeObject(history);
+            string message = $"[{nameof(MemoryService)}][系统消息]这是你和用户的早期聊天记录，现在要将其压缩为回忆，请你仔细斟酌后，简要总结一下：\n" + JsonConvert.SerializeObject(history);
             string? result = null;
             await foreach (AgentResponseItem<ChatMessageContent> content in summaryAgent.InvokeAsync(message))
             {
                 result = content.Message.Content;
                 Console.WriteLine("压缩记忆：\n" + result);
             }
-
             chatContext.ChatHistory.RemoveRange(0, configuration.MaxFullMessageCount / 3);
             if (string.IsNullOrEmpty(result) == false)
                 chatContext.ChatHistory.Insert(0, new ChatMessageContent(AuthorRole.Assistant, "历史回忆：\n" + result));
         }
+
+        isCompressing.Release();
     }
     public override Task DestroyAsync()
     {
