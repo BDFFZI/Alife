@@ -44,7 +44,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         chatBot = chatActivity.ChatBot;
         updateCancelSource = new CancellationTokenSource();
 
-        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将开始(用消息类指令给用户打个招呼吧)", configuration.AppendStartPrompt));
+        await chatBot.ChatAsync(string.Join("\n", "[系统事件]对话活动即将开始(你可以简单查看一下之前的记忆文件，然后用消息类指令给用户打个招呼吧)", configuration.AppendStartPrompt));
 
         _ = Task.Run(Update);
         //发生对话时重新计时

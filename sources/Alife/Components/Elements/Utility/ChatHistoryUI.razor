@@ -4,6 +4,8 @@
 <Modal DefaultMaximized="true"
        Footer="null"
        Visible="Visible" VisibleChanged="VisibleChanged">
+    <Card Title=@($"总计：{Context.Count} 条")>
+    </Card>
     <AntList DataSource="@(Context)">
         <ListItemMeta
             Description="@($"{context.Role.Label} @{context.AuthorName}")">

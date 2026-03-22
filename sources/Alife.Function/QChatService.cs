@@ -3,8 +3,6 @@ using System.Text;
 using Alife.Abstractions;
 using Alife.Interpreter;
 using Microsoft.SemanticKernel;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using OneBotClient = Alife.OneBot.OneBotClient;
 using OneBotConfig = Alife.OneBot.OneBotConfig;
 using OneBotEvent = Alife.OneBot.OneBotEvent;
@@ -13,7 +11,7 @@ namespace Alife.OfficialPlugins;
 
 [Plugin("QQ聊天", "连接 OneBot 服务器，实现 QQ 消息收发、群聊监听及 @ 响应。")]
 [Description("此服务让获得接收QQ消息，以及向QQ发送消息的能力。")]
-public class QChatService : Plugin, IAsyncDisposable
+public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig>
 {
     [XmlHandler]
     [Description($"发送 QQ 文本消息。(当用户使用{nameof(QChatService)}给你发消息时，你需要用该指令回复)")]
@@ -22,7 +20,8 @@ public class QChatService : Plugin, IAsyncDisposable
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
 
         string msgToSend = ctx.FullContent;
-        if (string.IsNullOrWhiteSpace(msgToSend) || _client == null) return;
+        if (string.IsNullOrWhiteSpace(msgToSend))
+            return;
 
         // 确定类型：显式指定 > 上次互动类型
         string finalType = !string.IsNullOrEmpty(type) ? type : _lastType;
@@ -52,7 +51,7 @@ public class QChatService : Plugin, IAsyncDisposable
             { "message", msgToSend }
         };
 
-        await _client.SendActionAsync(action, @params);
+        await oneBotClient.SendActionAsync(action, @params);
         Console.WriteLine($"[QChatService] 已通过 {action} 发送至 {finalTarget}: {msgToSend}");
     }
 
@@ -63,8 +62,7 @@ public class QChatService : Plugin, IAsyncDisposable
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot)
             return;
-
-        if (string.IsNullOrWhiteSpace(file) || _client == null)
+        if (string.IsNullOrWhiteSpace(file))
             return;
 
         string? finalFile = null;
@@ -72,7 +70,7 @@ public class QChatService : Plugin, IAsyncDisposable
         // 1. 检查是否为精品表情
         if (finalFile == null)
         {
-            if (_emoteInventory.TryGetValue(file, out var path))
+            if (emoteInventory.TryGetValue(file, out var path))
                 finalFile = path;
         }
 
@@ -125,20 +123,18 @@ public class QChatService : Plugin, IAsyncDisposable
             { "message", message }
         };
 
-        await _client.SendActionAsync(action, @params);
+        await oneBotClient.SendActionAsync(action, @params);
         //Console.WriteLine($"[QChatService] 已通过 {action} 发送图片至 {finalTarget}: {finalFile}");
     }
 
     [XmlHandler]
-    [Description("开启或关闭普通群聊消息监听。关闭后仅响应私聊和 @ 提到。（默认为开启状态）（注意！当你不参与群聊时，一定要将其关闭，否则会狂烧token导致停机！）")]
+    [Description("开启或关闭普通群聊消息监听。关闭后仅响应私聊和 @ 提到。")]
     public void QToggleGroup(XmlTagContext ctx, bool enabled)
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
 
-        UpdateGroupMonitoring(enabled);
-
-        string stateStr = enabled ? "开启" : "关闭";
-        chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 群聊监听已人工切换为: {stateStr}");
+        configuration.IsGroupEnabled = enabled;
+        chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 群聊监听已人工切换为: {(enabled ? "开启" : "关闭")}");
     }
 
     [XmlHandler]
@@ -149,8 +145,8 @@ public class QChatService : Plugin, IAsyncDisposable
         if (!Directory.Exists(emotePath))
             Directory.CreateDirectory(emotePath);
 
-        _emoteInventory.Clear();
-        _emoteCategories.Clear();
+        emoteInventory.Clear();
+        emoteCategories.Clear();
 
         // 1. 扫描顶级文件 (作为直接表情项)
         var topLevelFiles = Directory.GetFiles(emotePath, "*.*")
@@ -160,25 +156,17 @@ public class QChatService : Plugin, IAsyncDisposable
         foreach (var file in topLevelFiles)
         {
             string name = Path.GetFileNameWithoutExtension(file);
-            _emoteInventory[name] = Path.GetFullPath(file);
+            emoteInventory[name] = Path.GetFullPath(file);
         }
 
         // 2. 扫描顶级文件夹 (作为分类/Tag)
         var subDirs = Directory.GetDirectories(emotePath);
         foreach (var dir in subDirs)
         {
-            _emoteCategories.Add(Path.GetFileName(dir));
+            emoteCategories.Add(Path.GetFileName(dir));
         }
     }
 
-    OneBotClient? _client;
-    ChatActivity chatActivity = null!;
-    long _ownerId = 0;
-    bool _isGroupEnabled = true;
-
-    // 表情包资产：文件名 -> 完整路径
-    readonly Dictionary<string, string> _emoteInventory = new();
-    readonly List<string> _emoteCategories = new();
 
     // 运行时上下文，分类型缓存最后一次互动的目标
     long _lastPrivateTarget = 0;
@@ -192,79 +180,84 @@ public class QChatService : Plugin, IAsyncDisposable
     // 群消息缓存：groupId -> 内容序列
     readonly Dictionary<long, StringBuilder> _groupBuffers = new();
 
-    readonly ConfigurationSystem configurationSystem;
     readonly StorageSystem storageSystem;
+    OneBotConfig configuration = null!;
+    OneBotClient oneBotClient = null!;
+    ChatActivity chatActivity = null!;
 
-    public QChatService(ConfigurationSystem configurationSystem, InterpreterService interpreterService, StorageSystem storageSystem)
+    // 表情包资产：文件名 -> 完整路径
+    readonly Dictionary<string, string> emoteInventory = new();
+    readonly List<string> emoteCategories = new();
+
+    public QChatService(InterpreterService interpreterService, StorageSystem storageSystem)
     {
-        this.configurationSystem = configurationSystem;
         this.storageSystem = storageSystem;
 
         interpreterService.RegisterHandler(this);
     }
-
-    public override Task AwakeAsync(AwakeContext context)
+    public void Configure(OneBotConfig configuration)
     {
-        var config = configurationSystem.GetConfiguration(typeof(QChatService)) as OneBotConfig ?? new OneBotConfig();
-        _isGroupEnabled = config.IsGroupEnabled;
-
-        // 扫描并注入表情包库说明
-        RefreshEmoteLibrary();
-        string emotePrompt = GeneratePrompt();
-        if (!string.IsNullOrEmpty(emotePrompt))
-        {
-            context.contextBuilder.ChatHistory.AddSystemMessage(emotePrompt);
-        }
-
-        Console.WriteLine($"[QChatService] 插件唤醒，群消息监控状态: {(_isGroupEnabled ? "开启" : "关闭")}");
-        return Task.CompletedTask;
+        this.configuration = configuration;
     }
-    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override async Task AwakeAsync(AwakeContext context)
     {
+        oneBotClient = new OneBotClient(configuration);
+        await oneBotClient.ConnectAsync();
+
+        //扫描表情包
+        RefreshEmoteLibrary();
+        //注入提示词
+        string prompt = GeneratePrompt();
+        if (!string.IsNullOrEmpty(prompt))
+            context.contextBuilder.ChatHistory.AddSystemMessage(prompt);
+    }
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    {
+        //获取对话机器人
         this.chatActivity = chatActivity;
 
-        var config = configurationSystem.GetConfiguration(typeof(QChatService)) as OneBotConfig ?? new OneBotConfig();
-        _ownerId = config.OwnerId;
-
-        _client = new OneBotClient(config);
-        _client.OnMessageReceived += async (e) => await HandleMessage(e);
-        _client.OnConnectionStatusChanged += (connected) => {
+        //开始接收事件
+        oneBotClient.OnMessageReceived += async (e) => await HandleMessage(e);
+        oneBotClient.OnConnectionStatusChanged += (connected) => {
             Console.WriteLine($"[QChatService] 连接状态: {(connected ? "已连接" : "已断开")}");
         };
 
         _ = Task.Run(GlobalFlushLoop);
-        await _client.ConnectAsync();
+        return Task.CompletedTask;
     }
     public async ValueTask DisposeAsync()
     {
-        if (_client != null)
-        {
-            await _client.DisposeAsync();
-        }
+        await oneBotClient.DisposeAsync();
     }
 
 
     string GeneratePrompt()
     {
         var sb = new StringBuilder();
-        sb.AppendLine(@"# QChatService 表情库功能
+        sb.AppendLine(@$"# QChatService 详细说明
+## 关键信息
+- {configuration.OwnerId}：这是你主人的qq号。
+- {oneBotClient.BotId}：这是你的qq号（如果有人At这个qq，那就是在和你说话）。
+- 当前群聊状态：{configuration.IsGroupEnabled}（注意！如果你不用参与群聊，一定要将其关闭，否则会狂烧token导致停机！）
+
+## 表情库功能
 你拥有一个预设的表情库。当你想表达特定情绪或与群友斗图时，可用利用该库快速发送 `<qimage />` 指令。
 
-## 使用规则 
+### 使用规则 
 将qimage指令中的file直接改为表情库选项即可，如<qimage file=""夸奖"" />。
 
-## 支持选项
+### 支持选项
 ");
-        if (_emoteInventory.Count > 0)
+        if (emoteInventory.Count > 0)
         {
             sb.AppendLine("\n**【精品表情】：**");
-            sb.AppendLine("可用选项：" + string.Join("、", _emoteInventory.Keys));
+            sb.AppendLine("可用选项：" + string.Join("、", emoteInventory.Keys));
         }
 
-        if (_emoteCategories.Count > 0)
+        if (emoteCategories.Count > 0)
         {
             sb.AppendLine("\n**【海量分类】（按类型随机发图）：**");
-            sb.AppendLine("可用选项：" + string.Join("、", _emoteCategories));
+            sb.AppendLine("可用选项：" + string.Join("、", emoteCategories));
         }
         sb.AppendLine(@$"## 表情扩展
 你也可以使用python保存自己的表情，表情文件夹在 {storageSystem.GetStoragePath()}/Emotes
@@ -302,14 +295,6 @@ public class QChatService : Plugin, IAsyncDisposable
         }
     }
 
-    void UpdateGroupMonitoring(bool enabled)
-    {
-        _isGroupEnabled = enabled;
-        var config = configurationSystem.GetConfiguration(typeof(QChatService)) as OneBotConfig ?? new OneBotConfig();
-        config.IsGroupEnabled = enabled;
-        configurationSystem.SetConfiguration(typeof(QChatService), config);
-    }
-
     async Task HandleMessage(OneBotEvent e)
     {
         try
@@ -317,13 +302,13 @@ public class QChatService : Plugin, IAsyncDisposable
             string type = e.MessageType;
 
             // 归一化提取消息内容
-            string message = _client?.StringifyMessage(e.Message) ?? "";
+            string message = oneBotClient?.StringifyMessage(e.Message) ?? "";
 
             long userId = e.UserId;
             long groupId = e.GroupId;
 
             // 绝杀屏蔽：如果是机器人自己发的消息，直接无视
-            if (_client != null && _client.BotId != 0 && userId == _client.BotId) return;
+            if (oneBotClient != null && oneBotClient.BotId != 0 && userId == oneBotClient.BotId) return;
 
             // 更新细分上下文 ID
             _lastType = type;
@@ -343,14 +328,14 @@ public class QChatService : Plugin, IAsyncDisposable
 
             string formattedMsg = $"{contextTag} {message}";
 
-            bool isAtMe = _client != null && _client.BotId != 0 && (message.Contains($"[CQ:at,qq={_client.BotId}]") || message.Contains($"[CQ:at,qq={_client.BotId},"));
+            bool isAtMe = oneBotClient != null && oneBotClient.BotId != 0 && (message.Contains($"[CQ:at,qq={oneBotClient.BotId}]") || message.Contains($"[CQ:at,qq={oneBotClient.BotId},"));
 
             if (type == "private")
             {
                 //Console.WriteLine($"[QChatService] 转发私聊实时消息 -> AI: {formattedMsg}");
                 await chatActivity.ChatBot.ChatAsync(formattedMsg);
             }
-            else if (type == "group" && (_isGroupEnabled || isAtMe))
+            else if (type == "group" && (configuration.IsGroupEnabled || isAtMe))
             {
                 lock (_groupBuffers)
                 {
@@ -360,11 +345,10 @@ public class QChatService : Plugin, IAsyncDisposable
                         _groupBuffers[groupId] = sb;
                     }
 
-                    if (isAtMe && !_isGroupEnabled)
+                    if (!configuration.IsGroupEnabled && isAtMe)
                     {
-                        UpdateGroupMonitoring(true);
-                        Console.WriteLine($"[QChatService] 群 {groupId} 的 @ 提到触发了自动唤醒。");
-                        sb.AppendLine($"[QChatService][系统] 已由针对你的艾特触发自动开启群聊监听。");
+                        configuration.IsGroupEnabled = true;
+                        sb.AppendLine("[QChatService][系统] 已由针对你的艾特触发自动开启群聊监听。");
                     }
 
                     //Console.WriteLine($"[QChatService] 已记录来自群 {groupId} 的缓存消息 (已进入 Poke 队列)。");

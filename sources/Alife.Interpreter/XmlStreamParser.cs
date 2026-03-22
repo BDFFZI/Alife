@@ -10,7 +10,7 @@ public class XmlStreamParser
 {
     enum ParserState
     {
-        Content, TagOpen, ReadTagName, WaitAttrOrClose,
+        Content, Escaping, TagOpen, ReadTagName, WaitAttrOrClose,
         ReadAttrName, WaitAttrEquals, WaitAttrQuote, ReadAttrValue,
         ReadCloseTag,
     }
@@ -42,6 +42,7 @@ public class XmlStreamParser
         switch (state)
         {
             case ParserState.Content:         await HandleContentAsync(ch); break;
+            case ParserState.Escaping:        await HandleEscapingAsync(ch); break;
             case ParserState.TagOpen:          await HandleTagOpenAsync(ch); break;
             case ParserState.ReadTagName:      await HandleReadTagNameAsync(ch); break;
             case ParserState.WaitAttrOrClose:  await HandleWaitAttrOrCloseAsync(ch); break;
@@ -117,6 +118,12 @@ public class XmlStreamParser
 
     async Task HandleContentAsync(char ch)
     {
+        if (ch == '\\')
+        {
+            state = ParserState.Escaping;
+            return;
+        }
+
         if (ch == '<')
         {
             state = ParserState.TagOpen;
@@ -124,6 +131,12 @@ public class XmlStreamParser
             return;
         }
         await EmitTextAsync(ch);
+    }
+
+    async Task HandleEscapingAsync(char ch)
+    {
+        await EmitTextAsync(ch);
+        state = ParserState.Content;
     }
 
     async Task HandleTagOpenAsync(char ch)

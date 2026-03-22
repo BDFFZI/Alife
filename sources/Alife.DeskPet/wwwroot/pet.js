@@ -136,7 +136,7 @@
         lastInteractionTime = now;
 
         if (comboCount >= 5 && comboCount % 5 === 0 && modelName === "Mao") {
-            return executeSpecialInteraction("combo", `(连击干扰) 主人一直在连戳真央（Combo ${comboCount}），真央感觉要坏掉了喵！`);
+            return executeSpecialInteraction("combo", `(连击干扰) 用户一直在连戳你（Combo ${comboCount}）`);
         }
 
         // Area detection
@@ -292,7 +292,7 @@
                 case "expression": model?.expression(msg.id); break;
                 case "motion": model?.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE); break;
                 case "look": updateModelFocus(window.innerWidth / 2, window.innerHeight / 2, false); break;
-                case "shake": executeSpecialInteraction("shake", "(物理干扰) 主人在疯狂抖动真央，真央觉得超级晕喵！"); break;
+                case "shake": executeSpecialInteraction("shake", "(物理干扰) 用户在大幅移动你的位置！"); break;
                 case "move": executeSpecialInteraction("move", "(物理干扰) 主人在挪动真央的位置，真央不知道要去哪里喵。"); break;
                 case "parameter": updateParameter(msg.name, msg.value, msg.duration); break;
                 case "window-move":

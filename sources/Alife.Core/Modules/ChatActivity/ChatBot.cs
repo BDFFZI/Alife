@@ -3,6 +3,8 @@ using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
+using OpenAI.Chat;
+using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 
 public class ChatBot : IAsyncDisposable
@@ -12,7 +14,8 @@ public class ChatBot : IAsyncDisposable
     public event Action? ChatOver;
     public event Action<ChatMessageContent>? ChatHistoryAdd;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
-    public bool IsChatting => isChatting.CurrentCount == 0;
+    public SemaphoreSlim ChatSemaphore => chatSemaphore;
+    public bool IsChatting => chatSemaphore.CurrentCount == 0;
 
     public async IAsyncEnumerable<string> ChatStreamingAsync(string message, AuthorRole? role = null)
     {
@@ -22,7 +25,7 @@ public class ChatBot : IAsyncDisposable
                 await cancelChatSource.CancelAsync();
         }
 
-        await isChatting.WaitAsync();
+        await chatSemaphore.WaitAsync();
         {
             message = $"[当前时间：{DateTime.Now}]{message}";
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, message);
@@ -53,11 +56,18 @@ public class ChatBot : IAsyncDisposable
                     break;
                 }
 
-                string? content = enumerator.Current.Message?.Content;
+                string? content = enumerator.Current.Message.Content;
                 if (content != null) //只要不是空都要接受，包括空白符，因为会有回车之类的符号
                 {
                     yield return content;
                     ChatReceived?.Invoke(content);
+                }
+                var metaData = enumerator.Current.Message.Metadata;
+                if (metaData != null && metaData.TryGetValue("Usage", out object? usage))
+                {
+                    if (usage is ChatTokenUsage chatTokenUsage)
+                        Console.WriteLine(
+                            $"[Token消耗] total:{chatTokenUsage.TotalTokenCount} input:{chatTokenUsage.InputTokenCount}({chatTokenUsage.InputTokenDetails.CachedTokenCount}) output:{chatTokenUsage.OutputTokenCount} ");
                 }
             }
             ChatOver?.Invoke();
@@ -71,7 +81,7 @@ public class ChatBot : IAsyncDisposable
                 yield return error;
             }
         }
-        isChatting.Release();
+        chatSemaphore.Release();
     }
     public async Task<string> ChatAsync(string message, AuthorRole? role = null)
     {
@@ -121,7 +131,7 @@ public class ChatBot : IAsyncDisposable
     readonly ChatCompletionAgent llmAgent;
     readonly ChatHistoryAgentThread llmAgentThread;
     readonly ConcurrentQueue<string> messageCache;
-    readonly SemaphoreSlim isChatting;
+    readonly SemaphoreSlim chatSemaphore;
     CancellationTokenSource? cancelChatSource;
     int lastContentIndex;
     //计时器
@@ -136,7 +146,7 @@ public class ChatBot : IAsyncDisposable
         this.llmAgent = llmAgent;
         this.llmAgentThread = llmAgentThread;
         messageCache = new ConcurrentQueue<string>();
-        isChatting = new SemaphoreSlim(1, 1);
+        chatSemaphore = new SemaphoreSlim(1, 1);
 
         Update();
     }

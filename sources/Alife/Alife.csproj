@@ -21,4 +21,8 @@
         <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="baidu_search.html" />
+  </ItemGroup>
+
 </Project>
