@@ -1,10 +1,8 @@
-﻿using System.Collections;
-using Alife.Abstractions;
+﻿using Alife.Abstractions;
 using Alife.Plugins.Official.Implement;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Newtonsoft.Json;
 using OpenAI.Chat;
 using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 

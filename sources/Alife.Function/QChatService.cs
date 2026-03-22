@@ -64,6 +64,9 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
             return;
         if (string.IsNullOrWhiteSpace(file))
             return;
+        //OneBot不支持左斜线
+        file = file.Replace(Path.DirectorySeparatorChar, '/');
+
 
         string? finalFile = null;
 
