@@ -14,19 +14,6 @@ public class SpeechService : Plugin, IAsyncDisposable
 {
     public event Action<string, Task>? Speaking;
 
-    public void StartRecognition()
-    {
-        recognizer.Start();
-    }
-    public void StopRecognition()
-    {
-        recognizer.Stop();
-    }
-    public void StopSynthesizer()
-    {
-        synthesizerCancelSource?.Cancel();
-    }
-
     [XmlHandler("speak")]
     [Description("使用语音的方式向用户发送消息。")]
     public async Task Speak(string content)
@@ -44,17 +31,28 @@ public class SpeechService : Plugin, IAsyncDisposable
             {
                 Task speak = synthesizer.PlayAudioAsync(output);
                 Speaking?.Invoke(output, speak);
-                await speak;
+
+                if (hasHeadphones)
+                {
+                    await speak;
+                }
+                else
+                {
+                    StopRecognition();
+                    await speak;
+                    StartRecognition();
+                }
             }
         });
     }
 
     readonly LocalSpeechRecognizer recognizer;
-    bool isRecognitionEnabled = false;
     readonly LocalSpeechSynthesizer synthesizer;
     CancellationTokenSource? synthesizerCancelSource;
     Task lastSynthesizer;
     ChatBot chatBot = null!;
+    bool hasHeadphones;
+    bool isRecognitionEnabled;
 
     public SpeechService(InterpreterService interpreterService)
     {
@@ -73,6 +71,7 @@ public class SpeechService : Plugin, IAsyncDisposable
     {
         chatBot = chatActivity.ChatBot;
         chatActivity.ChatBot.ChatSent += _ => StopSynthesizer(); //增加打断功能                             
+        StartRecognition(); //默认打开语音识别
         StartHeadphoneMonitoring(); //根据耳机情况开关语音识别
 
         return Task.CompletedTask;
@@ -85,7 +84,20 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizerCancelSource?.Dispose();
     }
 
-
+    void StartRecognition()
+    {
+        isRecognitionEnabled = true;
+        recognizer.Start();
+    }
+    void StopRecognition()
+    {
+        isRecognitionEnabled = false;
+        recognizer.Stop();
+    }
+    void StopSynthesizer()
+    {
+        synthesizerCancelSource?.Cancel();
+    }
     void OnRecognized(string text, float confidence)
     {
         if (confidence < 0.75)
@@ -101,22 +113,15 @@ public class SpeechService : Plugin, IAsyncDisposable
                 try
                 {
                     var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    bool hasHeadphones = device.FriendlyName.Contains("耳机") ||
-                                         device.FriendlyName.Contains("Headphones") ||
-                                         device.FriendlyName.Contains("Headset") ||
-                                         device.FriendlyName.Contains("Earphone");
+                    hasHeadphones = device.FriendlyName.Contains("耳机") ||
+                                    device.FriendlyName.Contains("Headphones") ||
+                                    device.FriendlyName.Contains("Headset") ||
+                                    device.FriendlyName.Contains("Earphone");
 
                     if (hasHeadphones && !isRecognitionEnabled)
                     {
-                        isRecognitionEnabled = true;
                         StartRecognition();
-                        SendNotification("语音助手已上线", "真央检测到耳机，已通过 SpeechService 开启实时识别喵！");
-                    }
-                    else if (!hasHeadphones && isRecognitionEnabled)
-                    {
-                        isRecognitionEnabled = false;
-                        StopRecognition();
-                        SendNotification("语音助手已离线", "真央因为未检测到耳机，已自动关闭语音识别喵！");
+                        SendNotification("语音输入常驻开启", "真央检测到耳机，已通过 SpeechService 开启实时识别喵！");
                     }
                 }
                 catch (Exception e)

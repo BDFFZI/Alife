@@ -1,13 +1,15 @@
 ﻿using Alife.Abstractions;
+using Alife.Plugins.Official.Implement;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Newtonsoft.Json;
 
 namespace Alife.OfficialPlugins;
 
 public class MemoryServiceData
 {
-    public int MaxMessageCount { get; set; } = 100;
+    public int MaxFullMessageCount { get; set; } = 90;
 }
 [Plugin("记忆存储", "引导AI编写日记并自动在活动开始结束前进行上下文的备份和恢复", LaunchOrder = -110)]
 public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
@@ -23,8 +25,10 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
     ChatHistoryAgentThread chatContext = null!;
     Character character = null!;
     MemoryServiceData configuration = null!;
+    ChatCompletionAgent summaryAgent = null!;
 
-    public MemoryService(StorageSystem storageSystem)
+
+    public MemoryService(StorageSystem storageSystem, OpenAIChatService openAIChatService)
     {
         this.storageSystem = storageSystem;
     }
@@ -44,6 +48,41 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
         InjectPrompt();
 
         return Task.CompletedTask;
+    }
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    {
+        //上下文压缩需要的工具
+        chatActivity.ChatBot.ChatHistoryAdd += OnChatHistoryAdd;
+        summaryAgent = new() {
+            Name = character.Name,
+            Instructions = character.Prompt,
+            InstructionsRole = AuthorRole.System,
+            Kernel = kernel.Clone(),
+            Arguments = new KernelArguments(
+                new PromptExecutionSettings() { FunctionChoiceBehavior = FunctionChoiceBehavior.None(), }
+            ),
+        };
+        OnChatHistoryAdd(new ChatMessageContent());
+
+        return Task.CompletedTask;
+    }
+    async void OnChatHistoryAdd(ChatMessageContent obj)
+    {
+        // if (chatContext.ChatHistory.Count > configuration.MaxFullMessageCount)
+        {
+            List<ContextItem> history = FetchHistory(configuration.MaxFullMessageCount / 3, false);
+            string message = $"[{nameof(MemoryService)}][系统消息]这是你和用户的早期聊天记录，现在要将其压缩为回忆，请你简要总结一下：\n" + JsonConvert.SerializeObject(history);
+            string? result = null;
+            await foreach (AgentResponseItem<ChatMessageContent> content in summaryAgent.InvokeAsync(message))
+            {
+                result = content.Message.Content;
+                Console.WriteLine("压缩记忆：\n" + result);
+            }
+
+            chatContext.ChatHistory.RemoveRange(0, configuration.MaxFullMessageCount / 3);
+            if (string.IsNullOrEmpty(result) == false)
+                chatContext.ChatHistory.Insert(0, new ChatMessageContent(AuthorRole.Assistant, "历史回忆：\n" + result));
+        }
     }
     public override Task DestroyAsync()
     {
@@ -102,19 +141,29 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
     }
     void SaveContext()
     {
-        List<ContextItem> lastContext = new(chatContext.ChatHistory.Count);
-        foreach (ChatMessageContent contextItem in chatContext.ChatHistory
-                     .Where(content => content.Role == AuthorRole.User | content.Role == AuthorRole.Assistant)
-                     .TakeLast(configuration.MaxMessageCount))
+        List<ContextItem> history = FetchHistory(configuration.MaxFullMessageCount, true);
+        storageSystem.SetObject(storageKey, history);
+    }
+
+    List<ContextItem> FetchHistory(int count, bool takeLast)
+    {
+        List<ContextItem> history = new(count);
+
+        IEnumerable<ChatMessageContent> contents = chatContext.ChatHistory
+            .Where(content => content.Role == AuthorRole.User | content.Role == AuthorRole.Assistant);
+        contents = takeLast ? contents.TakeLast(count) : contents.Take(count);
+
+        foreach (ChatMessageContent contextItem in contents)
         {
             if (string.IsNullOrWhiteSpace(contextItem.Content))
                 continue;
 
             if (contextItem.Role == AuthorRole.User)
-                lastContext.Add(new ContextItem() { content = contextItem.Content, isUser = true });
+                history.Add(new ContextItem() { content = contextItem.Content, isUser = true });
             else if (contextItem.Role == AuthorRole.Assistant)
-                lastContext.Add(new ContextItem() { content = contextItem.Content, isUser = false });
+                history.Add(new ContextItem() { content = contextItem.Content, isUser = false });
         }
-        storageSystem.SetObject(storageKey, lastContext);
+
+        return history;
     }
 }
