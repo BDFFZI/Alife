@@ -1,7 +1,7 @@
 # 输出和中间文件
 bin/
 obj/
-output/
+outputs/
 
 # 编辑器文件
 .vs/
@@ -10,6 +10,7 @@ output/
 
 # 模型文件
 models/
+python/
 
 *.user
 *.suo

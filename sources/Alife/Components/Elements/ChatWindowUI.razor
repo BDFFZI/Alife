@@ -1,0 +1,154 @@
+@implements IDisposable
+@inject IJSRuntime JsRuntime
+
+<Modal Title="对话窗口"
+       Visible="Visible"
+       VisibleChanged="OnVisibleChanged"
+       MaxBodyHeight="90vh"
+       BodyStyle="display:flex;flex-direction:column;gap:12px"
+       Footer="null"
+       MaskClosable="false"
+       DefaultMaximized="true">
+    <Flex Style="height: 100%;width: 100%; flex: 1; overflow-y: scroll; "
+          Direction="FlexDirection.Vertical"
+          Gap="@(FlexGap.Small)"
+          Id="messageArea">
+        @if (messages.Count == 0)
+        {
+            <Empty>
+                <DescriptionTemplate>
+                    <Text>暂无聊天信息</Text>
+                </DescriptionTemplate>
+            </Empty>
+        }
+        else
+        {
+            @foreach (ChatMessage message in messages)
+            {
+                <div style="width: fit-content;@(message.isUser ? "align-self:end" : "")">
+                    <Alert
+                        Description="@message.content"
+                        Type=@(message.isUser ? AlertType.Info : AlertType.Success)>
+                        <ChildContent>
+                            <Flex Direction="FlexDirection.Vertical" Gap="FlexGap.Small">
+                                <AntDesign.Text Style="white-space: pre-wrap;">
+                                    @message.content
+                                </AntDesign.Text>
+                                @if (message.isInputting)
+                                {
+                                    <AntDesign.Text Disabled>
+                                        输入中
+                                        <Icon Type="@IconType.Outline.Loading"/>
+                                    </AntDesign.Text>
+                                }
+                            </Flex>
+                        </ChildContent>
+                    </Alert>
+                </div>
+            }
+        }
+    </Flex>
+    <Flex Direction="FlexDirection.Horizontal" Gap="@(FlexGap.Small)">
+        <Input @bind-Value="inputText" OnPressEnter="OnSend"></Input>
+        <Button Type="@(ButtonType.Primary)" OnClick="OnSend">发送</Button>
+    </Flex>
+</Modal>
+
+<script type="text/javascript">
+    window.scrollMessageArea = () => {
+        setTimeout(() => {
+            element = document.getElementById("messageArea");
+            element.scrollTop = element.scrollHeight;
+        }, 10);
+    }
+</script>
+
+@code {
+    [Parameter] public ChatBot ChatBot { get; set; } = null!;
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    public class ChatMessage
+    {
+        public string? content;
+        public bool isUser;
+        public bool isInputting;
+    }
+
+    List<ChatMessage> messages = null!;
+    string inputText = "";
+    ChatMessage? aiMessage;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        messages = new List<ChatMessage>();
+
+        ChatBot.ChatSent += OnChatSent;
+        ChatBot.ChatReceived += OnChatReceived;
+        ChatBot.ChatOver += OnChatOver;
+    }
+    public void Dispose()
+    {
+        ChatBot.ChatSent -= OnChatSent;
+        ChatBot.ChatReceived -= OnChatReceived;
+        ChatBot.ChatOver -= OnChatOver;
+    }
+
+    void OnChatSent(string obj)
+    {
+        ChatMessage userMessage = new() {
+            content = obj, isUser = true
+        };
+        messages.Add(userMessage);
+
+        aiMessage = new() {
+            isUser = false, isInputting = true
+        };
+        messages.Add(aiMessage);
+
+        InvokeAsync(() => {
+            StateHasChanged();
+            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+        });
+    }
+    void OnChatReceived(string obj)
+    {
+        if (aiMessage == null)
+            return;
+
+        aiMessage.content += obj;
+        InvokeAsync(() => {
+            StateHasChanged();
+            JsRuntime.InvokeVoidAsync("scrollMessageArea");
+        });
+    }
+    void OnChatOver()
+    {
+        if (aiMessage == null)
+            return;
+
+        aiMessage.isInputting = false;
+        InvokeAsync(() => {
+            StateHasChanged();
+        });
+    }
+
+    void OnVisibleChanged(bool obj)
+    {
+        Visible = obj;
+        VisibleChanged.InvokeAsync(obj);
+    }
+
+    void OnSend()
+    {
+        string text = inputText;
+        inputText = "";
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        ChatBot.Chat(text);
+    }
+}
