@@ -13,6 +13,7 @@ public class ChatBot : IAsyncDisposable
     public event Action<string>? ChatReceived;
     public event Action? ChatOver;
     public event Action<ChatMessageContent>? ChatHistoryAdd;
+    public event Action<ChatTokenUsage>? TokenUsed;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
     public SemaphoreSlim ChatSemaphore => chatSemaphore;
     public bool IsChatting => chatSemaphore.CurrentCount == 0;
@@ -66,8 +67,11 @@ public class ChatBot : IAsyncDisposable
                 if (metaData != null && metaData.TryGetValue("Usage", out object? usage))
                 {
                     if (usage is ChatTokenUsage chatTokenUsage)
+                    {
                         Console.WriteLine(
                             $"[Token消耗] total:{chatTokenUsage.TotalTokenCount} input:{chatTokenUsage.InputTokenCount}({chatTokenUsage.InputTokenDetails.CachedTokenCount}) output:{chatTokenUsage.OutputTokenCount} ");
+                        TokenUsed?.Invoke(chatTokenUsage);
+                    }
                 }
             }
             ChatOver?.Invoke();

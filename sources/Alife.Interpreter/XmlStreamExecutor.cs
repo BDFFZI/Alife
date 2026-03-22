@@ -212,9 +212,11 @@ public class XmlStreamExecutor
             return;
         }
 
-        // 栈中无匹配标签（孤儿闭合标签）：触发一次 OneShot
-        var orphanEntry = new TagEntry { Name = tagName, Attributes = new() };
-        await ProcessCurrentStackAsync(orphanEntry, "", null, TagStatus.OneShot);
+        // 栈中无匹配标签（孤儿闭合标签）：还原为文本，使其流向当前活跃标签的内容中
+        await OnTextAsync('<');
+        await OnTextAsync('/');
+        foreach (char c in tagName) await OnTextAsync(c);
+        await OnTextAsync('>');
     }
 
     async Task OnTextAsync(char ch)

@@ -74,11 +74,16 @@ public class InteractiveExplorer
     static async Task RunTestCases(XmlStreamExecutor executor)
     {
         string[] cases = [
-            "<Interpreter><speak>你好啊！</speak><pet_exp>开心</pet_exp></Interpreter>",
-            "<Interpreter><pet_move x=\"100\" y=\"200\" /><speak>我动了一下喵~</speak></Interpreter>",
-            "这是一段普通文字。<Interpreter><speak>这是标签内的文字</speak></Interpreter>这是后续文字。",
-            "<Interpreter><pet_bubble>分步测试开始...</pet_bubble>",
-            "接着输入其余部分</Interpreter>"
+            @"<Interpreter><speak>甚至可以在标签名里转义吗？\<speak> 显然不行，这应该是纯文本</speak></Interpreter>",
+            @"<Interpreter><speak>未闭合测试：",
+            @"<Interpreter><speak>错位闭合：</wrong></speak></Interpreter>",
+            @"孤儿闭合标签：</speak>",
+            @"<Interpreter><speak attr=""val\""ue"">属性转义测试（注意：C#双引号转义）</speak></Interpreter>",
+            @"<<<<<<<<<",
+            @">>>>>>>>>",
+            @"< / >",
+            @"<Interpreter><speak>连续转义：\\\<\<\<</speak></Interpreter>",
+            @"接着输入其余部分</Interpreter>"
         ];
 
         foreach (var c in cases)
@@ -90,7 +95,6 @@ public class InteractiveExplorer
         }
     }
 }
-
 [Description("Mock 宠物处理器：用于验证桌宠相关标签的解析。")]
 public class MockPetHandler
 {
@@ -124,19 +128,17 @@ public class MockPetHandler
         Console.ResetColor();
     }
 }
-
 [Description("Mock 语音处理器：用于验证语音输出标签。")]
 public class MockSpeechHandler
 {
     [XmlHandler("speak")]
-    public void Speak(string content)
+    public void Speak(XmlTagContext context, string content)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"  [EXEC Speech] <speak> : {content}");
+        Console.WriteLine($"  [EXEC Speech {context.Status}] <speak> : {content}");
         Console.ResetColor();
     }
 }
-
 public class MockSystemHandler
 {
     [XmlHandler("continue")]

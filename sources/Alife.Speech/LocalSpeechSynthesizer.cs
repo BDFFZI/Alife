@@ -78,6 +78,7 @@ public class LocalSpeechSynthesizer : IDisposable
             return outputPath;
         }
         catch (OperationCanceledException) { }
+        catch (TimeoutException) { }
         catch (Exception e)
         {
             process.Kill();

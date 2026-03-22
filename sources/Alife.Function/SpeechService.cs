@@ -66,7 +66,6 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizer = new LocalSpeechSynthesizer();
         lastSynthesizer = Task.CompletedTask;
     }
-
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
@@ -78,6 +77,7 @@ public class SpeechService : Plugin, IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
+        StopRecognition();
         await lastSynthesizer;
         synthesizer.Dispose();
         recognizer.Dispose();

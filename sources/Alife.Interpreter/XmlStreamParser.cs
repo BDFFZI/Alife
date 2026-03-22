@@ -32,6 +32,7 @@ public class XmlStreamParser
     Dictionary<string, string> currentTagAttrs = new();
     char quoteChar;
     bool isSelfClosing;
+    ParserState returnState;
 
     /// <summary>安全区根标签名。如果设置，则只有在该标签内部的内容才会被解析为 XML 标签。</summary>
     public string? RootTagName { get; set; }
@@ -71,6 +72,7 @@ public class XmlStreamParser
         currentTagAttrs.Clear();
         isSelfClosing = false;
         rootDepth = 0;
+        returnState = ParserState.Content;
     }
 
     // ═══════════════════════════════════════
@@ -120,6 +122,7 @@ public class XmlStreamParser
     {
         if (ch == '\\')
         {
+            returnState = ParserState.Content;
             state = ParserState.Escaping;
             return;
         }
@@ -135,8 +138,15 @@ public class XmlStreamParser
 
     async Task HandleEscapingAsync(char ch)
     {
-        await EmitTextAsync(ch);
-        state = ParserState.Content;
+        if (returnState == ParserState.ReadAttrValue)
+        {
+            attrValueBuffer.Append(ch);
+        }
+        else
+        {
+            await EmitTextAsync(ch);
+        }
+        state = returnState;
     }
 
     async Task HandleTagOpenAsync(char ch)
@@ -344,6 +354,13 @@ public class XmlStreamParser
             return;
         }
 
+        if (ch == '\\')
+        {
+            returnState = ParserState.ReadAttrValue;
+            state = ParserState.Escaping;
+            return;
+        }
+
         attrValueBuffer.Append(ch);
         await Task.CompletedTask;
     }
@@ -360,6 +377,12 @@ public class XmlStreamParser
             else if (RootTagName == null || rootDepth > 0)
             {
                 if (CloseTagParsed != null) await CloseTagParsed.Invoke(tagName);
+            }
+            else
+            {
+                await EmitTextAsync("</");
+                await EmitTextAsync(tagName);
+                await EmitTextAsync('>');
             }
             state = ParserState.Content;
             return;
