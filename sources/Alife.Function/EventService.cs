@@ -94,7 +94,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 
                 if (currentTime >= nextTime)
                 {
-                    chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，定时器又响了，在这个时间，{chatActivity.Character.Name}决定...({configuration.AppendUpdatePrompt})");
+                    chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，定时器响了，在这个时间，{chatActivity.Character.Name}决定...({configuration.AppendUpdatePrompt})");
 
                     currentTime = 0;
                     nextTime = NextTime();

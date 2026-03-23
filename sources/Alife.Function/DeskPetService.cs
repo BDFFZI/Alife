@@ -12,8 +12,8 @@ namespace Alife.OfficialPlugins;
 [Description("此服务让你获得控制Live2D桌宠以及接收其交互的能力")]
 public class DeskPetService : Plugin, IAsyncDisposable
 {
-    [XmlHandler("pet_bubble")]
-    [Description("气泡文字：显示一段浮动文字。示例: <pet_bubble>你好</pet_bubble>")]
+    [XmlHandler("pbub")]
+    [Description("气泡文字：显示一段浮动文字。示例: <pbub>你好</pbub>")]
     public void PetBubble(XmlTagContext context)
     {
         if (string.IsNullOrWhiteSpace(context.ChunkContent))
@@ -23,8 +23,8 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "bubble", text = context.ChunkContent, duration });
     }
 
-    [XmlHandler("pet_exp")]
-    [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 悲伤, 害羞, 惊讶, 生气；示例: <pet_exp>害羞</pet_exp>")]
+    [XmlHandler("pexp")]
+    [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 悲伤, 害羞, 惊讶, 生气；示例: <pexp>害羞</pexp>")]
     public void PetExpression(XmlTagContext context)
     {
         if (context.Status != TagStatus.Closing)
@@ -43,8 +43,8 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "expression", id });
     }
 
-    [XmlHandler("pet_move")]
-    [Description("移动位置：在屏幕上进行相对位移。示例: <pet_move x=\"100\" y=\"50\" duration=\"3000\" /> - 表示向右移100像素，下移50像素")]
+    [XmlHandler("pmove")]
+    [Description("移动位置：在屏幕上进行相对位移。示例: <pmove x=\"100\" y=\"50\" duration=\"3000\" /> - 表示向右移100像素，下移50像素")]
     public async Task PetMove(XmlTagContext context)
     {
         if (context.Status != TagStatus.OneShot)
@@ -76,13 +76,13 @@ public class DeskPetService : Plugin, IAsyncDisposable
         if (duration <= 0) duration = 1000;
 
         moveTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        SendToPet(new { type = "window-move", x, y, duration });
+        SendToPet(new { type = "window-pmove", x, y, duration });
         await Task.WhenAny(moveTcs.Task, Task.Delay(duration + 1000));
         moveTcs = null;
     }
 
-    [XmlHandler("pet_mtn")]
-    [Description("执行动作：播放预设动画。支持：害羞，摇头，点头；示例: <pet_mtn>害羞</pet_mtn>")]
+    [XmlHandler("pmtn")]
+    [Description("执行动作：播放预设动画。支持：害羞，摇头，点头；示例: <pmtn>害羞</pmtn>")]
     public void PetMotion(XmlTagContext context)
     {
         if (context.Status != TagStatus.Closing)
@@ -101,8 +101,8 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "motion", group = "TapBody", index });
     }
 
-    [XmlHandler("pet_pos")]
-    [Description("获取位置：获取当前在屏幕上的绝对坐标。示例: <pet_pos />")]
+    [XmlHandler("pos")]
+    [Description("获取位置：获取当前在屏幕上的绝对坐标。示例: <pos />")]
     public async Task PetPos(XmlTagContext context)
     {
         if (context.Status != TagStatus.OneShot)
@@ -139,13 +139,13 @@ public class DeskPetService : Plugin, IAsyncDisposable
         context.contextBuilder.ChatHistory.AddSystemMessage("""
                                                             # DeskPetService 互动功能指南
                                                             你可以通过特殊标签控制你的互动表现，请根据对话情境使用：
-                                                            1. **气泡文字**：`<pet_bubble>内容</pet_bubble>` (文本消息的视觉呈现)
-                                                            2. **表情控制**：`<pet_exp>类型</pet_exp>`
+                                                            1. **气泡文字**：`<pbub>内容</pbub>` (文本消息的视觉呈现)
+                                                            2. **表情控制**：`<pexp>类型</pexp>`
                                                                - 支持：`开心` (繁星眼), `害羞`, `闭眼`, `悲伤`, `惊讶`, `生气`
-                                                            3. **动作控制**：`<pet_mtn>类型</pet_mtn>`
+                                                            3. **动作控制**：`<pmtn>类型</pmtn>`
                                                                - 支持：`点头`, `摇头`, `害羞`
                                                             4. **生理反应 (Poke)**：当你收到系统的物理干扰消息时，应根据你的角色设定做出自然的反应（如惊讶、头晕、脸红等）。
-                                                            5. **获取位置**：`<pet_pos />` (获取桌宠当前在屏幕上的坐标)
+                                                            5. **获取位置**：`<pos />` (获取桌宠当前在屏幕上的坐标)
                                                             """);
         return Task.CompletedTask;
     }
@@ -235,7 +235,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
                 chatBot.Poke("[DeskPetService] " + text);
             }
         }
-        else if (type == "move-finished")
+        else if (type == "pmove-finished")
         {
             moveTcs?.TrySetResult();
         }
