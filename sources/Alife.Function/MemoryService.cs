@@ -115,7 +115,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
   - 2026.03.23.md
   - 2026.03.24.md
 - 每5日记忆
-  - 2026.03.19-2026.03.23.md
+  - 2026.03.19-2026.03.23.md （每当隔5/30/150时，你都要整理一个像这样的归纳记忆文件）
 - 核心记忆.md
 - 备忘录.md
 
