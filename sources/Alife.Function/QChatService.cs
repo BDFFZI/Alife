@@ -292,10 +292,14 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
                 }
             }
 
-            foreach (var pair in batches)
+            if (batches.Count > 0)
             {
-                //Console.WriteLine($"[QChatService] 循环推送群 {pair.Key} 缓存：\n---\n{pair.Value}\n---");
-                chatActivity.ChatBot.Poke(pair.Value);
+                foreach (var pair in batches)
+                {
+                    //Console.WriteLine($"[QChatService] 循环推送群 {pair.Key} 缓存：\n---\n{pair.Value}\n---");
+                    chatActivity.ChatBot.Poke(pair.Value);
+                }
+                chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 当前群聊状态，已被系统修改为：{configuration.IsGroupEnabled}");
             }
         }
     }
@@ -351,10 +355,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
                     }
 
                     if (!configuration.IsGroupEnabled && isAtMe)
-                    {
                         configuration.IsGroupEnabled = true;
-                        sb.AppendLine($"[{nameof(QChatService)}] 由于收到At，当前群消息已自动开启。");
-                    }
 
                     //Console.WriteLine($"[QChatService] 已记录来自群 {groupId} 的缓存消息 (已进入 Poke 队列)。");
                     sb.AppendLine(formattedMsg);

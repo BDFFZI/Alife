@@ -25,25 +25,28 @@ public class SpeechService : Plugin, IAsyncDisposable
         synthesizerCancelSource = new CancellationTokenSource();
         Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
         await lastSynthesizer;
-        lastSynthesizer = Task.Run(async () => {
-            string? output = await task;
-            if (output != null)
-            {
-                Task speak = synthesizer.PlayAudioAsync(output);
-                Speaking?.Invoke(output, speak);
+        if (synthesizerCancelSource.IsCancellationRequested == false)
+        {
+            lastSynthesizer = Task.Run(async () => {
+                string? output = await task;
+                if (output != null)
+                {
+                    Task speak = synthesizer.PlayAudioAsync(output, synthesizerCancelSource.Token);
+                    Speaking?.Invoke(output, speak);
 
-                if (hasHeadphones)
-                {
-                    await speak;
+                    if (hasHeadphones)
+                    {
+                        await speak;
+                    }
+                    else
+                    {
+                        StopRecognition();
+                        await speak;
+                        StartRecognition();
+                    }
                 }
-                else
-                {
-                    StopRecognition();
-                    await speak;
-                    StartRecognition();
-                }
-            }
-        });
+            });
+        }
     }
 
     readonly LocalSpeechRecognizer recognizer;
@@ -78,6 +81,8 @@ public class SpeechService : Plugin, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         //等待语音说完
+        if (synthesizerCancelSource != null)
+            await synthesizerCancelSource.CancelAsync();
         await lastSynthesizer;
         //关闭功能
         StopRecognition();

@@ -142,7 +142,15 @@ public class LocalSpeechSynthesizer : IDisposable
             tcs.SetException(ex);
         }
 
-        await tcs.Task;
+        try
+        {
+            await tcs.Task;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     /// <summary>

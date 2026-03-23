@@ -14,18 +14,18 @@ public class EventServiceData
 }
 
 [Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 100)]
-[Description("你获得了被动接受系统事件的能力，例如开始、结束、定时报点事件，但你可以使用如下指令控制这些信息的收发。")]
+[Description("使用者将获取被动接受系统事件，如开始、结束、定时器事件，并可选的控制这些信息的收发。")]
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
     [XmlHandler]
-    [Description("使你能够暂停系统的周期性定时报点一段时间(单位为秒)。")]
-    public void PauseTimer(XmlTagContext context, int duration = 0)
+    [Description("使用者可以暂停系统定时器一段时间(但注意可别睡过头了)。")]
+    public void PauseTimer(XmlTagContext context, [Description("单位为秒")] int duration = 0)
     {
         if (context.Status == TagStatus.OneShot || context.Status == TagStatus.Closing)
             nextTime += duration;
     }
     [XmlHandler]
-    [Description("使你能在短暂延迟后继续行动。可用于连续说话以及设置定时提醒（注意计算时差）。如<continue>联系下主人，看看他在干啥？</continue>")]
+    [Description("使用者可以定一个带备注的闹钟，使其可以在之后继续执行任务，如<continue>联系下主人，看看他在干啥？</continue>(但可注意别把时间算错了)")]
     public async void Continue(XmlTagContext context, string remark, [Description("延迟的秒数，默认为0")] int delay = 0)
     {
         try
@@ -33,8 +33,8 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
             if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
             {
                 await Task.Delay(delay * 1000);
-                chatBot.Poke("[由你之前调用的continue指令，引起的唤醒事件已触发]备注："
-                             + (string.IsNullOrWhiteSpace(context.FullContent) ? "无" : context.FullContent));
+                chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，{nameof(chatActivity.Character.Name)}之前定的闹钟响了。"
+                                          + (string.IsNullOrWhiteSpace(context.FullContent) ? "无" : "还有备注：" + context.FullContent));
             }
         }
         catch (Exception e)
@@ -43,7 +43,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         }
     }
 
-    ChatBot chatBot = null!;
+    ChatActivity chatActivity = null!;
     EventServiceData configuration = null!;
     CancellationTokenSource updateCancelSource = null!;
     const int DeltaTime = 1;
@@ -60,21 +60,21 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        chatBot = chatActivity.ChatBot;
+        this.chatActivity = chatActivity;
         updateCancelSource = new CancellationTokenSource();
 
-        await chatBot.ChatAsync(string.Join("\n", $"[{nameof(EventService)}](请先查看前几日的记忆，并按需查看前5/30/150的记忆，然后用消息类指令给用户打个招呼吧)", configuration.AppendStartPrompt));
+        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]{chatActivity.Character.Name}重新恢复活动了，醒来后ta决定先...({configuration.AppendStartPrompt})");
 
         _ = Task.Run(Update);
         //发生对话时重新计时
-        chatBot.ChatSent += _ => {
+        chatActivity.ChatBot.ChatSent += _ => {
             currentTime = 0;
         };
     }
     public override async Task DestroyAsync()
     {
         await updateCancelSource.CancelAsync();
-        await chatBot.ChatAsync(string.Join("\n", $"[{nameof(EventService)}]对话活动即将结束(如果有事情处理，请不要耽误太多时间，否则会让用户误以为异常，而强制关闭)", configuration.AppendDestroyPrompt));
+        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]{chatActivity.Character.Name}即将陷入休眠，ta在最后时决定...({configuration.AppendDestroyPrompt})");
     }
     async void Update()
     {
@@ -87,14 +87,14 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
             nextTime = NextTime();
             while (await updateTimer.WaitForNextTickAsync(updateCancelSource.Token))
             {
-                if (chatBot.IsChatting)
+                if (chatActivity.ChatBot.IsChatting)
                     continue; //聊天时不计时
 
                 currentTime += DeltaTime;
 
                 if (currentTime >= nextTime)
                 {
-                    chatBot.Poke($"[{nameof(EventService)}]这是周期性报点事件(这个时间了，你决定...)(该消息可以用pauseTimer指令暂停，但别睡过头了)。");
+                    chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，定时器又响了，在这个时间，{chatActivity.Character.Name}决定...({configuration.AppendUpdatePrompt})");
 
                     currentTime = 0;
                     nextTime = NextTime();
