@@ -17,11 +17,28 @@ public class EventServiceData
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
     [XmlHandler]
-    [Description("能够暂停周期性定时报点事件一段时间(单位为秒)。")]
+    [Description("使你能够暂停系统的周期性定时报点一段时间(单位为秒)。")]
     public void PauseTimer(XmlTagContext context, int duration = 0)
     {
         if (context.Status == TagStatus.OneShot || context.Status == TagStatus.Closing)
             nextTime += duration;
+    }
+    [XmlHandler]
+    [Description("使你能在短暂延迟后继续行动。可用于连续说话以及设置定时提醒（注意计算时差）")]
+    public async void Continue(XmlTagContext context, [Description("延迟的秒数，默认为0")] int delay = 0)
+    {
+        try
+        {
+            if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
+            {
+                await Task.Delay(delay * 1000);
+                chatBot.Poke("[由你之前调用的continue指令，引起的唤醒事件已触发]");
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     ChatBot chatBot = null!;
@@ -89,6 +106,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
                 return configuration.UpdateInterval + offset;
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

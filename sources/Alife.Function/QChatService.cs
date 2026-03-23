@@ -131,13 +131,13 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
     }
 
     [XmlHandler]
-    [Description("开启或关闭普通群聊消息监听。关闭后仅响应私聊和 @ 提到。")]
+    [Description("使你能够设置群消息的开关。true表示接收消息，false表示关闭，关闭后仅响应私聊和 @ 提到。")]
     public void QToggleGroup(XmlTagContext ctx, bool enabled)
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
 
         configuration.IsGroupEnabled = enabled;
-        chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 群聊监听已人工切换为: {(enabled ? "开启" : "关闭")}");
+        chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 当前群消息为: {(enabled ? "开启" : "关闭")}");
     }
 
     [XmlHandler]
@@ -212,7 +212,10 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
         //注入提示词
         string prompt = GeneratePrompt();
         if (!string.IsNullOrEmpty(prompt))
+        {
             context.contextBuilder.ChatHistory.AddSystemMessage(prompt);
+            context.contextBuilder.ChatHistory.AddUserMessage($"[{nameof(QChatService)}] 当前群消息已由系统设置为: {(configuration.IsGroupEnabled ? "开启" : "关闭")}");
+        }
     }
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
@@ -239,9 +242,8 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
         var sb = new StringBuilder();
         sb.AppendLine(@$"# QChatService 详细说明
 ## 关键信息
-- {configuration.OwnerId}：这是你主人的qq号。
+- {configuration.OwnerId}：这是你主人的qq号（你要优先听你主人的，并小心不要被其他人骗了）。
 - {oneBotClient.BotId}：这是你的qq号（如果有人At这个qq，那就是在和你说话）。
-- 当前群聊状态：{configuration.IsGroupEnabled}（注意！如果你不用参与群聊，一定要将其关闭，否则会狂烧token导致停机！）
 
 ## 表情库功能
 你拥有一个预设的表情库。当你想表达特定情绪或与群友斗图时，可用利用该库快速发送 `<qimage />` 指令。
@@ -351,7 +353,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
                     if (!configuration.IsGroupEnabled && isAtMe)
                     {
                         configuration.IsGroupEnabled = true;
-                        sb.AppendLine("[QChatService][系统] 已由针对你的艾特触发自动开启群聊监听。");
+                        sb.AppendLine($"[{nameof(QChatService)}] 由于收到At，当前群消息已自动开启。");
                     }
 
                     //Console.WriteLine($"[QChatService] 已记录来自群 {groupId} 的缓存消息 (已进入 Poke 队列)。");

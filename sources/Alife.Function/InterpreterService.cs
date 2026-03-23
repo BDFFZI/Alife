@@ -1,5 +1,3 @@
-using System.ComponentModel;
-
 namespace Alife.OfficialPlugins;
 
 using Alife.Abstractions;
@@ -14,28 +12,9 @@ public class InterpreterService : Plugin
         compiler.Register(handler);
     }
 
-    [XmlHandler]
-    [Description("当添加这个标签后，你就可以主动继续说话或操作了（但不要一直用，不要死循环！）。所以当遇到特别复杂的任务时，可以借此可以将其拆分成很多子任务来执行。")]
-    public async void Continue(XmlTagContext context, [Description("延迟的秒数，默认为0")] int delay = 0)
-    {
-        try
-        {
-            if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
-            {
-                await Task.Delay(delay * 1000);
-                chatActivity.ChatBot.Poke("[由你刚刚调用的continue指令，引起的唤醒事件已触发]");
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-    }
-
     readonly XmlHandlerCompiler compiler = new();
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
-    ChatActivity chatActivity = null!;
 
     public override Task AwakeAsync(AwakeContext context)
     {
@@ -70,7 +49,6 @@ public class InterpreterService : Plugin
     }
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        this.chatActivity = chatActivity;
         chatActivity.ChatBot.ChatReceived += OnChatReceived;
         chatActivity.ChatBot.ChatSent += OnChatSent;
         chatActivity.ChatBot.ChatOver += OnChatOver;

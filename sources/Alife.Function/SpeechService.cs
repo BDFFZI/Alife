@@ -77,8 +77,10 @@ public class SpeechService : Plugin, IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
-        StopRecognition();
+        //等待语音说完
         await lastSynthesizer;
+        //关闭功能
+        StopRecognition();
         synthesizer.Dispose();
         recognizer.Dispose();
         synthesizerCancelSource?.Dispose();

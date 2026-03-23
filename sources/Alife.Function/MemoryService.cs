@@ -89,8 +89,9 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
                     ChatMessageContent[] chatContent = chatContext.ChatHistory
                         .Where(content => content.Role == AuthorRole.User || content.Role == AuthorRole.Assistant)
                         .ToArray();
-                    IEnumerable<ChatMessageContent> systemContent = chatContext.ChatHistory
-                        .Where(content => content.Role == AuthorRole.System);
+                    ChatMessageContent[] systemContent = chatContext.ChatHistory
+                        .Where(content => content.Role == AuthorRole.System)
+                        .ToArray();
 
                     //进行记忆总结
                     ChatMessageContent[] contents = chatContent.Take(chatContent.Length / 5 * 4)
