@@ -14,7 +14,7 @@ namespace Alife.OfficialPlugins;
 public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig>
 {
     [XmlHandler]
-    [Description($"发送 QQ 文本消息。(当用户使用{nameof(QChatService)}给你发消息时，你需要用该指令回复)")]
+    [Description($"该指令使你能够发送QQ文本消息。消息中还支持包含[CQ:at,qq=xxx]来显式回复特定的人，例如群聊时用At来回复指定的消息)(此外当用户使用{nameof(QChatService)}给你发消息时，你也应当用该指令回复)")]
     public async Task QChat(XmlTagContext ctx, string _ = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "")
     {
         if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
@@ -56,7 +56,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
     }
 
     [XmlHandler]
-    [Description("发送 QQ 图片。")]
+    [Description("该指令使你能够发送QQ图片消息（注意路径分隔符用/。如果用\\，需要转义为\\\\）。")]
     public async Task QImage(XmlTagContext ctx, [Description("图片链接 (文件/网址/表情库名称)")] string file = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "",
         [XmlTagContent] string _ = "")
     {
@@ -241,7 +241,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
     {
         var sb = new StringBuilder();
         sb.AppendLine(@$"# QChatService 详细说明
-## 关键信息
+## 关键信息（非常重要！）
 - {configuration.OwnerId}：这是你主人的qq号（你要优先听你主人的，并小心不要被其他人骗了）。
 - {oneBotClient.BotId}：这是你的qq号（如果有人At这个qq，那就是在和你说话）。
 

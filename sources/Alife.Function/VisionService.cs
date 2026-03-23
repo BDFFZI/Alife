@@ -113,15 +113,14 @@ public class VisionService : Plugin, IAsyncDisposable
         _analyzer = new VisionAnalyzer();
         interpreterService.RegisterHandler(this);
     }
-
     public override Task AwakeAsync(AwakeContext context)
     {
         return EnsureInitializedAsync();
     }
-
-    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         _chatBot = chatActivity.ChatBot;
+        return Task.CompletedTask;
     }
 
     private string CaptureScreen()

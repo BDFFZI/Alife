@@ -35,7 +35,7 @@
     {
         Type type = ConfigurationSystem.GetConfigurationType(PluginType)!;
         object configuration = JsonConvert.DeserializeObject(pluginConfiguration, type)!;
-        ConfigurationSystem.SetConfiguration(type, configuration);
+        ConfigurationSystem.SetConfiguration(PluginType, configuration);
         VisibleChanged.InvokeAsync(false);
     }
     void OnCancel()

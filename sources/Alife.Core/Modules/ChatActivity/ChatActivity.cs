@@ -66,7 +66,7 @@ public class ChatActivity : IAsyncDisposable
         for (int index = 0; index < allPlugins.Count; index++)
         {
             Plugin pluginInstance = allPlugins[index];
-            progress?.Report(($"唤醒服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
+            progress?.Report(($"初始化服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
 
             await pluginInstance.AwakeAsync(awakeContext);
         }

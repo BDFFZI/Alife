@@ -7,9 +7,9 @@ namespace Alife.Plugins.Official.Implement;
 
 public class OpenAIChatServiceConfig : ICloneable
 {
-    public string endpoint = "https://api.deepseek.com/v1";
-    public string modelId = "deepseek-chat";
-    public string apiKey = "sk-7bf56492f14a40279cea280b49ae6de8";
+    public string endpoint = "";
+    public string modelId = "";
+    public string apiKey = "";
 
     public object Clone()
     {

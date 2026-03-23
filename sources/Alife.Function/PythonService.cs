@@ -19,7 +19,7 @@ public class PythonService : Plugin
     [Description(@"你的专属python执行器，如果执行有结果，还会在之后返回给你。
 注意事项：
 1. 永远把它作为最后一条指令执行，不要捏造结果，调用后请停止说话，并等待结果返回。
-2. 主人看不到结果，包括其返回的结果，所以除非是窗口应用，不然不要让主人操作。
+2. 主人看不到结果，包括其返回的结果，不要让主人操作，不要写会等待的应用（例如你如果想画画，你可以直接保存到本地，然后单独开一个进程打开图片）。
 3. 注意一定要少写代码，能一行解决就不要两行，慎用，因为这个非常烧token，烧完你就宕机了！")]
     public async Task Python(XmlTagContext context)
     {
@@ -47,7 +47,10 @@ public class PythonService : Plugin
         process.Start();
 
         string output = await process.StandardOutput.ReadToEndAsync();
-        await process.WaitForExitAsync();
+        Task timeoutTask = Task.Delay(3000);
+        Task taskResult = await Task.WhenAny(timeoutTask, process.WaitForExitAsync());
+        if (taskResult == timeoutTask)
+            process.Kill();
         if (process.ExitCode != 0)
             output = await process.StandardError.ReadToEndAsync();
 

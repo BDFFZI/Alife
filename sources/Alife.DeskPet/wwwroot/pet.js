@@ -293,7 +293,7 @@
                 case "motion": model?.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE); break;
                 case "look": updateModelFocus(window.innerWidth / 2, window.innerHeight / 2, false); break;
                 case "shake": executeSpecialInteraction("shake", "(物理干扰) 用户在大幅移动你的位置！"); break;
-                case "move": executeSpecialInteraction("move", "(物理干扰) 主人在挪动真央的位置，真央不知道要去哪里喵。"); break;
+                case "move": executeSpecialInteraction("move", "(物理干扰) 用户在小幅移动你的位置！"); break;
                 case "parameter": updateParameter(msg.name, msg.value, msg.duration); break;
                 case "window-move":
                     if (modelName === "Mao") {
@@ -338,7 +338,7 @@
 
         if (dist > 8000) {
             dist = 0;
-            executeSpecialInteraction("rotate", "(物理干扰) 主人在对着真央疯狂转圈圈，真央感觉变成了旋风猫娘喵！");
+            executeSpecialInteraction("rotate", "(物理干扰) 用户在疯狂用鼠标转圈圈！");
         }
     };
 

@@ -1,8 +1,7 @@
-using System.Reflection;
 using Alife;
 using Newtonsoft.Json.Linq;
 
-public class ConfigurationSystem : IDisposable
+public class ConfigurationSystem
 {
     public Type? GetConfigurationType(Type target)
     {
@@ -15,7 +14,7 @@ public class ConfigurationSystem : IDisposable
             return null;
 
         configurationType = targetInterface.GetGenericArguments()[0];
-        configurationTypes.Add(target, configurationType);
+        configurationTypes[target] = configurationType;
         return configurationType;
     }
     public bool CanConfiguration(Type type)
@@ -35,7 +34,7 @@ public class ConfigurationSystem : IDisposable
         // 尝试从存储加载
         string key = $"Configuration/{target.FullName}";
         configuration = storageSystem.GetObject<JObject>(key);
-        
+
         if (configuration != null)
         {
             configurations[target] = configuration;
@@ -51,9 +50,12 @@ public class ConfigurationSystem : IDisposable
     }
     public void SetConfiguration(Type target, object configuration)
     {
+        if (CanConfiguration(target) == false)
+            throw new Exception("目标类型不支持配置功能！");
+
         JObject json = JObject.FromObject(configuration);
         configurations[target] = json;
-        
+
         // 针对每个插件单独保存
         string key = $"Configuration/{target.FullName}";
         storageSystem.SetObject(key, configuration);
@@ -66,27 +68,11 @@ public class ConfigurationSystem : IDisposable
         return null;
     }
 
-    public void Configure(object target)
-    {
-        Type targetType = target.GetType();
-        object? extensionData = GetConfiguration(targetType);
-        if (extensionData != null)
-        {
-            MethodInfo configureMethod = targetType.GetMethod("Configure")!;
-            configureMethod.Invoke(target, [extensionData]);
-        }
-    }
-
-
     public ConfigurationSystem(StorageSystem storageSystem)
     {
         this.storageSystem = storageSystem;
         configurations = new Dictionary<Type, JObject>();
         configurationTypes = new Dictionary<Type, Type>();
-    }
-    public void Dispose()
-    {
-        // 个体保存已在 SetConfiguration 中完成，这里不再需要全局保存
     }
 
     readonly StorageSystem storageSystem;

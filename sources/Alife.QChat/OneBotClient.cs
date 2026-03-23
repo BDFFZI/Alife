@@ -27,17 +27,25 @@ public class OneBotClient : IAsyncDisposable
 
     public async Task ConnectAsync()
     {
-        try {
+        try
+        {
             if (_ws.State == WebSocketState.Open) return;
             _ws = new ClientWebSocket();
             await _ws.ConnectAsync(new Uri(_config.Url), CancellationToken.None);
             OnConnectionStatusChanged?.Invoke(true);
-            
+
             // 主动请求登录信息以获取 Bot ID
             await SendActionAsync("get_login_info", new { }, "init_bot_id");
 
             _ = Task.Run(ReceiveLoop);
-        } catch (Exception ex) {
+
+            //等待收到qq后，证明连接完成
+            await Task.Run(() => {
+                while (_botId == 0) { Thread.Sleep(500); }
+            });
+        }
+        catch (Exception ex)
+        {
             Console.WriteLine($"[OneBotClient] 连接失败: {ex.Message}");
             OnConnectionStatusChanged?.Invoke(false);
         }
@@ -54,22 +62,26 @@ public class OneBotClient : IAsyncDisposable
         };
 
         var json = JsonConvert.SerializeObject(payload);
-        await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)), 
+        await _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)),
             WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
     private async Task ReceiveLoop()
     {
         var buffer = new byte[1024 * 64];
-        try {
-            while (_ws.State == WebSocketState.Open) {
+        try
+        {
+            while (_ws.State == WebSocketState.Open)
+            {
                 var result = await _ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 if (result.MessageType == WebSocketMessageType.Close) break;
 
                 var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 await HandleMessage(json);
             }
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             if (_ws.State != WebSocketState.Aborted)
                 Console.WriteLine($"[OneBotClient] 链路异常: {ex.Message}");
             OnConnectionStatusChanged?.Invoke(false);
@@ -80,7 +92,8 @@ public class OneBotClient : IAsyncDisposable
 
     private async Task HandleMessage(string json)
     {
-        try {
+        try
+        {
             var data = JsonConvert.DeserializeObject<OneBotEvent>(json);
             if (data == null) return;
 
@@ -96,7 +109,8 @@ public class OneBotClient : IAsyncDisposable
             }
 
             // 同步 Bot ID
-            if (data.SelfId != 0 && _botId != data.SelfId) {
+            if (data.SelfId != 0 && _botId != data.SelfId)
+            {
                 _botId = data.SelfId;
             }
 
@@ -104,7 +118,9 @@ public class OneBotClient : IAsyncDisposable
             {
                 OnMessageReceived?.Invoke(data);
             }
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             Console.WriteLine($"[OneBotClient] 处理消息异常: {ex.Message}");
         }
     }
