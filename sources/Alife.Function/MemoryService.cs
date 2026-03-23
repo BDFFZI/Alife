@@ -56,7 +56,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
         memoPath = $"{storageSystem.GetStoragePath()}/Memories/{character.ID}/备忘录.md";
         if (File.Exists(memoPath) == false)
             File.WriteAllText(memoPath, "");
-        // LoadContext(); //恢复上下文的效果并不好，ai无法理解系统重启，所有状态已经刷新。
+        LoadContext();
         InjectPrompt();
 
         return Task.CompletedTask;
@@ -88,12 +88,25 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
     void InjectPrompt()
     {
         chatContext.ChatHistory.AddSystemMessage($@"# {nameof(MemoryService)}
-{character.Name}拥有利用python管理长期记忆的能力，这些记忆都存放在：“{memoryPath}”中。
-对于一些关键性，想一直记得的记忆，{character.Name}会将它们存放到“{coreMemoryPath}”中，并按需建立与日常记忆的索引。
-对于日常记忆，{character.Name}则将它们以yyyy.mm.dd的日期格式命名(如2001.09.01.md)，并分别存放到“每1日记忆、每5日记忆、每30日记忆、每150日记忆”这四个文件夹中。
-其中“每1日记忆”是每天的日记，“每5/30/150日记忆”则是对前一期间记忆的归纳，{character.Name}会在每天以及每6/31/150天时检查对应的归纳记忆。
 
-因此假设出生日期是3月19日，那么到3月24日时，{character.Name}的记忆文件夹，会是这样子的：
+你拥有用python管理长期记忆的能力，记忆文件夹在“{memoryPath}”。
+你的出生日期是“{character.Birthday}”，当前日期和出生日期的间隔将决定你的记忆文件夹内容，具体细则如下：
+
+## 记忆类型
+
+记忆被分为3类：
+- 核心记忆：对于一些关键性，需要始终记得的记忆（如用户画像，行为规范）。或者作为日常记忆的索引（如xxxx.xx.xx日发生了件难以忘怀的事）。
+- 日常记忆：每天的详细记忆记录（每日记忆）以及对这些记忆的归纳（归纳记忆）。
+- 备忘录：时效性强，但临时性的记忆（如第二天提醒用户做某事）。
+
+## 记忆规范
+
+- 核心记忆需存放在：{coreMemoryPath}
+- 备忘录记忆需存放在：{memoPath}
+- 每日记忆以yyyy.mm.dd的日期格式命名（如2001.09.01.md），存放到“每1日记忆”文件夹中。
+- 归纳记忆则以归纳的日期范围命名（如2026.03.19-2026.03.23.md），按跨度分别存放到“每5/30/150日记忆”三个文件夹中。
+
+例如假设出生日期是2026年3月19日，那么到2026年3月24日时，记忆文件夹的内容如下：
 - 每1日记忆
   - 2026.03.19.md
   - 2026.03.20.md
@@ -104,14 +117,22 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
 - 每5日记忆
   - 2026.03.19-2026.03.23.md
 - 核心记忆.md
+- 备忘录.md
 
-{character.Name}在每次恢复活动后都会先查看自己的核心记忆，以及前n/5/30/150的日常记忆，这样自己就不容易忘事了。
-{character.Name}是在{character.Birthday}时出生的，所以到了今天，记忆文件夹应该是如何的呢？
+## 记忆整理
 
-{character.Name}还拥有一本备忘录，他存放在“{memoPath}”的位置，{character.Name}会将一些时效性强，但临时性的记忆存放在那里。备忘录中的记忆，{character.Name}可以一直记着。
+你需要严格遵守如下守则来确保记忆得到妥善保存和使用。
+1. 每次会话开始前，用python扫描读取其中的记忆文件，其中核心记忆和前几日记忆文件是必须要查看的。
+2. 每当间隔出生日期6/31/151日时，你需要检查前5/31/151日的归纳记忆是否存在，不存在则进行归纳保存。
+3. 每次会话结束或会话期间的定时报点时（空闲状态），你需要整理当日的记忆。如果当日记忆文件已存在，则进行合并。
+4. 严格控制核心记忆和备忘录记忆中的内容，确保简洁高效，并移除失效的记忆。当内容过多且无法压缩时，应创建新的自定义记忆文件，并存储其索引。
 
-不过记忆太多了也不是好事，就好像备忘录中无效的信息，{character.Name}会定期删除一样，{character.Name}也会定期优化整理归档自己的记忆，这样就不会出现，因为要记的事太多，而搞昏头的情况了。
+{character.Name}拥有利用python管理长期记忆的能力，这些记忆都存放在：“{memoryPath}”中。
+对于一些关键性，想一直记得的记忆，{character.Name}会将它们存放到“{coreMemoryPath}”中，并按需建立与日常记忆的索引。
+对于日常记忆，{character.Name}则将它们以yyyy.mm.dd的日期格式命名(如2001.09.01.md)，这四个文件夹中。
+其中“每1日记忆”是每天的日记，“每5/30/150日记忆”则是对前一期间记忆的归纳，{character.Name}会在每天以及每6/31/150天时检查对应的归纳记忆。
 ");
+        chatContext.ChatHistory.AddAssistantMessage($"{character.Name}的备忘录：" + File.ReadAllText(memoPath));
     }
     void LoadContext()
     {
@@ -171,7 +192,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
 
                         //进行记忆总结
                         ChatMessageContent[] contents = chatContent.Take(chatContent.Length / 5 * 4)
-                            .Append(new ChatMessageContent(AuthorRole.User, $"[{nameof(MemoryService)}]{character.Name}，现在系统需要压缩记忆，请你把本次的对话的内容，仔细斟酌后简要总结一下（不要使用任何指令，直接说出你的想法即可）。"))
+                            .Append(new ChatMessageContent(AuthorRole.User, $"[{nameof(MemoryService)}]{character.Name}，现在系统需要压缩记忆，请你把本次的对话的内容，仔细斟酌后简要总结一下（不要使用任何指令或回复用语，直接输出总结的内容）。"))
                             .ToArray();
                         string? result = null;
                         await foreach (AgentResponseItem<ChatMessageContent> content in summaryAgent.InvokeAsync(contents))
@@ -184,7 +205,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryServiceData>
                         chatContext.ChatHistory.AddAssistantMessage("历史回忆：\n" + result);
                         chatContext.ChatHistory.AddRange(chatContent.TakeLast(chatContent.Length / 5 * 1));
                         chatContext.ChatHistory.AddRange(systemContent);
-                        chatContext.ChatHistory.AddSystemMessage($"{character.Name}的备忘录：" + await File.ReadAllTextAsync(memoPath));
+                        chatContext.ChatHistory.AddAssistantMessage($"{character.Name}的备忘录：" + await File.ReadAllTextAsync(memoPath));
                     }
                     Console.WriteLine("[压缩记忆完成]");
                     chatBot.ChatSemaphore.Release();

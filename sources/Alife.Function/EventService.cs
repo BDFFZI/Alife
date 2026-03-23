@@ -14,18 +14,18 @@ public class EventServiceData
 }
 
 [Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 100)]
-[Description("使用者将获取被动接受系统事件，如开始、结束、定时器事件，并可选的控制这些信息的收发。")]
+[Description("你能够接收到系统事件（如开始、结束、周期报点），并可选的控制这些信息的收发。")]
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
     [XmlHandler]
-    [Description("使用者可以暂停系统定时器一段时间(但注意可别睡过头了)。")]
-    public void PauseTimer(XmlTagContext context, [Description("单位为秒")] int duration = 0)
+    [Description("暂停系统周期报点一段时间（注意确保暂停期间你没有其他事务）。")]
+    public void PauseTimer(XmlTagContext context, [Description("暂停持续时间，单位为秒")] int duration = 0)
     {
         if (context.Status == TagStatus.OneShot || context.Status == TagStatus.Closing)
             nextTime += duration;
     }
     [XmlHandler]
-    [Description("使用者可以定一个带备注的闹钟，使其可以在之后继续执行任务，如<continue>联系下主人，看看他在干啥？</continue>(但可注意别把时间算错了)")]
+    [Description("定一个可带备注的延迟提醒，如<continue delay=\"60\">联系下主人，看看他在干啥？</continue>（注意不要算错时间差）")]
     public async void Continue(XmlTagContext context, string remark, [Description("延迟的秒数，默认为0")] int delay = 0)
     {
         try
@@ -33,8 +33,8 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
             if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
             {
                 await Task.Delay(delay * 1000);
-                chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，{nameof(chatActivity.Character.Name)}之前定的闹钟响了。"
-                                          + (string.IsNullOrWhiteSpace(context.FullContent) ? "无" : "还有备注：" + context.FullContent));
+                chatActivity.ChatBot.Poke($"[{nameof(EventService)}]来自continue的延迟提醒，你可以进行你的行动了。"
+                                          + (string.IsNullOrWhiteSpace(context.FullContent) ? "" : "\n备注：" + context.FullContent));
             }
         }
         catch (Exception e)
@@ -63,7 +63,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         this.chatActivity = chatActivity;
         updateCancelSource = new CancellationTokenSource();
 
-        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]{chatActivity.Character.Name}重新恢复活动了，醒来后ta决定先...({configuration.AppendStartPrompt})");
+        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]对话活动重新开始，请按要求检查记忆文件。({configuration.AppendStartPrompt})");
 
         _ = Task.Run(Update);
         //发生对话时重新计时
@@ -74,7 +74,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
     public override async Task DestroyAsync()
     {
         await updateCancelSource.CancelAsync();
-        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]{chatActivity.Character.Name}即将陷入休眠，ta在最后时决定...({configuration.AppendDestroyPrompt})");
+        await chatActivity.ChatBot.ChatAsync($"[{nameof(EventService)}]对话活动即将关闭，请按要求保存记忆文件。({configuration.AppendDestroyPrompt})");
     }
     async void Update()
     {
@@ -94,7 +94,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 
                 if (currentTime >= nextTime)
                 {
-                    chatActivity.ChatBot.Poke($"[{nameof(EventService)}]嘀嘀嘀，定时器响了，在这个时间，{chatActivity.Character.Name}决定...({configuration.AppendUpdatePrompt})");
+                    chatActivity.ChatBot.Poke($"[{nameof(EventService)}]系统周期报点，请注意当前时间，你可以乘机整理记忆，或尝试与用户打招呼（注意选择合适的联系方式和话题）({configuration.AppendUpdatePrompt})");
 
                     currentTime = 0;
                     nextTime = NextTime();
