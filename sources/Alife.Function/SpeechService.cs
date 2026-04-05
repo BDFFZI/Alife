@@ -49,119 +49,129 @@ public class SpeechService : Plugin, IAsyncDisposable
         }
     }
 
-    readonly LocalSpeechRecognizer recognizer;
-    readonly LocalSpeechSynthesizer synthesizer;
-    CancellationTokenSource? synthesizerCancelSource;
+    readonly SpeechRecognizer recognizer;
+    readonly SpeechSynthesizer synthesizer;
     Task lastSynthesizer;
-    ChatBot chatBot = null!;
+    ChatBot? chatBot;
+    CancellationTokenSource? autoRecognizerSwitchCancellation;
+
     bool hasHeadphones;
-    bool isRecognitionEnabled;
 
     public SpeechService(InterpreterService interpreterService)
     {
         interpreterService.RegisterHandler(this);
 
         //创建识别器
-        recognizer = new LocalSpeechRecognizer(PathEnvironment.ModelsPath);
-        recognizer.OnRecognized += (text, conf) => OnRecognized(text, conf);
+        recognizer = new SpeechRecognizer(PathEnvironment.ModelsPath);
+        recognizer.Recognized += OnRecognized;
 
         //创建合成器
-        synthesizer = new LocalSpeechSynthesizer();
+        synthesizer = new SpeechSynthesizer();
         lastSynthesizer = Task.CompletedTask;
-    }
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        chatBot = chatActivity.ChatBot;
-        chatActivity.ChatBot.ChatSent += _ => StopSynthesizer(); //增加打断功能                             
-        StartRecognition(); //默认打开语音识别
-        StartHeadphoneMonitoring(); //根据耳机情况开关语音识别
 
-        return Task.CompletedTask;
+        void OnRecognized(string text)
+        {
+            if (chatBot != null)
+                chatBot.Chat("[SpeechService] " + text);
+        }
     }
     public async ValueTask DisposeAsync()
     {
-        //等待语音说完
-        if (synthesizerCancelSource != null)
-            await synthesizerCancelSource.CancelAsync();
-        await lastSynthesizer;
-        //关闭功能
-        StopRecognition();
-        synthesizer.Dispose();
+        //停止语音识别
         recognizer.Dispose();
-        synthesizerCancelSource?.Dispose();
+        if (autoRecognizerSwitchCancellation != null)
+            await autoRecognizerSwitchCancellation.CancelAsync();
+
+        //等待语音说完
+        if (synthesizer.IsSpeaking)
+            await synthesizer.LastSpeaking;
     }
 
-    void StartRecognition()
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        isRecognitionEnabled = true;
+        chatBot = chatActivity.ChatBot;
+
+        //增加语音合成打断功能
+        chatActivity.ChatBot.ChatSent += _ => {
+            if (synthesizer.IsSpeaking)
+                synthesizer.StopSpeak();
+        };
+
+        //打开语音识别
         recognizer.Start();
-    }
-    void StopRecognition()
-    {
-        isRecognitionEnabled = false;
-        recognizer.Stop();
-    }
-    void StopSynthesizer()
-    {
-        synthesizerCancelSource?.Cancel();
-    }
-    void OnRecognized(string text, float confidence)
-    {
-        if (confidence < 0.75)
-            return;
-        chatBot.Chat("[SpeechService] " + text);
-    }
-    void StartHeadphoneMonitoring()
-    {
-        var enumerator = new MMDeviceEnumerator();
-        Task.Run(async () => {
-            while (true)
+        //后续根据耳机情况自动开关语音识别
+        autoRecognizerSwitchCancellation = new CancellationTokenSource();
+        AutoRecognizerSwitch(autoRecognizerSwitchCancellation.Token);
+
+        return Task.CompletedTask;
+
+        /// <summary>
+        /// 根据耳机状态自动开启语音识别
+        /// </summary>
+        async void AutoRecognizerSwitch(CancellationToken cancellationToken = default)
+        {
+            try
             {
-                try
-                {
-                    var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    hasHeadphones = device.FriendlyName.Contains("耳机") ||
-                                    device.FriendlyName.Contains("Headphones") ||
-                                    device.FriendlyName.Contains("Headset") ||
-                                    device.FriendlyName.Contains("Earphone");
-
-                    if (hasHeadphones && !isRecognitionEnabled)
+                await Task.Run(async () => {
+                    MMDeviceEnumerator enumerator = new();
+                    while (true)
                     {
-                        StartRecognition();
-                        SendNotification("语音输入常驻开启", "真央检测到耳机，已通过 SpeechService 开启实时识别喵！");
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
-                await Task.Delay(1000);
-            }
-        });
-    }
-    void SendNotification(string title, string message)
-    {
-        try
-        {
-            string script = $"$Title='{title}'; $Message='{message}'; " +
-                            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
-                            "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
-                            "$TextNodes = $Template.GetElementsByTagName('text'); " +
-                            "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
-                            "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
-                            "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
-                            "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
+                        cancellationToken.ThrowIfCancellationRequested();
 
-            Process.Start(new ProcessStartInfo {
-                FileName = "powershell",
-                Arguments = $"-Command \"{script}\"",
-                CreateNoWindow = true,
-                UseShellExecute = false
-            });
+                        MMDevice? device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                        hasHeadphones = device.FriendlyName.Contains("耳机") ||
+                                        device.FriendlyName.Contains("Headphones") ||
+                                        device.FriendlyName.Contains("Headset") ||
+                                        device.FriendlyName.Contains("Earphone");
+
+                        if (hasHeadphones && recognizer.IsRecognizing == false)
+                        {
+                            recognizer.Start();
+                            SendNotification("语音输入常驻开启", "检测到耳机，已通过 SpeechService 开启实时识别。");
+
+                            void SendNotification(string title, string message)
+                            {
+                                try
+                                {
+                                    string script = $"$Title='{title}'; $Message='{message}'; " +
+                                                    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
+                                                    "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
+                                                    "$TextNodes = $Template.GetElementsByTagName('text'); " +
+                                                    "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
+                                                    "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
+                                                    "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
+                                                    "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
+
+                                    Process.Start(new ProcessStartInfo {
+                                        FileName = "powershell",
+                                        Arguments = $"-Command \"{script}\"",
+                                        CreateNoWindow = true,
+                                        UseShellExecute = false
+                                    });
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"Notification failed: {ex.Message}");
+                                }
+                            }
+                        }
+
+                        await Task.Delay(1000, cancellationToken);
+                    }
+                    // ReSharper disable once FunctionNeverReturns 持续检测耳机状态，直到任务取消
+                }, cancellationToken);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Notification failed: {ex.Message}");
-        }
+    }
+
+    [XmlHandler]
+    public Task OnInterpreting(XmlTagContext tagContext)
+    {
+        tagContext.
     }
 }

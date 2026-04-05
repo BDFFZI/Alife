@@ -1,17 +1,10 @@
-using System;
-
 namespace Alife.Test;
 
-/// <summary>
-/// 标准化的终端日志工具，支持颜色区分。
-/// </summary>
 public static class Terminal
 {
-    private static readonly object _lock = new object();
-
     public static void Log(string message, ConsoleColor color = ConsoleColor.Gray)
     {
-        lock (_lock)
+        lock (ConsoleLock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
@@ -28,7 +21,7 @@ public static class Terminal
 
     public static void LogSent(string sender, string message)
     {
-        lock (_lock)
+        lock (ConsoleLock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
@@ -42,7 +35,7 @@ public static class Terminal
 
     public static void LogReceivedStart(string receiver)
     {
-        lock (_lock)
+        lock (ConsoleLock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
@@ -52,11 +45,13 @@ public static class Terminal
         }
     }
 
-    public static void LogReceivedChunk(string chunk)
+    public static void LogReceivedContent(string content)
     {
-        lock (_lock)
+        lock (ConsoleLock)
         {
-            Console.Write(chunk);
+            Console.Write(content);
         }
     }
+
+    static readonly Lock ConsoleLock = new();
 }
