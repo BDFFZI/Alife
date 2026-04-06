@@ -1,0 +1,216 @@
+鐢熸垚鍚姩鏃堕棿涓?4/6/2026 11:05:55 PM銆?
+C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Interpreter.Test\debug\Alife.Interpreter.Test.dll (.NETCoreApp,Version=v10.0)鐨勬祴璇曡繍琛?
+鎬诲叡 1 涓祴璇曟枃浠朵笌鎸囧畾妯″紡鐩稿尮閰嶃€?
+NUnit Adapter 5.0.0.0: Test execution started
+Running all tests in C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Interpreter.Test\debug\Alife.Interpreter.Test.dll
+   NUnit3TestExecutor discovered 6 of 6 NUnit test cases using Current Discovery mode, Non-Explicit run
+System.InvalidOperationException: Sequence contains no elements
+   at System.Linq.ThrowHelper.ThrowNoElementsException()
+   at System.Linq.Enumerable.Last[TSource](IEnumerable`1 source)
+   at Alife.Interpreter.XmlStreamExecutor.HandleTag(CallMode callMode) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 145
+   at Alife.Interpreter.XmlStreamExecutor.OnTagClosed() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 132
+   at Alife.Interpreter.XmlStreamExecutor.FlushParserEvent() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 117
+   at Alife.Interpreter.XmlStreamExecutor.LoopProcessInput(CancellationToken cancellationToken) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 92
+
+System.InvalidOperationException: Sequence contains no elements
+   at System.Linq.ThrowHelper.ThrowNoElementsException()
+   at System.Linq.Enumerable.Last[TSource](IEnumerable`1 source)
+   at Alife.Interpreter.XmlStreamExecutor.HandleTag(CallMode callMode) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 145
+   at Alife.Interpreter.XmlStreamExecutor.OnTagClosed() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 132
+   at Alife.Interpreter.XmlStreamExecutor.FlushParserEvent() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 117
+   at Alife.Interpreter.XmlStreamExecutor.LoopProcessInput(CancellationToken cancellationToken) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 92
+
+System.InvalidOperationException: Sequence contains no elements
+   at System.Linq.ThrowHelper.ThrowNoElementsException()
+   at System.Linq.Enumerable.Last[TSource](IEnumerable`1 source)
+   at Alife.Interpreter.XmlStreamExecutor.HandleTag(CallMode callMode) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 145
+   at Alife.Interpreter.XmlStreamExecutor.OnTagShotted() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 140
+   at Alife.Interpreter.XmlStreamExecutor.<.ctor>b__14_5() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 68
+   at Alife.Interpreter.XmlStreamExecutor.FlushParserEvent() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 117
+   at Alife.Interpreter.XmlStreamExecutor.LoopProcessInput(CancellationToken cancellationToken) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 92
+
+======
+璋冪敤锛歳esponse
+鍖洪棿锛氭墦寮€response
+鍙傛暟锛?
+{}
+======
+璋冪敤锛歝ontent-response
+鍖洪棿锛氭墦寮€content
+鍙傛暟锛?
+{
+  "type": "text",
+  "lang": "zh-CN"
+}
+======
+璋冪敤锛歝ontent-response
+鍖洪棿锛氬叧闂璫ontent
+鍐呭锛?
+
+        浣犲ソ锛佽繖鏄竴涓畬鍏ㄦ甯哥殑 XML 绀轰緥鏁版嵁銆?
+        瀹冨彲浠ョ敤浜庢祴璇曡В鏋愬櫒鍦ㄩ亣鍒版爣鍑嗚娉曟椂鐨勮〃鐜般€?
+
+======
+璋冪敤锛歶serProfile-response
+鍖洪棿锛氭墦寮€userProfile
+鍙傛暟锛?
+{
+  "id": "1001",
+  "role": "admin"
+}
+======
+璋冪敤锛歯ame-userProfile-response
+鍖洪棿锛氭墦寮€name
+鍙傛暟锛?
+{}
+======
+璋冪敤锛歯ame-userProfile-response
+鍖洪棿锛氬叧闂璶ame
+鍐呭锛欰lice
+======
+璋冪敤锛歴tandard-userProfile-response
+鍖洪棿锛氭墦寮€standard
+鍙傛暟锛?
+{}
+======
+璋冪敤锛歴tandard-userProfile-response
+鍖洪棿锛氬叧闂璼tandard
+鍐呭锛氫娇鐢ㄦ爣鍑嗗疄浣擄細< > &
+======
+璋冪敤锛歱references-userProfile-response
+鍖洪棿锛氭墦寮€preferences
+鍙傛暟锛?
+{}
+======
+璋冪敤锛歵heme-preferences-userProfile-response
+鍖洪棿锛氭墦寮€theme
+鍙傛暟锛?
+{}
+======
+璋冪敤锛歵heme-preferences-userProfile-response
+鍖洪棿锛氬叧闂璽heme
+鍐呭锛歞ark
+======
+璋冪敤锛歯otifications-preferences-userProfile-response
+鍖洪棿锛氫竴娆otifications
+鍙傛暟锛?
+{
+  "enabled": "true"
+}
+======
+璋冪敤锛歱references-userProfile-response
+鍖洪棿锛氬叧闂璸references
+鍐呭锛?
+
+        
+======
+璋冪敤锛歶serProfile-response
+鍖洪棿锛氬叧闂璾serProfile
+鍐呭锛?
+
+
+鏈€鍚庡啀鎷栨嫿涓€娈垫病鏈夋牴鑺傜偣鐨勬父绂绘枃鏈€?
+
+======
+璋冪敤锛歳esponse
+鍖洪棿锛氬叧闂璻esponse
+鍐呭锛?
+
+
+NUnit Adapter 5.0.0.0: Test execution complete
+  宸查€氳繃 TestXmlHandlerTableDocument [8 ms]
+  澶辫触 TestXmlHandlerTableHandle [26 ms]
+  閿欒娑堟伅:
+     Assert.That(actual, Is.EqualTo(Expected))
+  Expected string length 409 but was 494. Strings differ at index 105.
+  Expected: "...鏁?\r\n  },\r\n  "Content": "娴嬭瘯鏂囨湰"\r\n}\r\n========\r\nMockSpeechHand..."
+  But was:  "...鏁?\r\n  },\r\n  "Content": "娴嬭瘯鏂囨湰",\r\n  "FullContent": "娴嬭瘯鏂囨湰"\r\n}..."
+  -----------------------------------------------^
+
+  鍫嗘爤璺熻釜:
+     at Alife.Interpreter.Test.XmlHandlerTableTest.TestXmlHandlerTableHandle() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlHandlerTableTest.cs:line 99
+
+1)    at Alife.Interpreter.Test.XmlHandlerTableTest.TestXmlHandlerTableHandle() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlHandlerTableTest.cs:line 99
+
+
+  澶辫触 TestExecutorBasic [219 ms]
+  閿欒娑堟伅:
+     Assert.That(handler.Logs, Has.Member("test:Closing:"))
+  Expected: some item equal to "test:Closing:"
+  But was:  < "test:Opening:", "test:Content:Hello.", "test:Content: World!" >
+
+  鍫嗘爤璺熻釜:
+     at Alife.Interpreter.Test.XmlStreamExecutorTest.TestExecutorBasic() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 58
+   at Alife.Interpreter.Test.XmlStreamExecutorTest.TestExecutorBasic() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 58
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.<>c__DisplayClass3_0.<PerformWork>b__0()
+   at NUnit.Framework.Internal.ContextUtils.<>c__DisplayClass1_0`1.<DoIsolated>b__0(Object _)
+
+1)    at Alife.Interpreter.Test.XmlStreamExecutorTest.TestExecutorBasic() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 58
+
+
+  鏍囧噯杈撳嚭娑堟伅:
+ System.InvalidOperationException: Sequence contains no elements
+    at System.Linq.ThrowHelper.ThrowNoElementsException()
+    at System.Linq.Enumerable.Last[TSource](IEnumerable`1 source)
+    at Alife.Interpreter.XmlStreamExecutor.HandleTag(CallMode callMode) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 145
+    at Alife.Interpreter.XmlStreamExecutor.OnTagClosed() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 132
+    at Alife.Interpreter.XmlStreamExecutor.FlushParserEvent() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 117
+    at Alife.Interpreter.XmlStreamExecutor.LoopProcessInput(CancellationToken cancellationToken) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 92
+
+
+  宸查€氳繃 TestNestedTags [218 ms]
+  澶辫触 TestOneShot [209 ms]
+  閿欒娑堟伅:
+     Assert.That(handler.Logs, Has.Member("oneshot:OneShot"))
+  Expected: some item equal to "oneshot:OneShot"
+  But was:  <empty>
+
+  鍫嗘爤璺熻釜:
+     at Alife.Interpreter.Test.XmlStreamExecutorTest.TestOneShot() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 76
+   at Alife.Interpreter.Test.XmlStreamExecutorTest.TestOneShot() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 76
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.<>c__DisplayClass3_0.<PerformWork>b__0()
+   at NUnit.Framework.Internal.ContextUtils.<>c__DisplayClass1_0`1.<DoIsolated>b__0(Object _)
+
+1)    at Alife.Interpreter.Test.XmlStreamExecutorTest.TestOneShot() in C:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\XmlStreamExecutorTest.cs:line 76
+
+
+  鏍囧噯杈撳嚭娑堟伅:
+ System.InvalidOperationException: Sequence contains no elements
+    at System.Linq.ThrowHelper.ThrowNoElementsException()
+    at System.Linq.Enumerable.Last[TSource](IEnumerable`1 source)
+    at Alife.Interpreter.XmlStreamExecutor.HandleTag(CallMode callMode) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 145
+    at Alife.Interpreter.XmlStreamExecutor.OnTagShotted() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 140
+    at Alife.Interpreter.XmlStreamExecutor.<.ctor>b__14_5() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 68
+    at Alife.Interpreter.XmlStreamExecutor.FlushParserEvent() in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 117
+    at Alife.Interpreter.XmlStreamExecutor.LoopProcessInput(CancellationToken cancellationToken) in C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlStreamExecutor.cs:line 92
+
+
+  宸查€氳繃 TestXmlStreamParser [7 ms]
+
+娴嬭瘯杩愯澶辫触銆?
+娴嬭瘯鎬绘暟: 6
+     閫氳繃鏁? 3
+     澶辫触鏁? 3
+鎬绘椂闂? 1.2526 绉?
+     1>椤圭洰鈥淐:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj鈥濆湪鑺傜偣 1 涓?VSTest 涓洰鏍?銆?
+     1>_VSTestConsole:
+         MSB4181: 鈥淰STestTask鈥濅换鍔¤繑鍥炰簡 false锛屼絾鏈褰曢敊璇€?
+     1>宸插畬鎴愮敓鎴愰」鐩€淐:\Users\13309\Desktop\Alife\sources\Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj鈥?VSTest 涓洰鏍?鐨勬搷浣?- 澶辫触銆?
+
+鐢熸垚澶辫触銆?
+    0 涓鍛?
+    0 涓敊璇?
+
+宸茬敤鏃堕棿 00:00:01.79
