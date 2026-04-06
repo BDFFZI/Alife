@@ -13,11 +13,11 @@ namespace Alife.OfficialPlugins;
 [Description("此服务让获得接收QQ消息，以及向QQ发送消息的能力。")]
 public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig>
 {
-    [XmlHandler]
+    [XmlFunction]
     [Description($"该指令使你能够发送QQ文本消息。消息中还支持包含[CQ:at,qq=xxx]来显式回复特定的人，例如群聊时用At来回复指定的消息)(此外当用户使用{nameof(QChatService)}给你发消息时，你也应当用该指令回复)")]
     public async Task QChat(XmlTagContext ctx, string _ = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "")
     {
-        if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
+        if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
 
         string msgToSend = ctx.FullContent;
         if (string.IsNullOrWhiteSpace(msgToSend))
@@ -55,12 +55,12 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
         Console.WriteLine($"[QChatService] 已通过 {action} 发送至 {finalTarget}: {msgToSend}");
     }
 
-    [XmlHandler]
+    [XmlFunction]
     [Description("该指令使你能够发送QQ图片消息（注意路径分隔符用/。如果用\\，需要转义为\\\\）。")]
     public async Task QImage(XmlTagContext ctx, [Description("图片链接 (文件/网址/表情库名称)")] string file = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "",
         [XmlTagContent] string _ = "")
     {
-        if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot)
+        if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot)
             return;
         if (string.IsNullOrWhiteSpace(file))
             return;
@@ -130,17 +130,17 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
         //Console.WriteLine($"[QChatService] 已通过 {action} 发送图片至 {finalTarget}: {finalFile}");
     }
 
-    [XmlHandler]
+    [XmlFunction]
     [Description("使你能够设置群消息的开关。true表示接收消息，false表示关闭，关闭后仅响应私聊和 @ 提到。")]
     public void QToggleGroup(XmlTagContext ctx, bool enabled)
     {
-        if (ctx.Status != TagStatus.Closing && ctx.Status != TagStatus.OneShot) return;
+        if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
 
         configuration.IsGroupEnabled = enabled;
         chatActivity.ChatBot.Poke($"[{nameof(QChatService)}] 当前群消息为: {(enabled ? "开启" : "关闭")}");
     }
 
-    [XmlHandler]
+    [XmlFunction]
     [Description("当你保存了自己的表情后，你需要刷新，才能利用表情库调用。")]
     void RefreshEmoteLibrary()
     {

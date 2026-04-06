@@ -17,20 +17,20 @@ public class EventServiceData
 [Description("你能够接收到系统事件（如开始、结束、周期报点），并可选的控制这些信息的收发。")]
 public class EventService : Plugin, IConfigurable<EventServiceData>
 {
-    [XmlHandler]
+    [XmlFunction]
     [Description("暂停系统周期报点一段时间（注意确保暂停期间你没有其他事务）。")]
     public void PauseTimer(XmlTagContext context, [Description("暂停持续时间，单位为秒")] int duration = 0)
     {
-        if (context.Status == TagStatus.OneShot || context.Status == TagStatus.Closing)
+        if (context.CallMode == CallMode.OneShot || context.CallMode == CallMode.Closing)
             nextTime += duration;
     }
-    [XmlHandler]
+    [XmlFunction]
     [Description("定一个可带备注的延迟提醒，如<continue delay=\"60\">联系下主人，看看他在干啥？</continue>（注意不要算错时间差）")]
     public async void Continue(XmlTagContext context, string remark, [Description("延迟的秒数，默认为0")] int delay = 0)
     {
         try
         {
-            if (context.Status == TagStatus.Closing || context.Status == TagStatus.OneShot)
+            if (context.CallMode == CallMode.Closing || context.CallMode == CallMode.OneShot)
             {
                 await Task.Delay(delay * 1000);
                 chatActivity.ChatBot.Poke($"[{nameof(EventService)}]来自continue的延迟提醒，你可以进行你的行动了。"

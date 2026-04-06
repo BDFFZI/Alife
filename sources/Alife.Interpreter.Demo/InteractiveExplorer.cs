@@ -21,14 +21,13 @@ public class InteractiveExplorer
         compiler.Register(new MockSystemHandler());
 
         var handlerTable = compiler.Compile();
-        var parser = new OldXmlStreamParser();
+        var parser = new XmlStreamParser();
         var executor = new XmlStreamExecutor(
             parser,
             handlerTable,
             ["，", "。", "！", "？", "......", "~"],
             minResultLength: 1
         );
-        executor.RootTagName = "Interpreter";
 
         Console.WriteLine("已加载标签文档：");
         Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -99,26 +98,26 @@ public class InteractiveExplorer
 [Description("Mock 宠物处理器：用于验证桌宠相关标签的解析。")]
 public class MockPetHandler
 {
-    [XmlHandler("pet_exp")]
+    [XmlFunction("pet_exp")]
     [Description("模拟表情切换。")]
     public void PetExpression(XmlTagContext context)
     {
-        if (context.Status == TagStatus.Closing)
+        if (context.CallMode == CallMode.Closing)
             LogTag("pet_exp", context.FullContent);
     }
 
-    [XmlHandler("pet_move")]
+    [XmlFunction("pet_move")]
     [Description("模拟位移。")]
     public void PetMove(XmlTagContext context, double x = 0, double y = 0, int duration = 1000)
     {
-        if (context.Status == TagStatus.OneShot)
+        if (context.CallMode == CallMode.OneShot)
             LogTag("pet_move", $"x={x}, y={y}, duration={duration}");
     }
 
-    [XmlHandler("pet_bubble")]
+    [XmlFunction("pet_bubble")]
     public void PetBubble(XmlTagContext context)
     {
-        if (context.Status == TagStatus.Closing)
+        if (context.CallMode == CallMode.Closing)
             LogTag("pet_bubble", context.FullContent);
     }
 
@@ -132,17 +131,17 @@ public class MockPetHandler
 [Description("Mock 语音处理器：用于验证语音输出标签。")]
 public class MockSpeechHandler
 {
-    [XmlHandler("speak")]
+    [XmlFunction("speak")]
     public void Speak(XmlTagContext context, string content)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"  [EXEC Speech {context.Status}] <speak> : {content}");
+        Console.WriteLine($"  [EXEC Speech {context.CallMode}] <speak> : {content}");
         Console.ResetColor();
     }
 }
 public class MockSystemHandler
 {
-    [XmlHandler("continue")]
+    [XmlFunction("continue")]
     public void Continue()
     {
         Console.ForegroundColor = ConsoleColor.Red;

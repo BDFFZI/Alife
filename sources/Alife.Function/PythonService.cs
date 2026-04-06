@@ -15,7 +15,7 @@ public class PythonService : Plugin
     public event Action<string>? PrePythonRun;
     public event Action<string>? PostPythonRun;
 
-    [XmlHandler]
+    [XmlFunction]
     [Description(@"你的专属python执行器，如果执行有结果，还会在之后返回给你。
 注意事项：
 1. 永远把它作为最后一条指令执行，不要捏造结果，调用后请停止说话，并等待结果返回。
@@ -23,7 +23,7 @@ public class PythonService : Plugin
 3. 注意一定要少写代码，能一行解决就不要两行，慎用，因为这个非常烧token，烧完你就宕机了！")]
     public async Task Python(XmlTagContext context)
     {
-        if (context.Status != TagStatus.Closing)
+        if (context.CallMode != CallMode.Closing)
             return;
 
         string filePath = storageSystem.GetTempPath("pythonScript.py");

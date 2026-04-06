@@ -19,11 +19,11 @@ public class VisionService : Plugin, IAsyncDisposable
     /// <summary>
     /// 截取屏幕并进行视觉理解，将结果反馈给 AI。
     /// </summary>
-    [XmlHandler("look_screen")]
+    [XmlFunction("look_screen")]
     [Description("截取当前整个屏幕并自动分析其内容。你可以附带问题，例如：<look_screen>屏幕上有什么？</look_screen>")]
     public async Task LookScreen(XmlTagContext context)
     {
-        if (context.Status != TagStatus.Closing) return;
+        if (context.CallMode != CallMode.Closing) return;
 
         string question = context.FullContent.Trim();
         if (string.IsNullOrWhiteSpace(question))
@@ -49,14 +49,14 @@ public class VisionService : Plugin, IAsyncDisposable
     /// <summary>
     /// 分析指定路径的图片。
     /// </summary>
-    [XmlHandler("look_image")]
+    [XmlFunction("look_image")]
     [Description(@"分析指定路径或 URL 的图片内容，用视觉模型理解后告知你。
 用法示例：<look_image path=""xxx.jpg"">这张图里有什么？</look_image>")]
     public async Task LookImage(XmlTagContext context,
         [Description("图片文件的本地完整路径或网络 URL")] string path,
         [XmlTagContent] [Description("你对这张图片的具体问题")] string question)
     {
-        if (context.Status != TagStatus.Closing) return;
+        if (context.CallMode != CallMode.Closing) return;
 
         string imagePath = path;
         if (string.IsNullOrWhiteSpace(imagePath))

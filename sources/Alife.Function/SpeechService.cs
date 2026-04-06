@@ -14,7 +14,7 @@ public class SpeechService : Plugin, IAsyncDisposable
 {
     public event Action<string, Task>? AudioFileGenerated;
 
-    [XmlHandler("speak")]
+    [XmlFunction("speak")]
     [Description("使用语音的方式向用户发送消息。")]
     public async Task Speak(string content)
     {

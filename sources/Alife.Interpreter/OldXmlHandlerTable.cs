@@ -1,12 +1,18 @@
+using System.Text;
+
 namespace Alife.Interpreter;
 
 internal delegate Task CompiledTagInvoker(
     XmlTagContext context,
     ref string content,
     IReadOnlyDictionary<string, string> attributes);
-
-public sealed record XmlParameterInfo(string Name, string Type, bool IsOptional, string Description = "", string[]? PossibleValues = null, bool IsContent = false);
-
+public sealed record XmlParameterInfo(
+    string Name,
+    string Type,
+    bool IsOptional,
+    string Description = "",
+    string[]? PossibleValues = null,
+    bool IsContent = false);
 public class XmlHandlerTable
 {
     public IEnumerable<string> RegisteredTags => Handlers.Keys;
@@ -39,7 +45,7 @@ public class XmlHandlerTable
     /// </summary>
     public string GenerateDocumentation()
     {
-        System.Text.StringBuilder sb = new();
+        StringBuilder sb = new();
 
         IOrderedEnumerable<IGrouping<string, string>> tagsByClass = RegisteredTags
             .GroupBy(t => TagToClass.TryGetValue(t, out string? className) ? className : "其它")
@@ -60,36 +66,35 @@ public class XmlHandlerTable
             foreach (string tagName in group)
             {
                 string description = Descriptions.TryGetValue(tagName, out string? desc) ? desc : "无说明";
-                List<XmlParameterInfo> parameters = TagParameters.TryGetValue(tagName, out List<XmlParameterInfo>? @params) ? @params : new List<XmlParameterInfo>();
+                List<XmlParameterInfo> parameters = TagParameters.TryGetValue(tagName, out List<XmlParameterInfo>? @params) ? @params : [];
 
                 List<XmlParameterInfo> attrs = parameters.Where(p => p.IsContent == false).ToList();
                 XmlParameterInfo? content = parameters.FirstOrDefault(p => p.IsContent);
 
                 if (content == null && attrs.Count == 0)
                 {
-                    sb.Append($"- <{tagName} /> : {description}");
+                    sb.AppendLine($"- <{tagName} /> : {description}");
+                    continue;
+                }
+
+                sb.Append($"- <{tagName}");
+                foreach (XmlParameterInfo p in attrs)
+                {
+                    string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $" (可选：{p.Description})";
+                    sb.Append($" {p.Name}=\"{p.Type}{pDesc}\"");
+                }
+
+                if (content != null)
+                {
+                    sb.Append(">");
+                    string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : content.Description;
+                    sb.Append(cDesc);
+                    sb.Append($"</{tagName}> : {description}");
                 }
                 else
                 {
-                    sb.Append($"- <{tagName}");
-                    foreach (XmlParameterInfo p in attrs)
-                    {
-                        string pDesc = string.IsNullOrEmpty(p.Description) ? "" : $" (可选：{p.Description})";
-                        sb.Append($" {p.Name}=\"{p.Type}{pDesc}\"");
-                    }
-
-                    if (content != null)
-                    {
-                        sb.Append(">");
-                        string cDesc = string.IsNullOrEmpty(content.Description) ? "内容" : content.Description;
-                        sb.Append(cDesc);
-                        sb.Append($"</{tagName}> : {description}");
-                    }
-                    else
-                    {
-                        sb.Append(" />");
-                        sb.Append($" : {description}");
-                    }
+                    sb.Append(" />");
+                    sb.Append($" : {description}");
                 }
                 sb.AppendLine();
             }

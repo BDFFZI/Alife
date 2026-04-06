@@ -12,22 +12,22 @@ namespace Alife.OfficialPlugins;
 [Description("此服务让你获得控制Live2D桌宠以及接收其交互的能力")]
 public class DeskPetService : Plugin, IAsyncDisposable
 {
-    [XmlHandler("pbub")]
+    [XmlFunction("pbub")]
     [Description("气泡文字：显示一段浮动文字。示例: <pbub>你好</pbub>")]
     public void PetBubble(XmlTagContext context)
     {
-        if (string.IsNullOrWhiteSpace(context.ChunkContent))
+        if (string.IsNullOrWhiteSpace(context.ChipContent))
             return;
 
-        int duration = 2000 + context.ChunkContent.Length * 100;
-        SendToPet(new { type = "bubble", text = context.ChunkContent, duration });
+        int duration = 2000 + context.ChipContent.Length * 100;
+        SendToPet(new { type = "bubble", text = context.ChipContent, duration });
     }
 
-    [XmlHandler("pexp")]
+    [XmlFunction("pexp")]
     [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 悲伤, 害羞, 惊讶, 生气；示例: <pexp>害羞</pexp>")]
     public void PetExpression(XmlTagContext context)
     {
-        if (context.Status != TagStatus.Closing)
+        if (context.CallMode != CallMode.Closing)
             return;
 
         string expression = context.FullContent.Trim();
@@ -43,11 +43,11 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "expression", id });
     }
 
-    [XmlHandler("pmove")]
+    [XmlFunction("pmove")]
     [Description("移动位置：在屏幕上进行相对位移。示例: <pmove x=\"100\" y=\"50\" duration=\"3000\" /> - 表示向右移100像素，下移50像素")]
     public async Task PetMove(XmlTagContext context)
     {
-        if (context.Status != TagStatus.OneShot)
+        if (context.CallMode != CallMode.OneShot)
             return;
 
         var currentTag = context.CallChain.LastOrDefault();
@@ -81,11 +81,11 @@ public class DeskPetService : Plugin, IAsyncDisposable
         moveTcs = null;
     }
 
-    [XmlHandler("pmtn")]
+    [XmlFunction("pmtn")]
     [Description("执行动作：播放预设动画。支持：害羞，摇头，点头；示例: <pmtn>害羞</pmtn>")]
     public void PetMotion(XmlTagContext context)
     {
-        if (context.Status != TagStatus.Closing)
+        if (context.CallMode != CallMode.Closing)
             return;
         if (string.IsNullOrWhiteSpace(context.FullContent))
             return;
@@ -101,11 +101,11 @@ public class DeskPetService : Plugin, IAsyncDisposable
         SendToPet(new { type = "motion", group = "TapBody", index });
     }
 
-    [XmlHandler("pos")]
+    [XmlFunction("pos")]
     [Description("获取位置：获取当前在屏幕上的绝对坐标。示例: <pos />")]
     public async Task PetPos(XmlTagContext context)
     {
-        if (context.Status != TagStatus.OneShot)
+        if (context.CallMode != CallMode.OneShot)
             return;
 
         posTcs = new TaskCompletionSource<(double, double)>(TaskCreationOptions.RunContinuationsAsynchronously);
