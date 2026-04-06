@@ -21,13 +21,14 @@ public class InteractiveExplorer
         compiler.Register(new MockSystemHandler());
 
         var handlerTable = compiler.Compile();
-        var parser = new XmlStreamParser { RootTagName = "Interpreter" };
+        var parser = new OldXmlStreamParser();
         var executor = new XmlStreamExecutor(
             parser,
             handlerTable,
             ["，", "。", "！", "？", "......", "~"],
             minResultLength: 1
         );
+        executor.RootTagName = "Interpreter";
 
         Console.WriteLine("已加载标签文档：");
         Console.ForegroundColor = ConsoleColor.DarkGray;

@@ -12,7 +12,7 @@ namespace Alife.OfficialPlugins;
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public class SpeechService : Plugin, IAsyncDisposable
 {
-    public event Action<string, Task>? Speaking;
+    public event Action<string, Task>? AudioFileGenerated;
 
     [XmlHandler("speak")]
     [Description("使用语音的方式向用户发送消息。")]
@@ -22,39 +22,40 @@ public class SpeechService : Plugin, IAsyncDisposable
         if (string.IsNullOrWhiteSpace(content))
             return;
 
-        synthesizerCancelSource = new CancellationTokenSource();
-        Task<string?> task = synthesizer.GenerateSpeechFileAsync(content, synthesizerCancelSource.Token);
-        await lastSynthesizer;
-        if (synthesizerCancelSource.IsCancellationRequested == false)
-        {
-            lastSynthesizer = Task.Run(async () => {
-                string? output = await task;
-                if (output != null)
-                {
-                    Task speak = synthesizer.PlayAudioAsync(output, synthesizerCancelSource.Token);
-                    Speaking?.Invoke(output, speak);
+        //收到新的语音播报任务，先进行语音合成
+        audioFileSynthesizingCancellation = new CancellationTokenSource();
+        Task<string?> audioSynthesizingTask = synthesizer.GenerateSpeechFileAsync(content, audioFileSynthesizingCancellation.Token);
+        //如果当前有音频在播放，则等待占用结束
+        if (synthesizer.IsSpeaking)
+            await synthesizer.LastSpeaking;
+        //可以播放音频
+        string? audioFile = await audioSynthesizingTask; //等待合成任务完成
+        if (audioFile == null)
+            return; //计算后发现没有可朗读的文本
+        AudioFileGenerated?.Invoke(audioFile, synthesizer.LastSpeaking);
 
-                    if (hasHeadphones)
-                    {
-                        await speak;
-                    }
-                    else
-                    {
-                        StopRecognition();
-                        await speak;
-                        StartRecognition();
-                    }
-                }
+        if (hasHeadphones)
+        {
+            _ = synthesizer.SpeakAudioAsync(audioFile); //不等待播放任务，继续接收下一句话，从而实现预加载
+        }
+        else
+        {
+            if (recognizer.IsRecognizing)
+                recognizer.Stop(); //当没有耳机时，需要关闭语音识别，避免冲突
+            Task speakingTask = synthesizer.SpeakAudioAsync(audioFile);
+            _ = Task.Run(async () => {
+                await speakingTask;
+                if (recognizer.IsRecognizing == false && synthesizer.IsSpeaking == false)
+                    recognizer.Start(); //在语音播放结束后重新打开
             });
         }
     }
 
     readonly SpeechRecognizer recognizer;
     readonly SpeechSynthesizer synthesizer;
-    Task lastSynthesizer;
     ChatBot? chatBot;
     CancellationTokenSource? autoRecognizerSwitchCancellation;
-
+    CancellationTokenSource? audioFileSynthesizingCancellation;
     bool hasHeadphones;
 
     public SpeechService(InterpreterService interpreterService)
@@ -67,7 +68,6 @@ public class SpeechService : Plugin, IAsyncDisposable
 
         //创建合成器
         synthesizer = new SpeechSynthesizer();
-        lastSynthesizer = Task.CompletedTask;
 
         void OnRecognized(string text)
         {
@@ -168,10 +168,10 @@ public class SpeechService : Plugin, IAsyncDisposable
             }
         }
     }
-
-    [XmlHandler]
-    public Task OnInterpreting(XmlTagContext tagContext)
-    {
-        tagContext.
-    }
+    //
+    // [XmlHandler]
+    // public Task OnInterpreting(XmlTagContext tagContext)
+    // {
+    //     tagContext.
+    // }
 }

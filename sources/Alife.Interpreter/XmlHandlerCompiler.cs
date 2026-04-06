@@ -2,20 +2,8 @@ using System.Reflection;
 
 namespace Alife.Interpreter;
 
-/// <summary>
-/// 函数编译器：通过反射扫描 [TagHandler] 方法，构建标签名→调用器的映射表。
-/// 编译完成后编译器本身即可丢弃，只需保留其产出的 CompiledHandlerTable。
-/// </summary>
 public class XmlHandlerCompiler
 {
-    enum ParameterRole { Context, Content, Attribute }
-
-    sealed record ParameterMapping(
-        ParameterRole Role, string? AttributeName, Type ParameterType,
-        bool HasDefaultValue, object? DefaultValue);
-
-    readonly List<(object? Target, MethodInfo Method, string? TagName, string Description, Type DeclaringType)> registrations = new();
-
     public XmlHandlerCompiler Register(object handlerInstance)
     {
         Type type = handlerInstance.GetType();
@@ -48,6 +36,7 @@ public class XmlHandlerCompiler
     public XmlHandlerTable Compile()
     {
         Dictionary<string, CompiledTagInvoker> handlers = new();
+        List<CompiledTagInvoker> catchAllHandlers = new();
         Dictionary<string, string> descriptions = new();
         Dictionary<string, List<XmlParameterInfo>> tagParameters = new();
         Dictionary<string, string> classDescriptions = new();
@@ -55,62 +44,16 @@ public class XmlHandlerCompiler
 
         foreach ((object? target, MethodInfo method, string? tagName, string description, Type declaringType) in registrations)
         {
-            string effectiveTagName = (tagName ?? method.Name).ToLowerInvariant();
-            
-            // 处理类说明
-            string className = declaringType.Name;
-            if (!classDescriptions.ContainsKey(className))
-            {
-                var classDescAttr = declaringType.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
-                classDescriptions[className] = classDescAttr?.Description ?? "";
-            }
-            tagToClass[effectiveTagName] = className;
-
-            // 优先使用 DescriptionAttribute (KernelFunction 风格)，若为空则回退
-            var descAttr = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
-            string effectiveDescription = (descAttr != null && !string.IsNullOrEmpty(descAttr.Description)) 
-                ? descAttr.Description 
-                : description;
-            
-            descriptions[effectiveTagName] = effectiveDescription;
             ParameterMapping[] mappings = BuildParameterMappings(method);
-            
-            List<XmlParameterInfo> paramInfos = new();
-            ParameterInfo[] ps = method.GetParameters();
-            for (int i = 0; i < mappings.Length; i++)
-            {
-                var mapping = mappings[i];
-                if (mapping.Role == ParameterRole.Attribute || mapping.Role == ParameterRole.Content)
-                {
-                    Type type = mapping.ParameterType;
-                    string typeName = GetAITypeName(type);
-                    string[]? possibleValues = type.IsEnum ? Enum.GetNames(type) : null;
-                    
-                    var pDescAttr = ps[i].GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
-                    string pDesc = (pDescAttr != null && !string.IsNullOrEmpty(pDescAttr.Description))
-                        ? pDescAttr.Description
-                        : "";
-                    
-                    paramInfos.Add(new XmlParameterInfo(
-                        mapping.AttributeName ?? ps[i].Name ?? "content", 
-                        typeName, 
-                        mapping.HasDefaultValue, 
-                        pDesc, 
-                        possibleValues,
-                        mapping.Role == ParameterRole.Content));
-                }
-            }
-            tagParameters[effectiveTagName] = paramInfos;
+            object? capturedTarget = target;
+            MethodInfo capturedMethod = method;
 
-            object? tObj = target; MethodInfo mInfo = method;
-            
             CompiledTagInvoker invoker = (XmlTagContext ctx, ref string content, IReadOnlyDictionary<string, string> attrs) =>
             {
                 object?[] args = ResolveArguments(mappings, ctx, content, attrs);
-                
-                object? result = mInfo.Invoke(tObj, args);
-                
-                // 回填 ref string (只有当参数确实是 ref 类型，且被标记为 Content Role 时才允许回填到流内容中)
+                object? result = capturedMethod.Invoke(capturedTarget, args);
+
+                // 回填 ref string（只有 Content 角色且为 ref 类型时才回填到流内容中）
                 for (int j = 0; j < mappings.Length; j++)
                 {
                     if (mappings[j].Role == ParameterRole.Content && mappings[j].ParameterType.IsByRef && args[j] is string newContent)
@@ -120,13 +63,39 @@ public class XmlHandlerCompiler
                     }
                 }
 
-                if (result is Task task)
-                {
-                    return task;
-                }
-                return Task.CompletedTask;
+                return result is Task task ? task : Task.CompletedTask;
             };
 
+            // 通配处理器：tagName 为 null 时接收所有标签事件
+            if (tagName == null)
+            {
+                catchAllHandlers.Add(invoker);
+                continue;
+            }
+
+            string effectiveTagName = tagName.ToLowerInvariant();
+
+            // 处理类说明
+            string className = declaringType.Name;
+            if (classDescriptions.ContainsKey(className) == false)
+            {
+                System.ComponentModel.DescriptionAttribute? classDescAttr = declaringType.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+                classDescriptions[className] = classDescAttr?.Description ?? "";
+            }
+            tagToClass[effectiveTagName] = className;
+
+            // 描述：优先 DescriptionAttribute，回退到 XmlHandler 的 description
+            System.ComponentModel.DescriptionAttribute? descAttr = method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+            string effectiveDescription = (descAttr != null && string.IsNullOrEmpty(descAttr.Description) == false)
+                ? descAttr.Description
+                : description;
+            descriptions[effectiveTagName] = effectiveDescription;
+
+            // 参数信息（用于文档生成）
+            List<XmlParameterInfo> paramInfos = BuildParameterInfos(method, mappings);
+            tagParameters[effectiveTagName] = paramInfos;
+
+            // 同名标签合并（多个处理器并行执行）
             if (handlers.TryGetValue(effectiveTagName, out CompiledTagInvoker? existing))
             {
                 CompiledTagInvoker prev = existing;
@@ -136,31 +105,68 @@ public class XmlHandlerCompiler
                     Task t2 = invoker(ctx, ref content, attrs);
                     return Task.WhenAll(t1, t2);
                 };
-                continue;
             }
-            
-            handlers[effectiveTagName] = invoker;
+            else
+            {
+                handlers[effectiveTagName] = invoker;
+            }
         }
-        return new XmlHandlerTable(handlers, descriptions, tagParameters, classDescriptions, tagToClass);
+
+        return new XmlHandlerTable(handlers, catchAllHandlers, descriptions, tagParameters, classDescriptions, tagToClass);
     }
 
-    static string GetAITypeName(Type t)
+    enum ParameterRole { Context, Content, Attribute }
+
+    sealed record ParameterMapping(
+        ParameterRole Role, string? AttributeName, Type ParameterType,
+        bool HasDefaultValue, object? DefaultValue);
+
+    readonly List<(object? Target, MethodInfo Method, string? TagName, string Description, Type DeclaringType)> registrations = new();
+
+    static List<XmlParameterInfo> BuildParameterInfos(MethodInfo method, ParameterMapping[] mappings)
+    {
+        List<XmlParameterInfo> paramInfos = new();
+        ParameterInfo[] ps = method.GetParameters();
+
+        for (int i = 0; i < mappings.Length; i++)
+        {
+            ParameterMapping mapping = mappings[i];
+            if (mapping.Role != ParameterRole.Attribute && mapping.Role != ParameterRole.Content)
+                continue;
+
+            Type type = mapping.ParameterType;
+            string typeName = GetAiTypeName(type);
+            string[]? possibleValues = type.IsEnum ? Enum.GetNames(type) : null;
+
+            System.ComponentModel.DescriptionAttribute? pDescAttr = ps[i].GetCustomAttribute<System.ComponentModel.DescriptionAttribute>();
+            string pDesc = (pDescAttr != null && string.IsNullOrEmpty(pDescAttr.Description) == false)
+                ? pDescAttr.Description
+                : "";
+
+            paramInfos.Add(new XmlParameterInfo(
+                mapping.AttributeName ?? ps[i].Name ?? "content",
+                typeName,
+                mapping.HasDefaultValue,
+                pDesc,
+                possibleValues,
+                mapping.Role == ParameterRole.Content));
+        }
+        return paramInfos;
+    }
+
+    static string GetAiTypeName(Type t)
     {
         if (t == typeof(string)) return "string";
         if (t == typeof(int) || t == typeof(long) || t == typeof(short)) return "int";
         if (t == typeof(float) || t == typeof(double) || t == typeof(decimal)) return "float";
         if (t == typeof(bool)) return "bool";
         if (t.IsEnum) return "enum{" + string.Join(",", Enum.GetNames(t)) + "}";
-        
+
         Type? u = Nullable.GetUnderlyingType(t);
-        if (u != null) return GetAITypeName(u);
+        if (u != null) return GetAiTypeName(u);
 
         return t.Name;
     }
-
-    // ═══════════════════════════════════════
-    //  参数映射
-    // ═══════════════════════════════════════
 
     static ParameterMapping[] BuildParameterMappings(MethodInfo method)
     {
@@ -175,13 +181,12 @@ public class XmlHandlerCompiler
                 map[i] = new(ParameterRole.Context, null, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
                 continue;
             }
-            
+
             if (ps[i].GetCustomAttribute<XmlTagContentAttribute>() != null)
             {
                 if (ps[i].ParameterType != typeof(string) && ps[i].ParameterType != typeof(string).MakeByRefType())
-                {
                     throw new InvalidOperationException($"{method.DeclaringType?.Name}.{method.Name}: [XmlTagContent] 参数必须是 string 或 ref string");
-                }
+
                 map[i] = new(ParameterRole.Content, ps[i].Name, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
                 contentFound = true;
             }
@@ -190,7 +195,7 @@ public class XmlHandlerCompiler
         for (int i = 0; i < ps.Length; i++)
         {
             if (map[i] != null) continue;
-            
+
             // 自动识别 Content 角色：首个 string 参数
             if (contentFound == false && (ps[i].ParameterType == typeof(string) || ps[i].ParameterType == typeof(string).MakeByRefType()))
             {
@@ -199,11 +204,9 @@ public class XmlHandlerCompiler
                 continue;
             }
 
-            // 其余为属性
             map[i] = new(ParameterRole.Attribute, ps[i].Name, ps[i].ParameterType, ps[i].HasDefaultValue, ps[i].DefaultValue);
         }
 
-        // 注意：内容参数现在是可选的。如果没有找到 string 参数，处理器只是无法接收标签文本内容。
         return map!;
     }
 
@@ -211,30 +214,21 @@ public class XmlHandlerCompiler
     {
         object?[] args = new object?[mappings.Length];
 
-        // Rule 1: 先给 Context 和 Content 赋值
         for (int i = 0; i < mappings.Length; i++)
         {
             if (mappings[i].Role == ParameterRole.Context)
-            {
                 args[i] = ctx;
-            }
             else if (mappings[i].Role == ParameterRole.Content)
-            {
                 args[i] = content;
-            }
         }
 
-        // Rule 2: 属性赋值与覆盖 (仅针对 Attribute 角色，内容参数不再被属性覆盖)
         for (int i = 0; i < mappings.Length; i++)
         {
-            var m = mappings[i];
+            ParameterMapping m = mappings[i];
             if (m.Role != ParameterRole.Attribute) continue;
 
-            string? attrKey = m.AttributeName;
-            string? attrValue = null;
-            if (attrKey != null && attrs.TryGetValue(attrKey, out attrValue))
+            if (m.AttributeName != null && attrs.TryGetValue(m.AttributeName, out string? attrValue))
             {
-                // 尝试转换属性值
                 object? converted = ConvertValue(attrValue!, m.ParameterType);
                 if (converted != null || m.ParameterType.IsPointer || (Nullable.GetUnderlyingType(m.ParameterType) != null && string.IsNullOrEmpty(attrValue)))
                 {
@@ -243,22 +237,17 @@ public class XmlHandlerCompiler
             }
         }
 
-        // Rule 3: 默认值回退 (针对所有非 Context 参数，且尚未赋值的)
+        // 默认值回退
         for (int i = 0; i < mappings.Length; i++)
         {
-            var m = mappings[i];
+            ParameterMapping m = mappings[i];
             if (m.Role == ParameterRole.Context) continue;
             if (args[i] != null) continue;
 
             if (m.HasDefaultValue)
-            {
                 args[i] = m.DefaultValue;
-            }
             else
-            {
-                // 无默认值时的 fallback
                 args[i] = m.ParameterType.IsValueType ? Activator.CreateInstance(m.ParameterType) : null;
-            }
         }
 
         return args;
@@ -268,27 +257,15 @@ public class XmlHandlerCompiler
     {
         try
         {
-            if (t == typeof(string))
-            {
-                return value;
-            }
-            
+            if (t == typeof(string)) return value;
+
             Type? u = Nullable.GetUnderlyingType(t);
             if (u != null)
-            {
                 return string.IsNullOrEmpty(value) ? null : Convert.ChangeType(value, u);
-            }
-            
-            if (t.IsEnum)
-            {
-                return Enum.Parse(t, value, true);
-            }
-            
-            if (t == typeof(bool))
-            {
-                return value is "1" or "true" or "True" or "TRUE";
-            }
-            
+
+            if (t.IsEnum) return Enum.Parse(t, value, true);
+            if (t == typeof(bool)) return value is "1" or "true" or "True" or "TRUE";
+
             return Convert.ChangeType(value, t);
         }
         catch

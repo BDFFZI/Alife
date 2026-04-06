@@ -27,7 +27,7 @@ class Program
 
         DemoSuite suite = await DemoSuite.InitializeAsync(character);
         SpeechService speechService = suite.Activity.Plugins.OfType<SpeechService>().First();
-        speechService.Speaking += (msg, _) => Terminal.LogInfo("合成声音：" + msg);
+        speechService.AudioFileGenerated += (msg, _) => Terminal.LogInfo("合成声音：" + msg);
 
         Terminal.LogInfo("规则：插上耳机激活语音识别，拔掉耳机自动待机保护隐私。");
         Terminal.Log("----------------------------------------", ConsoleColor.Gray);

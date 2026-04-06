@@ -1,5 +1,5 @@
 <Solution>
-  <Folder Name="/Demo/">
+  <Folder Name = "/Demo/" >
     <Project Path="sources/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
     <Project Path="sources\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
     <Project Path="sources\Alife.DeskPet.Demo\Alife.DeskPet.Demo.csproj" />
@@ -10,7 +10,7 @@
   </Folder>
   <Folder Name="/Foundation/">
     <Project Path="sources/Alife.Speech/Alife.Speech.csproj" />
-    <Project Path="sources/Alife.Vision/Alife.Vision.csproj" />
+    <Project Path="sources/Alife.Vision/Alife.Vision.csproj" />\<>
     <Project Path="sources/Alife.Environment/Alife.Environment.csproj" />
     <Project Path="sources\Alife.DeskPet\Alife.DeskPet.csproj" />
     <Project Path="sources\Alife.Interpreter\Alife.Interpreter.csproj" />

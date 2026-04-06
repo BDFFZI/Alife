@@ -23,11 +23,21 @@ public class SpeechSynthesizer
             await PlayAudioAsync(outputFile, cancellationToken.Token);
         });
 
-        try
-        {
-            await currentTask;
-        }
-        catch (OperationCanceledException) { }
+        await currentTask;
+    }
+
+    /// <summary>
+    /// 不进行语音合成，直接将已存在的音频文件作为说话内容，借助该函数，可以将合成与播放分离，从而实现预加载等功能。
+    /// </summary>
+    public async Task SpeakAudioAsync(string file)
+    {
+        if (IsSpeaking)
+            StopSpeak();
+
+        cancellationToken = new CancellationTokenSource();
+        currentTask = PlayAudioAsync(file, cancellationToken.Token);
+
+        await currentTask;
     }
     public void StopSpeak()
     {
@@ -37,55 +47,10 @@ public class SpeechSynthesizer
         cancellationToken!.Cancel();
     }
 
-
-    // 修剪开头静音（edge-tts 生成的音频开头普遍有空白）
-    class LeadingSilenceTrimmer(ISampleProvider source, float threshold = 0.01f) : ISampleProvider
-    {
-        public WaveFormat WaveFormat => source.WaveFormat;
-
-        public int Read(float[] buffer, int offset, int count)
-        {
-            if (trimmed) return source.Read(buffer, offset, count);
-
-            while (true)
-            {
-                int samples = source.Read(buffer, offset, count);
-                if (samples == 0) return 0;
-
-                for (int n = 0; n < samples; n++)
-                {
-                    if (Math.Abs(buffer[offset + n]) > threshold)
-                    {
-                        trimmed = true;
-                        int remaining = samples - n;
-                        for (int i = 0; i < remaining; i++)
-                            buffer[offset + i] = buffer[offset + n + i];
-                        return remaining;
-                    }
-                }
-            }
-        }
-
-        bool trimmed;
-    }
-
-
-    readonly char[] invalidChars;
-    readonly string voiceTone;
-    Task currentTask;
-    CancellationTokenSource? cancellationToken;
-
-    public SpeechSynthesizer()
-    {
-        invalidChars = Path.GetInvalidFileNameChars();
-        voiceTone = "zh-CN-XiaoyiNeural";
-        currentTask = Task.CompletedTask;
-    }
-
     /// <summary>
     /// 通过edge-tts生成音频文件
     /// </summary>
-    async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
     {
         //计算输出位置
         string fileSafeText = string.Concat(text.Where(ch => invalidChars.Contains(ch) == false));
@@ -131,7 +96,7 @@ public class SpeechSynthesizer
     /// <summary>
     /// 播放指定位置的音频文件
     /// </summary>
-    async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
     {
         TaskCompletionSource tcs = new();
         {
@@ -156,5 +121,50 @@ public class SpeechSynthesizer
         }
 
         await tcs.Task;
+    }
+
+
+    // 修剪开头静音（edge-tts 生成的音频开头普遍有空白）
+    class LeadingSilenceTrimmer(ISampleProvider source, float threshold = 0.01f) : ISampleProvider
+    {
+        public WaveFormat WaveFormat => source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            if (trimmed) return source.Read(buffer, offset, count);
+
+            while (true)
+            {
+                int samples = source.Read(buffer, offset, count);
+                if (samples == 0) return 0;
+
+                for (int n = 0; n < samples; n++)
+                {
+                    if (Math.Abs(buffer[offset + n]) > threshold)
+                    {
+                        trimmed = true;
+                        int remaining = samples - n;
+                        for (int i = 0; i < remaining; i++)
+                            buffer[offset + i] = buffer[offset + n + i];
+                        return remaining;
+                    }
+                }
+            }
+        }
+
+        bool trimmed;
+    }
+
+
+    readonly char[] invalidChars;
+    readonly string voiceTone;
+    Task currentTask;
+    CancellationTokenSource? cancellationToken;
+
+    public SpeechSynthesizer()
+    {
+        invalidChars = Path.GetInvalidFileNameChars();
+        voiceTone = "zh-CN-XiaoyiNeural";
+        currentTask = Task.CompletedTask;
     }
 }

@@ -13,7 +13,7 @@ public class InterpreterService : Plugin
     }
 
     readonly XmlHandlerCompiler compiler = new();
-    XmlStreamParser parser = null!;
+    OldXmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
 
     public override Task AwakeAsync(AwakeContext context)
@@ -21,7 +21,7 @@ public class InterpreterService : Plugin
         //创建xml解析执行器等
         compiler.Register(this);
         XmlHandlerTable handlerTable = compiler.Compile();
-        parser = new XmlStreamParser() {
+        parser = new OldXmlStreamParser() {
             RootTagName = "parse"
         };
         executor = new XmlStreamExecutor(
