@@ -19,14 +19,14 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 {
     [XmlFunction]
     [Description("暂停系统周期报点一段时间（注意确保暂停期间你没有其他事务）。")]
-    public void PauseTimer(XmlTagContext context, [Description("暂停持续时间，单位为秒")] int duration = 0)
+    public void PauseTimer(XmlExecutorContext context, [Description("暂停持续时间，单位为秒")] int duration = 0)
     {
         if (context.CallMode == CallMode.OneShot || context.CallMode == CallMode.Closing)
             nextTime += duration;
     }
     [XmlFunction]
     [Description("定一个可带备注的延迟提醒，如<continue delay=\"60\">联系下主人，看看他在干啥？</continue>（注意不要算错时间差）")]
-    public async void Continue(XmlTagContext context, string remark, [Description("延迟的秒数，默认为0")] int delay = 0)
+    public async void Continue(XmlExecutorContext context, string remark, [Description("延迟的秒数，默认为0")] int delay = 0)
     {
         try
         {

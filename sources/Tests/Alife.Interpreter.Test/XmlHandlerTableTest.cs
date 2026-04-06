@@ -27,7 +27,7 @@ public class XmlHandlerTableTest
 ## MockSpeechHandler
 > Mock 语音处理器：用于验证语音输出标签。
 
-- <speak>text（需要转语音的文本）</speak>
+- <speak tone=""String"">text（需要转语音的文本）</speak>
 
 ## MockSystemHandler
 
@@ -52,7 +52,7 @@ public class XmlHandlerTableTest
             },
             Content = "测试文本",
         };
-        handlerTable.Handle("speak", speak);
+        handlerTable.TryHandle("speak", speak);
 
         XmlContext petmove = new() {
             Parameters = new Dictionary<string, string> {
@@ -62,7 +62,7 @@ public class XmlHandlerTableTest
             },
             Content = "测试文本",
         };
-        handlerTable.Handle("petmove", petmove);
+        handlerTable.TryHandle("petmove", petmove);
 
         string actual = XmlHandleLog.ToString();
         const string Expected = @"========
@@ -121,7 +121,7 @@ x=12.34, y=1, duration=1000
     class MockSpeechHandler
     {
         [XmlFunction("speak")]
-        public void Speak(XmlContext context, [Description("需要转语音的文本")] ref string text)
+        public void Speak(XmlContext context, string tone, [Description("需要转语音的文本")] [XmlContent] string text = "")
         {
             LogXmlHandle(context, "MockSpeechHandler.Speak", text);
         }

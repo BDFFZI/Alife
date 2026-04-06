@@ -21,7 +21,7 @@ public class VisionService : Plugin, IAsyncDisposable
     /// </summary>
     [XmlFunction("look_screen")]
     [Description("截取当前整个屏幕并自动分析其内容。你可以附带问题，例如：<look_screen>屏幕上有什么？</look_screen>")]
-    public async Task LookScreen(XmlTagContext context)
+    public async Task LookScreen(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing) return;
 
@@ -52,9 +52,9 @@ public class VisionService : Plugin, IAsyncDisposable
     [XmlFunction("look_image")]
     [Description(@"分析指定路径或 URL 的图片内容，用视觉模型理解后告知你。
 用法示例：<look_image path=""xxx.jpg"">这张图里有什么？</look_image>")]
-    public async Task LookImage(XmlTagContext context,
+    public async Task LookImage(XmlExecutorContext context,
         [Description("图片文件的本地完整路径或网络 URL")] string path,
-        [XmlTagContent] [Description("你对这张图片的具体问题")] string question)
+        [Description("你对这张图片的具体问题")] [XmlContent] string question)
     {
         if (context.CallMode != CallMode.Closing) return;
 

@@ -69,13 +69,25 @@ public class SpeechRecognizer : IDisposable
         for (int i = 0; i < samples.Length; i++)
             samples[i] = BitConverter.ToInt16(buffer, i * 2) / 32768.0f;
 
-        vad.AcceptWaveform(samples);
-        while (vad.IsEmpty() == false)
+        lock (vad)
         {
-            SpeechSegment segment = vad.Front();
-            if (segment.Samples is { Length: > 0 })
-                ProcessSegment(segment.Samples);
-            vad.Pop();
+            if (IsRecognizing == false)
+                return;
+
+            vad.AcceptWaveform(samples);
+            while (vad.IsEmpty() == false)
+            {
+                if (IsRecognizing == false)
+                {
+                    vad.Reset();
+                    return;
+                }
+
+                SpeechSegment segment = vad.Front();
+                if (segment.Samples is { Length: > 0 })
+                    ProcessSegment(segment.Samples);
+                vad.Pop();
+            }
         }
     }
 

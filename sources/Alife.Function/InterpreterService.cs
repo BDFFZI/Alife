@@ -9,18 +9,17 @@ public class InterpreterService : Plugin
 {
     public void RegisterHandler(object handler)
     {
-        compiler.Register(handler);
+        handlerTable.Register(handler);
     }
 
-    readonly XmlHandlerCompiler compiler = new();
+    readonly XmlHandlerTable handlerTable = new();
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
 
     public override Task AwakeAsync(AwakeContext context)
     {
         //创建xml解析执行器等
-        compiler.Register(this);
-        OldXmlHandlerTable handlerTable = compiler.Compile();
+        handlerTable.Register(this);
         parser = new XmlStreamParser();
         executor = new XmlStreamExecutor(
             parser,
@@ -33,7 +32,7 @@ public class InterpreterService : Plugin
         string prompt = @$"# {nameof(InterpreterService)}
 你拥有给文字套上部分xml标签来执行特殊功能的能力。
 **目前可用的标签：**
-{handlerTable.GenerateDocumentation()}
+{handlerTable.Document()}
 注意事项：
 1. 你要先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
 2. 不要分行使用消息类指令，每次必须将完整段落放在一组消息类指令中，如<pet_bubble>开始...过程...结束</pet_bubble>。

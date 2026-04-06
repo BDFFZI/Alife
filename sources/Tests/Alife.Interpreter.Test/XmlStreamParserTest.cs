@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 public class XmlStreamParserTest
 {
     [Test]
-    public void TestXmlStreamParser()
+    public async Task TestXmlStreamParser()
     {
         XmlStreamParser parser = new XmlStreamParser();
         StringBuilder stringBuilder = new StringBuilder();
@@ -14,28 +14,32 @@ public class XmlStreamParserTest
         void Log(string tag, IReadOnlyDictionary<string, string>? dictionary = null)
         {
             output.AppendLine("======");
-            output.AppendLine($"调用：{string.Join('-',parser.TagStack.Reverse())}");
+            output.AppendLine($"调用：{string.Join('-', parser.TagStack.Reverse())}");
             output.AppendLine($"区间：{tag}");
             if (dictionary != null)
                 output.AppendLine($"参数：\n{JsonConvert.SerializeObject(dictionary, Formatting.Indented)}");
         }
-        parser.TagOpened += () => {
+        parser.TagOpened = () => {
             Log("打开" + parser.TagStack.Last(), parser.TagParameters);
             stringBuilder.Clear();
+            return Task.CompletedTask;
         };
-        parser.TagClosed += () => {
+        parser.TagClosed = () => {
             Log("关闭" + parser.TagStack.Last());
             output.AppendLine("内容：" + stringBuilder);
             stringBuilder.Clear();
+            return Task.CompletedTask;
         };
-        parser.TagShotted += () => {
+        parser.TagShotted = () => {
             Log("一次" + parser.TagStack.Last(), parser.TagParameters);
+            return Task.CompletedTask;
         };
-        parser.ContentGot += c => {
+        parser.ContentGot = c => {
             stringBuilder.Append(c);
+            return Task.CompletedTask;
         };
 
-        parser.Feed(@"
+        await parser.Feed(@"
 <response>
     <content type=""text"" lang=""zh-CN"">
         <!--的231<>dasd<-->
@@ -54,7 +58,7 @@ public class XmlStreamParserTest
 
 最后再拖拽一段没有根节点的游离文本。
 ");
-        parser.Flush();
+        await parser.Flush();
 
         string actual = Regex.Replace(output.ToString().Replace("\r\n", "\n"), @"\n[ \t]+\n", "\n\n");
         string expected = @"======

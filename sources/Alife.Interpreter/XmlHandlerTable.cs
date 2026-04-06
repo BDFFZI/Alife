@@ -12,6 +12,9 @@ public class XmlFunctionAttribute : Attribute
     }
 }
 
+[AttributeUsage(AttributeTargets.Parameter)]
+public class XmlContentAttribute : Attribute { }
+
 public class XmlContext
 {
     public required IReadOnlyDictionary<string, string> Parameters { get; init; }
@@ -123,10 +126,11 @@ public class XmlHandlerTable
 
         return sb.ToString().TrimEnd();
     }
-    public Task Handle(string name, XmlContext tagContext)
+    public Task TryHandle(string name, XmlContext tagContext)
     {
-        List<Func<XmlContext, Task>> invokers = xmlInvokers[name];
-        return Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
+        if (xmlInvokers.TryGetValue(name, out List<Func<XmlContext, Task>>? invokers))
+            return Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
+        return Task.CompletedTask;
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
@@ -162,17 +166,13 @@ public class XmlHandlerTable
             {
                 contextParameterIndex = index;
             }
-            else if (parameterInfo.ParameterType == typeof(string).MakeByRefType())
+            else if (parameterInfo.ParameterType == typeof(string).MakeByRefType() || parameterInfo.GetCustomAttribute<XmlContentAttribute>() != null)
             {
                 contentParameterIndex = index;
                 contentName = parameterName;
                 contentDescription = parameterDescription;
             }
-            else if (parameterInfo.ParameterType.IsClass || parameterInfo.ParameterType.IsInterface)
-            {
-                throw new NotSupportedException("暂不支持使用对象类型参数！");
-            }
-            else
+            else if (TypeDescriptor.GetConverter(parameterInfo.ParameterType).CanConvertFrom(typeof(string)))
             {
                 string parameterType = parameterInfo.ParameterType.Name;
                 if (parameterInfo.ParameterType.IsEnum)
@@ -185,6 +185,10 @@ public class XmlHandlerTable
                 });
                 normalParameterIndices[parameterName] = index;
             }
+            else
+            {
+                throw new NotSupportedException("不支持的参数类型！");
+            }
         }
 
         //统计调用方法
@@ -192,7 +196,16 @@ public class XmlHandlerTable
         Task Invoker(XmlContext context)
         {
             //填充默认值
-            for (int index = 0; index < rawParameters.Length; index++) parameterValuesBuffer[index] = rawParameters[index].DefaultValue;
+            for (int index = 0; index < rawParameters.Length; index++)
+            {
+                object? defaultValue = rawParameters[index].DefaultValue;
+                if (defaultValue == null || defaultValue == DBNull.Value)
+                {
+                    Type parameterType = rawParameters[index].ParameterType;
+                    defaultValue = parameterType.IsValueType ? Activator.CreateInstance(parameterType) : null;
+                }
+                parameterValuesBuffer[index] = defaultValue;
+            }
             //接收输入值
             foreach ((string name, string value) in context.Parameters)
             {

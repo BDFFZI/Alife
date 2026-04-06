@@ -5,7 +5,7 @@ namespace Alife.Speech;
 
 public class SpeechSynthesizer
 {
-    public bool IsSpeaking => currentTask is { Status: TaskStatus.Running };
+    public bool IsSpeaking => currentTask is { IsCompleted: false };
     public Task LastSpeaking => currentTask;
 
     public async Task SpeakAsync(string text)
@@ -25,7 +25,6 @@ public class SpeechSynthesizer
 
         await currentTask;
     }
-
     /// <summary>
     /// 不进行语音合成，直接将已存在的音频文件作为说话内容，借助该函数，可以将合成与播放分离，从而实现预加载等功能。
     /// </summary>
@@ -73,12 +72,14 @@ public class SpeechSynthesizer
 
         try
         {
-            // 进程可能卡死，需要超时判断
+            // Console.WriteLine("开始合成音频：" + text);
+
+            // 在线语音合成可能因为网络或拒绝服务导致卡死，需要处理超时问题
             await Task.WhenAny(
                 process.WaitForExitAsync(cancellationToken),
                 Task.Delay(5000, cancellationToken));
             if (process.HasExited == false)
-                throw new TimeoutException("进程卡死或需要用户输入");
+                throw new TimeoutException();
             if (process.ExitCode != 0)
                 throw new Exception($"{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}");
             if (File.Exists(outputPath) == false)
@@ -86,75 +87,72 @@ public class SpeechSynthesizer
 
             return outputPath;
         }
+        catch (TimeoutException)
+        {
+            return null;
+        }
         finally
         {
             if (process.HasExited == false)
                 process.Kill();
+
+            // Console.WriteLine("音频合成完成：" + text);
         }
     }
 
-    /// <summary>
-    /// 播放指定位置的音频文件
-    /// </summary>
-    public async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
+    // 裁剪开头和结尾静音
+    class SilenceTrimmer : ISampleProvider
     {
-        TaskCompletionSource tcs = new();
+        public WaveFormat WaveFormat { get; }
+
+        public SilenceTrimmer(ISampleProvider source, float threshold = 0.01f)
         {
-            AudioFileReader reader = new(filePath);
-            WaveOutEvent speaker = new();
-            speaker.Init(new LeadingSilenceTrimmer(reader));
-            speaker.PlaybackStopped += OnPlaybackStopped;
-            speaker.Play();
+            WaveFormat = source.WaveFormat;
 
-            void OnPlaybackStopped(object? _, StoppedEventArgs e)
+            List<float> allSamples = new();
+            float[] tempBuffer = new float[WaveFormat.SampleRate];
+            int read;
+            while ((read = source.Read(tempBuffer, 0, tempBuffer.Length)) > 0)
             {
-                reader.Dispose();
-                speaker.Dispose();
+                for (int i = 0; i < read; i++)
+                    allSamples.Add(tempBuffer[i]);
+            }
 
-                if (cancellationToken.IsCancellationRequested)
-                    tcs.SetCanceled(cancellationToken);
-                else if (e.Exception != null)
-                    tcs.SetException(e.Exception);
-                else
-                    tcs.SetResult();
+            int start = 0;
+            while (start < allSamples.Count && Math.Abs(allSamples[start]) <= threshold)
+                start++;
+
+            int end = allSamples.Count - 1;
+            while (end > start && Math.Abs(allSamples[end]) <= threshold)
+                end--;
+
+            if (start <= end)
+            {
+                int length = end - start + 1;
+                samples = new float[length];
+                allSamples.CopyTo(start, samples, 0, length);
+            }
+            else
+            {
+                samples = [];
             }
         }
-
-        await tcs.Task;
-    }
-
-
-    // 修剪开头静音（edge-tts 生成的音频开头普遍有空白）
-    class LeadingSilenceTrimmer(ISampleProvider source, float threshold = 0.01f) : ISampleProvider
-    {
-        public WaveFormat WaveFormat => source.WaveFormat;
 
         public int Read(float[] buffer, int offset, int count)
         {
-            if (trimmed) return source.Read(buffer, offset, count);
-
-            while (true)
+            int available = samples.Length - position;
+            int toCopy = Math.Min(available, count);
+            if (toCopy > 0)
             {
-                int samples = source.Read(buffer, offset, count);
-                if (samples == 0) return 0;
-
-                for (int n = 0; n < samples; n++)
-                {
-                    if (Math.Abs(buffer[offset + n]) > threshold)
-                    {
-                        trimmed = true;
-                        int remaining = samples - n;
-                        for (int i = 0; i < remaining; i++)
-                            buffer[offset + i] = buffer[offset + n + i];
-                        return remaining;
-                    }
-                }
+                samples.AsSpan(position, toCopy).CopyTo(buffer.AsSpan(offset, toCopy));
+                position += toCopy;
             }
+            return toCopy;
         }
 
-        bool trimmed;
+        readonly float[] samples;
+        int position;
     }
-
 
     readonly char[] invalidChars;
     readonly string voiceTone;
@@ -166,5 +164,33 @@ public class SpeechSynthesizer
         invalidChars = Path.GetInvalidFileNameChars();
         voiceTone = "zh-CN-XiaoyiNeural";
         currentTask = Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 播放指定位置的音频文件
+    /// </summary>
+    async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        TaskCompletionSource tcs = new();
+
+        AudioFileReader reader = new(filePath);
+        WaveOutEvent speaker = new();
+        speaker.Init(new SilenceTrimmer(reader));
+        speaker.PlaybackStopped += OnPlaybackStopped;
+        speaker.Play();
+
+        //在取消时停止播放
+        await using CancellationTokenRegistration registration = cancellationToken.Register(() => speaker.Stop());
+
+        await tcs.Task;
+        await Task.Delay(200, cancellationToken);
+
+        void OnPlaybackStopped(object? _, StoppedEventArgs e)
+        {
+            if (e.Exception != null)
+                tcs.SetException(e.Exception);
+            else
+                tcs.SetResult();
+        }
     }
 }

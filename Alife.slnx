@@ -8,13 +8,12 @@
     <Project Path="sources\Alife.QChat\Alife.QChat.csproj" />
   </Folder>
   <Folder Name="/_Demos/">
-    <Project Path="sources/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
-    <Project Path="sources\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
-    <Project Path="sources\Alife.DeskPet.Demo\Alife.DeskPet.Demo.csproj" />
-    <Project Path="sources\Alife.Interpreter.Demo\Alife.Interpreter.Demo.csproj" />
-    <Project Path="sources\Alife.Python.Demo\Alife.Python.Demo.csproj" />
-    <Project Path="sources\Alife.QChat.Demo\Alife.QChat.Demo.csproj" />
-    <Project Path="sources\Alife.Speech.Demo\Alife.Speech.Demo.csproj" />
+    <Project Path="sources/Demos/Alife.Demo.Framework/Alife.Demo.Framework.csproj" />
+    <Project Path="sources/Demos/Alife.DeskPet.Demo/Alife.DeskPet.Demo.csproj" />
+    <Project Path="sources/Demos/Alife.Python.Demo/Alife.Python.Demo.csproj" />
+    <Project Path="sources/Demos/Alife.QChat.Demo/Alife.QChat.Demo.csproj" />
+    <Project Path="sources/Demos/Alife.Speech.Demo/Alife.Speech.Demo.csproj" />
+    <Project Path="sources/Demos/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
   </Folder>
   <Folder Name="/_Tests/">
     <Project Path="sources\Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />

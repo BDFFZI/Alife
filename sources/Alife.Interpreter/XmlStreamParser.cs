@@ -4,12 +4,12 @@ public class XmlStreamParser
 {
     public IReadOnlyList<string> TagStack => tagStack;
     public IReadOnlyDictionary<string, string> TagParameters => parsedAttributes;
-    public event Action? TagOpened;
-    public event Action? TagClosed;
-    public event Action? TagShotted;
-    public event Action<char>? ContentGot;
+    public Func<Task>? TagOpened { get; set; }
+    public Func<Task>? TagClosed { get; set; }
+    public Func<Task>? TagShotted { get; set; }
+    public Func<char, Task>? ContentGot { get; set; }
 
-    public void Feed(char ch)
+    public async Task Feed(char ch)
     {
         if (isAnnotation)
         {
@@ -32,7 +32,7 @@ public class XmlStreamParser
             {
                 case ';':
                     escapingBuffer.Append(ch);
-                    FlashEscaping();
+                    await FlashEscaping();
                     break;
                 default:
                     escapingBuffer.Append(ch);
@@ -57,7 +57,7 @@ public class XmlStreamParser
                     isTagParsing = true;
                     break;
                 default:
-                    HandleContentChar(ch);
+                    await HandleContentChar(ch);
                     break;
             }
 
@@ -91,7 +91,7 @@ public class XmlStreamParser
                 break;
             case '>':
                 FlushTagOrAttributeName();
-                FlashTag();
+                await FlashTag();
                 break;
             case '"':
                 if (currentTagAttributeName != null)
@@ -107,16 +107,17 @@ public class XmlStreamParser
                 break;
         }
     }
-    public void Feed(string text)
+    public async Task Feed(string text)
     {
         foreach (char ch in text)
-            Feed(ch);
+            await Feed(ch);
     }
-    public void Flush()
+    public async Task Flush()
     {
         while (tagStack.Count != 0)
         {
-            TagClosed?.Invoke();
+            if (TagClosed != null)
+                await TagClosed.Invoke();
             tagStack.RemoveAt(tagStack.Count - 1);
         }
         Reset();
@@ -150,16 +151,17 @@ public class XmlStreamParser
 
     readonly List<string> tagStack = new();
 
-    void HandleContentChar(char ch)
+    async Task HandleContentChar(char ch)
     {
-        ContentGot?.Invoke(ch);
+        if (ContentGot != null)
+            await ContentGot.Invoke(ch);
     }
     void HandleTagChar(char ch)
     {
         tagBuffer.Append(ch);
     }
 
-    void FlashEscaping()
+    async Task FlashEscaping()
     {
         isCharEscaping = false;
         string content = escapingBuffer.ToString();
@@ -179,7 +181,7 @@ public class XmlStreamParser
             if (isTagParsing)
                 HandleTagChar(escaping.Value);
             else
-                HandleContentChar(escaping.Value);
+                await HandleContentChar(escaping.Value);
         }
         else
         {
@@ -191,7 +193,7 @@ public class XmlStreamParser
             else
             {
                 foreach (char ch in content)
-                    HandleContentChar(ch);
+                    await HandleContentChar(ch);
             }
         }
     }
@@ -228,7 +230,7 @@ public class XmlStreamParser
         currentTagAttributeName = null;
         isValueParsing = false;
     }
-    void FlashTag()
+    async Task FlashTag()
     {
         if (currentTagName != null)
         {
@@ -236,18 +238,21 @@ public class XmlStreamParser
             {
                 case 0:
                     tagStack.Add(currentTagName);
-                    TagOpened?.Invoke();
+                    if (TagOpened != null)
+                        await TagOpened.Invoke();
                     break;
                 case 1:
                     if (tagStack.Count != 0 && tagStack.Last() == currentTagName)
                     {
-                        TagClosed?.Invoke();
+                        if (TagClosed != null)
+                            await TagClosed.Invoke();
                         tagStack.RemoveAt(tagStack.Count - 1);
                     }
                     break;
                 case 2:
                     tagStack.Add(currentTagName);
-                    TagShotted?.Invoke();
+                    if (TagShotted != null)
+                        await TagShotted.Invoke();
                     tagStack.RemoveAt(tagStack.Count - 1);
                     break;
             }

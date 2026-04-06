@@ -13,12 +13,14 @@ public enum CallMode
 public class XmlExecutorContext : XmlContext
 {
     public required IReadOnlyList<string> CallChain { get; init; }
-    public CallMode CallMode { get; set; }
+    public CallMode CallMode { get; init; }
     public string AboveContent { get; set; } = "";
     public string? AboveSeparator { get; set; }
+    public string FullContent => AboveContent + Content;
 }
 public class XmlStreamExecutor : IAsyncDisposable
 {
+    public bool IsIdle => commandChannel.Reader.TryPeek(out _) == false;
     public void Feed(string text)
     {
         foreach (char ch in text)
@@ -50,9 +52,8 @@ public class XmlStreamExecutor : IAsyncDisposable
 
     readonly Channel<StreamCommand> commandChannel = Channel.CreateUnbounded<StreamCommand>(new UnboundedChannelOptions {
         SingleReader = true,
-        SingleWriter = false
+        SingleWriter = false,
     });
-    readonly Queue<Func<Task>> parserEvent = new();
     readonly List<StringBuilder> aboveContentBuffer = new();
     readonly StringBuilder contentBuffer = new();
 
@@ -63,10 +64,10 @@ public class XmlStreamExecutor : IAsyncDisposable
         this.sentenceBreakers = sentenceBreakers ?? [",", ".", "!", "?", "，", "。", "！", "？"];
         this.minBreakingLength = minBreakingLength;
 
-        this.parser.TagOpened += () => parserEvent.Enqueue(() => OnTagOpened());
-        this.parser.TagShotted += () => parserEvent.Enqueue(() => OnTagShotted());
-        this.parser.TagClosed += () => parserEvent.Enqueue(() => OnTagClosed());
-        this.parser.ContentGot += ch => parserEvent.Enqueue(() => OnContentGot(ch));
+        this.parser.TagOpened = OnTagOpened;
+        this.parser.TagShotted = OnTagShotted;
+        this.parser.TagClosed = OnTagClosed;
+        this.parser.ContentGot = OnContentGot;
 
         processingTokenSource = new CancellationTokenSource();
         LoopProcessInput(processingTokenSource.Token);
@@ -87,17 +88,14 @@ public class XmlStreamExecutor : IAsyncDisposable
                     switch (cmd.Type)
                     {
                         case CommandType.Feed:
-                            parser.Feed(cmd.Data);
-                            await FlushParserEvent();
+                            await parser.Feed(cmd.Data);
                             break;
                         case CommandType.Flush:
-                            parser.Flush();
-                            await FlushParserEvent();
+                            await parser.Flush();
                             ClearContentBuffer();
                             break;
                         case CommandType.Reset:
                             parser.Reset();
-                            parserEvent.Clear();
                             ClearContentBuffer();
                             break;
                     }
@@ -107,13 +105,6 @@ public class XmlStreamExecutor : IAsyncDisposable
         catch (Exception e)
         {
             Console.WriteLine(e);
-        }
-    }
-    async Task FlushParserEvent()
-    {
-        while (parserEvent.TryDequeue(out Func<Task>? taskFunc))
-        {
-            await taskFunc();
         }
     }
 
@@ -151,7 +142,7 @@ public class XmlStreamExecutor : IAsyncDisposable
             AboveSeparator = null,
             Content = "",
         };
-        return handler.Handle(tagName, context);
+        return handler.TryHandle(tagName, context);
     }
 
     /// <summary>
@@ -192,7 +183,7 @@ public class XmlStreamExecutor : IAsyncDisposable
                 Content = content,
             };
 
-            await handler.Handle(tagName, context);
+            await handler.TryHandle(tagName, context);
 
             //获取调用后的内容，这可能被修改
             content = context.Content;

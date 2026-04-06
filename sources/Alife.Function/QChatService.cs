@@ -15,7 +15,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
 {
     [XmlFunction]
     [Description($"该指令使你能够发送QQ文本消息。消息中还支持包含[CQ:at,qq=xxx]来显式回复特定的人，例如群聊时用At来回复指定的消息)(此外当用户使用{nameof(QChatService)}给你发消息时，你也应当用该指令回复)")]
-    public async Task QChat(XmlTagContext ctx, string _ = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "")
+    public async Task QChat(XmlExecutorContext ctx, string _ = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "")
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
 
@@ -57,10 +57,13 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
 
     [XmlFunction]
     [Description("该指令使你能够发送QQ图片消息（注意路径分隔符用/。如果用\\，需要转义为\\\\）。")]
-    public async Task QImage(XmlTagContext ctx, [Description("图片链接 (文件/网址/表情库名称)")] string file = "", [Description("QQ/群号")] long target = 0, [Description("'private'/'group'")] string type = "",
-        [XmlTagContent] string _ = "")
+    public async Task QImage(
+        XmlExecutorContext ctx,
+        [Description("图片链接 (文件/网址/表情库名称)")] string file = "",
+        [Description("QQ/群号")] long target = 0,
+        [Description("'private'/'group'")] string type = "")
     {
-        if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot)
+        if (ctx.CallMode != CallMode.OneShot)
             return;
         if (string.IsNullOrWhiteSpace(file))
             return;
@@ -132,7 +135,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<OneBotConfig
 
     [XmlFunction]
     [Description("使你能够设置群消息的开关。true表示接收消息，false表示关闭，关闭后仅响应私聊和 @ 提到。")]
-    public void QToggleGroup(XmlTagContext ctx, bool enabled)
+    public void QToggleGroup(XmlExecutorContext ctx, bool enabled)
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
 

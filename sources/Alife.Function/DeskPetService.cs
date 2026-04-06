@@ -14,18 +14,18 @@ public class DeskPetService : Plugin, IAsyncDisposable
 {
     [XmlFunction("pbub")]
     [Description("气泡文字：显示一段浮动文字。示例: <pbub>你好</pbub>")]
-    public void PetBubble(XmlTagContext context)
+    public void PetBubble(XmlExecutorContext context)
     {
-        if (string.IsNullOrWhiteSpace(context.ChipContent))
+        if (string.IsNullOrWhiteSpace(context.Content))
             return;
 
-        int duration = 2000 + context.ChipContent.Length * 100;
-        SendToPet(new { type = "bubble", text = context.ChipContent, duration });
+        int duration = 2000 + context.Content.Length * 100;
+        SendToPet(new { type = "bubble", text = context.Content, duration });
     }
 
     [XmlFunction("pexp")]
     [Description("控制表情：切换当前显示的表情。支持：开心, 闭眼, 悲伤, 害羞, 惊讶, 生气；示例: <pexp>害羞</pexp>")]
-    public void PetExpression(XmlTagContext context)
+    public void PetExpression(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
             return;
@@ -45,34 +45,22 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
     [XmlFunction("pmove")]
     [Description("移动位置：在屏幕上进行相对位移。示例: <pmove x=\"100\" y=\"50\" duration=\"3000\" /> - 表示向右移100像素，下移50像素")]
-    public async Task PetMove(XmlTagContext context)
+    public async Task PetMove(XmlExecutorContext context, double x = 0, double y = 0, int duration = 1000)
     {
         if (context.CallMode != CallMode.OneShot)
             return;
 
-        var currentTag = context.CallChain.LastOrDefault();
-        string? sx = null, sy = null, sd = null;
-
-        if (currentTag.Attributes != null)
-        {
-            currentTag.Attributes.TryGetValue("x", out sx);
-            currentTag.Attributes.TryGetValue("y", out sy);
-            currentTag.Attributes.TryGetValue("duration", out sd);
-        }
-
-        if (string.IsNullOrEmpty(sx) && !string.IsNullOrEmpty(context.FullContent))
+        // Fallback for body content: <pmove>100,50</pmove>
+        if (x == 0 && y == 0 && !string.IsNullOrEmpty(context.FullContent))
         {
             var parts = context.FullContent.Split(',');
             if (parts.Length >= 2)
             {
-                sx = parts[0].Trim();
-                sy = parts[1].Trim();
+                double.TryParse(parts[0].Trim(), out x);
+                double.TryParse(parts[1].Trim(), out y);
             }
         }
 
-        double.TryParse(sx, out double x);
-        double.TryParse(sy, out double y);
-        int.TryParse(sd, out int duration);
         if (duration <= 0) duration = 1000;
 
         moveTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -83,7 +71,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
     [XmlFunction("pmtn")]
     [Description("执行动作：播放预设动画。支持：害羞，摇头，点头；示例: <pmtn>害羞</pmtn>")]
-    public void PetMotion(XmlTagContext context)
+    public void PetMotion(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
             return;
@@ -103,7 +91,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
     [XmlFunction("pos")]
     [Description("获取位置：获取当前在屏幕上的绝对坐标。示例: <pos />")]
-    public async Task PetPos(XmlTagContext context)
+    public async Task PetPos(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.OneShot)
             return;
