@@ -1,0 +1,18 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  Alife.QChat -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.QChat\debug\Alife.QChat.dll
+  Alife.Environment -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Environment\debug\Alife.Environment.dll
+  Alife.DeskPet -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.DeskPet\debug\Alife.DeskPet.dll
+C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlHandlerCompiler.cs(87,47): error CS0748: lambda 参数的用法不一致；参数类型必须全部为显式或全部为隐式 [C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\Alife.Interpreter.csproj]
+  Alife.Vision -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Vision\debug\Alife.Vision.dll
+  Alife.Core -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Core\debug\Alife.Core.dll
+  Alife.Demo.Framework -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Demo.Framework\debug\Alife.Demo.Framework.dll
+  Alife.Speech -> C:\Users\13309\Desktop\Alife\outputs\bin\Alife.Speech\debug\Alife.Speech.dll
+
+生成失败。
+
+C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\XmlHandlerCompiler.cs(87,47): error CS0748: lambda 参数的用法不一致；参数类型必须全部为显式或全部为隐式 [C:\Users\13309\Desktop\Alife\sources\Alife.Interpreter\Alife.Interpreter.csproj]
+    0 个警告
+    1 个错误
+
+已用时间 00:00:01.99
