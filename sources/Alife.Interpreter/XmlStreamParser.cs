@@ -2,11 +2,12 @@ using System.Text;
 
 public class XmlStreamParser
 {
-    public Stack<string> TagStack => tagStack;
-    public event Action<string, IReadOnlyDictionary<string, string>>? OpenTagParsed;
-    public event Action<string>? CloseTagParsed;
-    public event Action<string, IReadOnlyDictionary<string, string>>? ShotTagParsed;
-    public event Action<char>? ContentParsed;
+    public IReadOnlyList<string> TagStack => tagStack;
+    public IReadOnlyDictionary<string, string> TagParameters => parsedAttributes;
+    public event Action? TagOpened;
+    public event Action? TagClosed;
+    public event Action? TagShotted;
+    public event Action<char>? ContentGot;
 
     public void Feed(char ch)
     {
@@ -113,10 +114,10 @@ public class XmlStreamParser
     }
     public void Flush()
     {
-        while (tagStack.TryPeek(out string? tag))
+        while (tagStack.Count != 0)
         {
-            CloseTagParsed?.Invoke(tag);
-            tagStack.Pop();
+            TagClosed?.Invoke();
+            tagStack.RemoveAt(tagStack.Count - 1);
         }
         Reset();
     }
@@ -147,11 +148,11 @@ public class XmlStreamParser
     /// 0：开标签；1：闭标签；2：自闭合标签
     int tagMode;
 
-    readonly Stack<string> tagStack = new();
+    readonly List<string> tagStack = new();
 
     void HandleContentChar(char ch)
     {
-        ContentParsed?.Invoke(ch);
+        ContentGot?.Invoke(ch);
     }
     void HandleTagChar(char ch)
     {
@@ -234,20 +235,20 @@ public class XmlStreamParser
             switch (tagMode)
             {
                 case 0:
-                    tagStack.Push(currentTagName);
-                    OpenTagParsed?.Invoke(currentTagName, parsedAttributes);
+                    tagStack.Add(currentTagName);
+                    TagOpened?.Invoke();
                     break;
                 case 1:
-                    if (tagStack.TryPeek(out string? lastTag) && lastTag == currentTagName)
+                    if (tagStack.Count != 0 && tagStack.Last() == currentTagName)
                     {
-                        CloseTagParsed?.Invoke(currentTagName);
-                        tagStack.Pop();
+                        TagClosed?.Invoke();
+                        tagStack.RemoveAt(tagStack.Count - 1);
                     }
                     break;
                 case 2:
-                    tagStack.Push(currentTagName);
-                    ShotTagParsed?.Invoke(currentTagName, parsedAttributes);
-                    tagStack.Pop();
+                    tagStack.Add(currentTagName);
+                    TagShotted?.Invoke();
+                    tagStack.RemoveAt(tagStack.Count - 1);
                     break;
             }
         }

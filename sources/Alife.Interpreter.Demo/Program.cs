@@ -7,25 +7,26 @@ public class Program
     {
         await TestXmlStreamParser();
     }
-
+    
     static Task TestXmlStreamParser()
     {
         XmlStreamParser parser = new XmlStreamParser();
         StringBuilder stringBuilder = new StringBuilder();
+        StringBuilder output = new StringBuilder();
 
-        parser.OpenTagParsed += (tag, dictionary) => {
+        parser.TagOpened += (tag, dictionary) => {
             Log("打开" + tag, dictionary);
             stringBuilder.Clear();
         };
-        parser.CloseTagParsed += tag => {
+        parser.TagClosed += tag => {
             Log("关闭" + tag);
-            Console.WriteLine("内容：" + stringBuilder);
+            output.AppendLine("内容：" + stringBuilder);
             stringBuilder.Clear();
         };
-        parser.ShotTagParsed += (tag, dictionary) => {
+        parser.TagShotted += (tag, dictionary) => {
             Log("一次" + tag, dictionary);
         };
-        parser.ContentParsed += c => {
+        parser.ContentGot += c => {
             stringBuilder.Append(c);
         };
 
@@ -38,17 +39,18 @@ public class Program
     </content>
     
     <userProfile id=""1001"" role=""admin"">
-        <name>Alice</name>
-        <standard>使用标准实体：&lt; &gt; &amp;</standard>
+        <name>Alice< / name>
+        <standard >使用标准实体：&lt; &gt; &amp;</standard>
         <preferences>
-            <theme>dark</theme>
-            <notifications enabled=""true"" />
+            < theme>dark</theme>
+            <notifications enabled=""true"" / >
         </preferences>
 </response>
 
 最后再拖拽一段没有根节点的游离文本。
 ");
         parser.Flush();
+        output.ToString()
 
         while (true)
         {
@@ -58,11 +60,11 @@ public class Program
 
         void Log(string tag, IReadOnlyDictionary<string, string>? dictionary = null)
         {
-            Console.WriteLine("======");
-            Console.WriteLine($"调用：{string.Join('-', parser.TagStack)}");
-            Console.WriteLine($"区间：{tag}");
+            output.AppendLine("======");
+            output.AppendLine($"调用：{string.Join('-', parser.TagStack)}");
+            output.AppendLine($"区间：{tag}");
             if (dictionary != null)
-                Console.WriteLine($"参数：\n{JsonConvert.SerializeObject(dictionary, Formatting.Indented)}");
+                output.AppendLine($"参数：\n{JsonConvert.SerializeObject(dictionary, Formatting.Indented)}");
         }
     }
 }

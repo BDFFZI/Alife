@@ -26,7 +26,7 @@ public class InteractiveExplorer
             parser,
             handlerTable,
             ["，", "。", "！", "？", "......", "~"],
-            minResultLength: 1
+            minBreakingLength: 1
         );
 
         Console.WriteLine("已加载标签文档：");

@@ -3,237 +3,211 @@ using System.Threading.Channels;
 
 namespace Alife.Interpreter;
 
-public class XmlStreamExecutor
+public enum CallMode
 {
-    public void Feed(char ch) => commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Feed, ch));
-
+    Opening,
+    Closing,
+    OneShot,
+    Content,
+}
+public class XmlExecutorContext : XmlContext
+{
+    public required IReadOnlyList<string> CallChain { get; init; }
+    public CallMode CallMode { get; set; }
+    public string AboveContent { get; set; } = "";
+    public string? AboveSeparator { get; set; }
+}
+public class XmlStreamExecutor : IAsyncDisposable
+{
     public void Feed(string text)
     {
-        foreach (char ch in text) Feed(ch);
+        foreach (char ch in text)
+            commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Feed, ch));
     }
-
-    public async Task FeedAsync(char ch)
-    {
-        await commandChannel.Writer.WriteAsync(new StreamCommand(CommandType.Feed, ch));
-    }
-
-    public async Task FeedAsync(string text)
-    {
-        foreach (char ch in text) await FeedAsync(ch);
-    }
-
-    public async Task FlushAsync()
-    {
-        TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        await commandChannel.Writer.WriteAsync(new StreamCommand(CommandType.Flush, Completion: tcs));
-        await tcs.Task;
-    }
-
     public void Flush()
     {
         commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Flush));
     }
-
     public void Reset()
     {
-        while (commandChannel.Reader.TryRead(out StreamCommand cmd))
-            cmd.Completion?.TrySetCanceled();
-
         commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Reset));
     }
 
-    enum CommandType { Feed, Flush, Reset }
-
-    record struct StreamCommand(CommandType Type, char Data = default, TaskCompletionSource? Completion = null);
-
-    sealed class TagEntry
+    enum CommandType
     {
-        public required string Name { get; init; }
-        public required IReadOnlyDictionary<string, string> Attributes { get; init; }
-        public StringBuilder Content { get; } = new();
+        Feed,
+        Flush,
+        Reset
     }
 
+    record struct StreamCommand(CommandType Type, char Data = '\0');
+
     readonly XmlStreamParser parser;
-    readonly XmlHandlerTable handlerTable;
-    readonly List<string> sentenceBreakers;
-    readonly int minResultLength;
+    readonly XmlHandlerTable handler;
+    readonly string[] sentenceBreakers;
+    readonly int minBreakingLength;
+    readonly CancellationTokenSource processingTokenSource;
+
     readonly Channel<StreamCommand> commandChannel = Channel.CreateUnbounded<StreamCommand>(new UnboundedChannelOptions {
         SingleReader = true,
         SingleWriter = false
     });
-
-    readonly Stack<TagEntry> tagStack = new();
-    readonly Queue<Func<Task>> eventQueue = new();
+    readonly Queue<Func<Task>> parserEvent = new();
+    readonly List<StringBuilder> aboveContentBuffer = new();
     readonly StringBuilder contentBuffer = new();
 
-    public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handlerTable, IEnumerable<string>? sentenceBreakers = null, int minResultLength = 0)
+    public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handler, string[]? sentenceBreakers = null, int minBreakingLength = 0)
     {
         this.parser = parser;
-        this.handlerTable = handlerTable;
-        this.minResultLength = minResultLength;
-        this.sentenceBreakers = sentenceBreakers?.ToList() ?? [",", ".", "!", "?", "，", "。", "！", "？"];
+        this.handler = handler;
+        this.sentenceBreakers = sentenceBreakers ?? [",", ".", "!", "?", "，", "。", "！", "？"];
+        this.minBreakingLength = minBreakingLength;
 
-        this.parser.OpenTagParsed += (name, attrs) => eventQueue.Enqueue(() => OnOpenTagAsync(name, attrs));
-        this.parser.ShotTagParsed += (name, attrs) => eventQueue.Enqueue(() => OnSelfClosingTagAsync(name, attrs));
-        this.parser.CloseTagParsed += (name) => eventQueue.Enqueue(() => OnCloseTagAsync(name));
-        this.parser.ContentParsed += (ch) => eventQueue.Enqueue(() => OnTextAsync(ch.ToString()));
+        this.parser.TagOpened += () => parserEvent.Enqueue(() => OnTagOpened());
+        this.parser.TagShotted += () => parserEvent.Enqueue(() => OnTagShotted());
+        this.parser.TagClosed += () => parserEvent.Enqueue(() => OnTagClosed());
+        this.parser.ContentGot += ch => parserEvent.Enqueue(() => OnContentGot(ch));
 
-        _ = ProcessInputLoopAsync();
+        processingTokenSource = new CancellationTokenSource();
+        LoopProcessInput(processingTokenSource.Token);
+    }
+    public async ValueTask DisposeAsync()
+    {
+        await processingTokenSource.CancelAsync();
     }
 
-    async Task ProcessInputLoopAsync()
+    async void LoopProcessInput(CancellationToken cancellationToken = default)
     {
-        while (await commandChannel.Reader.WaitToReadAsync())
+        try
         {
-            while (commandChannel.Reader.TryRead(out StreamCommand cmd))
+            while (await commandChannel.Reader.WaitToReadAsync(cancellationToken))
             {
-                try
+                while (commandChannel.Reader.TryRead(out StreamCommand cmd))
                 {
                     switch (cmd.Type)
                     {
                         case CommandType.Feed:
                             parser.Feed(cmd.Data);
-                            await ProcessEventQueueAsync();
+                            await FlushParserEvent();
                             break;
                         case CommandType.Flush:
                             parser.Flush();
-                            await ProcessEventQueueAsync();
-                            contentBuffer.Clear();
-                            cmd.Completion?.TrySetResult();
+                            await FlushParserEvent();
+                            ClearContentBuffer();
                             break;
                         case CommandType.Reset:
                             parser.Reset();
-                            eventQueue.Clear();
-                            tagStack.Clear();
-                            contentBuffer.Clear();
+                            parserEvent.Clear();
+                            ClearContentBuffer();
                             break;
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Executor Error]: {ex}");
-                    cmd.Completion?.TrySetException(ex);
-                }
             }
         }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
-
-    async Task ProcessEventQueueAsync()
+    async Task FlushParserEvent()
     {
-        while (eventQueue.TryDequeue(out Func<Task>? taskFunc))
+        while (parserEvent.TryDequeue(out Func<Task>? taskFunc))
         {
             await taskFunc();
         }
     }
 
-    async Task OnOpenTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes)
+    Task OnTagOpened()
     {
-        if (contentBuffer.Length > 0 && tagStack.Count > 0)
-        {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, CallMode.Content);
-            contentBuffer.Clear();
-        }
-
-        tagStack.Push(new TagEntry { Name = tagName, Attributes = attributes });
-        await ProcessCurrentStackAsync(null, "", null, CallMode.Opening);
+        if (aboveContentBuffer.Count < parser.TagStack.Count)
+            aboveContentBuffer.Add(new StringBuilder());
+        return HandleTag(CallMode.Opening);
     }
 
-    async Task OnSelfClosingTagAsync(string tagName, IReadOnlyDictionary<string, string> attributes)
+    async Task OnTagClosed()
     {
-        if (contentBuffer.Length > 0 && tagStack.Count > 0)
-        {
-            await ProcessCurrentStackAsync(null, contentBuffer.ToString(), null, CallMode.Content);
-            contentBuffer.Clear();
-        }
-
-        TagEntry entry = new() { Name = tagName, Attributes = attributes };
-        await ProcessCurrentStackAsync(entry, "", null, CallMode.OneShot);
+        if (contentBuffer.Length != 0)
+            await FlushContentBuffer(); //即使没有触发分词也必须推送了，因为标签即将关闭
+        await HandleTag(CallMode.Closing);
+        aboveContentBuffer[parser.TagStack.Count - 1].Clear();
     }
 
-    async Task OnCloseTagAsync(string tagName)
+    Task OnTagShotted()
     {
-        if (tagStack.Count == 0) return;
-
-        TagEntry entry = tagStack.Pop();
-        string lastChunk = contentBuffer.ToString();
-        contentBuffer.Clear();
-
-        await ProcessCurrentStackAsync(entry, lastChunk, null, CallMode.Closing);
+        if (aboveContentBuffer.Count < parser.TagStack.Count)
+            aboveContentBuffer.Add(new StringBuilder());
+        return HandleTag(CallMode.OneShot);
     }
 
-    async Task OnTextAsync(string text)
+    Task HandleTag(CallMode callMode)
     {
-        contentBuffer.Append(text);
+        string tagName = parser.TagStack.Last();
+        string aboveContent = aboveContentBuffer[parser.TagStack.Count - 1].ToString();
+        XmlExecutorContext context = new() {
+            CallChain = parser.TagStack,
+            CallMode = callMode,
+            Parameters = parser.TagParameters,
+            AboveContent = aboveContent,
+            AboveSeparator = null,
+            Content = "",
+        };
+        return handler.Handle(tagName, context);
+    }
 
-        if (tagStack.Count > 0)
+    /// <summary>
+    /// 接收缓存字符，同时检测自动分词，如果触发分词，则提前推送一次content
+    /// </summary>
+    Task OnContentGot(char ch)
+    {
+        contentBuffer.Append(ch);
+
+        if (contentBuffer.Length >= minBreakingLength)
         {
-            string currentText = contentBuffer.ToString();
+            string content = contentBuffer.ToString();
             foreach (string breaker in sentenceBreakers)
             {
-                if (currentText.EndsWith(breaker))
-                {
-                    int accumulatedLength = currentText.Length - breaker.Length;
-                    if (accumulatedLength >= minResultLength)
-                    {
-                        await ProcessCurrentStackAsync(null, currentText, breaker, CallMode.Content);
-                        contentBuffer.Clear();
-                        break;
-                    }
-                }
+                if (content.EndsWith(breaker))
+                    return FlushContentBuffer(breaker); //提前推送一次content
             }
         }
+
+        return Task.CompletedTask;
     }
 
-    async Task ProcessCurrentStackAsync(TagEntry? closingEntry, string currentChunk, string? trigger, CallMode eventStatus)
+    async Task FlushContentBuffer(string? separator = null)
     {
-        List<TagEntry> chain = tagStack.Reverse().ToList();
-        if (closingEntry != null)
-            chain.Add(closingEntry);
+        string content = contentBuffer.ToString();
+        contentBuffer.Clear();
 
-        if (chain.Count == 0) return;
-        if (string.IsNullOrEmpty(currentChunk) && eventStatus == CallMode.Content) return;
-
-        string tempChunk = currentChunk;
-
-        for (int i = chain.Count - 1; i >= 0; i--)
+        for (int index = parser.TagStack.Count - 1; index >= 0; index--)
         {
-            TagEntry entry = chain[i];
+            string tagName = parser.TagStack[index];
+            string aboveContent = aboveContentBuffer[index].ToString();
+            XmlExecutorContext context = new() {
+                CallChain = parser.TagStack,
+                CallMode = CallMode.Content,
+                Parameters = parser.TagParameters,
+                AboveContent = aboveContent,
+                AboveSeparator = separator,
+                Content = content,
+            };
 
-            if (i < chain.Count - 1 && string.IsNullOrEmpty(tempChunk)) break;
+            await handler.Handle(tagName, context);
 
-            CallMode statusForThisTag = (i == chain.Count - 1) ? eventStatus : CallMode.Content;
-            string fullContentForThisTag = entry.Content.ToString() + tempChunk;
-
-            XmlTagContext context = new(
-                chain.Take(i + 1).Select(e => new TagInfo { Name = e.Name, Attributes = new Dictionary<string, string>(e.Attributes) }).ToList(),
-                trigger,
-                statusForThisTag,
-                fullContentForThisTag,
-                tempChunk
-            );
-
-            await InvokeHandlerAsync(entry, context, ref tempChunk);
+            //获取调用后的内容，这可能被修改
+            content = context.Content;
+            if (content == "")
+                break; //被彻底拦截
         }
 
-        foreach (TagEntry entry in tagStack)
-        {
-            entry.Content.Append(tempChunk);
-        }
+        //缓存内容
+        for (int i = 0; i < parser.TagStack.Count; i++)
+            aboveContentBuffer[i].Append(content);
     }
-
-    Task InvokeHandlerAsync(TagEntry entry, XmlTagContext context, ref string content)
+    void ClearContentBuffer()
     {
-        Task namedTask = handlerTable.Handlers.TryGetValue(entry.Name.ToLowerInvariant(), out CompiledTagInvoker? invoker)
-            ? invoker(context, ref content, new Dictionary<string, string>(entry.Attributes))
-            : Task.CompletedTask;
-
-        if (handlerTable.CatchAllHandlers.Count == 0)
-            return namedTask;
-
-        List<Task> tasks = [namedTask];
-        foreach (CompiledTagInvoker catchAll in handlerTable.CatchAllHandlers)
-            tasks.Add(catchAll(context, ref content, new Dictionary<string, string>(entry.Attributes)));
-
-        return Task.WhenAll(tasks);
+        foreach (StringBuilder stringBuilder in aboveContentBuffer)
+            stringBuilder.Clear();
+        contentBuffer.Clear();
     }
 }

@@ -20,13 +20,13 @@ public class InterpreterService : Plugin
     {
         //创建xml解析执行器等
         compiler.Register(this);
-        XmlHandlerTable handlerTable = compiler.Compile();
+        OldXmlHandlerTable handlerTable = compiler.Compile();
         parser = new XmlStreamParser();
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
             ["，", "。", "！", "？", "......", "~"],
-            minResultLength: 7
+            minBreakingLength: 7
         );
 
         //注入使用说明

@@ -1,6 +1,22 @@
 using System.ComponentModel;
 using System.Reflection;
-using Alife.Interpreter;
+
+[AttributeUsage(AttributeTargets.Method)]
+public class XmlFunctionAttribute : Attribute
+{
+    public string? Name { get; }
+
+    public XmlFunctionAttribute(string? name = null)
+    {
+        Name = name;
+    }
+}
+
+public class XmlContext
+{
+    public required IReadOnlyDictionary<string, string> Parameters { get; init; }
+    public string Content { get; set; } = "";
+}
 
 public record struct XmlHandler
 {
@@ -13,8 +29,10 @@ public record struct XmlFunction
 {
     public string Name { get; init; }
     public string? Description { get; init; }
+    public string? ContentName { get; init; }
+    public string? ContentDescription { get; init; }
     public List<XmlParameter> Parameters { get; init; }
-    public Func<XmlTagContext, Task> Invoker { get; init; }
+    public Func<XmlContext, Task> Invoker { get; init; }
 }
 
 public record struct XmlParameter
@@ -23,6 +41,7 @@ public record struct XmlParameter
     public string? Description { get; init; }
     public string Type { get; init; }
 }
+
 
 public class XmlHandlerTable
 {
@@ -49,29 +68,69 @@ public class XmlHandlerTable
         xmlHandlers.Add(xmlHandler);
 
         foreach (XmlFunction xmlFunction in functions)
-            xmlInvokers[xmlFunction.Name] += xmlFunction.Invoker;
+        {
+            if (xmlInvokers.TryGetValue(xmlFunction.Name, out List<Func<XmlContext, Task>>? invokers) == false)
+            {
+                invokers = new List<Func<XmlContext, Task>>();
+                xmlInvokers[xmlFunction.Name] = invokers;
+            }
+
+            invokers.Add(xmlFunction.Invoker);
+        }
     }
     public string Document()
     {
-        
-    }
-    public void Handle(XmlTagContext tagContext)
-    {
-        Func<XmlTagContext, Task> invokers = xmlInvokers[tagContext.CallChain.Last()];
+        System.Text.StringBuilder sb = new();
 
-        Task.WaitAll(invokers.GetInvocationList()
-            .Cast<Func<XmlTagContext, Task>>()
-            .Select(func => func.Invoke(tagContext)));
-
-        foreach (Delegate @delegate in invokers.GetInvocationList())
+        sb.AppendLine("# XmlHandler Document");
+        sb.AppendLine();
+        foreach (XmlHandler handler in xmlHandlers)
         {
-            Func<XmlTagContext, Task> invoker = (Func<XmlTagContext, Task>)@delegate;
-            invoker.Invoke(tagContext);
+            sb.AppendLine($"## {handler.Name}");
+            if (string.IsNullOrEmpty(handler.Description) == false)
+            {
+                sb.AppendLine($"> {handler.Description}");
+            }
+            sb.AppendLine();
+
+            foreach (XmlFunction function in handler.Functions)
+            {
+                sb.Append($"- <{function.Name}");
+                foreach (XmlParameter param in function.Parameters)
+                {
+                    string pDesc = string.IsNullOrEmpty(param.Description) ? "" : $"（{param.Description}）";
+                    sb.Append($" {param.Name}=\"{param.Type}\"{pDesc}");
+                }
+
+                if (function.ContentName != null)
+                {
+                    sb.Append(">");
+                    string cDesc = string.IsNullOrEmpty(function.ContentDescription) ? "" : $"（{function.ContentDescription}）";
+                    sb.Append($"{function.ContentName}{cDesc}</{function.Name}>");
+                }
+                else
+                {
+                    sb.Append(" />");
+                }
+
+                if (string.IsNullOrEmpty(function.Description) == false)
+                    sb.Append($" : {function.Description}");
+
+                sb.AppendLine();
+            }
+            sb.AppendLine();
         }
+
+        return sb.ToString().TrimEnd();
+    }
+    public Task Handle(string name, XmlContext tagContext)
+    {
+        List<Func<XmlContext, Task>> invokers = xmlInvokers[name];
+        return Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
-    readonly Dictionary<string, Func<XmlTagContext, Task>> xmlInvokers = new();
+    readonly Dictionary<string, List<Func<XmlContext, Task>>> xmlInvokers = new();
 
     XmlFunction? ParseFunction(MethodInfo method, object handler)
     {
@@ -79,7 +138,7 @@ public class XmlHandlerTable
         if (functionAttribute == null)
             return null;
 
-        string name = functionAttribute.Name ?? method.Name;
+        string name = functionAttribute.Name ?? method.Name.ToLower();
         string? description = method.GetCustomAttribute<DescriptionAttribute>()?.Description;
 
         ParameterInfo[] rawParameters = method.GetParameters();
@@ -88,25 +147,33 @@ public class XmlHandlerTable
         int contentParameterIndex = -1;
         Dictionary<string, int> normalParameterIndices = new();
         List<XmlParameter> normalParameters = new();
+        string? contentName = null;
+        string? contentDescription = null;
         for (int index = 0; index < rawParameters.Length; index++)
         {
             ParameterInfo parameterInfo = rawParameters[index];
             if (parameterInfo.Name == null)
                 continue;
 
-            if (parameterInfo.ParameterType == typeof(XmlTagContext))
+            string parameterName = parameterInfo.Name.ToLower();
+            string? parameterDescription = parameterInfo.GetCustomAttribute<DescriptionAttribute>()?.Description;
+
+            if (parameterInfo.ParameterType.IsAssignableTo(typeof(XmlContext)))
             {
                 contextParameterIndex = index;
             }
-            else if (parameterInfo.ParameterType == typeof(string) && parameterInfo.ParameterType.IsByRef)
+            else if (parameterInfo.ParameterType == typeof(string).MakeByRefType())
             {
                 contentParameterIndex = index;
+                contentName = parameterName;
+                contentDescription = parameterDescription;
+            }
+            else if (parameterInfo.ParameterType.IsClass || parameterInfo.ParameterType.IsInterface)
+            {
+                throw new NotSupportedException("暂不支持使用对象类型参数！");
             }
             else
             {
-                //参数信息
-                string parameterName = parameterInfo.Name.ToLower();
-                string? parameterDescription = parameterInfo.GetCustomAttribute<DescriptionAttribute>()?.Description;
                 string parameterType = parameterInfo.ParameterType.Name;
                 if (parameterInfo.ParameterType.IsEnum)
                     parameterType = string.Join(" | ", parameterInfo.ParameterType.GetEnumNames());
@@ -122,12 +189,12 @@ public class XmlHandlerTable
 
         //统计调用方法
         object?[] parameterValuesBuffer = new object?[rawParameters.Length];
-        Task Invoker(XmlTagContext context)
+        Task Invoker(XmlContext context)
         {
             //填充默认值
             for (int index = 0; index < rawParameters.Length; index++) parameterValuesBuffer[index] = rawParameters[index].DefaultValue;
             //接收输入值
-            foreach ((string name, string value) in context.CallParams)
+            foreach ((string name, string value) in context.Parameters)
             {
                 if (normalParameterIndices.TryGetValue(name, out int index) == false)
                     continue; //没有同名参数
@@ -135,24 +202,36 @@ public class XmlHandlerTable
                 if (converter.CanConvertFrom(typeof(string)) == false)
                     continue; //无法通过字符串转换
 
-                parameterValuesBuffer[index] = converter.ConvertFromInvariantString(value);
+                try
+                {
+                    object? result = converter.ConvertFromInvariantString(value);
+                    parameterValuesBuffer[index] = result;
+                }
+                catch (Exception)
+                {
+                    // Console.WriteLine(e);
+                }
             }
             //设置特殊值
-            if (contextParameterIndex != -1) parameterValuesBuffer[contextParameterIndex] = context;
-            if (contentParameterIndex != -1) parameterValuesBuffer[contentParameterIndex] = context.ChipContent;
+            if (contextParameterIndex != -1 && rawParameters[contextParameterIndex].ParameterType.IsInstanceOfType(context))
+                parameterValuesBuffer[contextParameterIndex] = context;
+            if (contentParameterIndex != -1)
+                parameterValuesBuffer[contentParameterIndex] = context.Content;
 
             //调用
-            object? result = method.Invoke(handler, parameterValuesBuffer);
+            object? back = method.Invoke(handler, parameterValuesBuffer);
 
             //处理返回值
-            if (contentParameterIndex != -1) context.ChipContent = parameterValuesBuffer[contentParameterIndex] as string ?? "";
-            if (result is Task task) return task;
+            if (contentParameterIndex != -1) context.Content = parameterValuesBuffer[contentParameterIndex] as string ?? "";
+            if (back is Task task) return task;
             return Task.CompletedTask;
         }
 
         return new XmlFunction() {
             Name = name,
             Description = description,
+            ContentName = contentName,
+            ContentDescription = contentDescription,
             Parameters = normalParameters,
             Invoker = Invoker,
         };

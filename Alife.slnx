@@ -1,5 +1,13 @@
 <Solution>
-  <Folder Name = "/Demo/" >
+  <Folder Name="/Foundation/">
+    <Project Path="sources/Alife.Environment/Alife.Environment.csproj" />
+    <Project Path="sources/Alife.Speech/Alife.Speech.csproj" />
+    <Project Path="sources/Alife.Vision/Alife.Vision.csproj" />
+    <Project Path="sources\Alife.DeskPet\Alife.DeskPet.csproj" />
+    <Project Path="sources\Alife.Interpreter\Alife.Interpreter.csproj" />
+    <Project Path="sources\Alife.QChat\Alife.QChat.csproj" />
+  </Folder>
+  <Folder Name="/_Demos/">
     <Project Path="sources/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
     <Project Path="sources\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
     <Project Path="sources\Alife.DeskPet.Demo\Alife.DeskPet.Demo.csproj" />
@@ -8,13 +16,8 @@
     <Project Path="sources\Alife.QChat.Demo\Alife.QChat.Demo.csproj" />
     <Project Path="sources\Alife.Speech.Demo\Alife.Speech.Demo.csproj" />
   </Folder>
-  <Folder Name="/Foundation/">
-    <Project Path="sources/Alife.Speech/Alife.Speech.csproj" />
-    <Project Path="sources/Alife.Vision/Alife.Vision.csproj" />
-    <Project Path="sources/Alife.Environment/Alife.Environment.csproj" />
-    <Project Path="sources\Alife.DeskPet\Alife.DeskPet.csproj" />
-    <Project Path="sources\Alife.Interpreter\Alife.Interpreter.csproj" />
-    <Project Path="sources\Alife.QChat\Alife.QChat.csproj" />
+  <Folder Name="/_Tests/">
+    <Project Path="Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />
   </Folder>
   <Project Path="sources/Alife.Function/Alife.Function.csproj" />
   <Project Path="sources\Alife.Core\Alife.Core.csproj" />
