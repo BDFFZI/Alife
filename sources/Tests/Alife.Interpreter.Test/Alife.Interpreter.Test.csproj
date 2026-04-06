@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Alife.Interpreter\Alife.Interpreter.csproj" />
       <ProjectReference Include="..\..\sources\Alife.Interpreter\Alife.Interpreter.csproj" />
     </ItemGroup>
 

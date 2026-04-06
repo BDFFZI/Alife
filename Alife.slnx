@@ -17,7 +17,7 @@
     <Project Path="sources\Alife.Speech.Demo\Alife.Speech.Demo.csproj" />
   </Folder>
   <Folder Name="/_Tests/">
-    <Project Path="Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />
+    <Project Path="sources\Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />
   </Folder>
   <Project Path="sources/Alife.Function/Alife.Function.csproj" />
   <Project Path="sources\Alife.Core\Alife.Core.csproj" />
