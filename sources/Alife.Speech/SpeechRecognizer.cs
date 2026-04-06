@@ -6,30 +6,25 @@ namespace Alife.Speech;
 public class SpeechRecognizer : IDisposable
 {
     public event Action<string>? Recognized;
-    public bool IsRecognizing => waveIn != null;
+    public bool IsRecognizing { get; private set; }
+
     public void Start()
     {
         if (IsRecognizing)
             throw new InvalidOperationException("已在运行中，Stop 后才能再次 Start。");
-
-        waveIn = new WaveInEvent();
-        waveIn.WaveFormat = new WaveFormat(16000, 16, 1);
-        waveIn.DataAvailable += (_, e) => AcceptWaveform(e.Buffer, e.BytesRecorded);
-        waveIn.StartRecording();
+        IsRecognizing = true;
     }
+
     public void Stop()
     {
-        if (waveIn == null)
+        if (IsRecognizing == false)
             throw new InvalidOperationException("未在运行中，Start 后才可调用 Stop。");
-
-        waveIn.StopRecording();
-        waveIn.Dispose();
-        waveIn = null!;
+        IsRecognizing = false;
     }
 
     readonly OfflineRecognizer recognizer;
     readonly VoiceActivityDetector vad;
-    WaveInEvent? waveIn;
+    readonly WaveInEvent waveIn;
 
     public SpeechRecognizer(string modelRootPath)
     {
@@ -40,7 +35,6 @@ public class SpeechRecognizer : IDisposable
         config.ModelConfig.Tokens = Path.Combine(modelRootPath, "sensevoice-small", "tokens.txt");
         config.ModelConfig.NumThreads = 1;
         config.ModelConfig.Debug = 0;
-
         recognizer = new OfflineRecognizer(config);
 
         VadModelConfig vadConfig = new();
@@ -49,15 +43,19 @@ public class SpeechRecognizer : IDisposable
         vadConfig.SileroVad.MinSilenceDuration = 0.5f;
         vadConfig.SileroVad.MinSpeechDuration = 0.25f;
         vadConfig.SampleRate = 16000;
-
         vad = new VoiceActivityDetector(vadConfig, bufferSizeInSeconds: 60);
+
+        waveIn = new WaveInEvent();
+        waveIn.WaveFormat = new WaveFormat(16000, 16, 1);
+        waveIn.DataAvailable += (_, e) => AcceptWaveform(e.Buffer, e.BytesRecorded);
+        waveIn.StartRecording();
     }
 
     public void Dispose()
     {
-        if (IsRecognizing)
-            Stop();
-
+        IsRecognizing = false;
+        waveIn.StopRecording();
+        waveIn.Dispose();
         recognizer.Dispose();
         vad.Dispose();
         GC.SuppressFinalize(this);
