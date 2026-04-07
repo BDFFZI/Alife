@@ -7,4 +7,8 @@
     <RootNamespace>Alife.Interpreter</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Demos\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
+  </ItemGroup>
+
 </Project>

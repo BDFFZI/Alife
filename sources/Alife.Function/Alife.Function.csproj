@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Alife.Speech\Alife.Speech.csproj" />
     <ProjectReference Include="..\Alife.QChat\Alife.QChat.csproj" />
     <ProjectReference Include="..\Alife.Vision\Alife.Vision.csproj" />
+    <ProjectReference Include="..\Demos\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
   </ItemGroup>
 
   <ItemGroup>

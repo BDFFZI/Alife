@@ -174,8 +174,9 @@ public class XmlStreamExecutor : IAsyncDisposable
         {
             string tagName = parser.TagStack[index];
             string aboveContent = aboveContentBuffer[index].ToString();
+            IReadOnlyList<string> callChain = parser.TagStack.Take(index + 1).ToList();
             XmlExecutorContext context = new() {
-                CallChain = parser.TagStack,
+                CallChain = callChain,
                 CallMode = CallMode.Content,
                 Parameters = parser.TagParameters,
                 AboveContent = aboveContent,

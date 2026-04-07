@@ -56,6 +56,8 @@ public class SpeechSynthesizer
         if (string.IsNullOrWhiteSpace(fileSafeText))
             return null;
         string outputPath = Path.Combine(Path.GetTempPath(), fileSafeText + ".mp3");
+        if (File.Exists(outputPath))
+            return outputPath;
 
         ProcessStartInfo psi = new() {
             FileName = PathEnvironment.PythonExecutablePath,
@@ -81,7 +83,7 @@ public class SpeechSynthesizer
             if (process.HasExited == false)
                 throw new TimeoutException();
             if (process.ExitCode != 0)
-                throw new Exception($"{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}");
+                throw new Exception($"{outputPath}\n{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}");
             if (File.Exists(outputPath) == false)
                 throw new Exception($"语音文件未生成：{outputPath}");
 

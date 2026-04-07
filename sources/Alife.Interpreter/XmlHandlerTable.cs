@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using Alife.Test;
 
 [AttributeUsage(AttributeTargets.Method)]
 public class XmlFunctionAttribute : Attribute
@@ -126,11 +127,19 @@ public class XmlHandlerTable
 
         return sb.ToString().TrimEnd();
     }
-    public Task TryHandle(string name, XmlContext tagContext)
+    public async Task TryHandle(string name, XmlContext tagContext)
     {
-        if (xmlInvokers.TryGetValue(name, out List<Func<XmlContext, Task>>? invokers))
-            return Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
-        return Task.CompletedTask;
+        if (xmlInvokers.TryGetValue(name, out List<Func<XmlContext, Task>>? invokers) == false)
+            return;
+
+        try
+        {
+            await Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
+        }
+        catch (Exception e)
+        {
+            Terminal.LogError(e.ToString());
+        }
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
