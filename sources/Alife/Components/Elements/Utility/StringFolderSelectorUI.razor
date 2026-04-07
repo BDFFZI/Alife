@@ -1,4 +1,4 @@
-﻿<Tree TItem="object" Checkable OnCheck="OnCheck" DefaultExpandedKeys="@([Context.Name])"
+<Tree TItem="object" Checkable OnCheck="OnCheck" DefaultExpandedKeys="@([Context.Name])"
       DefaultCheckedKeys="@(IsChecking.ToArray())">
     <TitleTemplate>
         <Text>@(context.DataItem is StringFolder ? context.Title : ItemTitleFilter(context.Title))</Text>

@@ -1,4 +1,4 @@
-﻿<Card Title="@(Source.Name)">
+<Card Title="@(Source.Name)">
     <Extra>
         <Button Type="@(ButtonType.Link)" OnClick="@(() => isEditing = true)">编辑</Button>
         <CharacterEditorUI Context="Source" @bind-Visible="isEditing"></CharacterEditorUI>

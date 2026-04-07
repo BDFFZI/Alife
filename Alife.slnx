@@ -1,24 +1,33 @@
 <Solution>
-  <Folder Name="/Foundation/">
-    <Project Path="sources/Alife.Environment/Alife.Environment.csproj" />
-    <Project Path="sources/Alife.Speech/Alife.Speech.csproj" />
-    <Project Path="sources/Alife.Vision/Alife.Vision.csproj" />
-    <Project Path="sources\Alife.DeskPet\Alife.DeskPet.csproj" />
-    <Project Path="sources\Alife.Interpreter\Alife.Interpreter.csproj" />
-    <Project Path="sources\Alife.QChat\Alife.QChat.csproj" />
+  <Folder Name="/Demos/">
+    <Project Path="Demos/Alife.Demo.DeskPet/Alife.Demo.DeskPet.csproj" />
+    <Project Path="Demos/Alife.Demo.Framework/Alife.Demo.Framework.csproj" />
+    <Project Path="Demos/Alife.Demo.Python/Alife.Demo.Python.csproj" />
+    <Project Path="Demos/Alife.Demo.QChat/Alife.Demo.QChat.csproj" />
+    <Project Path="Demos/Alife.Demo.Speech/Alife.Demo.Speech.csproj" />
+    <Project Path="Demos/Alife.Demo.Vision/Alife.Demo.Vision.csproj" />
   </Folder>
-  <Folder Name="/_Demos/">
-    <Project Path="sources/Demos/Alife.Demo.Framework/Alife.Demo.Framework.csproj" />
-    <Project Path="sources/Demos/Alife.DeskPet.Demo/Alife.DeskPet.Demo.csproj" />
-    <Project Path="sources/Demos/Alife.Python.Demo/Alife.Python.Demo.csproj" />
-    <Project Path="sources/Demos/Alife.QChat.Demo/Alife.QChat.Demo.csproj" />
-    <Project Path="sources/Demos/Alife.Speech.Demo/Alife.Speech.Demo.csproj" />
-    <Project Path="sources/Demos/Alife.Vision.Demo/Alife.Vision.Demo.csproj" />
+  <Folder Name="/Sources/">
+    <Project Path="Sources/Alife/Alife.csproj" />
   </Folder>
-  <Folder Name="/_Tests/">
-    <Project Path="sources\Tests\Alife.Interpreter.Test\Alife.Interpreter.Test.csproj" Type="Classic C#" />
+  <Folder Name="/Sources/Basic/">
+    <Project Path="Sources/Basic/Alife.Basic/Alife.Basic.csproj" />
   </Folder>
-  <Project Path="sources/Alife.Function/Alife.Function.csproj" />
-  <Project Path="sources\Alife.Core\Alife.Core.csproj" />
-  <Project Path="sources\Alife\Alife.csproj" />
+  <Folder Name="/Sources/Framework/">
+    <Project Path="Sources/Framework/Alife.Framework/Alife.Framework.csproj" />
+  </Folder>
+  <Folder Name="/Sources/Function/">
+    <Project Path="Sources/Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
+    <Project Path="Sources/Function/Alife.Function.Interpreter/Alife.Function.Interpreter.csproj" />
+    <Project Path="Sources/Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
+    <Project Path="Sources/Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
+    <Project Path="Sources/Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />
+  </Folder>
+  <Folder Name="/Sources/Implement/">
+    <Project Path="Sources/Implement/Alife.Implement/Alife.Implement.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Alife.Test.DeskPet/Alife.Test.DeskPet.csproj" />
+    <Project Path="Tests/Alife.Test.Interpreter/Alife.Test.Interpreter.csproj" />
+  </Folder>
 </Solution>

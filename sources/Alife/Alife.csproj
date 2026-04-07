@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
@@ -17,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Alife.Core\Alife.Core.csproj" />
-        <ProjectReference Include="..\Alife.Function\Alife.Function.csproj" />
+    <ProjectReference Include="..\Framework\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\Implement\Alife.Implement\Alife.Implement.csproj" />
   </ItemGroup>
 
   <ItemGroup>

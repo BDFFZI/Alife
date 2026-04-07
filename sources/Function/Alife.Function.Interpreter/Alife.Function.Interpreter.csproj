@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Alife.Function.Interpreter</AssemblyName>
+    <RootNamespace>Alife.Function.Interpreter</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Basic\Alife.Basic\Alife.Basic.csproj" />
+  </ItemGroup>
+
+</Project>

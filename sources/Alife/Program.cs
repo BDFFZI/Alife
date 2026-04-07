@@ -1,11 +1,11 @@
 using System.Reflection;
 using System.Text;
-using Alife;
+using Alife.Framework;
 using Alife.Components;
 
 Console.OutputEncoding = Encoding.UTF8;
 Console.InputEncoding = Encoding.UTF8;
-Assembly.Load("Alife.Function"); //官方插件没有直接依赖，所以不会自动加载，需要手动
+Assembly.Load("Alife.Implement"); //官方插件没有直接依赖，所以不会自动加载，需要手动
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseStaticWebAssets();

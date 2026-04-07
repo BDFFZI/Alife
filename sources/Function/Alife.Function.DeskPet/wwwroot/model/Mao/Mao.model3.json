@@ -1,0 +1,133 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "Mao.moc3",
+		"Textures": [
+			"Mao.2048/texture_00.png"
+		],
+		"Physics": "Mao.physics3.json",
+		"Pose": "Mao.pose3.json",
+		"DisplayInfo": "Mao.cdi3.json",
+		"Expressions": [
+			{
+				"Name": "微笑",
+				"File": "expressions/exp_01.exp3.json"
+			},
+			{
+				"Name": "无聊",
+				"File": "expressions/exp_02.exp3.json"
+			},
+			{
+				"Name": "闭眼",
+				"File": "expressions/exp_03.exp3.json"
+			},
+			{
+				"Name": "繁星眼",
+				"File": "expressions/exp_04.exp3.json"
+			},
+			{
+				"Name": "委屈",
+				"File": "expressions/exp_05.exp3.json"
+			},
+			{
+				"Name": "害羞",
+				"File": "expressions/exp_06.exp3.json"
+			},
+			{
+				"Name": "惊讶",
+				"File": "expressions/exp_07.exp3.json"
+			},
+			{
+				"Name": "生气",
+				"File": "expressions/exp_08.exp3.json"
+			}
+		],
+		"Motions": {
+			"Idle": [
+				{
+					"Name": "待机",
+					"File": "motions/mtn_01.motion3.json"
+				}
+			],
+			"TapBody": [
+				{
+					"Name": "害羞",
+					"File": "motions/mtn_02.motion3.json"
+				},
+				{
+					"Name": "摇头",
+					"File": "motions/mtn_03.motion3.json"
+				},
+				{
+					"Name": "点头",
+					"File": "motions/mtn_04.motion3.json"
+				}
+			]
+		}
+	},
+	"Interaction": {
+		"Dialogues": {
+			"head": [
+				{ "text": "哎呀！弄乱真央的发型了喵~ (｡•́︿•̀｡)", "exp": "委屈", "mtn": { "group": "Idle", "index": 0 } },
+				{ "text": "摸摸头... 真央最喜欢主人了喵！ฅ(๑*д*๑)ฅ", "exp": "惊讶", "mtn": { "group": "Idle", "index": 0 } },
+				{ "text": "喵？主人是在和真央玩吗？(๑•́ ₃ •̀๑)", "exp": "微笑", "mtn": { "group": "Idle", "index": 0 } },
+				{ "text": "摸头杀！真央的能量补充完毕喵~", "exp": "微笑", "mtn": { "group": "TapBody", "index": 2 } }
+			],
+			"body": [
+				{ "text": "喵呜！主人不可以乱碰这里喵~ (⁄ ⁄•⁄ω⁄•⁄ ⁄)", "exp": "害羞", "mtn": { "group": "TapBody", "index": 0 } },
+				{ "text": "真央今天也很努力在工作喵！(*^▽^*)", "exp": "微笑", "mtn": { "group": "TapBody", "index": 2 } },
+				{ "text": "哼，主人是个大色狼喵！( *・ω・)✄╰ひ╯", "exp": "生气", "mtn": { "group": "TapBody", "index": 1 } }
+			],
+			"random": [
+				{ "text": "喵~ 喵~ 喵~~", "exp": "微笑", "mtn": { "group": "Idle", "index": 0 } },
+				{ "text": "真央会一直陪着你的喵~ (ฅ´ω`ฅ)", "exp": "微笑", "mtn": { "group": "Idle", "index": 0 } }
+			],
+			"combo": [
+				{ "text": "哇啊啊！主人太热情了喵，真央受不了了喵~~ (///Σ///)", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 0 } },
+				{ "text": "喵——！！主人快住手喵，真的要晕了喵~~", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 0 } }
+			],
+			"rotate": [
+				{ "text": "呜哇... 别转了，真央要变旋风猫娘了喵！(＠_＠;)", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 1 } },
+				{ "text": "旋转，跳跃，我不停歇... 停！真央真的不行了喵！", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 1 } }
+			],
+			"shake": [
+				{ "text": "喵喵喵！别抖了，真央的午饭待会就要吐出来了喵！( >﹏< )", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 0 } },
+				{ "text": "呜呜... 真央要被晃散架了喵，主人快停下喵！", "exp": "繁星眼", "mtn": { "group": "TapBody", "index": 0 } }
+			],
+			"move": [
+				{ "text": "出发咯！主人这是要带真央去哪里玩呀？(๑•́ ₃ •̀๑)", "exp": "微笑", "mtn": { "group": "TapBody", "index": 2 } },
+				{ "text": "这就是传说中的‘瞬间移动’吗喵？真神奇喵！", "exp": "微笑", "mtn": { "group": "TapBody", "index": 2 } }
+			],
+			"startup": [
+				{ "text": "喵~ 主人你回来啦！真央一直在这里等你喵~(ฅ´ω`ฅ)", "exp": "微笑", "mtn": { "group": "TapBody", "index": 3 } }
+			]
+		}
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": [
+				"ParamA"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		}
+	],
+	"HitAreas": [
+		{
+			"Id": "HitAreaHead",
+			"Name": "Head"
+		},
+		{
+			"Id": "HitAreaBody",
+			"Name": "Body"
+		}
+	]
+}

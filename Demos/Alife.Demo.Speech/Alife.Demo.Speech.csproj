@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
+    <ProjectReference Include="..\..\Sources\Framework\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\..\Sources\Implement\Alife.Implement\Alife.Implement.csproj" />
+    <ProjectReference Include="..\..\Sources\Function\Alife.Function.Speech\Alife.Function.Speech.csproj" />
+  </ItemGroup>
+</Project>
+

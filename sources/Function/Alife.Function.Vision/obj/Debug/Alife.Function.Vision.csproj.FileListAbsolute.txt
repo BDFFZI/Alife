@@ -1,0 +1,15 @@
+C:\Users\13309\Desktop\Alife\Outputs\qwen_vision_bridge.py
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Vision.deps.json
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Vision.dll
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Vision.pdb
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.csproj.AssemblyReference.cache
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.AssemblyInfoInputs.cache
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.AssemblyInfo.cs
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.csproj.CoreCompileInputs.cache
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.sourcelink.json
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Fu.914583CB.Up2Date
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.dll
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\refint\Alife.Function.Vision.dll
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\Alife.Function.Vision.pdb
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.Vision\obj\Debug\ref\Alife.Function.Vision.dll

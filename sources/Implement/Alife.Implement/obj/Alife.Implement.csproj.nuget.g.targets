@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <Import Project="$(NuGetPackageRoot)microsoft.extensions.logging.abstractions\10.0.3\buildTransitive\net8.0\Microsoft.Extensions.Logging.Abstractions.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.logging.abstractions\10.0.3\buildTransitive\net8.0\Microsoft.Extensions.Logging.Abstractions.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.3065.39\buildTransitive\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.3065.39\buildTransitive\Microsoft.Web.WebView2.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.extensions.options\10.0.3\buildTransitive\net8.0\Microsoft.Extensions.Options.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.options\10.0.3\buildTransitive\net8.0\Microsoft.Extensions.Options.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.extensions.configuration.binder\10.0.3\buildTransitive\netstandard2.0\Microsoft.Extensions.Configuration.Binder.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.configuration.binder\10.0.3\buildTransitive\netstandard2.0\Microsoft.Extensions.Configuration.Binder.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.aspnetcore.components.analyzers\10.0.3\buildTransitive\netstandard2.0\Microsoft.AspNetCore.Components.Analyzers.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.aspnetcore.components.analyzers\10.0.3\buildTransitive\netstandard2.0\Microsoft.AspNetCore.Components.Analyzers.targets')" />
+    <Import Project="$(NuGetPackageRoot)antdesign\1.6.0\build\AntDesign.targets" Condition="Exists('$(NuGetPackageRoot)antdesign\1.6.0\build\AntDesign.targets')" />
+  </ImportGroup>
+</Project>

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "YC3NO83wBoY=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\13309\\Desktop\\Alife\\Sources\\Function\\Alife.Function.DeskPet\\Alife.Function.DeskPet.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\13309\\.nuget\\packages\\microsoft.web.webview2\\1.0.3065.39\\microsoft.web.webview2.1.0.3065.39.nupkg.sha512"
+  ],
+  "logs": []
+}

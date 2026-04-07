@@ -1,0 +1,42 @@
+using Alife.Basic;
+using Alife.Framework;
+@namespace Alife.Plugins.Official.Components
+@using Newtonsoft.Json
+@using Alife.Framework
+@using Alife.Implement
+@inject ConfigurationSystem ConfigurationSystem
+
+<Form TModel="OpenAIChatServiceConfig" Model="@config" Layout="@FormLayout.Vertical">
+    <FormItem Label="Endpoint">
+        <Input @bind-Value="@config.endpoint" placeholder="例如: https://api.deepseek.com/v1" />
+    </FormItem>
+    <FormItem Label="Model ID">
+        <Input @bind-Value="@config.modelId" placeholder="例如: deepseek-chat" />
+    </FormItem>
+    <FormItem Label="API Key">
+        <InputPassword @bind-Value="@config.apiKey" />
+    </FormItem>
+    <FormItem>
+        <Button Type="@ButtonType.Primary" OnClick="Save">保存 OpenAI 配置</Button>
+    </FormItem>
+</Form>
+
+@code {
+    [Parameter] public Type PluginType { get; set; } = null!;
+    
+    OpenAIChatServiceConfig config = new();
+
+    protected override void OnInitialized()
+    {
+        var result = ConfigurationSystem.GetConfiguration(PluginType);
+        if (result is OpenAIChatServiceConfig c)
+        {
+            config = (OpenAIChatServiceConfig)c.Clone();
+        }
+    }
+
+    async Task Save()
+    {
+        ConfigurationSystem.SetConfiguration(PluginType, config);
+    }
+}

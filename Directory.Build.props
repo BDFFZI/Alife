@@ -1,6 +1,9 @@
 <Project>
   <PropertyGroup>
-    <UseArtifactsOutput>true</UseArtifactsOutput>
-    <ArtifactsPath>$(MSBuildThisFileDirectory)outputs</ArtifactsPath>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)Outputs\</OutputPath>
+    <OutDir>$(OutputPath)</OutDir>
   </PropertyGroup>
 </Project>

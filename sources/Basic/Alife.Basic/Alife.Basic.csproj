@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Alife.Basic</AssemblyName>
+    <RootNamespace>Alife.Basic</RootNamespace>
+  </PropertyGroup>
+</Project>

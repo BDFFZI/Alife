@@ -1,0 +1,44 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  Alife.Basic -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Basic.dll
+  Alife.Function.Interpreter -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Interpreter.dll
+  Alife.Function.QChat -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.QChat.dll
+  Alife.Function.Vision -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Vision.dll
+  Alife.Framework -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Framework.dll
+  Alife.Function.Speech -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Speech.dll
+  Alife.Function.DeskPet -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.DeskPet.dll
+  Alife.Demo.Framework -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Demo.Framework.dll
+  Alife.Test.Interpreter -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Test.Interpreter.dll
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\MemoryService.cs(3,8): warning CS0105: “Alife.Framework”的 using 指令以前在此命名空间中出现过 [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(9,2): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(9,2): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(13,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(13,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(24,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(24,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(35,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(35,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(57,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(57,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(77,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(77,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+
+生成失败。
+
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\MemoryService.cs(3,8): warning CS0105: “Alife.Framework”的 using 指令以前在此命名空间中出现过 [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(9,2): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(9,2): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(13,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(13,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(24,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(24,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(35,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(35,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(57,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(57,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(77,6): error CS0246: 未能找到类型或命名空间名“DescriptionAttribute”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\DeskPetService.cs(77,6): error CS0246: 未能找到类型或命名空间名“Description”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Implement\Alife.Implement\Alife.Implement.csproj]
+    1 个警告
+    12 个错误
+
+已用时间 00:00:02.54

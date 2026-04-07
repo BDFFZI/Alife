@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Alife.Implement</AssemblyName>
+    <RootNamespace>Alife.Implement</RootNamespace>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Framework\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\..\Function\Alife.Function.Interpreter\Alife.Function.Interpreter.csproj" />
+    <ProjectReference Include="..\..\Function\Alife.Function.Speech\Alife.Function.Speech.csproj" />
+    <ProjectReference Include="..\..\Function\Alife.Function.QChat\Alife.Function.QChat.csproj" />
+    <ProjectReference Include="..\..\Function\Alife.Function.Vision\Alife.Function.Vision.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AntDesign" Version="1.6.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Basic\Alife.Basic\Alife.Basic.csproj" />
+    <ProjectReference Include="..\..\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj" />
+  </ItemGroup>
+</Project>

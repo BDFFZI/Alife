@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Alife.Function.Vision</AssemblyName>
+    <RootNamespace>Alife.Function.Vision</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Python bridge script: copy to output directory -->
+    <Content Include="qwen_vision_bridge.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Basic\Alife.Basic\Alife.Basic.csproj" />
+  </ItemGroup>
+</Project>

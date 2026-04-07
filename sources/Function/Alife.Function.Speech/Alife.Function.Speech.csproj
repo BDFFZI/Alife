@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Alife.Function.Speech</AssemblyName>
+    <RootNamespace>Alife.Function.Speech</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.31" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Content Include="model\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Basic\Alife.Basic\Alife.Basic.csproj" />
+  </ItemGroup>
+</Project>

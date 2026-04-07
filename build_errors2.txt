@@ -1,0 +1,27 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  Alife.Basic -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Basic.dll
+  Alife.Function.Vision -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Vision.dll
+  Alife.Function.Interpreter -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Interpreter.dll
+  Alife.Function.QChat -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.QChat.dll
+  Alife.Function.Speech -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Function.Speech.dll
+  Alife.Framework -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Framework.dll
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(21,13): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(25,61): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(150,13): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(151,23): error CS0246: 未能找到类型或命名空间名“FileNotFoundException”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(162,32): error CS0103: 当前上下文中不存在名称“Path” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+  Alife.Test.Interpreter -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Test.Interpreter.dll
+  Alife.Demo.Framework -> C:\Users\13309\Desktop\Alife\Outputs\Alife.Demo.Framework.dll
+
+生成失败。
+
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(21,13): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(25,61): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(150,13): error CS0103: 当前上下文中不存在名称“File” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(151,23): error CS0246: 未能找到类型或命名空间名“FileNotFoundException”(是否缺少 using 指令或程序集引用?) [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Client\DeskPetClient.cs(162,32): error CS0103: 当前上下文中不存在名称“Path” [C:\Users\13309\Desktop\Alife\Sources\Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj]
+    0 个警告
+    5 个错误
+
+已用时间 00:00:02.38

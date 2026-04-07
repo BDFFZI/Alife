@@ -1,0 +1,14 @@
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.csproj.AssemblyReference.cache
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.AssemblyInfoInputs.cache
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.AssemblyInfo.cs
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.csproj.CoreCompileInputs.cache
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.sourcelink.json
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Demo.Framework.deps.json
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Demo.Framework.dll
+C:\Users\13309\Desktop\Alife\Outputs\Alife.Demo.Framework.pdb
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.De.DF7814D3.Up2Date
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.dll
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\refint\Alife.Demo.Framework.dll
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\Alife.Demo.Framework.pdb
+C:\Users\13309\Desktop\Alife\Demos\Alife.Demo.Framework\obj\Debug\ref\Alife.Demo.Framework.dll
