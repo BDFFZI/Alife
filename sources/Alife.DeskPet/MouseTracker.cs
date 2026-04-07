@@ -1,56 +1,42 @@
-﻿using System;
 using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Wpf;
 
-/// <summary>
-/// 鼠标追踪管理器 - 负责鼠标事件与 WebView 交互
-/// </summary>
+namespace Alife.Pet;
+
 public class MouseTracker
 {
-    private WebView2 webview;
-    private GlobalMouseHook globalMouseHook;
-
-    public MouseTracker(WebView2 webview)
+    public MouseTracker(WebView2 webView)
     {
-        this.webview = webview;
+        this.webView = webView;
     }
 
-    /// <summary>
-    /// 初始化鼠标追踪
-    /// </summary>
     public void Initialize()
     {
-        globalMouseHook = new GlobalMouseHook();
+        mouseHook = new GlobalMouseHook();
 
-        // 鼠标移动事件
-        globalMouseHook.OnMouseMove += async (screenX, screenY) =>
-        {
+        mouseHook.MouseMove += async (screenX, screenY) => {
             try
             {
-                if (webview?.CoreWebView2 == null) return;
+                if (webView.CoreWebView2 == null)
+                    return;
 
-                // 获取 WebView 窗口在屏幕上的位置
-                var webViewPosition = webview.PointToScreen(new Point(0, 0));
+                Point webViewPosition = webView.PointToScreen(new Point(0, 0));
 
                 int localX = screenX - (int)webViewPosition.X;
                 int localY = screenY - (int)webViewPosition.Y;
 
-                // 检查鼠标是否在 WebView 范围内
-                bool isInWebView = localX >= 0 && localX <= webview.ActualWidth &&
-                                   localY >= 0 && localY <= webview.ActualHeight;
+                bool isInWebView = localX >= 0 && localX <= webView.ActualWidth &&
+                                   localY >= 0 && localY <= webView.ActualHeight;
 
-                var json = JsonSerializer.Serialize(new
-                {
+                string json = JsonSerializer.Serialize(new {
                     type = "mousemove",
                     x = localX,
                     y = localY,
                     isInWebView = isInWebView
                 });
 
-                await webview.CoreWebView2.ExecuteScriptAsync(
-                    $"window.handleMouseMove({json});"
-                );
+                await webView.CoreWebView2.ExecuteScriptAsync($"window.handleMouseMove({json});");
             }
             catch (Exception ex)
             {
@@ -58,28 +44,24 @@ public class MouseTracker
             }
         };
 
-        // 鼠标点击事件
-        globalMouseHook.OnMouseClick += async (screenX, screenY) =>
-        {
+        mouseHook.MouseClick += async (screenX, screenY) => {
             try
             {
-                if (webview?.CoreWebView2 == null) return;
+                if (webView.CoreWebView2 == null)
+                    return;
 
-                var webViewPosition = webview.PointToScreen(new Point(0, 0));
+                Point webViewPosition = webView.PointToScreen(new Point(0, 0));
 
                 int localX = screenX - (int)webViewPosition.X;
                 int localY = screenY - (int)webViewPosition.Y;
 
-                var json = JsonSerializer.Serialize(new
-                {
+                string json = JsonSerializer.Serialize(new {
                     type = "click",
                     x = localX,
                     y = localY
                 });
 
-                await webview.CoreWebView2.ExecuteScriptAsync(
-                    $"window.handleMouseClick({json});"
-                );
+                await webView.CoreWebView2.ExecuteScriptAsync($"window.handleMouseClick({json});");
             }
             catch (Exception ex)
             {
@@ -87,14 +69,14 @@ public class MouseTracker
             }
         };
 
-        globalMouseHook.Start();
+        mouseHook.Start();
     }
 
-    /// <summary>
-    /// 停止鼠标追踪
-    /// </summary>
     public void Stop()
     {
-        globalMouseHook?.Stop();
+        mouseHook?.Stop();
     }
-}
+
+    WebView2 webView;
+    GlobalMouseHook? mouseHook;
+}

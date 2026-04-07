@@ -156,3 +156,6 @@
 ### 7. XML 流式解析转义 (XmlStreamParser Escape)
 - **转义符支持**：在 `XmlStreamParser` 中引入了 `\` 作为转义符。
 - **使用场景**：`\<>` 会被视为普通文本 `<>` 输出，而非 XML 标签。`\\` 会输出单个 `\`。这在需要输出包含标签符号的原始文本时非常有用。
+### 8. 永久循环后台任务 (Perpetual Background Tasks)
+- **使用 `async void`**：对于在对象生命周期内始终循环执行且不返回结果的私有后台函数（如 `LoopProcessInput`），优先使用 `async void` 而非 `Task`。
+- **设计理由**：因为这类函数无法被有效 `await`（永远等不到结果），若返回 `Task` 会误导调用者。通过 `async void` 并在内部进行全量 `try-catch` 处理，可以确保任务的独立性与安全性，同时简化外部调用逻辑。
