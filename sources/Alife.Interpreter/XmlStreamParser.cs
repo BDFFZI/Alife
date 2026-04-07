@@ -120,12 +120,7 @@ public class XmlStreamParser
                 await TagClosed.Invoke();
             tagStack.RemoveAt(tagStack.Count - 1);
         }
-        Reset();
-    }
 
-    public void Reset()
-    {
-        tagStack.Clear();
         ClearAnnotation();
         ClearEscaping();
         ClearTag();

@@ -9,6 +9,7 @@ public enum CallMode
     Closing,
     OneShot,
     Content,
+    Reset,
 }
 public class XmlExecutorContext : XmlContext
 {
@@ -32,6 +33,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     }
     public void Reset()
     {
+        while (commandChannel.Reader.TryRead(out _)) { } //排空管道
         commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Reset));
     }
 
@@ -56,6 +58,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     });
     readonly List<StringBuilder> aboveContentBuffer = new();
     readonly StringBuilder contentBuffer = new();
+    bool isResetting;
 
     public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handler, string[]? sentenceBreakers = null, int minBreakingLength = 0)
     {
@@ -95,8 +98,10 @@ public class XmlStreamExecutor : IAsyncDisposable
                             ClearContentBuffer();
                             break;
                         case CommandType.Reset:
-                            parser.Reset();
+                            isResetting = true;
+                            await parser.Flush();
                             ClearContentBuffer();
+                            isResetting = false;
                             break;
                     }
                 }
@@ -117,9 +122,16 @@ public class XmlStreamExecutor : IAsyncDisposable
 
     async Task OnTagClosed()
     {
-        if (contentBuffer.Length != 0)
-            await FlushContentBuffer(); //即使没有触发分词也必须推送了，因为标签即将关闭
-        await HandleTag(CallMode.Closing);
+        if (isResetting)
+        {
+            await HandleTag(CallMode.Reset);
+        }
+        else
+        {
+            if (contentBuffer.Length != 0)
+                await FlushContentBuffer(); //即使没有触发分词也必须推送了，因为标签即将关闭
+            await HandleTag(CallMode.Closing);
+        }
         aboveContentBuffer[parser.TagStack.Count - 1].Clear();
     }
 

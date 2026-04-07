@@ -1,3 +1,5 @@
+using Alife.Test;
+
 namespace Alife;
 
 public static class PathEnvironment
@@ -16,7 +18,11 @@ public static class PathEnvironment
             while (!string.IsNullOrEmpty(current) && Directory.Exists(Path.Combine(current, "models")) == false)
                 current = Path.GetDirectoryName(current);
             if (current == null)
-                throw new DirectoryNotFoundException("models directory not found");
+            {
+                Terminal.LogError("无法确定资源目录位置！");
+                throw new Exception("无法确定资源目录位置！");
+            }
+
             ModelsPath = Path.Combine(current, "models").Replace(Path.DirectorySeparatorChar, '/');
             OutputPath = Path.Combine(current, "outputs", "bin").Replace(Path.DirectorySeparatorChar, '/');
             PythonPath = Path.Combine(current, "python").Replace(Path.DirectorySeparatorChar, '/');

@@ -1,7 +1,7 @@
 namespace Alife.OfficialPlugins;
 
-using Alife.Abstractions;
-using Alife.Interpreter;
+using Abstractions;
+using Interpreter;
 using Microsoft.SemanticKernel;
 
 [Plugin("口译员", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
@@ -30,15 +30,21 @@ public class InterpreterService : Plugin
 
         //注入使用说明
         string prompt = @$"# {nameof(InterpreterService)}
-你拥有给文字套上部分xml标签来执行特殊功能的能力。
-**目前可用的标签：**
+
+你可以通过xml格式提供你的文本，xml格式与标准规范完全一致，一些特殊的xml标签还可以充当函数调用，使你的内容发挥特别的效果。
+
+## 特殊标签
+
 {handlerTable.Document()}
-注意事项：
-1. 你要先执行消息类指令（如speak、pet_bubble），然后再执行动作类指令（如pet_move、python）。
-2. 不要分行使用消息类指令，每次必须将完整段落放在一组消息类指令中，如<pet_bubble>开始...过程...结束</pet_bubble>。
-3. 你要嵌套使用消息类指令，如<pet_bubble><speak></speak></pet_bubble>，从而实现同时发送语音和气泡消息。
-4. 以上功能必须放在<parse></parse>中才能生效（换句话说，如果你想把大段的标签内容比如html输出成内容，就把它放在parse外面即可）。
-5. 如果你要在<parse></parse>中将'<','>','\'等符号作为普通字符使用，那么你必须得用'\'转义，如'<','>','\'。
+
+## 注意事项
+
+1. 在一个标签中描述完整句子。
+    - 正确写法：<speak>第一句。第二句。第三句</speak>
+    - 错误写法：<speak>第一句</speak><speak>第二句</speak>
+2. 如果要在内容中使用xml中的特殊符号，你必须要先进行转义，转义方式与标准xml一致。
+    - 正确写法：我可以使用&lt;python&gt;标签来运行脚本。
+    - 错误写法：我可以使用<python>标签来运行脚本。
 ";
 
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);

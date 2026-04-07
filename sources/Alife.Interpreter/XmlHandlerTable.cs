@@ -3,14 +3,9 @@ using System.Reflection;
 using Alife.Test;
 
 [AttributeUsage(AttributeTargets.Method)]
-public class XmlFunctionAttribute : Attribute
+public class XmlFunctionAttribute(string? name = null) : Attribute
 {
-    public string? Name { get; }
-
-    public XmlFunctionAttribute(string? name = null)
-    {
-        Name = name;
-    }
+    public string? Name { get; } = name;
 }
 
 [AttributeUsage(AttributeTargets.Parameter)]
@@ -27,6 +22,7 @@ public record struct XmlHandler
     public string Name { get; init; }
     public string? Description { get; init; }
     public List<XmlFunction> Functions { get; init; }
+    public object Instance { get; init; }
 }
 
 public record struct XmlFunction
@@ -66,7 +62,8 @@ public class XmlHandlerTable
         XmlHandler xmlHandler = new XmlHandler() {
             Name = handlerType.Name,
             Description = descriptionAttribute?.Description,
-            Functions = functions
+            Functions = functions,
+            Instance = handler,
         };
 
         xmlHandlers.Add(xmlHandler);
@@ -86,16 +83,13 @@ public class XmlHandlerTable
     {
         System.Text.StringBuilder sb = new();
 
-        sb.AppendLine("# XmlHandler Document");
-        sb.AppendLine();
         foreach (XmlHandler handler in xmlHandlers)
         {
-            sb.AppendLine($"## {handler.Name}");
+            sb.AppendLine(handler.Name);
             if (string.IsNullOrEmpty(handler.Description) == false)
             {
                 sb.AppendLine($"> {handler.Description}");
             }
-            sb.AppendLine();
 
             foreach (XmlFunction function in handler.Functions)
             {

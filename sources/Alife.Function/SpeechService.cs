@@ -17,6 +17,14 @@ public class SpeechService : Plugin, IAsyncDisposable
     [Description("使用语音的方式向用户发送消息。")]
     public async Task Speak(XmlExecutorContext context, [XmlContent] string content)
     {
+        if (context.CallMode == CallMode.Reset)
+        {
+            if (synthesizer.IsSpeaking)
+                await synthesizer.StopSpeakAsync(); //中断语音
+
+            return;
+        }
+
         if (hasHeadphones == false)
         {
             if (context.CallMode == CallMode.Opening)
@@ -28,7 +36,8 @@ public class SpeechService : Plugin, IAsyncDisposable
             else if (context.CallMode == CallMode.Closing)
             {
                 //当停止说话时，等待当前语音结束后，恢复语音识别
-                await WhenSpeechEnd();
+                if (synthesizer.IsSpeaking)
+                    await synthesizer.LastSpeaking;
                 if (recognizer.IsRecognizing == false)
                     recognizer.Start();
             }
@@ -42,7 +51,18 @@ public class SpeechService : Plugin, IAsyncDisposable
         audioFileSynthesizingCancellation = new CancellationTokenSource();
         Task<string?> audioSynthesizingTask = synthesizer.GenerateSpeechFileAsync(content, audioFileSynthesizingCancellation.Token);
         //如果当前有音频在播放，则等待占用结束
-        await WhenSpeechEnd();
+        if (synthesizer.IsSpeaking)
+        {
+            try
+            {
+                await synthesizer.LastSpeaking;
+            }
+            catch (OperationCanceledException)
+            {
+                return; //语音被打断，那么后续语音显然也不用播放了
+            }
+        }
+
 
         //可以播放音频
         string? audioFile = null;
@@ -105,17 +125,12 @@ public class SpeechService : Plugin, IAsyncDisposable
             await autoRecognizerSwitchCancellation.CancelAsync();
 
         //等待语音说完
-        await WhenSpeechEnd();
+        if (synthesizer.IsSpeaking)
+            await synthesizer.LastSpeaking;
     }
     public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
-
-        //增加语音合成打断功能
-        chatActivity.ChatBot.ChatSent += _ => {
-            if (synthesizer.IsSpeaking)
-                synthesizer.StopSpeak();
-        };
 
         //打开语音识别
         recognizer.Start();
@@ -186,20 +201,6 @@ public class SpeechService : Plugin, IAsyncDisposable
             {
                 Console.WriteLine(e);
             }
-        }
-    }
-
-    async Task WhenSpeechEnd()
-    {
-        try
-        {
-            if (synthesizer.IsSpeaking)
-                await synthesizer.LastSpeaking;
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception e)
-        {
-            Terminal.LogError(e.ToString());
         }
     }
 }

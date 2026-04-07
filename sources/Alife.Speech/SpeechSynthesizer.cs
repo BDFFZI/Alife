@@ -11,7 +11,7 @@ public class SpeechSynthesizer
     public async Task SpeakAsync(string text)
     {
         if (IsSpeaking)
-            StopSpeak();
+            await StopSpeakAsync();
         if (string.IsNullOrWhiteSpace(text))
             return;
 
@@ -31,19 +31,19 @@ public class SpeechSynthesizer
     public async Task SpeakAudioAsync(string file)
     {
         if (IsSpeaking)
-            StopSpeak();
+            await StopSpeakAsync();
 
         cancellationToken = new CancellationTokenSource();
         currentTask = PlayAudioAsync(file, cancellationToken.Token);
 
         await currentTask;
     }
-    public void StopSpeak()
+    public Task StopSpeakAsync()
     {
         if (IsSpeaking == false)
             throw new InvalidOperationException("当前没有语音中。");
 
-        cancellationToken!.Cancel();
+        return cancellationToken!.CancelAsync();
     }
 
     /// <summary>

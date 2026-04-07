@@ -16,21 +16,16 @@ public class XmlHandlerTableTest
         handlerTable.Register(new MockSystemHandler());
 
         string actual = handlerTable.Document();
-        const string Expected = @"# XmlHandler Document
-
-## MockPetHandler
+        const string Expected = @"MockPetHandler
 > Mock 宠物处理器：用于验证桌宠相关标签的解析。
-
 - <petmove x=""Single"" y=""Single"" duration=""Int32""（毫秒） /> : 模拟位移。
 - <speak>text</speak>
 
-## MockSpeechHandler
+MockSpeechHandler
 > Mock 语音处理器：用于验证语音输出标签。
-
 - <speak tone=""String"">text（需要转语音的文本）</speak>
 
-## MockSystemHandler
-
+MockSystemHandler
 - <continue />";
 
         Assert.That(actual, Is.EqualTo(Expected));
