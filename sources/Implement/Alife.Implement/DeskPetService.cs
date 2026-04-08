@@ -112,7 +112,9 @@ public class DeskPetService : Plugin, IAsyncDisposable
                                                                 - 支持：{string.Join(", ", client.SupportedExpressions)}
                                                              3. **动作控制**：`<pmtn>类型</pmtn>`
                                                                 - 支持：{string.Join(", ", client.SupportedMotions.Keys)}
-                                                             4. **生理反应 (Poke)**：当你收到系统的物理干扰消息时，应根据你的角色设定做出自然的反应（如惊讶、头晕、脸红等）。
+                                                             4. **生理反应 (Poke)**：
+                                                                - 当你收到 `[DeskPetService] (物理干扰/连击干扰/交互: xxx) 台词` 格式的消息时，表示真央（桌宠）已经根据当前的物理刺激（点击、摇晃、连击）做出了“条件反射”式的本能反应（动作和基础台词）。
+                                                                - 你作为真央的灵魂，应在此基础上进行情感化的后续回应，不要简单重复桌宠已经说过的本能反馈。
                                                              5. **获取位置**：`<pos />` (获取桌宠当前在屏幕上的坐标)
                                                              """);
         return Task.CompletedTask;

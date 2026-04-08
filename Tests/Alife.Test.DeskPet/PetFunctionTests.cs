@@ -44,45 +44,53 @@ public class PetFunctionTests
     [Test, Order(5)]
     public void TestInteractionClick()
     {
-        TaskCompletionSource<bool> tcs = new();
-        void OnPoke(string evt) => tcs.TrySetResult(true);
-        client.OnPoke += OnPoke;
-        
-        MessageBoxResult result = MessageBox.Show(
-            "请现在用鼠标左键双击真央（身体或者头部皆可）。\n双击后如果真央做出了语音反应与动作，请点击“是”。\n如果没有反应，请点击“否”。", 
-            "人工交互测试：点击反应", 
-            MessageBoxButton.YesNo, 
-            MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly);
+        recordedPokes.Clear();
+        MessageBox.Show(
+            "测试 [单次点击]: 请双击真央（身体或头部）。\n完成操作后，再点击此窗口的“确定”。", 
+            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
 
-        client.OnPoke -= OnPoke;
-
-        Assert.That(result, Is.EqualTo(MessageBoxResult.Yes), "用户报告点击无反应。");
-        Assert.That(tcs.Task.IsCompletedSuccessfully, Is.True, "后端未成功接收到前端透传的点击(Poke)消息！");
+        Assert.That(recordedPokes.Count, Is.GreaterThan(0), "在点击确定前，未检测到任何点击消息！");
     }
 
     [Test, Order(6)]
+    public void TestComboClick()
+    {
+        recordedPokes.Clear();
+        MessageBox.Show(
+            "测试 [连续点击]: 请快速连续地点击真央 5 次以上，直到看到眩晕反应。\n完成操作后，再点击此窗口的“确定”。", 
+            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+
+        bool hasCombo = recordedPokes.Any(p => p.Contains("连击干扰"));
+        Assert.That(hasCombo, Is.True, "在点击确定前，未检测到连击(Combo)消息！");
+    }
+
+    [Test, Order(7)]
     public void TestInteractionShake()
     {
-        TaskCompletionSource<bool> tcs = new();
-        void OnPoke(string evt)
-        {
-            if (evt.Contains("物理干扰")) tcs.TrySetResult(true);
-        }
-        client.OnPoke += OnPoke;
-        
-        MessageBoxResult result = MessageBox.Show(
-            "请按住鼠标左键拖动真央，并在屏幕上快速大幅度甩动几圈。\n如果你看到真央出现了头晕星形眼，并反馈被晃晕了，请点击“是”。\n如果没有，请点击“否”。", 
-            "人工交互测试：物理甩动", 
-            MessageBoxButton.YesNo, 
-            MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly);
+        recordedPokes.Clear();
+        MessageBox.Show(
+            "测试 [摇晃]: 请按住鼠标左键甩动真央几圈，直到看到被晃晕的反应。\n完成操作后，再点击此窗口的“确定”。", 
+            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
 
-        client.OnPoke -= OnPoke;
+        bool hasShake = recordedPokes.Any(p => p.Contains("物理干扰"));
+        Assert.That(hasShake, Is.True, "在点击确定前，未检测到摇晃消息！");
+    }
 
-        Assert.That(result, Is.EqualTo(MessageBoxResult.Yes), "用户报告甩动无反应。");
-        Assert.That(tcs.Task.IsCompletedSuccessfully, Is.True, "后端未成功接收到前端透传的摇晃(Poke)消息！");
+    [Test, Order(8)]
+    public void TestChatInput()
+    {
+        recordedChats.Clear();
+        MessageBox.Show(
+            "测试 [文本输入]: 请在桌宠底部的输入框输入“Hello Mao”并按回车。\n完成操作后，再点击此窗口的“确定”。", 
+            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+
+        bool hasChat = recordedChats.Any(c => c == "Hello Mao");
+        Assert.That(hasChat, Is.True, "在点击确定前，未收到正确的聊天输入消息！");
     }
 
     DeskPetClient client = null!;
+    List<string> recordedPokes = new();
+    List<string> recordedChats = new();
 
     void AskUser(string question)
     {
@@ -94,8 +102,11 @@ public class PetFunctionTests
     public void Setup()
     {
         client = new DeskPetClient();
+        client.OnPoke += p => recordedPokes.Add(p);
+        client.OnChat += c => recordedChats.Add(c);
+        
         client.Start();
-        // Give WPF and WebView2 time to render and load completely
+        // Give WPF time to load
         Thread.Sleep(3000);
     }
 

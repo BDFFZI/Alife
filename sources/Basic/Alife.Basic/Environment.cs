@@ -13,12 +13,12 @@ public static class Environment
     {
         {
             string? current = AppContext.BaseDirectory;
-            while (!string.IsNullOrEmpty(current) && Directory.Exists(Path.Combine(current, "Resources")) == false)
+            while (!string.IsNullOrEmpty(current) && Directory.Exists(Path.Combine(current, "Outputs")) == false)
                 current = Path.GetDirectoryName(current);
             if (current == null)
             {
-                Terminal.LogError("无法确定资源目录位置！");
-                throw new Exception("无法确定资源目录位置！");
+                Terminal.LogError("无法确定项目根目录位置！");
+                throw new Exception("无法确定项目根目录位置！");
             }
 
             ModelsFolderPath = Path.Combine(current, "Resources", "Models").Replace(Path.DirectorySeparatorChar, '/');

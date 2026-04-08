@@ -60,7 +60,6 @@ public partial class MainWindow : Window
             logicalTop = Top;
 
             long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-
             if (now - lastMoveTime > 300)
             {
                 totalPath = 0;
@@ -71,11 +70,9 @@ public partial class MainWindow : Window
             double dy = Top - lastManualTop;
             double stepDist = Math.Sqrt(dx * dx + dy * dy);
 
-            if (stepDist < 2)
-                return;
+            if (stepDist < 2) return;
 
             totalPath += stepDist;
-
             if (lastManualDx != 0 && Math.Sign(dx) != Math.Sign(lastManualDx)) directionChanges++;
             if (lastManualDy != 0 && Math.Sign(dy) != Math.Sign(lastManualDy)) directionChanges++;
 
@@ -89,19 +86,19 @@ public partial class MainWindow : Window
             {
                 totalPath = 0;
                 directionChanges = 0;
-                SendToWebView(new { type = "shake" });
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "shake" }));
             }
             else if (totalPath > 5000 && directionChanges < 2)
             {
                 totalPath = 0;
                 directionChanges = 0;
-                SendToWebView(new { type = "move" });
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "move" }));
             }
         };
 
         try
         {
-            mouseTracker = new MouseTracker(webView);
+            mouseTracker = new MouseTracker(this);
             mouseTracker.Initialize();
         }
         catch (Exception ex)
@@ -110,12 +107,9 @@ public partial class MainWindow : Window
         }
     }
 
-    void SendToWebView(object data)
+    public void HandleMouseMoveRaw(int x, int y)
     {
-        if (webView.CoreWebView2 == null)
-            return;
-        string json = JsonSerializer.Serialize(data);
-        webView.CoreWebView2.PostWebMessageAsJson(json);
+        bridge?.HandleRawMouseMove(x, y);
     }
 
     async void InitializeWebView()
@@ -125,7 +119,21 @@ public partial class MainWindow : Window
             CoreWebView2Environment env = await CoreWebView2Environment.CreateAsync();
             await webView.EnsureCoreWebView2Async(env);
 
-            webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+            bridge = new PetBridge(webView);
+            bridge.OnHit += (areas) => Console.WriteLine(JsonSerializer.Serialize(new { type = "hit", areas }));
+            bridge.OnChat += (text) => Console.WriteLine(JsonSerializer.Serialize(new { type = "chat", text }));
+            bridge.OnReady += () => {
+                _ = bridge.LoadModelAsync("model/Mao/Mao.model3.json");
+                Console.WriteLine(JsonSerializer.Serialize(new { type = "ready" }));
+            };
+            bridge.OnDragRequest += () => {
+                Dispatcher.Invoke(() => {
+                    WindowInteropHelper helper = new(this);
+                    ReleaseCapture();
+                    SendMessage(helper.Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
+                });
+            };
+
             webView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
 
             string wwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
@@ -133,7 +141,6 @@ public partial class MainWindow : Window
 
             webView.Source = new Uri("https://app.local/index.html");
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-            webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
 
             _ = Task.Run(StartIpcListener);
         }
@@ -150,14 +157,9 @@ public partial class MainWindow : Window
             try
             {
                 string? line = Console.ReadLine();
-                if (line == null)
-                    break;
+                if (line == null) break;
 
-                Dispatcher.Invoke(() => {
-                    if (webView.CoreWebView2 != null)
-                        webView.CoreWebView2.PostWebMessageAsJson(line);
-                    HandleHostCommand(line);
-                });
+                Dispatcher.Invoke(() => HandleHostCommand(line));
             }
             catch (Exception ex)
             {
@@ -173,21 +175,26 @@ public partial class MainWindow : Window
     {
         try
         {
+            // First check if it's a bridge command
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
+            if (root.TryGetProperty("type", out JsonElement typeProp))
+            {
+                string? type = typeProp.GetString();
+                if (type is "bubble" or "expression" or "motion" or "look" or "parameter")
+                {
+                    webView.CoreWebView2?.PostWebMessageAsJson(json);
+                    return;
+                }
+            }
+
             IpcCommand? command = JsonSerializer.Deserialize<IpcCommand>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
             if (command is WindowMoveCommand moveCmd)
             {
                 isProgrammaticMove = true;
-
                 DpiScale dpiInfo = VisualTreeHelper.GetDpi(this);
-                double logicalX = moveCmd.X / dpiInfo.DpiScaleX;
-                double logicalY = moveCmd.Y / dpiInfo.DpiScaleY;
-
-                logicalLeft += logicalX;
-                logicalTop += logicalY;
-
-                double targetLeft = logicalLeft;
-                double targetTop = logicalTop;
+                double targetLeft = logicalLeft + (moveCmd.X / dpiInfo.DpiScaleX);
+                double targetTop = logicalTop + (moveCmd.Y / dpiInfo.DpiScaleY);
 
                 System.Windows.Media.Animation.DoubleAnimation animX = new(Left, targetLeft, TimeSpan.FromMilliseconds(moveCmd.Duration)) {
                     EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
@@ -199,82 +206,37 @@ public partial class MainWindow : Window
                 int completedCount = 0;
                 void OnComplete()
                 {
-                    completedCount++;
-                    if (completedCount >= 2)
-                    {
-                        BeginAnimation(LeftProperty, null);
-                        BeginAnimation(TopProperty, null);
-                        Left = targetLeft;
-                        Top = targetTop;
-
-                        lastManualLeft = targetLeft;
-                        lastManualTop = targetTop;
-                        lastManualDx = 0;
-                        lastManualDy = 0;
-                        totalPath = 0;
-
-                        isProgrammaticMove = false;
-
-                        Console.WriteLine(JsonSerializer.Serialize(new { type = "pmove-finished" }));
-                    }
+                    if (++completedCount < 2) return;
+                    BeginAnimation(LeftProperty, null);
+                    BeginAnimation(TopProperty, null);
+                    Left = logicalLeft = targetLeft;
+                    Top = logicalTop = targetTop;
+                    lastManualLeft = targetLeft;
+                    lastManualTop = targetTop;
+                    isProgrammaticMove = false;
+                    Console.WriteLine(JsonSerializer.Serialize(new { type = "pmove-finished" }));
                 }
 
                 animX.Completed += (s, e) => OnComplete();
                 animY.Completed += (s, e) => OnComplete();
-
                 BeginAnimation(LeftProperty, animX);
                 BeginAnimation(TopProperty, animY);
             }
             else if (command is GetPositionCommand)
             {
-                double centerX = Left + Width / 2;
-                double centerY = Top + Height / 2;
-
                 DpiScale dpiInfo = VisualTreeHelper.GetDpi(this);
-                double physicalX = centerX * dpiInfo.DpiScaleX;
-                double physicalY = centerY * dpiInfo.DpiScaleY;
-
-                Console.WriteLine(JsonSerializer.Serialize(new { type = "position", x = physicalX, y = physicalY }));
+                Console.WriteLine(JsonSerializer.Serialize(new { 
+                    type = "position", 
+                    x = (Left + Width / 2) * dpiInfo.DpiScaleX, 
+                    y = (Top + Height / 2) * dpiInfo.DpiScaleY 
+                }));
             }
-        }
-        catch (JsonException)
-        {
-            // 对于单纯发给前端的未知命令，反序列化可能被忽略返回 null 或直接抛出异常，无需处理
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Move Error: {ex.Message}");
+            Debug.WriteLine($"Command Error: {ex.Message}");
             isProgrammaticMove = false;
             Console.WriteLine(JsonSerializer.Serialize(new { type = "pmove-finished" }));
-        }
-    }
-
-    void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-    {
-        try
-        {
-            string json = e.WebMessageAsJson;
-            Console.WriteLine(json);
-
-            using JsonDocument doc = JsonDocument.Parse(json);
-            JsonElement root = doc.RootElement;
-
-            if (root.TryGetProperty("type", out JsonElement typeProp) == false)
-                return;
-            string? type = typeProp.GetString();
-
-            if (type == "drag-request")
-            {
-                Dispatcher.Invoke(() => {
-                    WindowInteropHelper helper = new(this);
-                    ReleaseCapture();
-                    SendMessage(helper.Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"WebMessage processing error: {ex.Message}");
         }
     }
 
@@ -290,11 +252,8 @@ public partial class MainWindow : Window
     void OnManualDragMove(MouseEventArgs e)
     {
         Point currentPoint = PointToScreen(e.GetPosition(this));
-        double dx = currentPoint.X - dragStartPoint.X;
-        double dy = currentPoint.Y - dragStartPoint.Y;
-
-        Left = dragStartLeft + dx;
-        Top = dragStartTop + dy;
+        Left = dragStartLeft + (currentPoint.X - dragStartPoint.X);
+        Top = dragStartTop + (currentPoint.Y - dragStartPoint.Y);
     }
 
     void OnManualDragEnd()
@@ -303,6 +262,7 @@ public partial class MainWindow : Window
         ReleaseCapture();
     }
 
+    PetBridge? bridge;
     MouseTracker? mouseTracker;
 
     bool isProgrammaticMove;
