@@ -33,7 +33,7 @@ window.chrome.webview.addEventListener("message", (e) => {
             break;
         //修改气泡文字
         case "bubble":
-            ui.bubble.innerText = text;
+            ui.bubble.innerText = msg.text;
             ui.bubbleContainer.classList.add("show");
             break;
         case "hide-bubble":
