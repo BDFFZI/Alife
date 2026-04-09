@@ -22,6 +22,7 @@
     <Project Path="Sources/Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
     <Project Path="Sources/Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />
+    <Project Path="Sources\Function\Alife.Function.Memory\Alife.Function.Memory.csproj" Type="Classic C#" />
   </Folder>
   <Folder Name="/Sources/Implement/">
     <Project Path="Sources/Implement/Alife.Implement/Alife.Implement.csproj" />

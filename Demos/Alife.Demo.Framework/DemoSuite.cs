@@ -1,6 +1,9 @@
+using System;
+using System.Linq;
 using Alife.Basic;
 using Alife.Framework;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel.ChatCompletion;
 
