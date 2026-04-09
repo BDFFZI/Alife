@@ -101,7 +101,31 @@ public class DeskPetClient : IAsyncDisposable
         petProcess.BeginErrorReadLine();
     }
 
-    public void ShowBubble(string text, int duration = 4000) => Send(new { type = "bubble", text, duration });
+    public void ShowBubble(string text, int duration = 4000)
+    {
+        Send(new { type = "bubble", text });
+        
+        // 逻辑上移：在客户端处理气泡消失逻辑
+        if (duration > 0)
+        {
+            bubbleCts?.Cancel();
+            bubbleCts = new CancellationTokenSource();
+            _ = HideBubbleDelayed(duration, bubbleCts.Token);
+        }
+    }
+
+    public void HideBubble() => Send(new { type = "hide-bubble" });
+
+    async Task HideBubbleDelayed(int delayMs, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(delayMs, token);
+            HideBubble();
+        }
+        catch (OperationCanceledException) { }
+    }
+
     public void SetExpression(string id) => Send(new { type = "expression", id });
     public void PlayMotion(string group, int index) => Send(new { type = "motion", group, index });
 
@@ -134,6 +158,7 @@ public class DeskPetClient : IAsyncDisposable
     {
         comboCount = 0;
         lastInteractionTime = 0;
+        bubbleCts?.Cancel();
         moveTcs?.TrySetCanceled();
         posTcs?.TrySetCanceled();
     }
@@ -222,6 +247,7 @@ public class DeskPetClient : IAsyncDisposable
     Process? petProcess;
     TaskCompletionSource? moveTcs;
     TaskCompletionSource<(double, double)>? posTcs;
+    CancellationTokenSource? bubbleCts;
     
     int comboCount;
     long lastInteractionTime;

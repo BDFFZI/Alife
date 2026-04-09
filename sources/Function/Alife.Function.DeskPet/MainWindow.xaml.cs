@@ -109,7 +109,22 @@ public partial class MainWindow : Window
 
     public void HandleMouseMoveRaw(int x, int y)
     {
-        bridge?.HandleRawMouseMove(x, y);
+        lastMouseMoveTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        
+        // 计算归一化坐标 [-1, 1]
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double logicalMouseX = x / dpi.DpiScaleX;
+        double logicalMouseY = y / dpi.DpiScaleY;
+        
+        double centerX = Left + Width / 2;
+        double centerY = Top + Height / 2;
+
+        // 归一化：相对于窗口中心的偏移量 / 半个窗口宽度
+        double nx = (logicalMouseX - centerX) / (Width / 2);
+        double ny = (logicalMouseY - centerY) / (Height / 2);
+
+        // 发送给桥接层进行转发
+        _ = bridge?.SetFocusAsync(nx, ny);
     }
 
     async void InitializeWebView()
@@ -143,6 +158,7 @@ public partial class MainWindow : Window
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
             _ = Task.Run(StartIpcListener);
+            _ = Task.Run(FocusResetLoop);
         }
         catch (Exception ex)
         {
@@ -181,7 +197,7 @@ public partial class MainWindow : Window
             if (root.TryGetProperty("type", out JsonElement typeProp))
             {
                 string? type = typeProp.GetString();
-                if (type is "bubble" or "expression" or "motion" or "look" or "parameter")
+                if (type is "bubble" or "expression" or "motion" or "look" or "hide-bubble")
                 {
                     webView.CoreWebView2?.PostWebMessageAsJson(json);
                     return;
@@ -276,11 +292,27 @@ public partial class MainWindow : Window
     double lastManualDx;
     double lastManualDy;
     long lastMoveTime;
+    long lastMouseMoveTime;
 
     bool isDragging;
     Point dragStartPoint;
     double dragStartLeft;
     double dragStartTop;
+
+    async void FocusResetLoop()
+    {
+        while (true)
+        {
+            await Task.Delay(500);
+            if (DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastMouseMoveTime > 3000)
+            {
+                // Reset focus to center (0, 0)
+                Dispatcher.Invoke(() => {
+                    _ = bridge?.SetFocusAsync(0, 0);
+                });
+            }
+        }
+    }
 
     [DllImport("user32.dll")]
     static extern bool ReleaseCapture();

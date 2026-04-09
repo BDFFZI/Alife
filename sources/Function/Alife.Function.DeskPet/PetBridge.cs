@@ -1,10 +1,12 @@
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
-using System.Text.Json;
-using System.Windows;
 
 namespace Alife.Function.DeskPet;
 
+/// <summary>
+/// 网页桌宠的 C# 化身，仅作为渲染层的协议转发
+/// </summary>
 public class PetBridge
 {
     public event Action? OnReady;
@@ -12,53 +14,48 @@ public class PetBridge
     public event Action<string>? OnChat;
     public event Action? OnDragRequest;
 
+    public void LoadModelAsync(string url)
+    {
+        SendCommandAsync(new { type = "load", url });
+    }
+
+    public void SetExpressionAsync(string id)
+    {
+        SendCommandAsync(new { type = "expression", id });
+    }
+
+    public void PlayMotionAsync(string group, int index)
+    {
+        SendCommandAsync(new { type = "motion", group, index });
+    }
+
+    public void ShowBubbleAsync(string text)
+    {
+        SendCommandAsync(new { type = "bubble", text });
+    }
+
+    public void HideBubbleAsync()
+    {
+        SendCommandAsync(new { type = "hide-bubble" });
+    }
+
+    public void SetFocusAsync(double x, double y, bool instant = false)
+    {
+        SendCommandAsync(new { type = "look", x, y, instant });
+    }
+
+    readonly WebView2 webView;
+
     public PetBridge(WebView2 webView)
     {
         this.webView = webView;
         this.webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
     }
 
-    public async Task LoadModelAsync(string url)
+    void SendCommandAsync(object command)
     {
-        await SendCommandAsync(new { type = "load", url });
-    }
-
-    public async Task SetExpressionAsync(string id)
-    {
-        await SendCommandAsync(new { type = "expression", id });
-    }
-
-    public async Task PlayMotionAsync(string group, int index)
-    {
-        await SendCommandAsync(new { type = "motion", group, index });
-    }
-
-    public async Task ShowBubbleAsync(string text, int duration)
-    {
-        await SendCommandAsync(new { type = "bubble", text, duration });
-    }
-
-    public async Task SetFocusAsync(double x, double y, bool instant = false)
-    {
-        await SendCommandAsync(new { type = "look", x, y, instant });
-    }
-
-    public async Task SetParameterAsync(string name, double value, int duration)
-    {
-        await SendCommandAsync(new { type = "parameter", name, value, duration });
-    }
-
-    public void HandleRawMouseMove(int x, int y)
-    {
-        _ = webView.CoreWebView2.ExecuteScriptAsync($"window.handleMouseMove({{ x: {x}, y: {y} }});");
-    }
-
-    async Task SendCommandAsync(object command)
-    {
-        if (webView.CoreWebView2 == null) return;
         string json = JsonSerializer.Serialize(command);
         webView.CoreWebView2.PostWebMessageAsJson(json);
-        await Task.CompletedTask;
     }
 
     void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -88,11 +85,11 @@ public class PetBridge
                     }
                     OnHit?.Invoke(areas);
                     break;
-                case "chat":
-                    OnChat?.Invoke(root.GetProperty("text").GetString() ?? "");
-                    break;
                 case "drag-request":
                     OnDragRequest?.Invoke();
+                    break;
+                case "chat":
+                    OnChat?.Invoke(root.GetProperty("text").GetString() ?? "");
                     break;
             }
         }
@@ -101,6 +98,4 @@ public class PetBridge
             System.Diagnostics.Debug.WriteLine($"PetBridge Message Error: {ex.Message}");
         }
     }
-
-    readonly WebView2 webView;
 }

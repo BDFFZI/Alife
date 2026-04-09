@@ -1,171 +1,104 @@
-class PetApp {
-    constructor() {
-        this.app = null;
-        this.model = null;
-        this.modelName = "";
-        this.isSpeaking = false;
-        this.lastMouseMoveTime = 0;
+const ui = {
+    bubble: document.getElementById("bubble"),
+    bubbleContainer: document.getElementById("bubble-container"),
+    chatInput: document.getElementById("chat-input"),
+    sendBtn: document.getElementById("send-btn")
+};
 
-        this.ui = {
-            log: document.getElementById("log-container"),
-            bubble: document.getElementById("bubble"),
-            bubbleContainer: document.getElementById("bubble-container"),
-            chatInput: document.getElementById("chat-input"),
-            sendBtn: document.getElementById("send-btn")
-        };
+let app = new PIXI.Application({
+    view: document.getElementById("canvas"),
+    autoStart: true,
+    resizeTo: window,
+    transparent: true,
+    backgroundAlpha: 0,
+});
 
-        this.bubbleHideTimeout = null;
-        this.bubbleDisplayTimeout = null;
+let model = null;
+
+//输入功能
+window.chrome.webview.addEventListener("message", (e) => {
+    const msg = e.data;
+    switch (msg.type) {
+        //加载live2d功能
+        case "load":
+            loadModel(msg.url);
+            break;
+        //修改表情
+        case "expression":
+            model.expression(msg.id);
+            break;
+        //修改动作
+        case "motion":
+            model.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE);
+            break;
+        //修改气泡文字
+        case "bubble":
+            ui.bubble.innerText = text;
+            ui.bubbleContainer.classList.add("show");
+            break;
+        case "hide-bubble":
+            ui.bubbleContainer.classList.remove("show");
+            break;
+        //修改注视目标
+        case "look":
+            model.focus(msg.x, msg.y, msg.instant);
+            break;
     }
 
-    async start() {
-        await new Promise(r => setTimeout(r, 500));
-        if (!window.PIXI || !window.PIXI.live2d) return;
+    async function loadModel(url) {
+        if (model) app.stage.removeChild(model);
+        model = await PIXI.live2d.Live2DModel.from(url, { autoInteract: false });
+        app.stage.addChild(model);
 
-        this.app = new PIXI.Application({
-            view: document.getElementById("canvas"),
-            autoStart: true,
-            resizeTo: window,
-            transparent: true,
-            backgroundAlpha: 0,
-        });
-
-        this.setupEvents();
-        this.postMessage({ type: 'ready' });
-    }
-
-    async loadModel(url) {
-        try {
-            if (this.model) this.app.stage.removeChild(this.model);
-            this.modelName = url.split('/').slice(-2, -1)[0];
-
-            this.model = await PIXI.live2d.Live2DModel.from(url, { autoInteract: false });
-            this.app.stage.addChild(this.model);
-
-            this.setupLive2D();
-            this.log("Pet System Ready.");
-            setTimeout(() => this.ui.log.style.display = "none", 2000);
-        } catch (e) {
-            this.log("Load Error: " + e.message);
-        }
-    }
-
-    setupLive2D() {
-
-        const ctrl = this.model.internalModel.focusController;
+        // 设置动画曲线
+        const ctrl = model.internalModel.focusController;
         if (ctrl) {
             ctrl.acceleration = 0.04;
             ctrl.deceleration = 0.08;
         }
 
-        const scale = (window.innerHeight * 0.9) / this.model.height;
-        this.model.scale.set(scale);
-        this.model.anchor.set(0.5, 0.5);
-        this.model.position.set(window.innerWidth / 2, window.innerHeight / 2);
-        this.model.interactive = true;
+        // 设置符合窗口的大小
+        const scale = (window.innerHeight * 0.9) / model.height;
+        model.scale.set(scale);
+        model.anchor.set(0.5, 0.5);
+        model.position.set(window.innerWidth / 2, window.innerHeight / 2);
+        model.interactive = true;
+    }
+});
+
+
+//输出功能
+{
+    function postMessage(data) {
+        window.chrome.webview.postMessage(data);
     }
 
-    setupEvents() {
-        if (window.chrome?.webview) {
-            window.chrome.webview.addEventListener("message", (e) => this.handleHostMessage(e.data));
-        }
-
-        window.addEventListener("dblclick", (e) => {
-            if (e.button === 0 && (e.target.id === "canvas" || e.target.tagName === "CANVAS")) {
-                this.performHitTest(e.clientX, e.clientY);
-            }
+    //双击触摸反馈
+    window.addEventListener("dblclick", (e) => {
+        if (e.target.tagName !== "CANVAS") return;
+        model.hitTest(e.clientX, e.clientY).then(areas => {
+            if (areas.length > 0) postMessage({ type: "hit", areas });
         });
+    });
 
-        window.addEventListener("mousedown", async (e) => {
-            if (e.button === 0 && (e.target.id === "canvas" || e.target.tagName === "CANVAS")) {
-                const hitAreas = await this.model?.hitTest(e.clientX, e.clientY);
-                if (!hitAreas || hitAreas.length === 0) this.postMessage({ type: 'drag-request' });
-            }
-        });
+    //单击拖动反馈
+    window.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0 || e.target.tagName !== "CANVAS") return;
+        const hitAreas = await model.hitTest(e.clientX, e.clientY);
+        if (!hitAreas || hitAreas.length === 0) postMessage({ type: "drag-request" });
+    });
 
-        window.handleMouseMove = (data) => {
-            this.lastMouseMoveTime = Date.now();
-            this.updateFocus(data.x, data.y);
-            this.postMessage({ type: 'mousemove-raw', x: data.x, y: data.y });
-        };
-
-        setInterval(() => {
-            if (Date.now() - this.lastMouseMoveTime > 3000 && !this.isSpeaking) {
-                this.updateFocus(window.innerWidth / 2, window.innerHeight / 2);
-            }
-        }, 500);
-
-        const onSend = () => {
-            const text = this.ui.chatInput.value.trim();
-            if (text) {
-                this.postMessage({ type: 'chat', text });
-                this.ui.chatInput.value = "";
-            }
-        };
-        this.ui.sendBtn.onclick = onSend;
-        this.ui.chatInput.onkeydown = (e) => { if (e.key === "Enter") onSend(); };
-        window.addEventListener("contextmenu", (e) => e.preventDefault());
-    }
-
-    handleHostMessage(msg) {
-        switch (msg.type) {
-            case "load": this.loadModel(msg.url); break;
-            case "bubble": this.showBubble(msg.text, msg.duration); break;
-            case "expression": this.model?.expression(msg.id); break;
-            case "motion": this.model?.motion(msg.group, msg.index, PIXI.live2d.MotionPriority.FORCE); break;
-            case "look": this.updateFocus(window.innerWidth / 2, window.innerHeight / 2, true); break;
+    //文本输入反馈
+    const onSend = () => {
+        const text = ui.chatInput.value.trim();
+        if (text) {
+            postMessage({ type: "chat", text });
+            ui.chatInput.value = "";
         }
-    }
+    };
+    ui.sendBtn.onclick = onSend;
+    ui.chatInput.onkeydown = (e) => { if (e.key === "Enter") onSend(); };
 
-    async performHitTest(x, y) {
-        if (!this.model) return;
-        const hitAreas = await this.model.hitTest(x, y);
-        if (hitAreas.length > 0) {
-            this.postMessage({ type: 'hit', areas: hitAreas });
-        }
-    }
-
-    showBubble(text, duration = 4000) {
-        const { bubble, bubbleContainer } = this.ui;
-        if (!bubble || !bubbleContainer) return;
-
-        clearTimeout(this.bubbleHideTimeout);
-        clearTimeout(this.bubbleDisplayTimeout);
-
-        bubble.innerText = text;
-        bubbleContainer.style.display = "block";
-        setTimeout(() => bubbleContainer.style.opacity = "1", 10);
-
-        if (duration > 0) {
-            this.isSpeaking = true;
-            this.updateFocus(window.innerWidth / 2, window.innerHeight / 2, true);
-
-            this.bubbleHideTimeout = setTimeout(() => {
-                bubbleContainer.style.opacity = "0";
-                this.bubbleDisplayTimeout = setTimeout(() => {
-                    bubbleContainer.style.display = "none";
-                    this.isSpeaking = false;
-                }, 300);
-            }, duration);
-        }
-    }
-
-    updateFocus(x, y, instant = false) {
-        if (!this.model) return;
-        if (this.isSpeaking && !instant) return;
-        this.model.focus(x, y, instant);
-    }
-
-
-    postMessage(data) {
-        if (window.chrome?.webview) window.chrome.webview.postMessage(data);
-    }
-
-    log(msg) {
-        console.log(msg);
-        if (this.ui.log) this.ui.log.innerText = msg;
-    }
 }
 
-const app = new PetApp();
-app.start();
+postMessage({ type: "ready" });
