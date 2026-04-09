@@ -19,7 +19,7 @@ public class PetBridge
         SendCommandAsync(new { type = "load", url });
     }
 
-    public void SetExpressionAsync(string id)
+    public void PlayExpressionAsync(string? id)
     {
         SendCommandAsync(new { type = "expression", id });
     }
@@ -42,14 +42,6 @@ public class PetBridge
     public void SetFocusAsync(double x, double y, bool instant = false)
     {
         SendCommandAsync(new { type = "look", x, y, instant });
-    }
-
-    readonly WebView2 webView;
-
-    public PetBridge(WebView2 webView)
-    {
-        this.webView = webView;
-        this.webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
     }
 
     void SendCommandAsync(object command)
@@ -97,5 +89,13 @@ public class PetBridge
         {
             System.Diagnostics.Debug.WriteLine($"PetBridge Message Error: {ex.Message}");
         }
+    }
+
+    readonly WebView2 webView;
+
+    public PetBridge(WebView2 webView)
+    {
+        this.webView = webView;
+        this.webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
     }
 }

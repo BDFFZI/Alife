@@ -14,9 +14,9 @@ namespace Alife.Implement;
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public class SpeechService : Plugin, IAsyncDisposable
 {
-    [XmlFunction("speak")]
+    [XmlFunction("say", -10)]
     [Description("使用语音的方式向用户发送消息。")]
-    public async Task Speak(XmlExecutorContext context, [XmlContent] string content)
+    public async Task Say(XmlExecutorContext context, [XmlContent] string content)
     {
         if (context.CallMode == CallMode.Reset)
         {

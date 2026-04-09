@@ -1,124 +1,72 @@
-using System.IO;
-using System.Runtime.InteropServices;
+using System;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Web.WebView2.Core;
 
 namespace Alife.Function.DeskPet;
 
-public partial class MainWindow : Window
+/// <summary>
+/// 极薄的 UI 壳层，仅通过 IPetWindow 接口提供窗口服务
+/// </summary>
+public partial class MainWindow : Window, IPetWindow
 {
     public MainWindow()
     {
         InitializeComponent();
 
-        ipc = new PetIpcHandler();
-        viewModel = new DeskPetViewModel(
-            ipc, 
-            new InterferenceDetector(),
-            () => {
-                DpiScale dpi = VisualTreeHelper.GetDpi(this);
-                return (dpi.DpiScaleX, dpi.DpiScaleY);
-            },
-            () => (Left, Top, Width, Height)
-        );
+        server = new PetServer(this);
+        
+        StateChanged += (s, e) => { if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal; };
+        MouseDown += (s, e) => { if (e.LeftButton == MouseButtonState.Pressed) DragMove(); };
+        
+        InitializeWebView();
+    }
 
-        viewModel.MoveRequested += OnMoveRequested;
+    public (double Left, double Top, double Width, double Height) GetLayout()
+    {
+        return (Left, Top, Width, Height);
+    }
 
-        Loaded += (object s, RoutedEventArgs e) => {
-            InitializeWebView();
-            ipc.StartListening();
+    public (double ScaleX, double ScaleY) GetDpi()
+    {
+        Visual? visual = PresentationSource.FromVisual(this)?.CompositionTarget?.RootVisual as Visual;
+        if (visual == null) return (1.0, 1.0);
+        Matrix matrix = PresentationSource.FromVisual(this).CompositionTarget.TransformToDevice;
+        return (matrix.M11, matrix.M22);
+    }
+
+    public void ProgrammaticMove(double targetX, double targetY, int durationMs)
+    {
+        (double ScaleX, double ScaleY) dpi = GetDpi();
+        double startX = Left;
+        double startY = Top;
+        double endX = targetX / dpi.ScaleX - Width / 2;
+        double endY = targetY / dpi.ScaleY - Height / 2;
+
+        DoubleAnimation xAnim = new DoubleAnimation(startX, endX, TimeSpan.FromMilliseconds(durationMs)) { EasingFunction = new QuadraticEase() };
+        DoubleAnimation yAnim = new DoubleAnimation(startY, endY, TimeSpan.FromMilliseconds(durationMs)) { EasingFunction = new QuadraticEase() };
+
+        xAnim.Completed += (s, e) => {
+            server.NotifyMoveFinished();
         };
 
-        LocationChanged += (object? s, EventArgs e) => {
-            if (isProgrammaticMove == false)
-                viewModel.ReportWindowLocation(Left, Top);
-        };
+        BeginAnimation(LeftProperty, xAnim);
+        BeginAnimation(TopProperty, yAnim);
     }
 
-    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e) {
-        if (e.ChangedButton == MouseButton.Left) {
-            isDragging = true;
-            dragStartPoint = PointToScreen(e.GetPosition(this));
-            dragStartLeft = Left; dragStartTop = Top;
-            CaptureMouse();
-        }
-        base.OnMouseLeftButtonDown(e);
-    }
-
-    protected override void OnMouseMove(MouseEventArgs e) {
-        if (isDragging) {
-            Point p = PointToScreen(e.GetPosition(this));
-            Left = dragStartLeft + (p.X - dragStartPoint.X);
-            Top = dragStartTop + (p.Y - dragStartPoint.Y);
-        }
-        base.OnMouseMove(e);
-    }
-
-    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e) {
-        isDragging = false;
-        ReleaseCapture();
-        base.OnMouseLeftButtonUp(e);
-    }
-
-    [DllImport("user32.dll")] static extern bool ReleaseCapture();
-    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
-
-    readonly DeskPetViewModel viewModel;
-    readonly PetIpcHandler ipc;
-
-    bool isProgrammaticMove;
-    bool isDragging;
-    Point dragStartPoint;
-    double dragStartLeft, dragStartTop;
 
     async void InitializeWebView()
     {
-        try {
-            CoreWebView2Environment env = await CoreWebView2Environment.CreateAsync();
-            await webView.EnsureCoreWebView2Async(env);
-            
-            PetBridge bridge = new(webView);
-            viewModel.Initialize(bridge);
-
-            webView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-            string wwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
-            webView.CoreWebView2.SetVirtualHostNameToFolderMapping("app.local", wwwroot, CoreWebView2HostResourceAccessKind.Allow);
-            webView.Source = new Uri("https://app.local/index.html");
-            webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-
-            bridge.OnDragRequest += () => Dispatcher.Invoke(() => {
-                ReleaseCapture();
-                SendMessage(new WindowInteropHelper(this).Handle, 0xA1, (IntPtr)0x2, IntPtr.Zero);
-            });
-        } catch { }
+        await webView.EnsureCoreWebView2Async();
+        
+        bridge = new PetBridge(webView);
+        server.InitializeActivity(bridge);
+        server.Start();
     }
 
-    void OnMoveRequested(WindowMoveCommand cmd, Action onComplete)
-    {
-        Dispatcher.Invoke(() => {
-            isProgrammaticMove = true;
-            DpiScale dpiInfo = VisualTreeHelper.GetDpi(this);
-            double targetLeft = Left + (cmd.X / dpiInfo.DpiScaleX);
-            double targetTop = Top + (cmd.Y / dpiInfo.DpiScaleY);
-
-            DoubleAnimation animX = new(Left, targetLeft, TimeSpan.FromMilliseconds(cmd.Duration)) {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-            };
-            DoubleAnimation animY = new(Top, targetTop, TimeSpan.FromMilliseconds(cmd.Duration)) {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            int count = 0;
-            void Check() { if (++count >= 2) { isProgrammaticMove = false; onComplete(); } }
-            animX.Completed += (object? s, EventArgs e) => Check();
-            animY.Completed += (object? s, EventArgs e) => Check();
-
-            BeginAnimation(LeftProperty, animX);
-            BeginAnimation(TopProperty, animY);
-        });
-    }
+    PetServer server;
+    PetBridge? bridge;
 }

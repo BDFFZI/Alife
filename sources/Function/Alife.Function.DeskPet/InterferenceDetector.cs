@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Alife.Function.DeskPet;
 
 /// <summary>
@@ -13,8 +16,7 @@ public class InterferenceDetector
     {
         long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
-
-        if (now - lastTime > resetTimeWindow)
+        if (now - lastTime > ResetTimeWindow)
         {
             totalPath = 0;
             directionChanges = 0;
@@ -37,12 +39,12 @@ public class InterferenceDetector
         lastDy = dy;
         lastTime = now;
 
-        if (totalPath > shakePathThreshold && directionChanges >= shakeDirectionChanges)
+        if (totalPath > ShakePathThreshold && directionChanges >= ShakeDirectionChanges)
         {
             Reset();
             Shaked?.Invoke();
         }
-        else if (totalPath > movePathThreshold && directionChanges < moveMinDirectionChanges)
+        else if (totalPath > MovePathThreshold && directionChanges < MoveMinDirectionChanges)
         {
             Reset();
             Moved?.Invoke();
@@ -61,14 +63,14 @@ public class InterferenceDetector
         double dy = my - cy;
         double distToCenter = Math.Sqrt(dx * dx + dy * dy);
 
-        if (distToCenter > mouseSensitiveRadius)
+        if (distToCenter > MouseSensitiveRadius)
         {
             ResetMouseTrack();
             return;
         }
 
         // 2. 超时重置
-        if (now - lastMouseTime > resetTimeWindow)
+        if (now - lastMouseTime > ResetTimeWindow)
         {
             ResetMouseTrack();
         }
@@ -92,22 +94,22 @@ public class InterferenceDetector
         lastMouseTime = now;
 
         // 4. 阈值触发
-        if (mouseTotalPath > mouseShakePathThreshold && mouseDirectionChanges >= mouseShakeDirectionChanges)
+        if (mouseTotalPath > MouseShakePathThreshold && mouseDirectionChanges >= MouseShakeDirectionChanges)
         {
             ResetMouseTrack();
             MouseShaked?.Invoke();
         }
     }
 
-    const double shakePathThreshold = 1000;
-    const int shakeDirectionChanges = 4;
-    const double movePathThreshold = 5000;
-    const int moveMinDirectionChanges = 2;
-    const int resetTimeWindow = 300;
+    const double ShakePathThreshold = 1000;
+    const int ShakeDirectionChanges = 4;
+    const double MovePathThreshold = 5000;
+    const int MoveMinDirectionChanges = 2;
+    const int ResetTimeWindow = 300;
 
-    const double mouseSensitiveRadius = 300;
-    const double mouseShakePathThreshold = 800;
-    const int mouseShakeDirectionChanges = 4;
+    const double MouseSensitiveRadius = 300;
+    const double MouseShakePathThreshold = 800;
+    const int MouseShakeDirectionChanges = 4;
 
     double lastLeft;
     double lastTop;

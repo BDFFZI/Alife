@@ -14,11 +14,16 @@ public class DeskPetService : Plugin, IAsyncDisposable
     [Description("气泡文字：显示一段浮动文字。示例: <pbub>你好</pbub>")]
     public void PetBubble(XmlExecutorContext context)
     {
-        if (string.IsNullOrWhiteSpace(context.Content))
-            return;
-
-        int duration = 2000 + context.Content.Length * 100;
-        client.ShowBubble(context.Content, duration);
+        //流式输出模式：在内容更新时显示气泡
+        if (context.CallMode == CallMode.Content && !string.IsNullOrWhiteSpace(context.FullContent))
+        {
+            client.ShowBubble(context.FullContent);
+        }
+        //标签结束模式：关闭气泡
+        else if (context.CallMode == CallMode.Closing)
+        {
+            client.HideBubble();
+        }
     }
 
     [XmlFunction("pexp")]
@@ -29,7 +34,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
             return;
 
         string expression = context.FullContent.Trim();
-        client.SetExpression(expression);
+        client.PlayExpression(expression);
     }
 
     [XmlFunction("pmove")]
@@ -93,7 +98,7 @@ public class DeskPetService : Plugin, IAsyncDisposable
     }
 
     ChatBot chatBot = null!;
-    DeskPetClient client = null!;
+    PetServer client = null!;
 
     public DeskPetService(InterpreterService interpreterService)
     {
@@ -102,12 +107,12 @@ public class DeskPetService : Plugin, IAsyncDisposable
 
     public override Task AwakeAsync(AwakeContext context)
     {
-        client = new DeskPetClient();
+        client = new PetServer();
 
         context.contextBuilder.ChatHistory.AddSystemMessage($"""
                                                              # DeskPetService 互动功能指南
                                                              你可以通过特殊标签控制你的互动表现，请根据对话情境使用：
-                                                             1. **气泡文字**：`<pbub>内容</pbub>` (文本消息的视觉呈现)
+                                                             1. **气泡文字**：`<pbub>内容</pbub>` (文本消息的视觉呈现。气泡会随内容流式更新，并在标签结束时自动消失)
                                                              2. **表情控制**：`<pexp>类型</pexp>`
                                                                 - 支持：{string.Join(", ", client.SupportedExpressions)}
                                                              3. **动作控制**：`<pmtn>类型</pmtn>`

@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -16,33 +17,33 @@ public class MouseTracker
         using (Process curProcess = Process.GetCurrentProcess())
         using (ProcessModule curModule = curProcess.MainModule!)
         {
-            hookID = SetWindowsHookEx(whMouseLl, proc, GetModuleHandle(curModule.ModuleName), 0);
+            hookId = SetWindowsHookEx(WhMouseLl, proc, GetModuleHandle(curModule.ModuleName), 0);
         }
 
-        if (hookID == IntPtr.Zero)
+        if (hookId == IntPtr.Zero)
             throw new Exception("[MouseTracker] 无法设置全局鼠标钩子");
     }
 
     public void Stop()
     {
-        if (hookID != IntPtr.Zero)
+        if (hookId == IntPtr.Zero == false)
         {
-            UnhookWindowsHookEx(hookID);
-            hookID = IntPtr.Zero;
+            UnhookWindowsHookEx(hookId);
+            hookId = IntPtr.Zero;
         }
     }
 
-    IntPtr hookID = IntPtr.Zero;
+    IntPtr hookId = IntPtr.Zero;
     LowLevelMouseProc? proc;
 
     IntPtr MouseProc(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && (int)wParam == wmMousemove)
+        if (nCode >= 0 && (int)wParam == WmMousemove)
         {
             Msllhookstruct hookStruct = Marshal.PtrToStructure<Msllhookstruct>(lParam);
             MouseMoved?.Invoke(hookStruct.pt.x, hookStruct.pt.y);
         }
-        return CallNextHookEx(hookID, nCode, wParam, lParam);
+        return CallNextHookEx(hookId, nCode, wParam, lParam);
     }
 
     #region Win32 API
@@ -55,8 +56,8 @@ public class MouseTracker
 
     delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-    const int whMouseLl = 14;
-    const int wmMousemove = 0x0200;
+    const int WhMouseLl = 14;
+    const int WmMousemove = 0x0200;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);

@@ -5,9 +5,10 @@ using System.Reflection;
 namespace Alife.Function.Interpreter;
 
 [AttributeUsage(AttributeTargets.Method)]
-public class XmlFunctionAttribute(string? name = null) : Attribute
+public class XmlFunctionAttribute(string? name = null, int order = 0) : Attribute
 {
     public string? Name { get; } = name;
+    public int Order { get; } = order;
 }
 [AttributeUsage(AttributeTargets.Parameter)]
 public class XmlContentAttribute : Attribute { }
@@ -16,27 +17,35 @@ public class XmlContext
     public required IReadOnlyDictionary<string, string> Parameters { get; init; }
     public string Content { get; set; } = "";
 }
-public record struct XmlHandler
+public record XmlHandler
 {
-    public string Name { get; init; }
+    public required string Name { get; init; }
     public string? Description { get; init; }
-    public List<XmlFunction> Functions { get; init; }
-    public object Instance { get; init; }
+    public List<XmlFunction> Functions { get; init; } = new();
+    public required object Instance { get; init; }
 }
-public record struct XmlFunction
+public record XmlFunction : IComparable<XmlFunction>
 {
-    public string Name { get; init; }
+    public required string Name { get; init; }
     public string? Description { get; init; }
     public string? ContentName { get; init; }
     public string? ContentDescription { get; init; }
-    public List<XmlParameter> Parameters { get; init; }
-    public Func<XmlContext, Task> Invoker { get; init; }
+    public List<XmlParameter> Parameters { get; init; } = new();
+    public required Func<XmlContext, Task> Invoker { get; init; }
+    public int Order { get; init; }
+
+    public int CompareTo(XmlFunction? other)
+    {
+        if (ReferenceEquals(this, other)) return 0;
+        if (other is null) return 1;
+        return Order.CompareTo(other.Order);
+    }
 }
-public record struct XmlParameter
+public record XmlParameter
 {
-    public string Name { get; init; }
+    public required string Name { get; init; }
     public string? Description { get; init; }
-    public string Type { get; init; }
+    public required string Type { get; init; }
 }
 public class XmlHandlerTable
 {
@@ -50,7 +59,7 @@ public class XmlHandlerTable
             XmlFunction? function = ParseFunction(method, handler);
             if (function == null)
                 continue;
-            functions.Add(function.Value);
+            functions.Add(function);
         }
 
         DescriptionAttribute? descriptionAttribute = handlerType.GetCustomAttribute<DescriptionAttribute>();
@@ -65,13 +74,13 @@ public class XmlHandlerTable
 
         foreach (XmlFunction xmlFunction in functions)
         {
-            if (xmlInvokers.TryGetValue(xmlFunction.Name, out List<Func<XmlContext, Task>>? invokers) == false)
+            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
             {
-                invokers = new List<Func<XmlContext, Task>>();
-                xmlInvokers[xmlFunction.Name] = invokers;
+                xmlFunctionGroup = new SortedSet<XmlFunction>();
+                xmlFunctions[xmlFunction.Name] = xmlFunctionGroup;
             }
 
-            invokers.Add(xmlFunction.Invoker);
+            xmlFunctionGroup.Add(xmlFunction);
         }
     }
     public string Document()
@@ -118,12 +127,13 @@ public class XmlHandlerTable
     }
     public async Task TryHandle(string name, XmlContext tagContext)
     {
-        if (xmlInvokers.TryGetValue(name, out List<Func<XmlContext, Task>>? invokers) == false)
+        if (xmlFunctions.TryGetValue(name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
             return;
 
         try
         {
-            await Task.WhenAll(invokers.Select(func => func.Invoke(tagContext)));
+            foreach (XmlFunction xmlFunction in xmlFunctionGroup)
+                await xmlFunction.Invoker(tagContext);
         }
         catch (Exception e)
         {
@@ -132,7 +142,7 @@ public class XmlHandlerTable
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
-    readonly Dictionary<string, List<Func<XmlContext, Task>>> xmlInvokers = new();
+    readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new();
 
     XmlFunction? ParseFunction(MethodInfo method, object handler)
     {
@@ -238,13 +248,14 @@ public class XmlHandlerTable
             return Task.CompletedTask;
         }
 
-        return new XmlFunction() {
+        return new XmlFunction {
             Name = name,
             Description = description,
             ContentName = contentName,
             ContentDescription = contentDescription,
             Parameters = normalParameters,
             Invoker = Invoker,
+            Order = functionAttribute.Order,
         };
     }
 }
