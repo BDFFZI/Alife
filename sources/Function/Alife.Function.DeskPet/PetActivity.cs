@@ -8,6 +8,16 @@ using System.Threading.Tasks;
 
 namespace Alife.Function.DeskPet;
 
+public record InteractionItem
+{
+    public string? Text { get; set; }
+    public string? Exp { get; set; }
+    public MotionRef? Mtn { get; set; }
+}
+
+public record MotionRef(string Group, int Index);
+
+
 /// <summary>
 /// 负责桌宠的自主业务行为逻辑 (灵魂)
 /// </summary>
@@ -23,19 +33,19 @@ public class PetActivity
         detector = new InterferenceDetector();
         tracker = new MouseTracker();
 
-        this.process.CommandReceived += OnCommandReceived;
+        this.process.InputReceived += OnCommandReceived;
         
         detector.Shaked += () => {
             ExecuteInteraction("shake");
-            this.process.Send(new ShakeEvent());
+            this.process.SendOutput(new ShakeEvent());
         };
         detector.Moved += () => {
             ExecuteInteraction("move");
-            this.process.Send(new MoveEvent());
+            this.process.SendOutput(new MoveEvent());
         };
         detector.MouseShaked += () => ExecuteInteraction("random");
         
-        tracker.MouseMoved += (x, y) => HandleMouseMove(x, y);
+        tracker.MouseMoved += (int x, int y) => HandleMouseMove(x, y);
 
         LoadInteractionConfig();
     }
@@ -43,17 +53,17 @@ public class PetActivity
     public void Initialize(PetBridge bridge)
     {
         this.Bridge = bridge;
-        this.Bridge.OnHit += (areas) => {
+        this.Bridge.OnHit += (List<string> areas) => {
             HandleHit(areas);
-            process.Send(new HitEvent(areas));
+            process.SendOutput(new HitEvent(areas));
         };
-        this.Bridge.OnChat += (text) => process.Send(new ChatEvent(text));
+        this.Bridge.OnChat += (string text) => process.SendOutput(new ChatEvent(text));
         this.Bridge.OnReady += () => {
             Bridge.LoadModelAsync("model/Mao/Mao.model3.json");
             ExecuteInteraction("startup");
-            process.Send(new ReadyEvent());
+            process.SendOutput(new ReadyEvent());
         };
-        this.Bridge.OnDragRequest += () => process.Send(new DragRequestEvent());
+        this.Bridge.OnDragRequest += () => process.SendOutput(new DragRequestEvent());
 
         tracker.Start();
         _ = StartFocusResetLoop();
@@ -89,7 +99,7 @@ public class PetActivity
         if (string.IsNullOrEmpty(item.Text) == false) 
         {
             Bridge?.ShowBubbleAsync(item.Text);
-            process.Send(new PokeEvent($"(交互: {type}) {item.Text}"));
+            process.SendOutput(new PokeEvent($"(交互: {type}) {item.Text}"));
         }
     }
 
@@ -127,7 +137,7 @@ public class PetActivity
             {
                 foreach (JsonProperty poolProp in dialogues.EnumerateObject())
                 {
-                    Interactions[poolProp.Name] = JsonSerializer.Deserialize<List<InteractionItem>>(poolProp.Value.GetRawText(), PetProcess.jsonOptions) ?? new();
+                    Interactions[poolProp.Name] = JsonSerializer.Deserialize<List<InteractionItem>>(poolProp.Value.GetRawText(), PetProcess.JsonOptions) ?? new();
                 }
             }
         }
@@ -164,7 +174,7 @@ public class PetActivity
             case GetPositionCommand:
                 (double Left, double Top, double Width, double Height) layout = window.GetLayout();
                 (double ScaleX, double ScaleY) dpi = window.GetDpi();
-                process.Send(new PositionEvent((layout.Left + layout.Width/2) * dpi.ScaleX, (layout.Top + layout.Height/2) * dpi.ScaleY));
+                process.SendOutput(new PositionEvent((layout.Left + layout.Width/2) * dpi.ScaleX, (layout.Top + layout.Height/2) * dpi.ScaleY));
                 break;
             case BubbleCommand b: Bridge?.ShowBubbleAsync(b.Text); break;
             case PlayExpressionCommand e: PlayExpression(e.Id); break;

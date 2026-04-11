@@ -49,10 +49,6 @@ public partial class MainWindow : Window, IPetWindow
         DoubleAnimation xAnim = new DoubleAnimation(startX, endX, TimeSpan.FromMilliseconds(durationMs)) { EasingFunction = new QuadraticEase() };
         DoubleAnimation yAnim = new DoubleAnimation(startY, endY, TimeSpan.FromMilliseconds(durationMs)) { EasingFunction = new QuadraticEase() };
 
-        xAnim.Completed += (s, e) => {
-            server.NotifyMoveFinished();
-        };
-
         BeginAnimation(LeftProperty, xAnim);
         BeginAnimation(TopProperty, yAnim);
     }

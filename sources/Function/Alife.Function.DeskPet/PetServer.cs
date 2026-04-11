@@ -1,8 +1,7 @@
-using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Environment = Alife.Basic.Environment;
 
 namespace Alife.Function.DeskPet;
@@ -15,15 +14,37 @@ public class PetServer : IAsyncDisposable
     public event Action<string>? OnChat;
     public event Action<string>? OnPoke;
 
+    public List<string> SupportedExpressions { get; } = new();
+    public Dictionary<string, (string Group, int Index)> SupportedMotions { get; } = new();
+
+    PetProcess process;
+    Process? nativeProcess;
+    PetActivity? activity;
+    TaskCompletionSource<(double, double)>? posTcs;
+
     /// <summary>
     /// AI 宿主构造函数
     /// </summary>
     public PetServer()
     {
+        process = null!; // 宿主模式下，在 Start() 时才挂载流
         string petExePath = Path.Combine(Environment.OutputsFolderPath, "Alife.Function.DeskPet.exe");
-        process = new PetProcess(petExePath);
-        process.EventReceived += OnEventReceived;
-        
+        if (File.Exists(petExePath) == false) throw new FileNotFoundException($"找不到桌宠程序: {petExePath}");
+
+        nativeProcess = new Process {
+            StartInfo = new ProcessStartInfo {
+                FileName = petExePath,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardInputEncoding = Encoding.UTF8,
+                StandardOutputEncoding = Encoding.UTF8,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(petExePath)
+            }
+        };
+
         ParseMetadata();
     }
 
@@ -32,18 +53,31 @@ public class PetServer : IAsyncDisposable
     /// </summary>
     public PetServer(IPetWindow window)
     {
-        process = new PetProcess();
+        process = new PetProcess(Console.Out, Console.In);
         activity = new PetActivity(process, window);
-        
+
         ParseMetadata();
     }
 
-    public List<string> SupportedExpressions { get; private set; } = new();
-    public Dictionary<string, (string Group, int Index)> SupportedMotions { get; } = new();
-
     public void Start()
     {
-        process.Launch();
+        if (nativeProcess != null)
+        {
+            nativeProcess.Start();
+            process = new PetProcess(nativeProcess.StandardInput, nativeProcess.StandardOutput);
+            process.OutputReceived += OnEventReceived;
+
+            nativeProcess.BeginErrorReadLine();
+            nativeProcess.ErrorDataReceived += (object s, DataReceivedEventArgs e) => {
+                if (e.Data != null) Console.WriteLine($"[PetProcess Error] {e.Data}");
+            };
+
+            process.ListenOutput(); // 宿主只听输出(Event)
+        }
+        else
+        {
+            process.ListenInput(); // 桌宠只听输入(Command)
+        }
     }
 
     public void InitializeActivity(PetBridge bridge)
@@ -51,28 +85,24 @@ public class PetServer : IAsyncDisposable
         activity?.Initialize(bridge);
     }
 
-    public void NotifyMoveFinished() => process.Send(new MoveFinishedEvent());
+    public void ShowBubble(string text) => process.SendInput(new BubbleCommand(text));
 
-    public void ShowBubble(string text) => process.Send(new BubbleCommand(text));
-    
-    public void HideBubble() => process.Send(new HideBubbleCommand());
-    
-    public void PlayExpression(string? id) => process.Send(new PlayExpressionCommand(id));
-    
-    public void PlayMotion(string group, int index) => process.Send(new MotionCommand(group, index));
+    public void HideBubble() => process.SendInput(new HideBubbleCommand());
+
+    public void PlayExpression(string? id) => process.SendInput(new PlayExpressionCommand(id));
+
+    public void PlayMotion(string group, int index) => process.SendInput(new MotionCommand(group, index));
 
     public async Task MoveAsync(double x, double y, int duration)
     {
-        moveTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        process.Send(new WindowMoveCommand(x, y, duration));
-        await Task.WhenAny(moveTcs.Task, Task.Delay(duration + 1000));
-        moveTcs = null;
+        process.SendInput(new WindowMoveCommand(x, y, duration));
+        await Task.Delay(duration + 200);
     }
 
     public async Task<(double x, double y)> GetPositionAsync()
     {
         posTcs = new TaskCompletionSource<(double, double)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        process.Send(new GetPositionCommand());
+        process.SendInput(new GetPositionCommand());
 
         Task completedTask = await Task.WhenAny(posTcs.Task, Task.Delay(2000));
         if (completedTask == posTcs.Task)
@@ -88,13 +118,17 @@ public class PetServer : IAsyncDisposable
 
     public void ResetInteractions()
     {
-        moveTcs?.TrySetCanceled();
         posTcs?.TrySetCanceled();
     }
 
     public async ValueTask DisposeAsync()
     {
         ResetInteractions();
+        if (nativeProcess != null && nativeProcess.HasExited == false)
+        {
+            nativeProcess.Kill();
+            nativeProcess.Dispose();
+        }
         process.Dispose();
         await Task.CompletedTask;
     }
@@ -146,13 +180,7 @@ public class PetServer : IAsyncDisposable
         {
             case ChatEvent chat: OnChat?.Invoke(chat.Text); break;
             case PokeEvent poke: OnPoke?.Invoke(poke.Text); break;
-            case MoveFinishedEvent: moveTcs?.TrySetResult(); break;
             case PositionEvent pos: posTcs?.TrySetResult((pos.X, pos.Y)); break;
         }
     }
-
-    PetProcess process;
-    PetActivity? activity;
-    TaskCompletionSource? moveTcs;
-    TaskCompletionSource<(double, double)>? posTcs;
 }

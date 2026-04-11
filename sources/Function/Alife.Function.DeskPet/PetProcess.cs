@@ -1,132 +1,79 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Alife.Function.DeskPet;
 
 /// <summary>
-/// 负责进程生命周期管理与底层管道通讯 (StdIO)
+/// 负责跨进程管道的透明收发（双向流收发器）
 /// </summary>
 public class PetProcess : IDisposable
 {
-    public event Action<IpcCommand>? CommandReceived;
-    public event Action<IpcEvent>? EventReceived;
+    public static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    /// <summary>
-    /// 自持构造：用于桌宠 EXE 内部，绑定到当前进程的 Console
-    /// </summary>
-    public PetProcess()
+    public event Action<IpcCommand>? InputReceived;
+    public event Action<IpcEvent>? OutputReceived;
+
+    public PetProcess(TextWriter writer, TextReader reader)
     {
-        reader = Console.In;
-        writer = Console.Out;
+        this.writer = writer;
+        this.reader = reader;
     }
 
-    /// <summary>
-    /// 托管构造：用于 AI 宿主，准备启动子进程
-    /// </summary>
-    public PetProcess(string exePath)
+    public void SendInput(IpcCommand cmd)
     {
-        if (File.Exists(exePath) == false) throw new FileNotFoundException($"找不到桌宠程序: {exePath}");
-
-        process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardInputEncoding = Encoding.UTF8,
-                StandardOutputEncoding = Encoding.UTF8,
-                CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(exePath)
-            }
-        };
+        Send(cmd);
     }
 
-    public void Launch()
+    public void SendOutput(IpcEvent ev)
     {
-        if (process != null)
-        {
-            process.Start();
-            reader = process.StandardOutput;
-            writer = process.StandardInput;
-
-            process.BeginErrorReadLine();
-            process.ErrorDataReceived += (s, e) => {
-                if (e.Data != null) Console.WriteLine($"[PetProcess Error] {e.Data}");
-            };
-        }
-        
-        StartListening();
+        Send(ev);
     }
 
-    public void StartListening()
+    public void ListenInput()
     {
-        cts = new CancellationTokenSource();
-        Task.Run(async () =>
-        {
-            while (cts.IsCancellationRequested == false && reader != null)
-            {
-                try
-                {
-                    string? line = await reader.ReadLineAsync();
-                    if (string.IsNullOrEmpty(line)) break;
-
-                    if (process == null) 
-                    {
-                        IpcCommand? c = JsonSerializer.Deserialize<IpcCommand>(line, jsonOptions);
-                        if (c != null) CommandReceived?.Invoke(c);
-                    }
-                    else 
-                    {
-                        IpcEvent? e = JsonSerializer.Deserialize<IpcEvent>(line, jsonOptions);
-                        if (e != null) EventReceived?.Invoke(e);
-                    }
-                }
-                catch { }
-            }
-        });
+        StartListening(InputReceived);
     }
 
-    public void Send(object msg)
+    public void ListenOutput()
     {
-        try
-        {
-            string json = JsonSerializer.Serialize(msg, jsonOptions);
-            writer?.WriteLine(json);
-            writer?.Flush();
-        }
-        catch { }
+        StartListening(OutputReceived);
     }
 
     public void Dispose()
     {
         cts?.Cancel();
-        if (process != null && process.HasExited == false)
-        {
-            process.Kill();
-            process.Dispose();
-        }
     }
 
-    public static readonly JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    void Send(object msg)
+    {
+        string json = JsonSerializer.Serialize(msg, JsonOptions);
+        writer.WriteLine(json);
+        writer.Flush();
+    }
 
-    Process? process;
-    TextReader? reader;
-    TextWriter? writer;
+    void StartListening<T>(Action<T>? callback)
+    {
+        cts = new CancellationTokenSource();
+        CancellationToken token = cts.Token;
+        Task.Run(async () => {
+            while (token.IsCancellationRequested == false)
+            {
+                string? line = await reader.ReadLineAsync(token);
+                if (string.IsNullOrEmpty(line)) break;
+
+                T? msg = JsonSerializer.Deserialize<T>(line, JsonOptions);
+                if (msg != null) callback?.Invoke(msg);
+            }
+        }, token);
+    }
+
+    readonly TextWriter writer;
+    readonly TextReader reader;
     CancellationTokenSource? cts;
 }
 
 // --- IPC Protocol ---
-
 [JsonDerivedType(typeof(WindowMoveCommand), "window-move")]
 [JsonDerivedType(typeof(GetPositionCommand), "get-position")]
 [JsonDerivedType(typeof(BubbleCommand), "bubble")]
@@ -136,11 +83,16 @@ public class PetProcess : IDisposable
 public abstract record IpcCommand;
 
 public record WindowMoveCommand(double X, double Y, int Duration) : IpcCommand;
-public record GetPositionCommand() : IpcCommand;
+
+public record GetPositionCommand : IpcCommand;
+
 public record BubbleCommand(string Text) : IpcCommand;
+
 public record PlayExpressionCommand(string? Id) : IpcCommand;
+
 public record MotionCommand(string Group, int Index) : IpcCommand;
-public record HideBubbleCommand() : IpcCommand;
+
+public record HideBubbleCommand : IpcCommand;
 
 [JsonDerivedType(typeof(ReadyEvent), "ready")]
 [JsonDerivedType(typeof(HitEvent), "hit")]
@@ -148,26 +100,22 @@ public record HideBubbleCommand() : IpcCommand;
 [JsonDerivedType(typeof(PokeEvent), "poke")]
 [JsonDerivedType(typeof(ShakeEvent), "shake")]
 [JsonDerivedType(typeof(MoveEvent), "move")]
-[JsonDerivedType(typeof(MoveFinishedEvent), "pmove-finished")]
 [JsonDerivedType(typeof(PositionEvent), "position")]
 [JsonDerivedType(typeof(DragRequestEvent), "drag-request")]
 public abstract record IpcEvent;
 
-public record ReadyEvent() : IpcEvent;
+public record ReadyEvent : IpcEvent;
+
 public record HitEvent(List<string> Areas) : IpcEvent;
+
 public record ChatEvent(string Text) : IpcEvent;
+
 public record PokeEvent(string Text) : IpcEvent;
-public record ShakeEvent() : IpcEvent;
-public record MoveEvent() : IpcEvent;
-public record MoveFinishedEvent() : IpcEvent;
+
+public record ShakeEvent : IpcEvent;
+
+public record MoveEvent : IpcEvent;
+
 public record PositionEvent(double X, double Y) : IpcEvent;
-public record DragRequestEvent() : IpcEvent;
 
-public record InteractionItem
-{
-    public string? Text { get; set; }
-    public string? Exp { get; set; }
-    public MotionRef? Mtn { get; set; }
-}
-
-public record MotionRef(string Group, int Index);
+public record DragRequestEvent : IpcEvent;
