@@ -23,9 +23,10 @@ public class BrowserEngine : IDisposable
     /// <summary>
     /// 跳转到指定页面
     /// </summary>
-    public Task<NavigateResult> NavigateAsync(string url)
+    public async Task<NavigateResult> NavigateAsync(string url)
     {
-        return worker.AddFormTask(async webView => {
+        await worker.ShowBrowserWindowAsync();
+        return await worker.AddFormTask(async webView => {
             var tcs = new TaskCompletionSource<NavigateResult>();
             webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
             webView.CoreWebView2.Navigate(url);
