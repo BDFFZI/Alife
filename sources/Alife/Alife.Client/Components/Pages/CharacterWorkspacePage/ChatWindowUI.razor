@@ -16,6 +16,10 @@
             <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">最大条数:</AntDesign.Text>
             <AntDesign.InputNumber @bind-Value="ChatMessageService.MaxMessageCount" Min="10" Max="10000"
                                    Size="@InputSize.Small" Style="width: 80px; border-radius: 4px;"/>
+            <Checkbox Checked="@ChatMessageService.ShowReasoningInChat"
+                      CheckedChanged="@((bool value) => ChatMessageService.ShowReasoningInChat = value)">
+                显示思考过程
+            </Checkbox>
         </div>
         <Button Icon="@IconType.Outline.Clear"
                 Type="@ButtonType.Link"
@@ -38,12 +42,14 @@
                 {
                     @foreach (ChatMessage message in messages)
                     {
-                        <div
-                            style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
+                        @if (message.ShouldDisplay(ChatMessageService.ShowReasoningInChat))
+                        {
+                            <div
+                                style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
                             <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
                                 <Flex Direction="@FlexDirection.Vertical" Gap="@("small")">
                                     <div class="chat-message-content">
-                                        @if (!string.IsNullOrEmpty(message.Reasoning))
+                                        @if (ChatMessageService.ShowReasoningInChat && !string.IsNullOrEmpty(message.Reasoning))
                                         {
                                             <div class="chat-reasoning">
                                                 <div class="chat-reasoning-title">
@@ -69,7 +75,8 @@
                                     }
                                 </Flex>
                             </div>
-                        </div>
+                            </div>
+                        }
                     }
                 }
             }

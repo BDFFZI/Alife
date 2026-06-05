@@ -20,6 +20,7 @@ public class ChatBot : IAsyncDisposable
     public event Func<string, string>? PokeSend;//Poke消息过滤
     public event Func<string, string>? ChatSend;//消息过滤
     public event Action<string>? ChatSent;//消息发送前
+    public event Action<ChatInputSentEventArgs>? ChatInputSent;
     public event Action<string>? ChatReceived;//消息接收到
     public event Action<string>? ReasoningReceived;//思考消息接收到
     public event Action? ChatOver;//消息结束
@@ -40,7 +41,7 @@ public class ChatBot : IAsyncDisposable
         chatSemaphore.Release();
     }
 
-    public async IAsyncEnumerable<string> ChatStreamingAsync(string message, AuthorRole? role = null)
+    public async IAsyncEnumerable<string> ChatStreamingAsync(string message, AuthorRole? role = null, ChatInputVisibility visibility = ChatInputVisibility.Visible)
     {
         if (IsChatting)//打断上一次的聊天
         {
@@ -67,6 +68,7 @@ public class ChatBot : IAsyncDisposable
             ChaseChatHistory();
 
             ChatSent?.Invoke(message);
+            ChatInputSent?.Invoke(new ChatInputSentEventArgs(message, visibility));
             string? error = null;
             StringBuilder cleanResponseBuilder = new();// 用于存储不含思考过程的最终回复
 
@@ -159,19 +161,19 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
-    public async Task<string> ChatAsync(string message, AuthorRole? role = null)
+    public async Task<string> ChatAsync(string message, AuthorRole? role = null, ChatInputVisibility visibility = ChatInputVisibility.Visible)
     {
         StringBuilder stringBuilder = new StringBuilder();
-        await foreach (string content in ChatStreamingAsync(message, role))
+        await foreach (string content in ChatStreamingAsync(message, role, visibility))
             stringBuilder.Append(content);
         return stringBuilder.ToString();
     }
 
-    public async void Chat(string content, AuthorRole? role = null)
+    public async void Chat(string content, AuthorRole? role = null, ChatInputVisibility visibility = ChatInputVisibility.Visible)
     {
         try
         {
-            await ChatAsync(content, role);
+            await ChatAsync(content, role, visibility);
         }
         catch (Exception e)
         {
@@ -291,7 +293,7 @@ public class ChatBot : IAsyncDisposable
             }
 
             //发送消息
-            Chat($"{PokeMessageTag}\n{poke}");
+            Chat($"{PokeMessageTag}\n{poke}", visibility: ChatInputVisibility.Internal);
         }
         finally
         {

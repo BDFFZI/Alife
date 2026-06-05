@@ -1,9 +1,11 @@
 @page "/system"
 @using Alife.Components.Elements.Character
 @using Alife.Components.Elements.Plugin
+@using Alife.Components.Services
 @inject NavigationManager Navigation
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
+@inject ChatMessageService ChatMessageService
 @inject ConfirmService ConfirmService
 @inject INotificationService NotificationService
 @inject ConfigurationSystem ConfigurationSystem
@@ -83,6 +85,38 @@
                                                 Stopped="@(() => ChatActivitySystem.Deactivate(chatActivity.Character))"></ChatActivityUI>
                             }
                         </div>
+                    </div>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="4">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.Comment"/>
+                        <span style="font-size: 12px">聊天显示</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <div style="padding: 24px; height: 100%; overflow-y: auto; background: #fafafa;">
+                        <Title Level="4">聊天显示</Title>
+                        <Card Style="max-width: 720px; border-radius: 8px;">
+                            <Flex Direction="@FlexDirection.Vertical" Gap="@("16")">
+                                <div style="display: flex; justify-content: space-between; gap: 24px; align-items: flex-start;">
+                                    <div>
+                                        <Text Strong>显示思考过程</Text>
+                                        <Paragraph Type="@TextElementType.Secondary"
+                                                   Style="margin: 4px 0 0 0; max-width: 520px;">
+                                            关闭后，聊天面板不会显示模型返回的 reasoning/thinking 内容。
+                                        </Paragraph>
+                                    </div>
+                                    <Switch @bind-Value="@ChatMessageService.ShowReasoningInChat"/>
+                                </div>
+                                <Alert Message="内部/插件触发消息"
+                                       Description="系统事件、插件观察、桌宠交互等内部输入目前默认不会显示为聊天气泡，但仍可用于驱动 AI 回复。当前版本未提供单独的持久显示开关。"
+                                       Type="@AlertType.Info"
+                                       ShowIcon="true"/>
+                            </Flex>
+                        </Card>
                     </div>
                 </ChildContent>
             </TabPane>

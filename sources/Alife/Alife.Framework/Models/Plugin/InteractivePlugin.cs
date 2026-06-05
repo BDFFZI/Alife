@@ -88,12 +88,22 @@ public class InteractivePlugin<T> : InteractivePlugin
 
     protected void Chat(string message)
     {
-        ChatBot.Chat(ChatTextFilter(message));
+        ChatBot.Chat(ChatTextFilter(message), visibility: ChatInputVisibility.Internal);
     }
 
     protected Task ChatAsync(string message)
     {
-        return ChatBot.ChatAsync(ChatTextFilter(message));
+        return ChatBot.ChatAsync(ChatTextFilter(message), visibility: ChatInputVisibility.Internal);
+    }
+
+    protected void ChatVisible(string message)
+    {
+        ChatBot.Chat(ChatTextFilter(message), visibility: ChatInputVisibility.Visible);
+    }
+
+    protected Task ChatAsyncVisible(string message)
+    {
+        return ChatBot.ChatAsync(ChatTextFilter(message), visibility: ChatInputVisibility.Visible);
     }
 
     protected Task ImplicitChatAsync(string message)

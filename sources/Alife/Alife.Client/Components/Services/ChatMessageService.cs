@@ -6,14 +6,34 @@ public class ChatSettings
 {
     public string UserTag { get; set; } = "[管理员]";
     public int MaxMessageCount { get; set; } = 200;
+    public bool ShowReasoningInChat { get; set; }
 }
 
 public class ChatMessage
 {
     public string? Content { get; set; }
+    public string? RawContent { get; set; }
     public string? Reasoning { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
+
+    public void AppendAssistantContent(string content)
+    {
+        RawContent += content;
+        Content = AssistantDisplayTextFilter.Filter(RawContent);
+    }
+
+    public bool ShouldDisplay(bool showReasoning)
+    {
+        if (IsInputting || IsUser)
+            return true;
+
+        return ChatMessageDisplayPolicy.ShouldDisplayAssistantMessage(
+            Content,
+            Reasoning,
+            IsInputting,
+            showReasoning);
+    }
 }
 
 /// <summary>
@@ -41,6 +61,17 @@ public class ChatMessageService
         {
             settings.MaxMessageCount = value;
             SaveSettings();
+        }
+    }
+    public bool ShowReasoningInChat
+    {
+        get => settings.ShowReasoningInChat;
+        set
+        {
+            settings.ShowReasoningInChat = value;
+            SaveSettings();
+            foreach (string name in messagesMap.Keys)
+                OnMessageChanged?.Invoke(name);
         }
     }
 
@@ -108,22 +139,24 @@ public class ChatMessageService
         string name = activity.Character.Name;
         List<ChatMessage> messages = GetMessages(name);
         chatbotMap.Add(name, activity.ChatBot);
-        activity.ChatBot.ChatSent += message => {
+        activity.ChatBot.ChatInputSent += args => {
             lock (messages)
             {
-                messages.Add(new ChatMessage { Content = message, IsUser = true });
+                if (args.DisplayInputMessageInChat)
+                    messages.Add(new ChatMessage { Content = args.Message, IsUser = true });
                 messages.Add(new ChatMessage { IsUser = false, IsInputting = true });
                 TrimMessages(name);
             }
 
             OnMessageChanged?.Invoke(name);
-            OnUserMessageSent?.Invoke(name);
+            if (args.DisplayInputMessageInChat)
+                OnUserMessageSent?.Invoke(name);
         };
         activity.ChatBot.ChatReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
-                aiMessage.Content += obj;
+                aiMessage.AppendAssistantContent(obj);
                 OnMessageChanged?.Invoke(name);
             }
         };
