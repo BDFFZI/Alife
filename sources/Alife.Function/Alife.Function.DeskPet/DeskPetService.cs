@@ -140,7 +140,7 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractivePlug
         await base.StartAsync(kernel, chatActivity);
 
         await client!.WaitReadyAsync();
-        client.OnInput += Chat;
+        client.OnInput += ChatVisible;
         client.OnInteracted += text => Chat("交互：" + text);
 
         // 启动状态轮询
