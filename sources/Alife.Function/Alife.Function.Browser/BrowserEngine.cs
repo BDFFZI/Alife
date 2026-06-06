@@ -39,7 +39,7 @@ public class BrowserEngine : IDisposable
                 webView.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
                 tcs.SetResult(new NavigateResult { Success = e.IsSuccess, StatusCode = (int)e.WebErrorStatus });
             }
-        }, showWindow: true);
+        });
     }
 
     /// <summary>
