@@ -36,10 +36,8 @@
             }
             else
             {
-                @lock (messages)
+                @foreach (ChatMessage message in messages.ToList())
                 {
-                    @foreach (ChatMessage message in messages)
-                    {
                         <div
                             style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
                             <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
@@ -75,7 +73,6 @@
                     }
                 }
             }
-        }
         else
         {
             <Empty Description="@("消息存储不存在！")"/>

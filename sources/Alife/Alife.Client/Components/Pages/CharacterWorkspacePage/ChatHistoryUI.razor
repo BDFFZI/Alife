@@ -122,7 +122,8 @@
     IEnumerable<ChatMessageContent> GetFilteredHistory()
     {
         if (Activity == null) return [];
-        var history = Activity.ChatBot.ChatHistory.AsEnumerable();
+        // 防御快照：ChatHistory 可能在 Blazor 渲染期间被后台线程修改
+        var history = Activity.ChatBot.ChatHistory.ToList();
 
         return historyRoleFilter switch {
             "Chat" => history.Where(c => !IsKeyMemory(c) && (c.Role.ToString().Equals("user", StringComparison.OrdinalIgnoreCase) || c.Role.ToString().Equals("assistant", StringComparison.OrdinalIgnoreCase))),
