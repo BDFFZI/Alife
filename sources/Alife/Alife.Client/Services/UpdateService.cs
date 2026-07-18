@@ -77,55 +77,65 @@ public class UpdateService
                 onProgress?.Invoke((int)(read * 100 / total));
         });
 
-        string currentDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
-        string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
-        string exeName = Path.GetFileName(exePath);
+        string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule!.FileName);
+        string realLaunchPath = AppContext.BaseDirectory;
+        string? parentDirectory = Path.GetDirectoryName(realLaunchPath);
+        while (parentDirectory != null)
+        {
+            if (File.Exists(Path.Combine(parentDirectory, exeName)))
+                realLaunchPath = parentDirectory;
+            parentDirectory = Path.GetDirectoryName(parentDirectory);
+        }
+
+        string startDirectory = realLaunchPath;
+        string exePath = Path.Combine(startDirectory, exeName);
         string psPath = Path.Combine(tempDir, "update.ps1");
-        File.WriteAllText(psPath, $$"""
-                                    Write-Host '=== Alife Update ===' -ForegroundColor Cyan
-                                    Write-Host ''
+        await File.WriteAllTextAsync(psPath,
+            $$"""
+              Write-Host '=== Alife Update ===' -ForegroundColor Cyan
+              Write-Host ''
 
-                                    $proc = Get-Process -Name '{{exeName.Replace(".exe", "")}}' -ErrorAction SilentlyContinue
-                                    if ($proc) {
-                                        Write-Host 'Waiting for old process to exit...' -ForegroundColor Yellow
-                                        $proc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
-                                        Start-Sleep -Seconds 2
-                                    }
+              $proc = Get-Process -Name '{{exeName.Replace(".exe", "")}}' -ErrorAction SilentlyContinue
+              if ($proc) {
+                  Write-Host 'Waiting for old process to exit...' -ForegroundColor Yellow
+                  $proc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
+                  Start-Sleep -Seconds 2
+              }
 
-                                    Write-Host 'ZipPath:    {{zipPath}}'
-                                    Write-Host 'CurrentDir: {{currentDir}}'
-                                    Write-Host ''
-                                    if (-not (Test-Path '{{zipPath}}')) {
-                                        Write-Host 'ERROR: ZIP not found!' -ForegroundColor Red
-                                        Read-Host 'Press Enter to exit'
-                                        exit 1
-                                    }
+              Write-Host 'ZipPath:    {{zipPath}}'
+              Write-Host 'CurrentDir: {{startDirectory}}'
+              Write-Host ''
+              if (-not (Test-Path '{{zipPath}}')) {
+                  Write-Host 'ERROR: ZIP not found!' -ForegroundColor Red
+                  Read-Host 'Press Enter to exit'
+                  exit 1
+              }
 
-                                    $extractTemp = '{{tempDir}}\_extract_tmp'
-                                    if (Test-Path $extractTemp) { Remove-Item $extractTemp -Recurse -Force }
-                                    New-Item -ItemType Directory -Path $extractTemp -Force | Out-Null
+              $extractTemp = '{{tempDir}}\_extract_tmp'
+              if (Test-Path $extractTemp) { Remove-Item $extractTemp -Recurse -Force }
+              New-Item -ItemType Directory -Path $extractTemp -Force | Out-Null
 
-                                    Write-Host 'Extracting to temp...' -ForegroundColor Yellow
-                                    try {
-                                        Expand-Archive -Path '{{zipPath}}' -DestinationPath $extractTemp -Force
-                                        Write-Host 'Extraction succeeded.' -ForegroundColor Green
-                                    } catch {
-                                        Write-Host "Extraction failed: $($_.Exception.Message)" -ForegroundColor Red
-                                        Read-Host 'Press Enter to exit'
-                                        exit 1
-                                    }
+              Write-Host 'Extracting to temp...' -ForegroundColor Yellow
+              try {
+                  Expand-Archive -Path '{{zipPath}}' -DestinationPath $extractTemp -Force
+                  Write-Host 'Extraction succeeded.' -ForegroundColor Green
+              } catch {
+                  Write-Host "Extraction failed: $($_.Exception.Message)" -ForegroundColor Red
+                  Read-Host 'Press Enter to exit'
+                  exit 1
+              }
 
-                                    Write-Host 'Copying new files (overwrite)...' -ForegroundColor Yellow
-                                    Copy-Item -Path "$extractTemp\*" -Destination '{{currentDir}}' -Recurse -Force
-                                    Remove-Item $extractTemp -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host 'Copying new files (overwrite)...' -ForegroundColor Yellow
+              Copy-Item -Path "$extractTemp\*" -Destination '{{startDirectory}}' -Recurse -Force
+              Remove-Item $extractTemp -Recurse -Force -ErrorAction SilentlyContinue
 
-                                    Write-Host ''
-                                    Write-Host 'Starting Alife...' -ForegroundColor Cyan
-                                    cmd /c start "" "{{exePath}}"
-                                    Write-Host 'Upgrade successful!' -ForegroundColor Green
-                                    Start-Sleep -Seconds 2
-                                    exit
-                                    """);
+              Write-Host ''
+              Write-Host 'Starting Alife...' -ForegroundColor Cyan
+              cmd /c start "" "{{exePath}}"
+              Write-Host 'Upgrade successful!' -ForegroundColor Green
+              Start-Sleep -Seconds 2
+              exit
+              """);
 
         Process.Start(new ProcessStartInfo {
             FileName = "powershell.exe",

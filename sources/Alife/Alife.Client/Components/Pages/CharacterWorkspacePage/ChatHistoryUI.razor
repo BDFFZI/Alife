@@ -172,6 +172,7 @@
     {
         if (Activity == null || Activity.ChatBot.IsChatting) return;
         Activity.ChatBot.ChatHistory.Remove(content);
+        TryUpdateMirror();
         StateHasChanged();
     }
     void StartEditMessage(ChatMessageContent content)

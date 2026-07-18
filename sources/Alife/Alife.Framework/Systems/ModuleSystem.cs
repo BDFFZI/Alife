@@ -158,12 +158,13 @@ public class ModuleSystem
                 //收集dll环境
                 var references = new List<MetadataReference>();
                 var addedAssemblies = new HashSet<string>();
-                foreach (var file in managedExtraDirectories//Nuget目录
-                             .Prepend(source)//插件目录
-                             .Prepend(AppDomain.CurrentDomain.BaseDirectory)//主程序目录
-                             .Select(path => Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories))
-                             .SelectMany(strings => strings)
-                             .Distinct())
+
+                List<string> collectionPath = new();
+                collectionPath.AddRange(AppDomain.CurrentDomain.GetAssemblies().Select(assembly => assembly.Location));//已加载程序集
+                collectionPath.AddRange(Directory.GetFiles(AppContext.BaseDirectory, "*.dll"));//自包含程序集
+                collectionPath.AddRange(Directory.GetFiles(source, "*.dll", SearchOption.AllDirectories));//插件自带程序集
+                collectionPath.AddRange(managedExtraDirectories.Select(path => Directory.GetFiles(path, "*.dll")).SelectMany(strings => strings));//nuget程序集
+                foreach (var file in collectionPath)
                 {
                     try
                     {
@@ -250,6 +251,36 @@ public class ModuleSystem
 
         defaultAssemblies = AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.FullName).ToHashSet()!;
         alifeAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => assembly.GetName().Name?.StartsWith("Alife") ?? false).ToArray();
+        LoadAssemblyChain(Assembly.GetEntryAssembly()!);//加载所有本地自带的程序，方便后续判断
+
+        void LoadAssemblyChain(Assembly entryAssembly)
+        {
+            var loadedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var queue = new Queue<Assembly>();
+            queue.Enqueue(entryAssembly);
+            while (queue.Count > 0)
+            {
+                var assembly = queue.Dequeue();
+                foreach (var reference in assembly.GetReferencedAssemblies())
+                {
+                    // 如果这个程序集还没被加载过
+                    if (!loadedAssemblies.Contains(reference.FullName))
+                    {
+                        try
+                        {
+                            // 强制加载它
+                            var loaded = Assembly.Load(reference);
+                            queue.Enqueue(loaded);
+                            loadedAssemblies.Add(reference.FullName);
+                        }
+                        catch
+                        {
+                            // 忽略加载失败的程序集（有些可能是环境相关的）
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void ReloadContext(AssemblyLoadContext context)
