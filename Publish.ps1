@@ -100,7 +100,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ElectronPackage "Alife.Client.exe")
 New-Item -ItemType Directory -Path $ClientTarget -Force | Out-Null
 Get-ChildItem -LiteralPath $ElectronPackage -Force | Copy-Item -Destination $ClientTarget -Recurse -Force
 
-$safeModeScript = Join-Path $ClientTarget "Alife.Client.exe (兼容启动).cmd"
+$safeModeScript = Join-Path $ClientTarget "Alife.Client.exe (Debug).cmd"
 @"
 @echo off
 Alife.Client.exe --no-sandbox --disable-gpu
