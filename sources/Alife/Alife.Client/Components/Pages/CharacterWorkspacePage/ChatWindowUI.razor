@@ -88,9 +88,7 @@
         <div id="chatSplitter" class="chat-splitter"></div>
         <div class="chat-input-container">
             <Flex Gap="@("12")" Align="@FlexAlign.End" Style="flex: 1; min-height: 0;">
-                <div style="flex: 1; align-self: stretch; position: relative; min-height: 0;"
-                     @onpaste="HandlePaste"
-                     @onpaste:preventDefault="true">
+                <div style="flex: 1; align-self: stretch; position: relative; min-height: 0;">
                     <TextArea Id="chatInput"
                               @key="inputVersion"
                               Class="chat-input"
@@ -399,6 +397,28 @@
         el.addEventListener('keydown', el._chatEnterHandler);
     };
 
+    window.setupChatInputPaste = (elementId) => {
+        const el = document.getElementById(elementId);
+        if (!el || el._pasteHandlerSetup) return;
+        el._pasteHandlerSetup = true;
+
+        el.addEventListener('paste', (event) => {
+            event.preventDefault();
+            const files = event.clipboardData?.files;
+            if (files && files.length > 0) {
+                const paths = Array.from(files).map(f => f.path).filter(p => p);
+                if (paths.length > 0) {
+                    window.insertTextAtCursor(elementId, paths.join('\n'));
+                    return;
+                }
+            }
+            const text = event.clipboardData?.getData('text') ?? '';
+            if (text) {
+                window.insertTextAtCursor(elementId, text);
+            }
+        });
+    };
+
     window.focusElementById = (elementId) => {
         requestAnimationFrame(() => {
             const el = document.getElementById(elementId);
@@ -465,6 +485,7 @@
         await JsRuntime.InvokeVoidAsync("setupSplitter");
         if (dotNetRef != null)
             await JsRuntime.InvokeVoidAsync("setupChatInputEnter", "chatInput", dotNetRef);
+        await JsRuntime.InvokeVoidAsync("setupChatInputPaste", "chatInput");
     }
     public void Dispose()
     {
@@ -500,14 +521,6 @@
         }
     }
 
-    async Task HandlePaste()
-    {
-        string? content = NativeClipboard.GetPastedContent();
-        if (content != null)
-        {
-            await JsRuntime.InvokeVoidAsync("insertTextAtCursor", "chatInput", content);
-        }
-    }
     [JSInvokable]
     public Task OnNativeEnterAsync(string rawInputText)
     {

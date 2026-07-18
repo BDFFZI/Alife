@@ -8,9 +8,7 @@ public static class AlifeConfig
 {
     public static string GetString(string key, string defaultValue = "")
     {
-        if (data.TryGetValue(key, out string? value))
-            return value;
-        return defaultValue;
+        return data.GetValueOrDefault(key, defaultValue);
     }
     public static void SetString(string key, string value)
     {

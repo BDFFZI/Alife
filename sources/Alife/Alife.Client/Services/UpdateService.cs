@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Alife.Platform;
+using ElectronNET.API;
 using Newtonsoft.Json.Linq;
+using Process=System.Diagnostics.Process;
 
 namespace Alife.Components.Services;
 
@@ -132,6 +134,6 @@ public class UpdateService
             UseShellExecute = true
         });
 
-        Program.CloseApplication();
+        Electron.App.Exit();
     }
 }

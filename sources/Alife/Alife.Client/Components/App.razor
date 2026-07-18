@@ -22,18 +22,12 @@
 
     @* 自定义关闭事件 *@
     <script>
-        let confirmClose = false;
         const {ipcRenderer} = require('electron');
         window.addEventListener('beforeunload', (e) => {
-            if (confirmClose)
-                return
             // 阻止默认行为，等待主进程处理决定是否允许关闭
             e.returnValue = false; // 阻止默认的卸载/关闭
             ipcRenderer.send('request-close'); // 发起请求，主进程决定
         });
-        ipcRenderer.on('confirm-close', () => {
-            confirmClose = true;
-        })
     </script>
 </head>
 

@@ -12,13 +12,6 @@ public static class Program
 {
     public static IServiceProvider ServiceProvider { get; private set; } = null!;
 
-    public static void CloseApplication()
-    {
-        Electron.IpcMain.Send(Electron.WindowManager.BrowserWindows.First(), "confirm-close");
-        Electron.App.Quit();
-    }
-
-    [STAThread]
     static void Main(string[] args)
     {
 #if DEBUG
@@ -113,7 +106,7 @@ public static class Program
         //创建托盘
         var menuItems = new[] {
             new MenuItem { Label = "显示主窗口", Click = () => browserWindow.Show() },
-            new MenuItem { Label = "退出", Click = CloseApplication }
+            new MenuItem { Label = "退出", Click = () => Electron.App.Exit() }
         };
         await Electron.Tray.Show(iconPath, menuItems);
         await Electron.Tray.SetToolTip("Alife");
@@ -130,7 +123,7 @@ public static class Program
                 Type = MessageBoxType.question,
             };
             var result = Electron.Dialog.ShowMessageBoxAsync(browserWindow, options).Result;
-            if (result.Response == 1) CloseApplication();
+            if (result.Response == 1) Electron.App.Exit();
             else if (result.Response == 2) browserWindow.Hide();
         });
     }

@@ -8,8 +8,8 @@ namespace Alife.Framework;
 /// </summary>
 public class Character : ICloneable
 {
-    public DateTime Birthday { get; private init; } = DateTime.Now;
     public required string Name { get; init; }
+    public DateTime Birthday { get; set; } = DateTime.Now;
     public string Description { get; set; } = "";
     public string Prompt { get; set; } = "";
     public HashSet<string> Modules { get; set; } = new();

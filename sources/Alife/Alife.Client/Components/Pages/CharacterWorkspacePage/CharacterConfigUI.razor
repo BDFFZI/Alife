@@ -28,9 +28,11 @@
             <div style="flex: 1; display: flex; gap: 24px; min-height: 0;">
                 <div style="flex: 3; display: flex; flex-direction: column; min-width: 0;">
                     <Title Level="5" Style="flex-shrink: 0;">生日 (Birthday)</Title>
-                    <Input value="@(Character.Birthday.ToString("yyyy-MM-dd hh:mm"))"
-                           Disabled="@true"
-                           Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
+                    <DatePicker @bind-Value="birthday"
+                                Disabled="@(Activity != null)"
+                                Format="yyyy-MM-dd HH:mm:ss"
+                                ShowTime="@true"
+                                Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
 
                     <Title Level="5" Style="flex-shrink: 0;">简介 (Description)</Title>
                     <Input @bind-Value="Character.Description"
@@ -74,6 +76,7 @@
     bool isSaving;
     bool autoActivate;
     HashSet<string> moduleIDs = new();
+    DateTime birthday;
 
     protected override void OnInitialized()
     {
@@ -81,6 +84,7 @@
         {
             moduleIDs = Character.Modules.ToHashSet();
             autoActivate = Character.AutoActivate;
+            birthday = Character.Birthday;
         }
     }
 
@@ -108,6 +112,7 @@
         {
             Character.Modules = moduleIDs.ToHashSet();
             Character.AutoActivate = autoActivate;
+            Character.Birthday = birthday;
             CharacterSystem.SaveCharacter(Character);
 
             _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });

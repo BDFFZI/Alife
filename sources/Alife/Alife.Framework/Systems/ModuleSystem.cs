@@ -155,32 +155,27 @@ public class ModuleSystem
                         encoding: System.Text.Encoding.UTF8))
                     .ToList();
 
-                //收集元数据引用（去重）
+                //收集dll环境
                 var references = new List<MetadataReference>();
                 var addedAssemblies = new HashSet<string>();
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())//部分dll在运行时目录
+                foreach (var file in managedExtraDirectories//Nuget目录
+                             .Prepend(source)//插件目录
+                             .Prepend(AppDomain.CurrentDomain.BaseDirectory)//主程序目录
+                             .Select(path => Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories))
+                             .SelectMany(strings => strings)
+                             .Distinct())
                 {
-                    if (asm.IsDynamic || string.IsNullOrEmpty(asm.Location))
-                        continue;
-                    references.Add(MetadataReference.CreateFromFile(asm.Location));
-                    addedAssemblies.Add(asm.GetName().Name!);
-                }
-                foreach (var path in managedExtraDirectories.Prepend(source))//插件目录的dll和nuget都用于编译
-                {
-                    foreach (string file in Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories))
+                    try
                     {
-                        try
-                        {
-                            var name = AssemblyName.GetAssemblyName(file);
-                            if (addedAssemblies.Contains(name.Name!))
-                                continue;
-                            references.Add(MetadataReference.CreateFromFile(file));
-                            addedAssemblies.Add(name.Name!);
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
+                        var name = AssemblyName.GetAssemblyName(file);
+                        if (addedAssemblies.Contains(name.Name!))
+                            continue;
+                        references.Add(MetadataReference.CreateFromFile(file));
+                        addedAssemblies.Add(name.Name!);
+                    }
+                    catch
+                    {
+                        // ignored
                     }
                 }
 
@@ -255,36 +250,6 @@ public class ModuleSystem
 
         defaultAssemblies = AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.FullName).ToHashSet()!;
         alifeAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => assembly.GetName().Name?.StartsWith("Alife") ?? false).ToArray();
-        LoadAssemblyChain(Assembly.GetEntryAssembly()!);//加载所有本地自带的程序，方便后续判断
-
-        void LoadAssemblyChain(Assembly entryAssembly)
-        {
-            var loadedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var queue = new Queue<Assembly>();
-            queue.Enqueue(entryAssembly);
-            while (queue.Count > 0)
-            {
-                var assembly = queue.Dequeue();
-                foreach (var reference in assembly.GetReferencedAssemblies())
-                {
-                    // 如果这个程序集还没被加载过
-                    if (!loadedAssemblies.Contains(reference.FullName))
-                    {
-                        try
-                        {
-                            // 强制加载它
-                            var loaded = Assembly.Load(reference);
-                            queue.Enqueue(loaded);
-                            loadedAssemblies.Add(reference.FullName);
-                        }
-                        catch
-                        {
-                            // 忽略加载失败的程序集（有些可能是环境相关的）
-                        }
-                    }
-                }
-            }
-        }
     }
 
     void ReloadContext(AssemblyLoadContext context)
