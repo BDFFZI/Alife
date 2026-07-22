@@ -204,6 +204,10 @@ Demos/                                  # 黑盒测试
 Tests/                                  # 单元测试
 ```
 
+### 📚 开发文档
+
+Alife 目前尚未建立文档，你可以尝试使用 Copilot、[DeepWiki](https://deepwiki.com/BDFFZI/Alife) 之类的 AI 辅助工具，不过这些生成的资料并不准确。
+
 ---
 
 ## 📄 许可证 (License)
