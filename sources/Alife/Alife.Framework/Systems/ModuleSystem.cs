@@ -28,8 +28,36 @@ public class ModuleSystem
         return type is { IsAbstract: false, IsInterface: false } && GetModuleAttribute(type) != null;
     }
 
-    public ModuleSystem(PluginSystem.PluginSystem pluginSystem)
+    public event Func<List<Type>, Task>? ModulesLoadedAsync;
+    public event Func<List<Type>, Task>? ModulesUnloadedAsync;
+
+    public IEnumerable<Type> GetAllModules()
     {
+        return idToModules.Values;
+    }
+    public Type? GetModule(string moduleID)
+    {
+        return idToModules.GetValueOrDefault(moduleID);
+    }
+    public StringFolder GetModuleFolder()
+    {
+        return moduleFolder;
+    }
+    public void SaveModuleFolder()
+    {
+        storageSystem.SetSetting("ModuleCategory", moduleFolder);
+    }
+
+    readonly Dictionary<string, List<Type>> pluginToModules = new();
+    readonly Dictionary<string, Type> idToModules = new();
+    readonly StorageSystem storageSystem;
+    readonly StringFolder moduleFolder;
+
+    public ModuleSystem(PluginSystem.PluginSystem pluginSystem, StorageSystem storageSystem)
+    {
+        this.storageSystem = storageSystem;
+        moduleFolder = storageSystem.GetSetting("ModuleCategory", new StringFolder("全部模块"))!;
+
         //插件重载时触发模块重载
         pluginSystem.PluginLoaded += OnPluginLoaded;
         pluginSystem.PluginUnloaded += OnPluginUnloaded;
@@ -40,32 +68,17 @@ public class ModuleSystem
         LoadPluginModule(AssemblyLoadContext.Default.Name!, AssemblyLoadContext.Default);
     }
 
-    public event Func<List<Type>, Task>? ModulesLoaded;
-    public event Func<List<Type>, Task>? ModulesUnloaded;
-
-    public IEnumerable<Type> GetAllModules()
-    {
-        return idToModules.Values;
-    }
-    public Type? GetModule(string moduleID)
-    {
-        return idToModules.GetValueOrDefault(moduleID);
-    }
-
-    readonly Dictionary<string, List<Type>> pluginToModules = new();
-    readonly Dictionary<string, Type> idToModules = new();
-
     async Task OnPluginLoaded(string pluginId, PluginLoadContext pluginLoadContext)
     {
         LoadPluginModule(pluginId, pluginLoadContext);
 
         List<Type> moduleTypes = pluginToModules[pluginId];
 
-        if (ModulesLoaded != null)
+        if (ModulesLoadedAsync != null)
         {
             try
             {
-                await Task.WhenAll(ModulesLoaded.GetInvocationList()
+                await Task.WhenAll(ModulesLoadedAsync.GetInvocationList()
                     .Cast<Func<List<Type>, Task>>()
                     .Select(func => func(moduleTypes)));
             }
@@ -79,11 +92,11 @@ public class ModuleSystem
     {
         List<Type> moduleTypes = pluginToModules[pluginId];
 
-        if (ModulesUnloaded != null)
+        if (ModulesUnloadedAsync != null)
         {
             try
             {
-                await Task.WhenAll(ModulesUnloaded.GetInvocationList()
+                await Task.WhenAll(ModulesUnloadedAsync.GetInvocationList()
                     .Cast<Func<List<Type>, Task>>()
                     .Select(func => func(moduleTypes)));
             }
@@ -96,8 +109,9 @@ public class ModuleSystem
         foreach (Type moduleType in moduleTypes)
             idToModules.Remove(GetModuleID(moduleType));
         pluginToModules.Remove(pluginId);
-    }
 
+        SyncModuleFolder();
+    }
     void LoadPluginModule(string pluginId, AssemblyLoadContext assemblyLoadContext)
     {
         List<Type> moduleTypes = new();
@@ -114,6 +128,37 @@ public class ModuleSystem
                 moduleTypes.Add(type);
                 idToModules.Add(GetModuleID(type), type);
             }
+        }
+
+        SyncModuleFolder();
+    }
+    void SyncModuleFolder()
+    {
+        HashSet<string> currentModules = idToModules.Keys.ToHashSet();
+
+        //与当前统计的模块对冲，不能对冲说明是多余的
+        moduleFolder.RemoveAll(name => currentModules.Remove(name) == false);
+        //对冲后剩下的就是还没有加入文件夹的模块
+        foreach (var moduleId in currentModules)
+        {
+            ModuleAttribute moduleAttribute = GetModuleAttribute(GetModule(moduleId)!)!;
+
+            StringFolder folder = moduleFolder;
+            string[] path = moduleAttribute.DefaultCategory.Split("/", StringSplitOptions.RemoveEmptyEntries);
+            foreach (string subFolderName in path)
+            {
+                string name = subFolderName;
+                StringFolder? subFolder = folder.Folders.FirstOrDefault(subFolder => subFolder.Name == name);
+                if (subFolder == null)
+                {
+                    subFolder = new StringFolder(subFolderName);
+                    folder.Folders.Add(subFolder);
+                }
+
+                folder = subFolder;
+            }
+
+            folder.Strings.Add(moduleId);
         }
     }
 }

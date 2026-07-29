@@ -1,22 +1,20 @@
 @using Alife.Components.Shared.Plugins
-@using Alife.Components.Services
+@using Alife.Framework
 @using Alife.Components.Shared.Common
 @using Alife.PluginMarket
 @using Alife.Platform
 @using Microsoft.JSInterop
-@inject PluginMarketService PluginMarketService
+@inject MarketSystem MarketSystem
 @inject IMessageService MessageService
 @inject IJSRuntime JsRuntime
 @inject StorageSystem StorageSystem
-@inject UpdateService UpdateService
 @implements IAsyncDisposable
 
 <ErrorWindowUI @bind-Value="@operException"/>
 
 <div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;">
     @* 标题栏 *@
-    <div
-        style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+    <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
         <Title Level="4" Style="margin: 0;">插件市场</Title>
         <Flex Gap="@("12")" Align="FlexAlign.Center">
             <RadioGroup Value="@viewMode" OnChange="@((string v) => OnViewModeChanged(v))">
@@ -38,28 +36,13 @@
                 <Button Type="@ButtonType.Link" Icon="@IconType.Outline.CloudDownload" OnClick="FetchOnline"
                         Loading="isLoading"/>
             </Tooltip>
-            @if (upgradableCount > 0)
-            {
-                <Badge Count="upgradableCount" Size="@AntDesign.BadgeSize.Small">
-                    <Tooltip Title="@(UpdateService.HasUpdate ? "请先升级软件到最新版本" : "")">
-                        <Button Type="@ButtonType.Link" Icon="@IconType.Outline.ArrowUp" OnClick="OpenUpgradeModal"
-                                Style="@($"color: {(UpdateService.HasUpdate ? "#d9d9d9" : "#52c41a")};")"
-                                Class="@("upgrade-btn" + (showUpgradeModal || hideUpgradeAnimation ? " upgrade-paused" : ""))">
-                            一键升级
-                        </Button>
-                    </Tooltip>
-                </Badge>
-            }
+            <Badge Count="@((int?)cartItems.Count)">
+                <Button Type="@ButtonType.Primary" Shape="@ButtonShape.Round" Icon="@IconType.Outline.ShoppingCart"
+                        OnClick="@(() => showCartModal = true)">
+                    购物车
+                </Button>
+            </Badge>
         </Flex>
-    </div>
-
-    @* 插件源地址栏 *@
-    <div
-        style="padding: 6px 16px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: center; background: #fff;">
-        <span style="color: #666; font-size: 12px; white-space: nowrap;">插件源</span>
-        <Input @bind-Value="sourceUrl" Placeholder="输入插件源 ZIP 下载地址" Style="font-size: 12px;"/>
-        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="SaveSource" Loading="isSaving">保存
-        </Button>
     </div>
 
     @* 搜索栏 *@
@@ -86,8 +69,7 @@
         @if (allTags.Length > 0)
         {
             <div style="display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
-                <div
-                    style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 56px; overflow: hidden; flex: 1; min-width: 0;">
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 56px; overflow: hidden; flex: 1; min-width: 0;">
                     @foreach (var tag in allTags)
                     {
                         <Tag Color="@GetTagColor(tag)"
@@ -135,8 +117,7 @@
             {
                 @if (allPlugins.Length == 0)
                 {
-                    <div
-                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.6;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.6;">
                         <Icon Type="@IconType.Outline.CloudDownload" Style="font-size: 48px; margin-bottom: 16px;"/>
                         <AntDesign.Text Style="font-size: 14px; margin-bottom: 8px;">暂无插件信息</AntDesign.Text>
                         <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">
@@ -155,8 +136,8 @@
                      style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 4px; justify-content: center; align-content: center; width: 100%;">
                     @foreach (var plugin in pagedPlugins)
                     {
-                        <PluginCardUI Plugin="plugin" OnClick="@(() => ShowDetail(plugin))"
-                                      OnInstalled="@(() => RefreshLocal(resetPage: false))"/>
+                        <PluginCardUI PluginPackage="plugin" OnClick="@(() => ShowDetail(plugin))"
+                                      OnAddToCart="@AddToCart"/>
                     }
                 </div>
             }
@@ -164,8 +145,7 @@
 
         @if (!isLoading && filteredPlugins.Length > 0 && totalPages > 1)
         {
-            <div
-                style="flex-shrink: 0; display: flex; justify-content: center; padding: 12px; border-top: 1px solid #f0f0f0; background: #fff;">
+            <div style="flex-shrink: 0; display: flex; justify-content: center; padding: 12px; border-top: 1px solid #f0f0f0; background: #fff;">
                 <Pagination Current="currentPage" Total="filteredPlugins.Length" PageSize="pageSize"
                             OnChange="OnPageChange" ShowSizeChanger="false"/>
             </div>
@@ -183,20 +163,20 @@
        Style="top: 40px;">
     @if (selectedPlugin != null)
     {
-        <PluginDetailView Plugin="selectedPlugin" OnBack="@(() => selectedPlugin = null)"/>
+        <PluginDetailView PluginPackage="selectedPlugin" OnBack="@(() => selectedPlugin = null)"
+                         OnAddToCart="@AddToCart"/>
     }
 </Modal>
 
-@* 一键升级弹窗 *@
-<PluginUpgradeModal @bind-Visible="showUpgradeModal"
-                    UpgradeList="upgradeList"
-                    OnUpgradeComplete="EventCallback.Factory.Create(this, () => RefreshLocal())">
-    <HeaderContent>
-        <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
-            一键升级不仅可以批量配置插件环境，还可以避免插件版本冲突，实现更快更安全的升级，<b style="color: #1890ff;">建议总是使用一键升级来升级插件</b>。<Checkbox @bind-Value="hideUpgradeAnimation" OnChange="@OnHideAnimationChanged" Style="margin-left: 4px;">我知道了</Checkbox>
-        </div>
-    </HeaderContent>
-</PluginUpgradeModal>
+@* 购物车弹窗 *@
+<Modal Title="@($"购物车 ({cartItems.Count})")"
+       Visible="showCartModal"
+       OnCancel="@(() => showCartModal = false)"
+       Footer="null"
+       Width="480"
+       Centered="true">
+    <PluginCartView @bind-CartItems="cartItems" OnOperationComplete="OnCartOperationComplete"/>
+</Modal>
 
 <style>
     .upgrade-btn {
@@ -236,14 +216,10 @@
 @code {
     string viewMode = "all";
     string searchText = "";
-    string sourceUrl = "";
     string authorSearchText = "";
     Dictionary<string, bool> selectedTags = [];// true=include, false=exclude
     string tagSearchText = "";
     bool isLoading;
-    bool isSaving;
-    bool hideUpgradeAnimation;
-    int upgradableCount;
     int currentPage = 1;
     int pageSize = 12;
 
@@ -254,8 +230,8 @@
     DotNetObjectReference<PluginMarketView>? dotnetRef;
     Exception? operException;
 
-    bool showUpgradeModal;
-    List<PluginUpgradeModal.UpgradeItem> upgradeList = [];
+    List<PluginPackage> cartItems = [];
+    bool showCartModal;
 
     string[] allTags = [];
     string[] authorOptions = [];
@@ -266,15 +242,7 @@
 
     protected override void OnInitialized()
     {
-        PluginMarketService.OnInstalled += OnPluginsChanged;
-        sourceUrl = PluginMarketService.SourceUrl;
-        hideUpgradeAnimation = StorageSystem.GetObject("Settings/PluginMarketViewConfig", new UpgradeAnimationConfig())?.HideUpgradeAnimation ?? false;
         RefreshLocal();
-    }
-
-    class UpgradeAnimationConfig
-    {
-        public bool HideUpgradeAnimation { get; set; }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -378,7 +346,7 @@
 
         try
         {
-            await PluginMarketService.FetchOnlinePluginsAsync();
+            await MarketSystem.SyncPluginMarket();
             RefreshLocal();
         }
         catch (Exception ex)
@@ -390,18 +358,19 @@
         StateHasChanged();
     }
 
-    void OpenUpgradeModal()
+    void AddToCart(PluginPackage plugin)
     {
-        upgradeList = allPlugins
-            .Where(p => PluginMarketService.HasUpdate(p))
-            .Select(p => new PluginUpgradeModal.UpgradeItem {
-                PluginPackage = p,
-                newVersion = PluginMarketService.GetLatestVersion(p) ?? "",
-                oldVersion = PluginMarketService.GetInstalledVersion(p.Id) ?? ""
-            })
-            .Where(x => !string.IsNullOrEmpty(x.newVersion) && !string.IsNullOrEmpty(x.oldVersion))
-            .ToList();
-        showUpgradeModal = true;
+        if (!cartItems.Any(p => p.Id == plugin.Id))
+        {
+            cartItems.Add(plugin);
+            StateHasChanged();
+        }
+    }
+
+    void OnCartOperationComplete()
+    {
+        showCartModal = false;
+        RefreshLocal();
     }
 
     void ShowDetail(PluginPackage pluginPackage)
@@ -500,15 +469,15 @@
         InvokeAsync(() => RefreshLocal(resetPage: false));
     }
 
-    void RefreshLocal(bool resetPage = true)
+    async void RefreshLocal(bool resetPage = true)
     {
-        PluginMarketService.RefreshLocalPlugins();
-        var onlinePlugins = PluginMarketService.GetAllPlugins().OrderByDescending(plugin => {
+        await MarketSystem.SyncPluginEnvironment();
+        var onlinePlugins = MarketSystem.GetAllOnlinePlugins().Values.OrderByDescending(plugin => {
             if (plugin.Releases != null && plugin.Releases.Count > 0 && DateTime.TryParse(plugin.Releases.First().Value.Date, out DateTime time))
                 return time;
             return DateTime.MinValue;
         });
-        var installed = PluginMarketService.GetInstalledPlugins();
+        var installed = MarketSystem.GetAllLocalPlugins();
 
         if (viewMode == "installed")
         {
@@ -536,50 +505,10 @@
             .OrderBy(a => a)
             .ToArray();
 
-        upgradableCount = allPlugins.Count(p => PluginMarketService.HasUpdate(p));
-
         foreach (var key in selectedTags.Keys.Where(k => !allTags.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList())
             selectedTags.Remove(key);
 
         FilterPlugins(resetPage);
-        StateHasChanged();
-    }
-
-    void OnHideAnimationChanged(bool checkedValue)
-    {
-        var config = StorageSystem.GetObject("Settings/PluginMarketViewConfig", new UpgradeAnimationConfig()) ?? new UpgradeAnimationConfig();
-        config.HideUpgradeAnimation = checkedValue;
-        StorageSystem.SetObject("Settings/PluginMarketViewConfig", config);
-    }
-
-    async Task SaveSource()
-    {
-        if (string.IsNullOrWhiteSpace(sourceUrl))
-        {
-            MessageService.Warning("请输入插件源地址");
-            return;
-        }
-
-        if (sourceUrl == PluginMarketService.SourceUrl)
-            return;
-
-        isSaving = true;
-        StateHasChanged();
-
-        try
-        {
-            PluginMarketService.SourceUrl = sourceUrl;
-            MessageService.Success("插件源已更新，正在重新拉取...");
-            await PluginMarketService.FetchOnlinePluginsAsync();
-            RefreshLocal();
-            MessageService.Success("插件源更新成功");
-        }
-        catch (Exception ex)
-        {
-            MessageService.Error($"拉取失败: {ex.Message}");
-        }
-
-        isSaving = false;
         StateHasChanged();
     }
 
@@ -603,7 +532,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        PluginMarketService.OnInstalled -= OnPluginsChanged;
         try
         {
             await JsRuntime.InvokeVoidAsync("unwatchPluginMarketResize");

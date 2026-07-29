@@ -6,13 +6,34 @@ namespace Alife.Framework;
 
 public class ChatActivitySystem
 {
-    /// <summary>角色激活进度更新（taskDescription, progressValue）</summary>
+    /// <summary>
+    /// 开始激活角色
+    /// </summary>
     public event Action<Character>? Activating;
-    public event Action<Character, (string Step, float Progress)>? ActivatingProcess;
-    public event Action<Character, Exception>? ActivationFailed;
+    /// <summary>
+    /// 活动创建并调用Awake后
+    /// </summary>
     public event Action<ChatActivity>? ActivatingCreated;
+    /// <summary>
+    /// 活动调用Start并正式加入统计，即完成创建后
+    /// </summary>
     public event Action<ChatActivity>? Activated;
+    /// <summary>
+    /// 激活中的进度回调
+    /// </summary>
+    public event Action<Character, (string Step, float Progress)>? ActivatingProcess;
+    /// <summary>
+    /// 激活过程发生报错（生命周期事件不会引发该错误）
+    /// </summary>
+    public event Action<Character, Exception>? ActivationFailed;
+
+    /// <summary>
+    /// 活动即将销毁
+    /// </summary>
     public event Action<ChatActivity>? Destroying;
+    /// <summary>
+    /// 活动销毁并移出全局统计后
+    /// </summary>
     public event Action<ChatActivity>? Destroyed;
 
     public IEnumerable<ChatActivity> GetAllChatActivities()
@@ -88,7 +109,7 @@ public class ChatActivitySystem
         this.moduleSystem = moduleSystem;
         this.configurationSystem = configurationSystem;
     }
-    
+
     readonly ModuleSystem moduleSystem;
     readonly ConfigurationSystem configurationSystem;
     readonly List<object> appendObjects = new();

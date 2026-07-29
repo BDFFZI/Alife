@@ -1,11 +1,7 @@
+using Alife.Test.Framework;
 using NUnitLite;
 
-namespace Alife.Test.Framework;
-
-public static class Program
-{
-    public static int Main(string[] args)
-    {
-        return new AutoRun().Execute(args);
-    }
-}
+new AutoRun().Execute([
+    "--test",
+    typeof(FrameworkTests).FullName
+]);

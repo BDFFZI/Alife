@@ -1,4 +1,4 @@
-@inject ConfigurationSystem ConfigurationSystem
+@inject StorageSystem StorageSystem
 @inject IMessageService MessageService
 @inject INotificationService NotificationService
 
@@ -13,7 +13,7 @@
     <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
            Message="LLM一般要钱，本地的又太蠢。但网上依然有很多免费鸡蛋可以领，比如 https://opencode.ai/zen 每天会提供一些免费额度，你只要注册账号，然后复制粘贴你的 API 密钥即可。"></Alert>
 
-    <Form TModel="OpenAILanguageModelConfig" Model="@llmConfig" Layout="@FormLayout.Vertical" Size="@FormSize.Small">
+    <Form TModel="LlmConfigModel" Model="@llmConfig" Layout="@FormLayout.Vertical" Size="@FormSize.Small">
         <FormItem Label="API Base URL（端点）">
             <Input @bind-Value="@llmConfig.endpoint" Placeholder="例如: https://api.deepseek.com/v1"
                    Size="@InputSize.Small"/>
@@ -64,26 +64,16 @@
     [Parameter] public EventCallback OnPrevStep { get; set; }
     [Parameter] public EventCallback OnNextStep { get; set; }
 
-    readonly OpenAILanguageModelConfig llmConfig = new() {
-        endpoint = "https://opencode.ai/zen/v1",
-        modelId = "deepseek-v4-flash-free"
-    };
+    LlmConfigModel llmConfig = new();
     bool isFetchingModels;
     List<string> availableModels = new();
     Exception? operException;
 
     protected override void OnInitialized()
     {
-        if (ConfigurationSystem.HasConfiguration(typeof(OpenAILanguageModel)))
-        {
-            OpenAILanguageModelConfig configuration = (OpenAILanguageModelConfig)ConfigurationSystem.GetConfiguration(typeof(OpenAILanguageModel))!;
-            llmConfig.endpoint = configuration.endpoint;
-            llmConfig.modelId = configuration.modelId;
-            llmConfig.apiKey = configuration.apiKey;
-            llmConfig.reasoningEffort = configuration.reasoningEffort;
-            llmConfig.extraHeaders = configuration.extraHeaders;
-            llmConfig.extraBody = configuration.extraBody;
-        }
+        llmConfig.endpoint = StorageSystem.GetProperty("endpoint") ?? "https://opencode.ai/zen/v1";
+        llmConfig.apiKey = StorageSystem.GetProperty("apiKey") ?? "";
+        llmConfig.modelId = StorageSystem.GetProperty("modelId") ?? "deepseek-v4-flash-free";
     }
 
     async Task FetchModels()
@@ -128,7 +118,9 @@
             MessageService.Warning("Endpoint 和 API Key 不能为空");
             return;
         }
-        ConfigurationSystem.SetConfiguration(typeof(OpenAILanguageModel), llmConfig);
+        StorageSystem.SetProperty("endpoint", llmConfig.endpoint);
+        StorageSystem.SetProperty("apiKey", llmConfig.apiKey);
+        StorageSystem.SetProperty("modelId", llmConfig.modelId);
         _ = NotificationService.Success(new NotificationConfig { Message = "LLM 配置已保存！" });
     }
 
@@ -141,6 +133,13 @@
     async Task OnPrev()
     {
         await OnPrevStep.InvokeAsync();
+    }
+
+    class LlmConfigModel
+    {
+        public string endpoint { get; set; } = "";
+        public string apiKey { get; set; } = "";
+        public string modelId { get; set; } = "";
     }
 }
 

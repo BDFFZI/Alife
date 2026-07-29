@@ -1,6 +1,5 @@
-@using Alife.Components.Services
 @using Alife.PluginMarket
-@inject PluginMarketService PluginMarketService
+@inject MarketSystem MarketSystem
 @inject IMessageService MessageService
 
 <Modal Title="一键升级"
@@ -63,7 +62,8 @@
 
         try
         {
-            await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (plugin: x.PluginPackage, x.newVersion)));
+            var pluginDict = toUpgrade.ToDictionary(x => x.PluginPackage, x => x.newVersion);
+            await MarketSystem.InstallPlugins(pluginDict);
             MessageService.Success($"已升级 {toUpgrade.Count} 个插件");
             foreach (var item in toUpgrade)
                 UpgradeList.Remove(item);
@@ -78,7 +78,8 @@
 
             try
             {
-                await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (plugin: x.PluginPackage, x.oldVersion)));
+                var rollbackDict = toUpgrade.ToDictionary(x => x.PluginPackage, x => x.oldVersion);
+                await MarketSystem.InstallPlugins(rollbackDict);
                 MessageService.Warning($"已回滚 {toUpgrade.Count} 个插件");
                 await OnUpgradeComplete.InvokeAsync();
             }

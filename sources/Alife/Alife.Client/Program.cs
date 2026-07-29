@@ -68,7 +68,6 @@ public static class Program
             builder.Services.AddAlife();
             //前端功能
             builder.Services.AddSingleton<ChatMessageService>();
-            builder.Services.AddSingleton<PluginMarketService>();
             builder.Services.AddSingleton<UpdateService>();
             builder.Services.AddSingleton<EnvironmentInstaller>();
         }

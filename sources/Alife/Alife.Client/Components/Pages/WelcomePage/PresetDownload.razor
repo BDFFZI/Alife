@@ -1,7 +1,7 @@
-@using Alife.Components.Services
+@using Alife.Framework
 @using Alife.PluginMarket
 @using Alife.Platform
-@inject PluginMarketService PluginMarketService
+@inject MarketSystem MarketSystem
 @inject INotificationService NotificationService
 
 <div class="step-content">
@@ -34,13 +34,13 @@
         <div class="plugin-checklist">
             @foreach (var plugin in availablePlugins)
             {
-                <label class="plugin-check-item @(PluginMarketService.IsInstalled(plugin.Id) ? "installed" : "")">
+                <label class="plugin-check-item @(MarketSystem.IsInstalled(plugin.Id) ? "installed" : "")">
                     <input type="checkbox" checked="@(selectedIds.Contains(plugin.Id))"
-                           disabled="@(PluginMarketService.IsInstalled(plugin.Id))"
+                           disabled="@(MarketSystem.IsInstalled(plugin.Id))"
                            @onchange="@((e) => ToggleSelect(plugin.Id, (bool)e.Value!))"/>
                     <span class="pc-name">@plugin.Name</span>
                     <span class="pc-id">@plugin.Id</span>
-                    @if (PluginMarketService.IsInstalled(plugin.Id))
+                    @if (MarketSystem.IsInstalled(plugin.Id))
                     {
                         <Tag Color="@("green")" Style="margin-left:auto;">已安装</Tag>
                     }
@@ -125,7 +125,7 @@
         StateHasChanged();
         try
         {
-            await PluginMarketService.FetchOnlinePluginsAsync();
+            await MarketSystem.SyncPluginMarket();
         }
         catch (Exception ex)
         {
@@ -138,14 +138,14 @@
             installProgress = null;
         }
 
-        var allPlugins = PluginMarketService.GetAllPlugins().ToList();
+        var allPlugins = MarketSystem.GetAllOnlinePlugins().Values.ToList();
         foreach (string id in RecommendedPluginIds)
         {
             var plugin = allPlugins.FirstOrDefault(p => p.Id == id);
             if (plugin != null)
             {
                 availablePlugins.Add(plugin);
-                if (!PluginMarketService.IsInstalled(id))
+                if (!MarketSystem.IsInstalled(id))
                     selectedIds.Add(id);
             }
         }
@@ -162,9 +162,9 @@
     {
         var toInstall = availablePlugins
             .Where(p => selectedIds.Contains(p.Id))
-            .Select(p => (p, PluginMarketService.GetLatestVersion(p)!))
-            .Where(x => x.Item2 != null)
-            .ToList();
+            .Select(p => new { Plugin = p, Version = MarketSystem.GetLatestVersion(p) ?? "" })
+            .Where(x => !string.IsNullOrEmpty(x.Version))
+            .ToDictionary(x => x.Plugin, x => x.Version);
 
         if (toInstall.Count == 0) return;
 
@@ -173,7 +173,7 @@
 
         try
         {
-            await PluginMarketService.InstallPlugins(toInstall);
+            await MarketSystem.InstallPlugins(toInstall);
 
             installedCount = toInstall.Count;
             installDone = true;

@@ -1,10 +1,8 @@
-@using Alife.Components.Services
+@using Alife.Framework
 @using Alife.Components.Shared.Common
 @using Alife.PluginMarket
-@inject PluginMarketService PluginMarketService
-@inject INotificationService NotificationService
-
-<ErrorWindowUI @bind-Value="@operException" />
+@using Alife.PluginSystem
+@inject MarketSystem MarketSystem
 
 <div style="display: flex; flex-direction: column; height: 100%;">
     @* 页头 *@
@@ -41,52 +39,11 @@
 
         @* 操作按钮 *@
         <Flex Gap="@("12")" Style="margin-top: 16px;">
-            @if (!isInstalled)
-            {
-                <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{PluginPackage.Name}] 安装成功"))" Loading="isOperating">
-                    <Icon Type="@IconType.Outline.CloudDownload" /> 安装
-                </Button>
-            }
-            else
-            {
-                <Button Type="@ButtonType.Primary" OnClick="Reinstall" Loading="isOperating">
-                    <Icon Type="@IconType.Outline.Reload" /> 重装
-                </Button>
-                @if (hasUpdate)
-                {
-                    <Button Type="@ButtonType.Primary" OnClick="Upgrade" Loading="isOperating" Style="background: #52c41a; border-color: #52c41a;">
-                        <Icon Type="@IconType.Outline.ArrowUp" /> 升级
-                    </Button>
-                }
-                <Popconfirm Title="确定要卸载此插件？" OnConfirm="OnUninstallConfirm" OnCancel="OnUninstallCancel"
-                            Visible="showUninstallConfirm">
-                    <Button Danger Loading="isOperating" OnClick="OnUninstallClick">
-                        <Icon Type="@IconType.Outline.Delete" /> 卸载
-                    </Button>
-                </Popconfirm>
-            }
+            <Button Type="@ButtonType.Primary" OnClick="AddToCart">
+                <Icon Type="@IconType.Outline.Plus" /> 加入购物车
+            </Button>
         </Flex>
     </div>
-
-    @* 依赖警告弹窗 *@
-    <Modal Title="卸载警告" Visible="showDependentWarning" OnCancel="@(() => showDependentWarning = false)" Footer="null" Width="480">
-        <div style="margin-bottom: 16px;">
-            <AntDesign.Text>以下插件依赖于 <strong>@PluginPackage.Name</strong>，卸载后可能导致它们无法正常工作：</AntDesign.Text>
-        </div>
-        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 16px;">
-            @foreach (var dep in dependentPlugins)
-            {
-                <div style="padding: 8px 12px; background: #fff7e6; border: 1px solid #ffd591; border-radius: 4px; margin-bottom: 4px;">
-                    <Icon Type="@IconType.Outline.Warning" Style="color: #fa8c16; margin-right: 8px;" />
-                    @dep
-                </div>
-            }
-        </div>
-        <Flex Justify="FlexJustify.FlexEnd" Gap="@("8")">
-            <Button OnClick="@(() => showDependentWarning = false)">取消</Button>
-            <Button Danger OnClick="ForceUninstall" Loading="isOperating">强制卸载</Button>
-        </Flex>
-    </Modal>
 
     @* 版本列表 *@
     <div style="flex: 1; overflow-y: auto; padding: 16px 0;">
@@ -94,9 +51,9 @@
         <Timeline>
             @if (PluginPackage.Releases != null)
             {
-                @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(VersionResolver.CompareVersions)))
+                @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(DependencyResolver.CompareVersions)))
                 {
-                    bool isCompatible = PluginMarketService.IsClientCompatible(release.Key);
+                    bool isCompatible = MarketSystem.IsClientCompatible(release.Key);
                     <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <Tooltip Title="@(isCompatible ? "" : "版本不兼容：插件大版本号高于当前客户端版本")">
@@ -113,13 +70,6 @@
                             @if (!isCompatible)
                             {
                                 <Tag Color="@("red")">不兼容</Tag>
-                            }
-                            @if (release.Key != installedVersion && isCompatible)
-                            {
-                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Loading="operatingVersion == release.Key"
-                                         OnClick="@(() => InstallVersion(release.Key))">
-                                    @(PluginMarketService.IsInstalled(PluginPackage.Id) ? "切换到此版本" : "安装")
-                                </Button>
                             }
                         </div>
                         <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@release.Value.Date</AntDesign.Text>
@@ -145,144 +95,21 @@
 @code {
     [Parameter] public PluginPackage PluginPackage { get; set; } = null!;
     [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback<PluginPackage> OnAddToCart { get; set; }
 
     bool isInstalled;
-    bool hasUpdate;
-    bool isOperating;
-    bool showUninstallConfirm;
-    bool showDependentWarning;
     string? installedVersion;
     string? latestVersion;
-    string? operatingVersion;
-    List<string> dependentPlugins = [];
-    Exception? operException;
 
     protected override void OnParametersSet()
     {
-        isInstalled = PluginMarketService.IsInstalled(PluginPackage.Id);
-        installedVersion = PluginMarketService.GetInstalledVersion(PluginPackage.Id);
-        latestVersion = PluginMarketService.GetLatestVersion(PluginPackage);
-        hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
+        isInstalled = MarketSystem.IsInstalled(PluginPackage.Id);
+        installedVersion = MarketSystem.GetInstalledVersion(PluginPackage.Id);
+        latestVersion = MarketSystem.GetLatestVersion(PluginPackage);
     }
 
-    async Task Install(string message)
+    async Task AddToCart()
     {
-        if (latestVersion == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = message });
-            OnParametersSet();
-        }
-        catch (Exception ex)
-        {
-            operException = ex;
-        }
-        isOperating = false;
-    }
-
-    async Task Reinstall()
-    {
-        if (installedVersion == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, installedVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 重装成功" });
-            OnParametersSet();
-        }
-        catch (Exception ex)
-        {
-            operException = ex;
-        }
-        isOperating = false;
-    }
-
-    async Task Upgrade()
-    {
-        if (latestVersion == null || installedVersion == null) return;
-        string previousVersion = installedVersion;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级成功" });
-            OnParametersSet();
-        }
-        catch (Exception ex)
-        {
-            try
-            {
-                await PluginMarketService.InstallPlugin(PluginPackage, previousVersion);
-                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级失败，已回退到 v{previousVersion}" });
-                OnParametersSet();
-            }
-            catch { }
-            operException = ex;
-        }
-        isOperating = false;
-    }
-
-    void OnUninstallCancel()
-    {
-        showUninstallConfirm = false;
-    }
-
-    void OnUninstallClick()
-    {
-        dependentPlugins = PluginMarketService.GetDependents(PluginPackage.Id);
-        if (dependentPlugins.Count > 0)
-        {
-            showDependentWarning = true;
-        }
-        else
-        {
-            showUninstallConfirm = true;
-        }
-    }
-
-    async Task OnUninstallConfirm()
-    {
-        showUninstallConfirm = false;
-        await Uninstall();
-    }
-
-    async Task ForceUninstall()
-    {
-        showDependentWarning = false;
-        await Uninstall();
-    }
-
-    async Task Uninstall()
-    {
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.UninstallPlugin(PluginPackage);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 已卸载！" });
-            await OnBack.InvokeAsync();
-        }
-        catch (Exception ex)
-        {
-            operException = ex;
-        }
-        isOperating = false;
-    }
-
-    async Task InstallVersion(string version)
-    {
-        operatingVersion = version;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, version);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 已安装版本 {version}！" });
-            OnParametersSet();
-        }
-        catch (Exception ex)
-        {
-            operException = ex;
-        }
-        operatingVersion = null;
+        await OnAddToCart.InvokeAsync(PluginPackage);
     }
 }

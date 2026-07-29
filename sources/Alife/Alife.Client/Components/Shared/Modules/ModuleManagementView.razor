@@ -1,6 +1,4 @@
-@using Alife.Components.Shared.Common
 @inject ModuleSystem ModuleSystem
-@inject IMessageService MessageService
 @implements IDisposable
 
 <ErrorWindowUI Title="模块重载失败喵！" @bind-Value="@reloadException"></ErrorWindowUI>
@@ -16,13 +14,6 @@
                 <Text Type="@TextElementType.Secondary"
                       Style="font-size: 11px;">@(IsReadOnly ? "当前活跃模块" : "全局模块管理")</Text>
             </div>
-            @if (!IsReadOnly)
-            {
-                <Tooltip Title="重新从磁盘扫描并加载所有模块">
-                    <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Reload" OnClick="ReloadModules"
-                            Size="@ButtonSize.Small"></Button>
-                </Tooltip>
-            }
         </div>
         <div style="flex: 1; overflow-y: auto; padding: 12px 8px; background: #fff; min-height: 0;">
             <ModuleFolderUI
@@ -64,38 +55,24 @@
     private Type? selectedModuleType;
     private Exception? reloadException;
 
-    private void HandleSelection(Type type)
+    protected override void OnInitialized()
+    {
+        ModuleSystem.ModulesLoadedAsync += OnModulesReloaded;
+    }
+    public void Dispose()
+    {
+        ModuleSystem.ModulesLoadedAsync -= OnModulesReloaded;
+    }
+
+    void HandleSelection(Type type)
     {
         selectedModuleType = type;
         StateHasChanged();
     }
 
-    private void ReloadModules()
+    Task OnModulesReloaded(List<Type> types)
     {
-        try
-        {
-            ModuleSystem.ReloadModules();
-            MessageService.Success("模块已重新加载喵！");
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            reloadException = ex;
-        }
-    }
-
-    protected override void OnInitialized()
-    {
-        ModuleSystem.OnModulesReloaded += OnModulesReloaded;
-    }
-
-    private void OnModulesReloaded()
-    {
-        InvokeAsync(() => StateHasChanged());
-    }
-
-    public void Dispose()
-    {
-        ModuleSystem.OnModulesReloaded -= OnModulesReloaded;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
     }
 }

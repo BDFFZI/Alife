@@ -9,6 +9,10 @@ namespace Alife.Framework;
 
 public class ConfigurationSystem(StorageSystem storageSystem)
 {
+    public bool CanConfiguration(Type target)
+    {
+        return GetConfigurationType(target) != null;
+    }
     public Type? GetConfigurationType(Type target)
     {
         if (configurationTypes.TryGetValue(target, out Type? configurationType))
@@ -23,10 +27,6 @@ public class ConfigurationSystem(StorageSystem storageSystem)
         configurationTypes[target] = configurationType;
         return configurationType;
     }
-    public bool CanConfiguration(Type type)
-    {
-        return GetConfigurationType(type) != null;
-    }
     public object? GetConfiguration(Type target, string root = "")
     {
         Type? configurationType = GetConfigurationType(target);
@@ -38,13 +38,7 @@ public class ConfigurationSystem(StorageSystem storageSystem)
         if (configuration != null) return configuration.ToObject(configurationType, replaceSerializer);
         return Activator.CreateInstance(configurationType, null);
     }
-    public JObject? GetConfigurationJson(Type target, string root = "")
-    {
-        object? configuration = GetConfiguration(target, root);
-        if (configuration != null)
-            return JObject.FromObject(configuration);
-        return null;
-    }
+
     public void SetConfiguration(Type target, object configuration, string root = "")
     {
         Type? configurationType = GetConfigurationType(target);

@@ -1,5 +1,4 @@
 @using System.Reflection
-@using Module=Alife.Framework.ChatBehaviour
 @inject ModuleSystem ModuleSystem
 
 <div class="module-tree-container" @onmouseup="OnGlobalMouseUp">
@@ -197,7 +196,7 @@
         }
 
         CleanupDrag();
-        ModuleSystem.SaveData();
+        ModuleSystem.SaveModuleFolder();
         StateHasChanged();
     }
 
@@ -221,7 +220,7 @@
     void OnCreateSub(StringFolder parent)
     {
         parent.Folders.Add(new StringFolder("未命名分类"));
-        ModuleSystem.SaveData();
+        ModuleSystem.SaveModuleFolder();
     }
 
     void OnStartRename(StringFolder folder)
@@ -236,7 +235,7 @@
         if (editingFolder != null && !string.IsNullOrWhiteSpace(renamingName))
         {
             editingFolder.Name = renamingName;
-            ModuleSystem.SaveData();
+            ModuleSystem.SaveModuleFolder();
         }
         renameVisible = false;
     }
@@ -246,6 +245,6 @@
         foreach (StringFolder sub in folder.Folders) parent.Folders.Add(sub);
         foreach (string s in folder.Strings) parent.Strings.Add(s);
         parent.Folders.Remove(folder);
-        ModuleSystem.SaveData();
+        ModuleSystem.SaveModuleFolder();
     }
 }

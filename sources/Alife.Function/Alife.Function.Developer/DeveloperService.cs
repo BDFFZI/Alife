@@ -47,10 +47,16 @@ public class DeveloperService(
         interactor.Poke("角色配置重载成功");
     }
     [XmlFunction(FunctionMode.OneShot)]
-    public async Task ReloadModules()
+    public async Task SyncPluginEnvironment()
     {
-        await pluginSystem.ReloadAllPluginDlls();
-        interactor.Poke("模块重载成功");
+        await pluginSystem.SyncPluginEnvironment();
+        interactor.Poke("插件环境同步成功");
+    }
+    [XmlFunction(FunctionMode.OneShot)]
+    public async Task ReloadPlugin(string pluginId)
+    {
+        await pluginSystem.ReloadPluginDll(pluginId);
+        interactor.Poke("插件重载成功");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -218,7 +224,7 @@ public class DeveloperService(
                             角色模块配置（优先级更高）：{角色目录}/Configuration
 
                             插件开发方法
-                            1. 在插件目录新增cs脚本，实现模块。然后通过{{nameof(ReloadModules)}}重载
+                            1. 在插件目录新增cs脚本，实现模块。然后通过{{nameof(SyncPluginEnvironment)}}重载
                             2. 成功后，编辑`{角色目录}/index.json`，将新增模块类名放`Modules`数组中
                             3. 编辑后用{{nameof(ReloadCharacters)}}重载，并用{{nameof(GetCharacterEnabledModule)}}验证模块启用
                             4. 如果模块用到配置功能，可编辑`{模块配置}/{模块类名}.json`修改配置

@@ -1,7 +1,3 @@
-@using System.Reflection
-@using System.Text.RegularExpressions
-@using Autofac.Core
-@inject ModuleSystem ModuleSystem
 @inject ChatActivitySystem ChatActivitySystem
 @implements IDisposable
 
@@ -44,6 +40,11 @@
         activityException = null;
         InvokeAsync(StateHasChanged);
     }
+    void OnActivated(ChatActivity chatActivity)
+    {
+        isLoading = false;
+        InvokeAsync(StateHasChanged);
+    }
 
     void OnActivatingProcess(Character character, (string Task, float Progress) tuple)
     {
@@ -52,37 +53,10 @@
         loadingProgress = tuple.Progress;
         InvokeAsync(StateHasChanged);
     }
-
-    void OnActivated(ChatActivity chatActivity)
-    {
-        isLoading = false;
-        InvokeAsync(StateHasChanged);
-    }
-
     void OnActivationFailed(Character character, Exception ex)
     {
         if (character.Name != activeCharacterName) return;
         isLoading = false;
-
-        if (ex.InnerException is DependencyResolutionException dre)
-        {
-            Exception? inner = dre.InnerException;
-            if (inner != null)
-            {
-                Match match1 = Regex.Match(inner.Message, "on type '([^']+)'");
-                Match match2 = Regex.Match(inner.Message, @"Cannot resolve parameter\s+'(\S+)\s+\w+'");
-                if (match1.Success && match2.Success)
-                {
-                    string typeName = match2.Groups[1].Value;
-                    Type? type = ModuleSystem.GetModule(typeName);
-                    ModuleAttribute? attr = type?.GetCustomAttribute<ModuleAttribute>();
-                    ex = new Exception(
-                        $"你需要在模块界面寻找并勾选“{attr?.Name ?? typeName}”模块，因为模块 {match1.Groups[1].Value} 依赖于 {match2.Groups[1].Value}，"
-                        , inner
-                    );
-                }
-            }
-        }
 
         activityException = ex;
         InvokeAsync(StateHasChanged);

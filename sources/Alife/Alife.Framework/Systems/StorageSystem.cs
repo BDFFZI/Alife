@@ -21,7 +21,7 @@ public class StorageSystem
     {
         return GetObject("Settings/" + key, defaultValue);
     }
-    public void SetSetting<T>(string key, object value)
+    public void SetSetting(string key, object value)
     {
         SetObject("Settings/" + key, value);
     }

@@ -1,0 +1,158 @@
+@using Alife.Framework
+@using Alife.Components.Shared.Common
+@using Alife.PluginMarket
+@inject MarketSystem MarketSystem
+@inject INotificationService NotificationService
+
+<ErrorWindowUI @bind-Value="@operException" />
+
+<div style="display: flex; flex-direction: column; height: 100%;">
+    @if (CartItems.Count == 0)
+    {
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.6;">
+            <Icon Type="@IconType.Outline.ShoppingCart" Style="font-size: 48px; margin-bottom: 16px;" />
+            <AntDesign.Text Style="font-size: 14px; margin-bottom: 8px;">购物车为空</AntDesign.Text>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">
+                点击插件卡片上的 + 按钮添加插件
+            </AntDesign.Text>
+        </div>
+    }
+    else
+    {
+        <div style="flex: 1; overflow-y: auto; padding: 12px 0;">
+            @foreach (var item in CartItems.ToList())
+            {
+                bool isInstalled = MarketSystem.IsInstalled(item.Id);
+                bool hasUpdate = MarketSystem.HasUpdate(item);
+                string status = isInstalled ? (hasUpdate ? "可升级" : "已安装") : "待安装";
+                string statusColor = isInstalled ? (hasUpdate ? "#faad14" : "#52c41a") : "#1890ff";
+
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                    <div style="flex-shrink: 0; width: 32px; height: 32px; background: #e6f7ff; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: #1890ff;" />
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@item.Name</div>
+                        <div style="font-size: 11px; color: rgba(0,0,0,0.45); display: flex; align-items: center; gap: 8px;">
+                            <span>@item.Id</span>
+                            <span style="color: @statusColor;">@status</span>
+                        </div>
+                    </div>
+                    <Button Type="@ButtonType.Link" Danger Size="@ButtonSize.Small" OnClick="@(() => RemoveFromCart(item))">
+                        <Icon Type="@IconType.Outline.Close" />
+                    </Button>
+                </div>
+            }
+        </div>
+
+        <div style="flex-shrink: 0; padding: 12px 0; border-top: 1px solid #f0f0f0; display: flex; gap: 8px;">
+            <Button Danger OnClick="ClearCart" Disabled="isOperating" Style="flex: 1;">
+                清空
+            </Button>
+            <Button Type="@ButtonType.Primary" OnClick="InstallSelected" Loading="isOperating"
+                    Disabled="@(installableCount == 0)" Style="flex: 2;">
+                @if (installableCount > 0)
+                {
+                    @($"安装 ({installableCount})")
+                }
+                else
+                {
+                    @("无可安装项")
+                }
+            </Button>
+            <Button Danger OnClick="UninstallSelected" Loading="isOperating"
+                    Disabled="@(uninstallableCount == 0)" Style="flex: 2;">
+                @if (uninstallableCount > 0)
+                {
+                    @($"卸载 ({uninstallableCount})")
+                }
+                else
+                {
+                    @("无可卸载项")
+                }
+            </Button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<PluginPackage> CartItems { get; set; } = new();
+    [Parameter] public EventCallback<List<PluginPackage>> CartItemsChanged { get; set; }
+    [Parameter] public EventCallback OnOperationComplete { get; set; }
+
+    bool isOperating;
+    Exception? operException;
+
+    int installableCount => CartItems.Count(p => !MarketSystem.IsInstalled(p.Id) || MarketSystem.HasUpdate(p));
+    int uninstallableCount => CartItems.Count(p => MarketSystem.IsInstalled(p.Id));
+
+    async Task RemoveFromCart(PluginPackage item)
+    {
+        CartItems.Remove(item);
+        await CartItemsChanged.InvokeAsync(CartItems);
+    }
+
+    async Task ClearCart()
+    {
+        CartItems.Clear();
+        await CartItemsChanged.InvokeAsync(CartItems);
+    }
+
+    async Task InstallSelected()
+    {
+        var toInstall = CartItems
+            .Where(p => !MarketSystem.IsInstalled(p.Id) || MarketSystem.HasUpdate(p))
+            .Select(p => new { Plugin = p, Version = MarketSystem.GetLatestVersion(p) ?? "" })
+            .Where(x => !string.IsNullOrEmpty(x.Version))
+            .ToDictionary(x => x.Plugin, x => x.Version);
+
+        if (toInstall.Count == 0) return;
+
+        isOperating = true;
+        StateHasChanged();
+
+        try
+        {
+            await MarketSystem.InstallPlugins(toInstall);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"成功安装/升级 {toInstall.Count} 个插件" });
+            CartItems.Clear();
+            await CartItemsChanged.InvokeAsync(CartItems);
+            await OnOperationComplete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
+
+        isOperating = false;
+        StateHasChanged();
+    }
+
+    async Task UninstallSelected()
+    {
+        var toUninstall = CartItems
+            .Where(p => MarketSystem.IsInstalled(p.Id))
+            .ToList();
+
+        if (toUninstall.Count == 0) return;
+
+        isOperating = true;
+        StateHasChanged();
+
+        try
+        {
+            await MarketSystem.UninstallPlugins(toUninstall);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"成功卸载 {toUninstall.Count} 个插件" });
+            CartItems.Clear();
+            await CartItemsChanged.InvokeAsync(CartItems);
+            await OnOperationComplete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
+
+        isOperating = false;
+        StateHasChanged();
+    }
+}

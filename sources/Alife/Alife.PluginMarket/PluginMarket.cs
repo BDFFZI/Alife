@@ -93,12 +93,12 @@ public class PluginMarket
     }
     public async Task UninstallPlugins(string pluginId)
     {
-        List<string> dependencies = ResolvePluginDependencies(pluginId);
+        List<string> dependencies = ResolveBeDependentPlugins(pluginId);
         if (dependencies.Count != 0)
             throw new Exception($"插件 {pluginId} 被 {string.Join(',', dependencies)} 插件所依赖，无法卸载，请先卸载这些依赖插件。");
         await pluginInstaller.UninstallPlugin(pluginId);
     }
-    public List<string> ResolvePluginDependencies(string pluginId)
+    public List<string> ResolveBeDependentPlugins(string pluginId)
     {
         List<string> dependents = new();
         foreach ((string id, PluginManifest manifest) in pluginSystem.AllPluginManifests)

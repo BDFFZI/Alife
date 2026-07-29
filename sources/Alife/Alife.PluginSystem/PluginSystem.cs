@@ -8,9 +8,16 @@ using Newtonsoft.Json;
 
 namespace Alife.PluginSystem;
 
+public struct PluginSyncReport
+{
+    public string[] UnloadedPlugins { get; set; }
+    public string[] ReloadedPlugins { get; set; }
+}
+
 /// <summary>
 /// 一个插件代表一个包含 cs、dll、版本、依赖信息 的文件夹。
 /// 插件系统负责安装这些插件依赖的环境，编译 cs 为 dll，以及将他们加载到程序中，从而可以被实际使用。
+/// 插件是从软件启动时就被载入的内容，并且将一直常驻，只能重载或加载新插件。
 /// </summary>
 /// <param name="pluginRootDirectory"></param>
 /// <param name="dllOutputDirectory"></param>
@@ -27,29 +34,21 @@ public class PluginSystem(string pluginRootDirectory, string dllOutputDirectory,
     public Func<string, PluginManifest> PluginManifestFallback { get; set; } = _ => new PluginManifest() { Version = "0.0.0" };
 
     /// <summary>
-    /// 当插件增加或插件描述变更时应调用该函数来同步环境。
-    /// 调用后会重新解算环境，并卸载多余的插件。
+    /// 当插件增加或插件依赖变更时应调用该函数来同步环境。
+    /// 调用后会重新解算环境，卸载多余的插件，并加载新增的插件。
     /// </summary>
-    /// <exception cref="NotSupportedException"></exception>
-    public async Task SyncPluginEnvironment()
+    public async Task<PluginSyncReport> SyncPluginEnvironment()
     {
-        await SyncPluginManifests();
-        await InstallEnvironment();
+        PluginSyncReport report = new PluginSyncReport();
 
-        async Task SyncPluginManifests()
+        SyncPluginManifests();
+        await SyncEnvironment();
+        await SyncPlugin();
+
+        void SyncPluginManifests()
         {
             allPluginManifests.Clear();
-            foreach (var pluginDirectory in Directory.GetDirectories(pluginRootDirectory))
-                LoadManifestFile(Path.GetFileName(pluginDirectory));
-            foreach (string pluginId in currentPluginLoadContexts.Keys
-                         .Where(pluginId => !allPluginManifests.ContainsKey(pluginId))
-                         .ToArray())
-            {
-                if (currentPluginLoadContexts.TryGetValue(pluginId, out PluginLoadContext? context))
-                    await context.DisposeAsync();
-            }
-
-            void LoadManifestFile(string pluginId)
+            foreach (var pluginId in Directory.GetDirectories(pluginRootDirectory))
             {
                 string pluginDependencyFile = GetPluginDependencyPath(pluginId);
                 PluginManifest pluginManifest = File.Exists(pluginDependencyFile)
@@ -59,7 +58,7 @@ public class PluginSystem(string pluginRootDirectory, string dllOutputDirectory,
             }
         }
 
-        async Task InstallEnvironment()
+        async Task SyncEnvironment()
         {
             //汇总所有环境依赖
             Dictionary<string, List<KeyValuePair<string, string>>> allEnvironments = new();
@@ -86,6 +85,32 @@ public class PluginSystem(string pluginRootDirectory, string dllOutputDirectory,
             foreach ((string environmentType, List<KeyValuePair<string, string>> environment) in allEnvironments)
                 await environmentInstallers[environmentType].InstallEnvironment(environment);
         }
+
+        async Task SyncPlugin()
+        {
+            report.UnloadedPlugins = currentPluginLoadContexts.Keys
+                .Where(pluginId => !allPluginManifests.ContainsKey(pluginId))
+                .ToArray();
+
+            //清除已不在的插件
+            foreach (string pluginId in report.UnloadedPlugins)
+            {
+                if (currentPluginLoadContexts.TryGetValue(pluginId, out PluginLoadContext? context))
+                    await context.DisposeAsync();
+            }
+
+            report.ReloadedPlugins = allPluginManifests.Keys
+                .Where(pluginId => !currentPluginLoadContexts.ContainsKey(pluginId))
+                .ToArray();
+
+            //加载新增的插件
+            foreach (string pluginId in report.ReloadedPlugins)
+            {
+                await ReloadPluginDll(pluginId);
+            }
+        }
+
+        return report;
     }
     public async Task ReloadPluginDll(string pluginId)
     {
@@ -142,14 +167,6 @@ public class PluginSystem(string pluginRootDirectory, string dllOutputDirectory,
                 AlifeLog.LogError(e);
             }
         }
-    }
-    public async Task ReloadAllPluginDlls()
-    {
-        foreach (PluginLoadContext pluginLoadContext in currentPluginLoadContexts.Values.ToArray())
-            await pluginLoadContext.DisposeAsync();
-
-        foreach (string pluginId in allPluginManifests.Keys)
-            await ReloadPluginDll(pluginId);
     }
 
     readonly Dictionary<string, PluginManifest> allPluginManifests = new();

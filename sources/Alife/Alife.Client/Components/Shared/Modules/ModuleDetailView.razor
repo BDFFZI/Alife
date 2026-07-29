@@ -1,5 +1,4 @@
 @using System.Reflection
-@using Autofac
 @using Newtonsoft.Json
 @inject ConfigurationSystem ConfigurationSystem
 
@@ -67,19 +66,13 @@
         if (isConfigurable)
         {
             <AutoFormUI Configuration="@configuration"
-                        ConfigurationChanged="@OnConfigSaved"/>
+                        ConfigurationChanged="@(OnConfigSaved)"/>
         }
     };
 
     protected override void OnParametersSet()
     {
-        if (ChatActivity != null && ChatActivity.ModuleService.TryResolve(ModuleType, out object? instance))
-            Module = instance;
-        else
-        {
-            Module = null;
-        }
-
+        Module = ChatActivity?.Container.Instances.FirstOrDefault(instance => instance.GetType() == ModuleType);
         isConfigurable = ConfigurationSystem.CanConfiguration(ModuleType);
         LoadConfiguration();
     }

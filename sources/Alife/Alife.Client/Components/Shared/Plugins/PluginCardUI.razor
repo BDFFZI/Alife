@@ -1,10 +1,5 @@
-@using Alife.Components.Services
-@using Alife.Components.Shared.Common
 @using Alife.PluginMarket
-@inject PluginMarketService PluginMarketService
-@inject INotificationService NotificationService
-
-<ErrorWindowUI @bind-Value="@operException" />
+@inject MarketSystem MarketSystem
 
 <div class="plugin-card" @onclick="HandleClick">
     <div class="plugin-card-header">
@@ -12,7 +7,7 @@
             <div class="plugin-icon">
                 <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: #1890ff;" />
             </div>
-            @if (PluginMarketService.IsInstalled(PluginPackage.Id))
+            @if (MarketSystem.IsInstalled(PluginPackage.Id))
             {
                 <div class="plugin-badge"></div>
             }
@@ -25,25 +20,15 @@
             }
         </div>
         <div class="plugin-actions">
-            @if (PluginMarketService.IsInstalled(PluginPackage.Id))
+            @if (MarketSystem.IsInstalled(PluginPackage.Id))
             {
-                <span class="plugin-version">v@(PluginMarketService.GetInstalledVersion(PluginPackage.Id))</span>
-                if (hasUpdate)
-                {
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
-                             OnClick="Upgrade" OnClickStopPropagation="true"
-                             Style="background: #52c41a; border-color: #52c41a;">
-                        升级
-                    </Button>
-                }
+                <span class="plugin-version">v@(MarketSystem.GetInstalledVersion(PluginPackage.Id))</span>
             }
-            else
-            {
-                <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
-                         OnClick="@(() => Install($"插件 [{PluginPackage.Name}] 安装成功"))" OnClickStopPropagation="true">
-                    安装
-                </Button>
-            }
+            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small"
+                     OnClick="@AddToCart" OnClickStopPropagation="true"
+                     Style="width: 28px; height: 28px; min-width: 28px; padding: 0; border-radius: 50%;">
+                <Icon Type="@IconType.Outline.Plus" />
+            </Button>
         </div>
     </div>
 
@@ -149,64 +134,15 @@
 @code {
     [Parameter] public PluginPackage PluginPackage { get; set; } = null!;
     [Parameter] public EventCallback<PluginPackage> OnClick { get; set; }
-    [Parameter] public EventCallback OnInstalled { get; set; }
-
-    bool isOperating;
-    bool hasUpdate;
-    Exception? operException;
-
-    protected override void OnParametersSet()
-    {
-        hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
-    }
+    [Parameter] public EventCallback<PluginPackage> OnAddToCart { get; set; }
 
     async Task HandleClick()
     {
         await OnClick.InvokeAsync(PluginPackage);
     }
 
-    async Task Install(string message)
+    async Task AddToCart()
     {
-        string? version = PluginMarketService.GetLatestVersion(PluginPackage);
-        if (version == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, version);
-            _ = NotificationService.Success(new NotificationConfig { Message = message });
-            hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
-            await OnInstalled.InvokeAsync();
-        }
-        catch (Exception ex)
-        {
-            operException = ex;
-        }
-        isOperating = false;
-    }
-
-    async Task Upgrade()
-    {
-        string? version = PluginMarketService.GetLatestVersion(PluginPackage);
-        string? currentVersion = PluginMarketService.GetInstalledVersion(PluginPackage.Id);
-        if (version == null || currentVersion == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(PluginPackage, version);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级成功" });
-            hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
-            await OnInstalled.InvokeAsync();
-        }
-        catch (Exception ex)
-        {
-            try
-            {
-                await PluginMarketService.InstallPlugin(PluginPackage, currentVersion);
-                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级失败，已回退到 v{currentVersion}" });
-            }
-            catch { }
-            operException = ex;
-        }
-        isOperating = false;
+        await OnAddToCart.InvokeAsync(PluginPackage);
     }
 }

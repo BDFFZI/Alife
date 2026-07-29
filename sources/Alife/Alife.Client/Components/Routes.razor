@@ -1,7 +1,6 @@
 @using Alife.Components.Overlay
 @using Alife.Components.Services
 @using ElectronNET.API
-@using Alife.Platform
 @inject CharacterSystem CharacterSystem
 @inject NavigationManager Navigation
 @inject IJSRuntime JsRuntime
@@ -40,9 +39,8 @@ else
         {
             await Task.Run(async () => {
                 await Program.ServiceProvider.InitAlife();
-                EnvironmentInstaller.SetupEnvironmentPaths();
-                Program.ServiceProvider.GetRequiredService<ChatMessageService>();
-                Program.ServiceProvider.GetRequiredService<PluginMarketService>();
+                EnvironmentInstaller.SetupEnvironmentPaths();//客户端提供的运行环境
+                Program.ServiceProvider.GetRequiredService<ChatMessageService>();//客户端对话统计
             });
         }
         catch (Exception ex)

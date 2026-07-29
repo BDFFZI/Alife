@@ -1,13 +1,13 @@
 @using Alife.Components.Services
 @using Alife.PluginMarket
-@using Alife.Components.Shared.Plugins
+@using Alife.PluginSystem
 @inject UpdateService UpdateService
-@inject PluginMarketService PluginMarketService
+@inject MarketSystem MarketSystem
 @inject NavigationManager Navigation
 
-@if (showAppUpdate && updateInfo != null)
+@if (showAppUpdate)
 {
-    <PopupNotification Title="@($"发现新版本 v{updateInfo.Version}")"
+    <PopupNotification Title="@($"发现新版本 v{updateInfo!.Version}")"
                        Icon="@IconType.Outline.Bell"
                        ProgressVisible="@isDownloading"
                        ProgressValue="@downloadProgress"
@@ -21,13 +21,13 @@
                 此次为非兼容性更新，部分第三方插件可能不支持，官方插件也需在更新后立即升级。
             </div>
         }
-        @((MarkupString)updateInfo.ReleaseNotes.Replace("\n", "<br/>"))
+        @((MarkupString)updateInfo.ReleaseNotes!.Replace("\n", "<br/>"))
         </Body>
         <Actions>
-            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@StartUpdate">
+            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@UpdateClient">
                 立即升级
             </Button>
-            <Button Size="@ButtonSize.Small" OnClick="@OnDismissAppUpdate">
+            <Button Size="@ButtonSize.Small" OnClick="@(() => showAppUpdate = false)">
                 下次再说
             </Button>
         </Actions>
@@ -37,7 +37,7 @@ else if (showForceUpgrade)
 {
     <PluginUpgradeModal @bind-Visible="showForceUpgrade"
                         UpgradeList="forceUpgradeList"
-                        OnUpgradeComplete="OnForceUpgradeComplete">
+                        OnUpgradeComplete="@(() => showForceUpgrade = false)">
         <HeaderContent>
             <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
                 <b style="color: #ff4d4f;">检测到存在非兼容插件，必须升级才能正常使用。</b>
@@ -45,7 +45,7 @@ else if (showForceUpgrade)
         </HeaderContent>
     </PluginUpgradeModal>
 }
-else if (showPluginUpdate && upgradablePlugins.Length > 0)
+else if (showPluginUpdate)
 {
     <PopupNotification Title="@($"发现 {upgradablePlugins.Length} 个插件可升级")"
                        Icon="@IconType.Outline.Bell">
@@ -58,53 +58,58 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
         </Body>
         <Actions>
             <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small"
-                    OnClick="@OnGoToPluginMarket">
+                    OnClick="@GoToPluginMarket">
                 前往升级
             </Button>
-            <Button Size="@ButtonSize.Small" OnClick="@OnIgnorePluginUpdate">忽略</Button>
+            <Button Size="@ButtonSize.Small" OnClick="@(() => showPluginUpdate = false)">
+                忽略
+            </Button>
         </Actions>
     </PopupNotification>
 }
 
 @code {
+    //应用更新
+    bool showAppUpdate;
     UpdateInfo? updateInfo;
+    bool isMajorUpdate;
+    //插件强制更新
+    bool showForceUpgrade;
+    readonly List<PluginUpgradeModal.UpgradeItem> forceUpgradeList = [];
+    //插件普通更新
+    bool showPluginUpdate;
     PluginPackage[] upgradablePlugins = [];
-    List<PluginUpgradeModal.UpgradeItem> forceUpgradeList = [];
     bool isDownloading;
     int downloadProgress;
-    bool showAppUpdate;
-    bool showPluginUpdate;
-    bool showForceUpgrade;
-    bool isMajorUpdate;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        if (UpdateService.HasUpdate && UpdateService.LatestUpdate != null)
-        {
-            updateInfo = UpdateService.LatestUpdate;
-            isMajorUpdate = VersionResolver.GetMajorVersion(updateInfo.Version) > VersionResolver.GetMajorVersion(UpdateService.LocalVersion);
-            showAppUpdate = true;
-            await InvokeAsync(StateHasChanged);
-        }
-
-        await CheckForceUpgrade();
+        ClientUpgrade();
+        CheckForceUpgrade();
         if (!showForceUpgrade)
             CheckPluginUpdates();
-    }
 
-    async Task CheckForceUpgrade()
-    {
-        try
+        void ClientUpgrade()
         {
-            var forcePlugins = PluginMarketService.GetForceUpgradedPlugins();
+            if (UpdateService.HasUpdate && UpdateService.LatestUpdate != null)
+            {
+                updateInfo = UpdateService.LatestUpdate;
+                showAppUpdate = true;
+                isMajorUpdate = DependencyResolver.GetMajorVersion(updateInfo.Version) > DependencyResolver.GetMajorVersion(UpdateService.LocalVersion);
+            }
+        }
+
+        void CheckForceUpgrade()
+        {
+            var forcePlugins = MarketSystem.GetForceUpgradedPlugins();
             if (forcePlugins.Count == 0) return;
 
             var forceIds = new HashSet<string>(forcePlugins.Select(p => p.Id));
 
             foreach (var plugin in forcePlugins)
             {
-                string? oldVersion = PluginMarketService.GetInstalledVersion(plugin.Id);
-                string? newVersion = PluginMarketService.GetLatestVersion(plugin);
+                string? oldVersion = MarketSystem.GetInstalledVersion(plugin.Id);
+                string? newVersion = MarketSystem.GetLatestVersion(plugin);
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
@@ -117,11 +122,11 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
                 });
             }
 
-            var allPlugins = PluginMarketService.GetAllPlugins();
-            foreach (var plugin in allPlugins.Where(p => !forceIds.Contains(p.Id) && PluginMarketService.HasUpdate(p)))
+            var allPlugins = MarketSystem.GetAllOnlinePlugins().Values;
+            foreach (var plugin in allPlugins.Where(p => !forceIds.Contains(p.Id) && MarketSystem.HasUpdate(p)))
             {
-                string? oldVersion = PluginMarketService.GetInstalledVersion(plugin.Id);
-                string? newVersion = PluginMarketService.GetLatestVersion(plugin);
+                string? oldVersion = MarketSystem.GetInstalledVersion(plugin.Id);
+                string? newVersion = MarketSystem.GetLatestVersion(plugin);
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
@@ -135,22 +140,14 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
             if (forceUpgradeList.Count > 0)
             {
                 showForceUpgrade = true;
-                await InvokeAsync(StateHasChanged);
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
-    }
 
-    void CheckPluginUpdates()
-    {
-        try
+        void CheckPluginUpdates()
         {
-            var allPlugins = PluginMarketService.GetAllPlugins();
+            var allPlugins = MarketSystem.GetAllOnlinePlugins().Values;
             upgradablePlugins = allPlugins
-                .Where(p => PluginMarketService.HasUpdate(p))
+                .Where(p => MarketSystem.HasUpdate(p))
                 .ToArray();
 
             if (upgradablePlugins.Length > 0)
@@ -158,37 +155,9 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
                 showPluginUpdate = true;
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
     }
 
-    void OnForceUpgradeComplete()
-    {
-        showForceUpgrade = false;
-        PluginMarketService.RefreshLocalPlugins();
-    }
-
-    async Task OnDismissAppUpdate()
-    {
-        showAppUpdate = false;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    void OnGoToPluginMarket()
-    {
-        showPluginUpdate = false;
-        NavigationHub.RequestTab("plugin");
-        Navigation.NavigateTo("/system");
-    }
-
-    void OnIgnorePluginUpdate()
-    {
-        showPluginUpdate = false;
-    }
-
-    async Task StartUpdate()
+    async Task UpdateClient()
     {
         if (updateInfo == null) return;
 
@@ -209,5 +178,12 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
             Console.WriteLine($"更新失败: {ex.Message}");
             await InvokeAsync(StateHasChanged);
         }
+    }
+    
+    void GoToPluginMarket()
+    {
+        showPluginUpdate = false;
+        NavigationHub.RequestTab("plugin");
+        Navigation.NavigateTo("/system");
     }
 }

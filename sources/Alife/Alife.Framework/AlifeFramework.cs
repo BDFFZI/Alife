@@ -34,7 +34,6 @@ public static class AlifeFramework
 
         services.AddSingleton<CSharpCompiler>();
         services.AddSingleton<NuGetEnvironmentInstaller>(_ => new(
-            Path.Combine(pluginSystemDirectory, "NuGetPackages.txt"),
             Path.Combine(pluginSystemDirectory, "NuGetPackagesResolver")
         ));
         services.AddSingleton<PipEnvironmentInstaller>(_ => new(
@@ -64,46 +63,23 @@ public static class AlifeFramework
     }
     public static async Task InitAlife(this IServiceProvider provider)
     {
-        //插件环境配置与自动加载
+        //插件基础设施组装
         {
             PluginSystem.PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem.PluginSystem>();
             NuGetEnvironmentInstaller nugetEnvironmentInstaller = provider.GetRequiredService<NuGetEnvironmentInstaller>();
             CSharpCompiler cSharpCompiler = provider.GetRequiredService<CSharpCompiler>();
-
-            //兼容老版本的插件信息
             PluginMarket.PluginMarket pluginMarket = provider.GetRequiredService<PluginMarket.PluginMarket>();
-            provider.GetRequiredService<PluginSystem.PluginSystem>().PluginManifestFallback = pluginId => {
-                string versionPath = Path.Combine(pluginSystem.PluginRootDirectory, pluginId, "VERSION.txt");
-                PluginPackage? pluginPackage = pluginMarket.AllPluginPackages.GetValueOrDefault(pluginId);
-                return new PluginManifest() {
-                    Version = File.Exists(versionPath) ? File.ReadAllText(versionPath) : "0.0.0",
-                    Dependencies = pluginPackage?.GetDependencies(pluginId),
-                    Environments = pluginPackage?.GetEnvironments(pluginId)
-                };
-            };
 
-            //同步插件环境（解算nuget环境）
-            await pluginSystem.SyncPluginEnvironment();
-            (HashSet<string> managed, HashSet<string> unmanaged) = nugetEnvironmentInstaller.GetPackageManifest();
+            //nuget环境变动时需要同步程序集环境
+            nugetEnvironmentInstaller.PackagesUpdatedAsync += async () => {
+                //重新设置编译环境
+                cSharpCompiler.SetBasicDllFiles(nugetEnvironmentInstaller.Managed.Concat(AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.Location)));
 
-            //加载插件
-            await ReloadPluginContext(managed, unmanaged);
-
-            //后续nuget变化时也需要重载插件环境
-            nugetEnvironmentInstaller.PackageManifestUpdated += ReloadPluginContext;
-
-            async Task ReloadPluginContext(HashSet<string> managed, HashSet<string> unmanaged)
-            {
-                //释放旧的nuget程序集
+                //重载nuget程序集环境
                 if (PluginLoadContext.RootPluginContext != null)
                     await PluginLoadContext.RootPluginContext.DisposeAsync();
-
-                //重新设置编译环境
-                cSharpCompiler.SetBasicDllFiles(managed.Concat(AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.Location)));
-
-                //重新设置nuget程序集环境
-                PluginLoadContext rootPluginContext = new("NuGetPackages", unmanaged.Append(AppContext.BaseDirectory).ToArray());
-                foreach (string managedDirectory in managed)
+                PluginLoadContext rootPluginContext = new("NuGetPackages", nugetEnvironmentInstaller.Unmanaged.Append(AppContext.BaseDirectory).ToArray());
+                foreach (string managedDirectory in nugetEnvironmentInstaller.Managed)
                 {
                     foreach (string file in Directory.GetFiles(managedDirectory, "*.dll"))
                     {
@@ -119,10 +95,21 @@ public static class AlifeFramework
                     }
                 }
                 PluginLoadContext.RootPluginContext = rootPluginContext;
+            };
 
-                //重新加载插件
-                await pluginSystem.ReloadAllPluginDlls();
-            }
+            //兼容老版本的插件信息
+            pluginSystem.PluginManifestFallback = pluginId => {
+                string versionPath = Path.Combine(pluginSystem.PluginRootDirectory, pluginId, "VERSION.txt");
+                PluginPackage? pluginPackage = pluginMarket.AllPluginPackages.GetValueOrDefault(pluginId);
+                return new PluginManifest() {
+                    Version = File.Exists(versionPath) ? File.ReadAllText(versionPath) : "0.0.0",
+                    Dependencies = pluginPackage?.GetDependencies(pluginId),
+                    Environments = pluginPackage?.GetEnvironments(pluginId)
+                };
+            };
+
+            //立即将插件环境加载到程序
+            await pluginSystem.SyncPluginEnvironment();
         }
 
         //网络镜像功能

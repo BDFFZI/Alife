@@ -8,48 +8,36 @@ using Alife.Platform;
 
 namespace Alife.PluginSystem;
 
-public class NuGetEnvironmentInstaller(string packageManifestOutput, string packagesResolverOutput) : IEnvironmentInstaller
+public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnvironmentInstaller
 {
-    public event Func<HashSet<string>, HashSet<string>, Task>? PackageManifestUpdated;
-    public (HashSet<string> managed, HashSet<string> unmanaged) GetPackageManifest()
-    {
-        HashSet<string> managed = new();
-        HashSet<string> unmanaged = new();
-
-        if (File.Exists(packageManifestOutput))
-        {
-            foreach (string line in File.ReadAllLines(packageManifestOutput))
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-
-                if (line.StartsWith("managed:"))
-                {
-                    string path = line["managed:".Length..];
-                    if (Directory.Exists(path))
-                        managed.Add(path);
-                }
-                else if (line.StartsWith("unmanaged:"))
-                {
-                    string path = line["unmanaged:".Length..];
-                    if (Directory.Exists(path))
-                        unmanaged.Add(path);
-                }
-            }
-        }
-
-        return (managed, unmanaged);
-    }
+    public event Func<Task>? PackagesUpdatedAsync;
+    public HashSet<string> Managed { get; set; } = new();
+    public HashSet<string> Unmanaged { get; set; } = new();
 
     public async Task InstallEnvironment(IEnumerable<KeyValuePair<string, string>> environment)
     {
         DependencyResolver resolver = new();
         resolver.AddDependencies(environment);
-        RestorePackages(resolver);
-        await GeneratePackageList();
+        ResolvePackages(resolver);
+        if (GrabPackageList())
+        {
+            if (PackagesUpdatedAsync != null)
+            {
+                try
+                {
+                    await Task.WhenAll(PackagesUpdatedAsync.GetInvocationList()
+                        .Cast<Func<Task>>()
+                        .Select(func => func()));
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(e);
+                }
+            }
+        }
     }
 
-    void RestorePackages(DependencyResolver resolver)
+    void ResolvePackages(DependencyResolver resolver)
     {
         Directory.CreateDirectory(packagesResolverOutput);
 
@@ -90,16 +78,10 @@ public class NuGetEnvironmentInstaller(string packageManifestOutput, string pack
             return "*";
         }
     }
-    async Task GeneratePackageList()
+    bool GrabPackageList()
     {
         string assetsFile = Path.Combine(packagesResolverOutput, "obj", "project.assets.json");
-        if (!File.Exists(assetsFile))
-        {
-            await File.WriteAllTextAsync(packageManifestOutput, "");
-            return;
-        }
-
-        string json = await File.ReadAllTextAsync(assetsFile);
+        string json = File.ReadAllText(assetsFile);
         using var doc = JsonDocument.Parse(json);
 
         string nugetCache = Path.Combine(
@@ -165,31 +147,11 @@ public class NuGetEnvironmentInstaller(string packageManifestOutput, string pack
             }
         }
 
-        List<string> lines = new();
-        foreach (string dir in managedDirs)
-            lines.Add($"managed:{dir}");
-        foreach (string dir in nativeDirs)
-            lines.Add($"unmanaged:{dir}");
-        string packageList = string.Join("\n", lines);
+        if (managedDirs.SetEquals(Managed) && nativeDirs.SetEquals(Unmanaged))
+            return false;
 
-        if (File.Exists(packageManifestOutput) == false || await File.ReadAllTextAsync(packageManifestOutput) != packageList)
-        {
-            await File.WriteAllTextAsync(packageManifestOutput, packageList);
-
-            if (PackageManifestUpdated != null)
-            {
-                foreach (Func<HashSet<string>, HashSet<string>, Task> func in PackageManifestUpdated.GetInvocationList().Cast<Func<HashSet<string>, HashSet<string>, Task>>())
-                {
-                    try
-                    {
-                        await func(managedDirs, nativeDirs);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                    }
-                }
-            }
-        }
+        Managed = managedDirs;
+        Unmanaged = nativeDirs;
+        return true;
     }
 }

@@ -1,3 +1,4 @@
+@using Alife.Platform
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 
@@ -19,7 +20,7 @@
     }
     <div style="margin-top: 16px; text-align: center;">
         <Progress Type="ProgressType.Circle" Percent="@CountdownPercent" Width="80"
-                  Format="@((_) => countdown.ToString())"/>
+                  Format="@((_) => countdown.ToString())"></Progress>
         <div style="color: rgba(0,0,0,0.45); font-size: 12px; margin-top: 8px;">
             @countdown 秒后自动启动
         </div>
@@ -49,9 +50,9 @@
 
     async void StartCountdown()
     {
-        cts = new CancellationTokenSource();
         try
         {
+            cts = new CancellationTokenSource();
             for (int i = 5; i > 0; i--)
             {
                 countdown = i;
@@ -63,6 +64,10 @@
             await StartActivation();
         }
         catch (OperationCanceledException) {}
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     async Task ActivateNow()

@@ -18,6 +18,10 @@ public class ChatActivity(
 {
     public Character Character => character;
     public ChatBot ChatBot { get; private set; } = null!;
+    /// <summary>
+    /// 为了支持插件热重载，请不要缓存其中的对象类型，因为重载后便会失效
+    /// </summary>
+    public ConstructContainer Container => container;
 
     public async Task Awake(IProgress<(string, float)>? progress = null)
     {
@@ -120,8 +124,8 @@ public class ChatActivity(
             }
         }
 
-        moduleSystem.ModulesLoaded += OnModulesLoaded;
-        moduleSystem.ModulesUnloaded += OnModulesUnloaded;
+        moduleSystem.ModulesLoadedAsync += OnModulesLoadedAsync;
+        moduleSystem.ModulesUnloadedAsync += OnModulesUnloadedAsync;
     }
     public async Task Start(IProgress<(string, float)>? progress = null)
     {
@@ -141,8 +145,8 @@ public class ChatActivity(
     }
     public async Task Destroy(IProgress<(string, float)>? progress = null)
     {
-        moduleSystem.ModulesLoaded -= OnModulesLoaded;
-        moduleSystem.ModulesUnloaded -= OnModulesUnloaded;
+        moduleSystem.ModulesLoadedAsync -= OnModulesLoadedAsync;
+        moduleSystem.ModulesUnloadedAsync -= OnModulesUnloadedAsync;
 
         if (cancelTimerSource != null)
             await cancelTimerSource.CancelAsync();
@@ -188,7 +192,7 @@ public class ChatActivity(
         }
     }
 
-    async Task OnModulesUnloaded(List<Type> moduleTypes)
+    async Task OnModulesUnloadedAsync(List<Type> moduleTypes)
     {
         foreach (Type moduleType in moduleTypes)
             container.UnRegisterBuilder(moduleType);
@@ -198,7 +202,7 @@ public class ChatActivity(
 
         await TypeUtility.DisposeObjects(invalidModules);
     }
-    async Task OnModulesLoaded(List<Type> moduleTypes)
+    async Task OnModulesLoadedAsync(List<Type> moduleTypes)
     {
         Type[] enabledModuleTypes = moduleTypes.Where(type => Character.Modules.Contains(ModuleSystem.GetModuleID(type))).ToArray();
 
