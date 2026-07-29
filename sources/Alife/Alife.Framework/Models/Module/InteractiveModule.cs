@@ -6,25 +6,36 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Framework;
 
-public abstract class InteractiveModule : ISystemEvent
+[Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
+public abstract class InteractiveModule : ChatBehaviour
 {
-    protected Character Character { get; private set; } = null!;
-    protected ChatActivity ChatActivity { get; private set; } = null!;
-    protected ChatBot ChatBot { get; private set; } = null!;
     protected ChatHistory ChatHistory { get; private set; } = null!;
-
-    public virtual Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        Character = context.Character;
-        ChatHistory = context.ContextBuilder.ChatHistory;
+        await AwakeAsync(new AwakeContext() {
+            ChatBot = ChatBot,
+            Character = Character,
+            ChatActivity = ChatActivity
+        });
+    }
+    protected override async Task OnStart()
+    {
+        await StartAsync(new Kernel(), ChatActivity);
+    }
+    protected override async Task OnDestroy()
+    {
+        await DestroyAsync();
+    }
 
+    [Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
+    public virtual new Task AwakeAsync(AwakeContext context)
+    {
+        ChatHistory = ChatBot.ChatHistory;
         return Task.CompletedTask;
     }
+    [Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
     public virtual Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        ChatActivity = chatActivity;
-        ChatBot = chatActivity.ChatBot;
-
         if (this is ITimeIterative interactiveModule)
         {
             updateCancellation = new CancellationTokenSource();
@@ -33,6 +44,7 @@ public abstract class InteractiveModule : ISystemEvent
 
         return Task.CompletedTask;
     }
+    [Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
     public virtual Task DestroyAsync()
     {
         if (updateCancellation != null)
@@ -64,6 +76,7 @@ public abstract class InteractiveModule : ISystemEvent
     }
 }
 
+[Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
 public class InteractiveModule<T> : InteractiveModule
 {
     protected virtual string ChatTextFilter(string text)
@@ -74,6 +87,7 @@ public class InteractiveModule<T> : InteractiveModule
     protected void Prompt(string prompt)
     {
         ChatHistory.AddSystemMessage($"[{typeof(T).Name}]说明:\n{prompt}");
+        ChatBot.UpdateHistoryEndIndex();
     }
 
     protected void Throw(string error)

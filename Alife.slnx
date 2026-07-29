@@ -13,6 +13,29 @@
     <Project Path="Demos/Alife.Demo.SkillIntegration/Alife.Demo.SkillIntegration.csproj" />
     <Project Path="Demos/Alife.Demo.Vision/Alife.Demo.Vision.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Alife.Test.Browser/Alife.Test.Browser.csproj" />
+    <Project Path="Tests/Alife.Test.DeskPet/Alife.Test.DeskPet.csproj" />
+    <Project Path="Tests/Alife.Test.FileService/Alife.Test.FileService.csproj" />
+    <Project Path="Tests/Alife.Test.Framework/Alife.Test.Framework.csproj" />
+    <Project Path="Tests/Alife.Test.Interpreter/Alife.Test.Interpreter.csproj" />
+    <Project Path="Tests/Alife.Test.ProcessManager/Alife.Test.ProcessManager.csproj" />
+    <Project Path="Tests/Alife.Test.Python/Alife.Test.Python.csproj" />
+    <Project Path="Tests/Alife.Test.PythonPipe/Alife.Test.PythonPipe.csproj" />
+    <Project Path="Tests/Alife.Test.QChat/Alife.Test.QChat.csproj" />
+    <Project Path="Tests/Alife.Test.Speech/Alife.Test.Speech.csproj" />
+  </Folder>
+  <Folder Name="/Sources/Alife/">
+    <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
+    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
+    <Project Path="Sources/Alife/Alife.Platform/Alife.Platform.csproj" />
+    <Project Path="Sources/Alife/Alife.PluginMarket/Alife.PluginMarket.csproj" />
+    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
+  </Folder>
+  <Folder Name="/Sources/Alife.DeskPet/">
+    <Project Path="Sources/Alife.DeskPet/Alife.DeskPet.Client/Alife.DeskPet.Client.csproj" />
+    <Project Path="Sources/Alife.DeskPet/Alife.DeskPet.Protocol/Alife.DeskPet.Protocol.csproj" />
+  </Folder>
   <Folder Name="/Sources/Alife.Function/Environment/">
     <Project Path="Sources/Alife.Function/Alife.Function.Memory/Alife.Function.Memory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.MessageFilter/Alife.Function.MessageFilter.csproj" />
@@ -24,10 +47,6 @@
     <Project Path="Sources/Alife.Function/Alife.Function.FunctionCaller/Alife.Function.FunctionCaller.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Mcp/Alife.Function.Mcp.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Skill/Alife.Function.Skill.csproj" />
-  </Folder>
-  <Folder Name="/Sources/Alife.DeskPet/">
-    <Project Path="Sources/Alife.DeskPet/Alife.DeskPet.Client/Alife.DeskPet.Client.csproj" />
-    <Project Path="Sources/Alife.DeskPet/Alife.DeskPet.Protocol/Alife.DeskPet.Protocol.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Instrument/">
     <Project Path="Sources/Alife.Function/Alife.Function.Browser/Alife.Function.Browser.csproj" />
@@ -42,8 +61,9 @@
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
   </Folder>
-  <Folder Name="/Sources/Alife.Function/Models/">
+  <Folder Name="/Sources/Alife.Function/Model/">
     <Project Path="Sources/Alife.Function/Alife.Function.AIModelUtility/Alife.Function.AIModelUtility.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Language.OpenAI/Alife.Function.Language.OpenAI.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Auditory.SenseVoice/Alife.Function.Auditory.SenseVoice.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech.EdgeTTS/Alife.Function.Speech.EdgeTTS.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech.Genie/Alife.Function.Speech.Genie.csproj" />
@@ -52,25 +72,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.Vision.OpenAI/Alife.Function.Vision.OpenAI.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision.Qwen/Alife.Function.Vision.Qwen.csproj" />
   </Folder>
-  <Folder Name="/Sources/Alife/">
-    <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
-    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
-    <Project Path="Sources/Alife/Alife.Platform/Alife.Platform.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginMarket/Alife.PluginMarket.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
-  </Folder>
-  <Folder Name="/Tests/">
-    <Project Path="Tests/Alife.Test.Browser/Alife.Test.Browser.csproj" />
-    <Project Path="Tests/Alife.Test.DeskPet/Alife.Test.DeskPet.csproj" />
-    <Project Path="Tests/Alife.Test.FileService/Alife.Test.FileService.csproj" />
-    <Project Path="Tests/Alife.Test.Interpreter/Alife.Test.Interpreter.csproj" />
-    <Project Path="Tests/Alife.Test.PluginSystem/Alife.Test.PluginSystem.csproj" />
-    <Project Path="Tests/Alife.Test.ProcessManager/Alife.Test.ProcessManager.csproj" />
-    <Project Path="Tests/Alife.Test.Python/Alife.Test.Python.csproj" />
-    <Project Path="Tests/Alife.Test.PythonPipe/Alife.Test.PythonPipe.csproj" />
-    <Project Path="Tests/Alife.Test.QChat/Alife.Test.QChat.csproj" />
-    <Project Path="Tests/Alife.Test.Speech/Alife.Test.Speech.csproj" />
-  </Folder>
+
   <Folder Name="/Sources/" />
   <Folder Name="/Sources/Alife.Function/" />
 </Solution>

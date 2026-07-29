@@ -77,8 +77,8 @@
 
     protected override void OnInitialized()
     {
-        MirrorUrlMap = MirrorProvider.MirrorUrlMap.ToDictionary(x => x.Key, x => x.Value);
-        MirrorEnvironmentVariables = MirrorProvider.MirrorEnvironmentVariables.ToDictionary(x => x.Key, x => x.Value);
+        MirrorUrlMap = AlifeMirror.MirrorUrlMap.ToDictionary(x => x.Key, x => x.Value);
+        MirrorEnvironmentVariables = AlifeMirror.MirrorEnvironmentVariables.ToDictionary(x => x.Key, x => x.Value);
     }
 
     void OnKeyChanged(string oldKey, string newKey)
@@ -113,7 +113,7 @@
 
     void SaveUrlMap()
     {
-        MirrorProvider.SetMirrorUrlMap(MirrorUrlMap);
+        AlifeMirror.SetMirrorUrlMap(MirrorUrlMap);
     }
 
     void OnEnvKeyChanged(string oldKey, string newKey)
@@ -148,15 +148,15 @@
 
     void SaveEnvVars()
     {
-        MirrorProvider.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
+        AlifeMirror.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
     }
 
     void OnDeleteMirror()
     {
         MirrorUrlMap.Clear();
         MirrorEnvironmentVariables.Clear();
-        MirrorProvider.SetMirrorUrlMap(MirrorUrlMap);
-        MirrorProvider.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
+        AlifeMirror.SetMirrorUrlMap(MirrorUrlMap);
+        AlifeMirror.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
         _ = NotificationService.Success(new NotificationConfig { Message = "镜像配置已清空" });
     }
 }

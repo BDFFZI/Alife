@@ -1,10 +1,6 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Alife.Function.PythonPipe;
+using Alife.Function.AIModelUtility;
 using Alife.Function.Vision.MiniCPM;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 
 class Program
 {

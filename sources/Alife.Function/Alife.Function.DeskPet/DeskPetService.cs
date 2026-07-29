@@ -2,52 +2,70 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Platform;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.Interpreter;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Function.DeskPet;
 
-[Module("桌宠交互", @"将Live2D桌宠接入AI系统，实现表现力同步和互动反馈（仅支持Cubism 3及以上版本的live2D模型）
-可选模型下载地址：
-https://github.com/imuncle/live2d",
+[Module("桌宠交互",
+    """
+    将Live2D桌宠接入AI系统，实现表现力同步和互动反馈（仅支持Cubism 3及以上版本的live2D模型）
+    可选模型下载地址：
+    https://github.com/imuncle/live2d
+    """,
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(DeskPetServiceUI))]
-public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModule<DeskPetService>, IAsyncDisposable, IConfigurable<DeskPetServiceConfig>
+public class DeskPetService(
+    XmlFunctionCaller functionService,
+    IInteractor<DeskPetService> interactor) :
+    ChatBehaviour,
+    IConfigurable<DeskPetServiceConfig>
 {
+    public DeskPetServiceConfig Configuration { get; set; } = null!;
+
     [XmlFunction(FunctionMode.Content)]
     [Description("显示一段气泡文本")]
     public async Task Speak(XmlExecutorContext context, [XmlContent] string content, CancellationToken cancellationToken)
     {
-        switch (context.CallMode)
+        try
         {
-            case CallMode.Closing:
+            switch (context.CallMode)
             {
-                if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
-                    await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
-                client!.HideBubble();
-                break;
-            }
-            case CallMode.Content:
-            {
-                content = content.Trim();
-                if (string.IsNullOrWhiteSpace(content))
+                case CallMode.Closing:
+                {
+                    try
+                    {
+                        if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
+                            await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()), cancellationToken);
+                    }
+                    finally
+                    {
+                        client.HideBubble();
+                    }
                     break;
-                if (cancellationToken.IsCancellationRequested)
-                    break;
+                }
+                case CallMode.Content:
+                {
+                    content = content.Trim();
+                    if (string.IsNullOrWhiteSpace(content))
+                        break;
+                    if (cancellationToken.IsCancellationRequested)
+                        break;
 
-                if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
-                    await Task.Delay(
-                        TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
-                client!.ShowBubble(content);
-                lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() + content.Length * 150;
-                break;
+                    if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
+                        await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()), cancellationToken);
+                    client.ShowBubble(content);
+                    lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() + content.Length * 150;
+                    break;
+                }
             }
         }
+        catch (OperationCanceledException) {}
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -57,10 +75,10 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
         option = option.Trim();
         if (string.IsNullOrWhiteSpace(option))
             return;
-        if (client!.SupportedExpressions.Contains(option) == false)
+        if (client.SupportedExpressions.Contains(option) == false)
             throw new Exception("选项不存在");
 
-        client!.PlayExpression(option);
+        client.PlayExpression(option);
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -70,7 +88,7 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
         option = option.Trim();
         if (string.IsNullOrWhiteSpace(option))
             return;
-        if (client!.SupportedMotions.TryGetValue(option, out (string Group, int Index) motion) == false)
+        if (client.SupportedMotions.TryGetValue(option, out (string Group, int Index) motion) == false)
             throw new Exception("选项不存在");
 
         client.PlayMotion(motion.Group, motion.Index);
@@ -82,105 +100,104 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
     {
         try
         {
-            (double x, double y) = await client!.GetPositionAsync();
-            Poke($"当前位置: x={x}, y={y}");
+            (double x, double y) = await client.GetPositionAsync();
+            interactor.Poke($"当前位置: x={x}, y={y}");
         }
         catch (TimeoutException)
         {
-            Poke("获取坐标超时");
+            interactor.Poke("获取坐标超时");
         }
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("在屏幕上进行相对移动（注意！该移动方式为相对位置移动，使用前最好先确认当前位置）")]
-    public async Task Move(double x = 0, double y = 0, int duration = 1000)
+    public async Task Move(double x = 0, double y = 0, float seconds = 1)
     {
-        await client!.MoveAsync(x, y, duration);
-        (x, y) = await client!.GetPositionAsync();
-        Poke($"移动成功，当前位置: x={x}, y={y}");
+        await client.MoveAsync(x, y, (int)(seconds * 1000));
+        (x, y) = await client.GetPositionAsync();
+        interactor.Poke($"移动成功，当前位置: x={x}, y={y}");
     }
 
-    public DeskPetServiceConfig? Configuration { get; set; }
-
-    PetServer? client;
+    PetServer client = null!;
     long lastBubbleEndTime;
+    bool lastStatus;
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        await base.AwakeAsync(context);
-
-        // 确保 DeskPet.Client 存在
-        string clientPath = Path.Combine(AlifePath.RuntimeFolderPath, "Alife.DeskPet.Client");
-        if (!Directory.Exists(clientPath))
+        //启动桌宠客户端
         {
-            string zipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
-            await AlifePlatform.DownloadZipFileAsync(clientPath, zipUrl);
-        }
-
-        string? modelName = Configuration?.ModelName;
-        if (string.IsNullOrWhiteSpace(modelName))
-            modelName = "Mao";
-        client = new PetServer(clientPath, modelName);
-        string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
-        if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
-        string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
-        if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
-
-        XmlHandler xmlHandler = new(this) {
-            Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
-            Explanation = $"""
-                           ## 支持选项
-                           - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
-                           - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
-
-                           ## 其他信息
-                           - 当前屏幕分辨率：{AlifePlatform.GetResolution()}
-                           """
-        };
-        functionService.RegisterHandler(xmlHandler, DocumentMode.Explicit);
-    }
-
-    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        await base.StartAsync(kernel, chatActivity);
-
-        await client!.WaitReadyAsync();
-        client.OnInput += Chat;
-        client.OnInteracted += text => Chat("交互：" + text);
-
-        // 启动状态轮询
-        _ = UpdateStatusLoop(chatActivity.ChatBot);
-    }
-
-    async Task UpdateStatusLoop(ChatBot chatBot)
-    {
-        bool lastStatus = false;
-        while (!isDisposed)
-        {
-            try
+            string clientPath = Path.Combine(AlifePath.RuntimeFolderPath, "Alife.DeskPet.Client");
+            if (!Directory.Exists(clientPath))
             {
-                bool currentStatus = chatBot.IsChatting;
-                if (currentStatus != lastStatus)
-                {
-                    lastStatus = currentStatus;
-                    client?.SendStatus(currentStatus);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
+                const string ZipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
+                await AlifeUtility.DownloadZipFileAsync(clientPath, ZipUrl);
             }
 
-            await Task.Delay(250);
+            string modelName = Configuration.ModelName;
+            if (string.IsNullOrWhiteSpace(modelName))
+                modelName = "Mao";
+            client = new PetServer(clientPath, modelName);
+        }
+
+        //注册提示词
+        {
+            string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
+            if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
+            string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
+            if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
+
+            XmlHandler xmlHandler = new(this) {
+                Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
+                Explanation = $"""
+                               ## 支持选项
+                               - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
+                               - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
+
+                               ## 其他信息
+                               - 当前屏幕分辨率：{GetResolution()}
+                               """
+            };
+            functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
         }
     }
-
-    public async ValueTask DisposeAsync()
+    protected override async Task OnStart()
     {
-        isDisposed = true;
-        if (client != null)
-            await client.DisposeAsync();
+        await client.WaitReadyAsync();
+        client.OnInput += interactor.Chat;
+        client.OnInteracted += text => interactor.Chat("交互：" + text);
+    }
+    protected override Task OnUpdate()
+    {
+        bool currentStatus = ChatBot.IsChatting;
+        if (currentStatus != lastStatus)
+        {
+            lastStatus = currentStatus;
+            client.SendStatus(currentStatus);
+        }
+        return Task.CompletedTask;
+    }
+    protected override async Task OnDestroy()
+    {
+        await client.DisposeAsync();
     }
 
-    bool isDisposed;
+    static (int Width, int Height) GetResolution()
+    {
+        IntPtr hdc = GetDC(IntPtr.Zero);
+        try
+        {
+            int width = GetDeviceCaps(hdc, Desktophorzres);
+            int height = GetDeviceCaps(hdc, Desktopvertres);
+            return (width, height);
+        }
+        finally
+        {
+            ReleaseDC(IntPtr.Zero, hdc);
+        }
+    }
+    const int Desktophorzres = 118;
+    const int Desktopvertres = 117;
+    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr hWnd);
+    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
+    [DllImport("gdi32.dll")] static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 }

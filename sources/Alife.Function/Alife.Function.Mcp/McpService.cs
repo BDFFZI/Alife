@@ -8,7 +8,7 @@ using ModelContextProtocol.Client;
 
 namespace Alife.Function.Mcp;
 
-public class McpServerConfig
+public class McpServerItem
 {
     public bool Enabled { get; set; } = true;
     public string Name { get; set; } = "Unnamed MCP Server";
@@ -18,53 +18,50 @@ public class McpServerConfig
     public bool IsImplicit { get; set; } = true;
 }
 
-public class McpModuleConfig
+public class McpServerConfig
 {
-    public List<McpServerConfig> Servers { get; set; } = new();
+    public List<McpServerItem> Servers { get; set; } = new();
 }
 
-[Module("MCP服务", "让AI可以通过Model Context Protocol接入外部工具。",
+[Module("MCP服务",
+    "让AI可以通过Model Context Protocol接入外部工具。",
     defaultCategory: "Alife 官方/功能底座",
     editorUI: typeof(McpServiceUI))]
-public class McpService(XmlFunctionCaller functionService, ILoggerFactory loggerFactory)
-    : InteractiveModule<McpService>, IConfigurable<McpModuleConfig>
+public class McpService(
+    XmlFunctionCaller functionService,
+    ILoggerFactory loggerFactory,
+    IInteractor<McpService> interactor) :
+    ChatBehaviour,
+    IConfigurable<McpServerConfig>
 {
-    public McpModuleConfig? Configuration { get; set; }
+    public McpServerConfig Configuration { get; set; } = null!;
 
     readonly List<McpClient> mcpClients = new();
-    readonly List<XmlHandler> xmlHandlers = new();
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        await base.AwakeAsync(context);
-
-        foreach (McpServerConfig server in Configuration!.Servers)
+        foreach (McpServerItem server in Configuration.Servers)
         {
             if (server.Enabled == false) continue;
 
             (McpClient client, XmlHandler handler) = await McpXmlAdapter.CreateAsync(
                 server,
-                (name, result) => Poke($"{server.Name}.{name} 执行完成\n{result}"),
+                (name, result) => interactor.Poke($"{server.Name}.{name} 执行完成\n{result}"),
                 loggerFactory
             );
 
             mcpClients.Add(client);
-            xmlHandlers.Add(handler);
-
-            functionService.RegisterHandler(handler, server.IsImplicit ? DocumentMode.Implicit : DocumentMode.Explicit);
+            functionService.RegisterHandler(
+                handler,
+                server.IsImplicit ? DocumentMode.Implicit : DocumentMode.Explicit,
+                DestroyCancellationToken
+            );
         }
     }
 
-    public override async Task DestroyAsync()
+    protected override async Task OnDestroy()
     {
-        foreach (XmlHandler handler in xmlHandlers)
-            functionService.UnregisterHandler(handler);
-        xmlHandlers.Clear();
-
         foreach (McpClient client in mcpClients)
             await client.DisposeAsync();
-        mcpClients.Clear();
-
-        await base.DestroyAsync();
     }
 }

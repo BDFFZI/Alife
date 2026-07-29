@@ -247,10 +247,10 @@
     int currentPage = 1;
     int pageSize = 12;
 
-    Plugin[] allPlugins = [];
-    Plugin[] filteredPlugins = [];
-    Plugin[] pagedPlugins = [];
-    Plugin? selectedPlugin;
+    PluginPackage[] allPlugins = [];
+    PluginPackage[] filteredPlugins = [];
+    PluginPackage[] pagedPlugins = [];
+    PluginPackage? selectedPlugin;
     DotNetObjectReference<PluginMarketView>? dotnetRef;
     Exception? operException;
 
@@ -395,7 +395,7 @@
         upgradeList = allPlugins
             .Where(p => PluginMarketService.HasUpdate(p))
             .Select(p => new PluginUpgradeModal.UpgradeItem {
-                plugin = p,
+                PluginPackage = p,
                 newVersion = PluginMarketService.GetLatestVersion(p) ?? "",
                 oldVersion = PluginMarketService.GetInstalledVersion(p.Id) ?? ""
             })
@@ -404,14 +404,14 @@
         showUpgradeModal = true;
     }
 
-    void ShowDetail(Plugin plugin)
+    void ShowDetail(PluginPackage pluginPackage)
     {
-        selectedPlugin = plugin;
+        selectedPlugin = pluginPackage;
     }
 
     void FilterPlugins(bool resetPage = true)
     {
-        IEnumerable<Plugin> result = allPlugins;
+        IEnumerable<PluginPackage> result = allPlugins;
 
         if (!string.IsNullOrWhiteSpace(searchText))
         {

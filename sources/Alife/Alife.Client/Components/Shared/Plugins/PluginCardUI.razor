@@ -12,22 +12,22 @@
             <div class="plugin-icon">
                 <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: #1890ff;" />
             </div>
-            @if (PluginMarketService.IsInstalled(Plugin.Id))
+            @if (PluginMarketService.IsInstalled(PluginPackage.Id))
             {
                 <div class="plugin-badge"></div>
             }
         </div>
         <div class="plugin-info">
-            <div class="plugin-name">@Plugin.Name</div>
-            @if (!string.IsNullOrEmpty(Plugin.Author))
+            <div class="plugin-name">@PluginPackage.Name</div>
+            @if (!string.IsNullOrEmpty(PluginPackage.Author))
             {
-                <div class="plugin-author">@Plugin.Author</div>
+                <div class="plugin-author">@PluginPackage.Author</div>
             }
         </div>
         <div class="plugin-actions">
-            @if (PluginMarketService.IsInstalled(Plugin.Id))
+            @if (PluginMarketService.IsInstalled(PluginPackage.Id))
             {
-                <span class="plugin-version">v@(PluginMarketService.GetInstalledVersion(Plugin.Id))</span>
+                <span class="plugin-version">v@(PluginMarketService.GetInstalledVersion(PluginPackage.Id))</span>
                 if (hasUpdate)
                 {
                     <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
@@ -40,7 +40,7 @@
             else
             {
                 <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
-                         OnClick="@(() => Install($"插件 [{Plugin.Name}] 安装成功"))" OnClickStopPropagation="true">
+                         OnClick="@(() => Install($"插件 [{PluginPackage.Name}] 安装成功"))" OnClickStopPropagation="true">
                     安装
                 </Button>
             }
@@ -48,9 +48,9 @@
     </div>
 
     <div class="plugin-meta">
-        <Tooltip Title="@(Plugin.Description)" Disabled="@(string.IsNullOrWhiteSpace(Plugin.Description))">
+        <Tooltip Title="@(PluginPackage.Description)" Disabled="@(string.IsNullOrWhiteSpace(PluginPackage.Description))">
             <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
-                @(string.IsNullOrWhiteSpace(Plugin.Description) ? Plugin.Id : Plugin.Description)
+                @(string.IsNullOrWhiteSpace(PluginPackage.Description) ? PluginPackage.Id : PluginPackage.Description)
             </AntDesign.Text>
         </Tooltip>
     </div>
@@ -147,8 +147,8 @@
 </style>
 
 @code {
-    [Parameter] public Plugin Plugin { get; set; } = null!;
-    [Parameter] public EventCallback<Plugin> OnClick { get; set; }
+    [Parameter] public PluginPackage PluginPackage { get; set; } = null!;
+    [Parameter] public EventCallback<PluginPackage> OnClick { get; set; }
     [Parameter] public EventCallback OnInstalled { get; set; }
 
     bool isOperating;
@@ -157,24 +157,24 @@
 
     protected override void OnParametersSet()
     {
-        hasUpdate = PluginMarketService.HasUpdate(Plugin);
+        hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
     }
 
     async Task HandleClick()
     {
-        await OnClick.InvokeAsync(Plugin);
+        await OnClick.InvokeAsync(PluginPackage);
     }
 
     async Task Install(string message)
     {
-        string? version = PluginMarketService.GetLatestVersion(Plugin);
+        string? version = PluginMarketService.GetLatestVersion(PluginPackage);
         if (version == null) return;
         isOperating = true;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, version);
+            await PluginMarketService.InstallPlugin(PluginPackage, version);
             _ = NotificationService.Success(new NotificationConfig { Message = message });
-            hasUpdate = PluginMarketService.HasUpdate(Plugin);
+            hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
             await OnInstalled.InvokeAsync();
         }
         catch (Exception ex)
@@ -186,23 +186,23 @@
 
     async Task Upgrade()
     {
-        string? version = PluginMarketService.GetLatestVersion(Plugin);
-        string? currentVersion = PluginMarketService.GetInstalledVersion(Plugin.Id);
+        string? version = PluginMarketService.GetLatestVersion(PluginPackage);
+        string? currentVersion = PluginMarketService.GetInstalledVersion(PluginPackage.Id);
         if (version == null || currentVersion == null) return;
         isOperating = true;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, version);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 升级成功" });
-            hasUpdate = PluginMarketService.HasUpdate(Plugin);
+            await PluginMarketService.InstallPlugin(PluginPackage, version);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级成功" });
+            hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
             await OnInstalled.InvokeAsync();
         }
         catch (Exception ex)
         {
             try
             {
-                await PluginMarketService.InstallPlugin(Plugin, currentVersion);
-                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 升级失败，已回退到 v{currentVersion}" });
+                await PluginMarketService.InstallPlugin(PluginPackage, currentVersion);
+                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级失败，已回退到 v{currentVersion}" });
             }
             catch { }
             operException = ex;

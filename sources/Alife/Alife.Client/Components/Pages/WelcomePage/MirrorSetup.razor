@@ -158,12 +158,12 @@
         {
             foreach (var kv in mirror.UrlMappings)
             {
-                if (!MirrorProvider.MirrorUrlMap.TryGetValue(kv.Key, out var v) || v != kv.Value)
+                if (!AlifeMirror.MirrorUrlMap.TryGetValue(kv.Key, out var v) || v != kv.Value)
                     return false;
             }
             foreach (var kv in mirror.EnvironmentVariables)
             {
-                if (!MirrorProvider.MirrorEnvironmentVariables.TryGetValue(kv.Key, out var v) || v != kv.Value)
+                if (!AlifeMirror.MirrorEnvironmentVariables.TryGetValue(kv.Key, out var v) || v != kv.Value)
                     return false;
             }
             return true;
@@ -186,9 +186,9 @@
             }
         }
 
-        MirrorProvider.SetMirrorUrlMap(urlMap);
-        MirrorProvider.SetMirrorEnvironmentVariables(envVars);
-        MirrorProvider.SetupEnvironment();
+        AlifeMirror.SetMirrorUrlMap(urlMap);
+        AlifeMirror.SetMirrorEnvironmentVariables(envVars);
+        AlifeMirror.SetupEnvironment();
     }
 
     async Task OnPrev() { await OnPrevStep.InvokeAsync(); }

@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
+    </ItemGroup>
+
+</Project>

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace Alife.Framework;
 
@@ -9,7 +8,7 @@ public class ChatActivitySystem
 {
     /// <summary>角色激活进度更新（taskDescription, progressValue）</summary>
     public event Action<Character>? Activating;
-    public event Action<Character, (string Task, float Progress)>? ActivatingProcess;
+    public event Action<Character, (string Step, float Progress)>? ActivatingProcess;
     public event Action<Character, Exception>? ActivationFailed;
     public event Action<ChatActivity>? ActivatingCreated;
     public event Action<ChatActivity>? Activated;
@@ -34,7 +33,7 @@ public class ChatActivitySystem
     /// <summary>
     /// 激活角色。UI 应通过订阅 Activating/Activated/ActivationFailed 事件来感知流程。
     /// </summary>
-    public async Task Activate(Character character)
+    public async Task<ChatActivity?> Activate(Character character)
     {
         try
         {
@@ -42,21 +41,22 @@ public class ChatActivitySystem
                 ActivatingProcess?.Invoke(character, tuple);
             });
 
-            characterSystem.LoadCharacter(character);
-
             Activating?.Invoke(character);
-            ChatActivity chatActivity = await ChatActivity.Create(
-                character, configurationSystem, moduleSystem, progress,
+            ChatActivity chatActivity = new(
+                character, configurationSystem, moduleSystem,
                 appendObjects.ToArray()
             );
+            await chatActivity.Awake(progress);
             ActivatingCreated?.Invoke(chatActivity);
-            await chatActivity.Launch(progress);
+            await chatActivity.Start(progress);
             activities.Add(character.Name, chatActivity);
             Activated?.Invoke(chatActivity);
+            return chatActivity;
         }
         catch (Exception ex)
         {
             ActivationFailed?.Invoke(character, ex);
+            return null;
         }
     }
 
@@ -69,7 +69,7 @@ public class ChatActivitySystem
             return;
 
         Destroying?.Invoke(chatActivity);
-        await chatActivity.DisposeAsync();
+        await chatActivity.Destroy();
         activities.Remove(character.Name);
         Destroyed?.Invoke(chatActivity);
     }
@@ -85,12 +85,10 @@ public class ChatActivitySystem
         appendObjects.Add(moduleSystem);
         appendObjects.Add(storageSystem);
         appendObjects.Add(this);
-        this.characterSystem = characterSystem;
         this.moduleSystem = moduleSystem;
         this.configurationSystem = configurationSystem;
     }
-
-    readonly CharacterSystem characterSystem;
+    
     readonly ModuleSystem moduleSystem;
     readonly ConfigurationSystem configurationSystem;
     readonly List<object> appendObjects = new();

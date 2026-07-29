@@ -10,15 +10,16 @@ using NAudio.Wave;
 
 namespace Alife.Function.Speech;
 
-[Module("语音说话", "为AI增加语音转文字输出的能力。",
+[Module("语音说话",
+    "为AI增加语音转文字输出的能力。",
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(SpeechServiceUI))]
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public class SpeechService(
     XmlFunctionCaller functionService,
     ISpeechModel speechModel,
-    ILogger<SpeechService> logger)
-    : InteractiveModule<SpeechService>, IAsyncDisposable
+    ILogger<SpeechService> logger) :
+    ChatBehaviour
 {
     public bool IsSpeaking => playAudioTask is { IsCompleted: false };
 
@@ -56,12 +57,16 @@ public class SpeechService(
     Task<string?> audioSynthesizingTask = Task.FromResult<string?>(null);
     Task playAudioTask = Task.CompletedTask;
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override Task OnAwake()
     {
-        await base.AwakeAsync(context);
-        functionService.RegisterHandler(this);
+        XmlHandler xmlHandler = new();
+        functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
+        functionService.ChatCalled += OnChatCalled;
+
+        return Task.CompletedTask;
     }
-    public async ValueTask DisposeAsync()
+
+    async Task OnChatCalled()
     {
         await playAudioTask;
     }
@@ -91,7 +96,7 @@ public class SpeechService(
         }
         catch (Exception e)
         {
-            logger.LogWarning(e.ToString());
+            logger.LogWarning(e, "语言合成失败");
         }
 
         if (audioFile == null)
@@ -110,6 +115,7 @@ public class SpeechService(
         speaker.PlaybackStopped += OnPlaybackStopped;
         speaker.Play();
 
+        // ReSharper disable once AccessToDisposedClosure
         await using CancellationTokenRegistration registration = cancellationToken.Register(() => speaker.Stop());
         await tcs.Task;//等待播放完毕
 

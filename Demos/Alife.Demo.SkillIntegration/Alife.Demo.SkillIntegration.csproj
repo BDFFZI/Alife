@@ -1,18 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Sources\Alife\Alife.Platform\Alife.Platform.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Skill\Alife.Function.Skill.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Python\Alife.Function.Python.csproj" />
-  </ItemGroup>
-
-
+    <ItemGroup>
+        <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
+        <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Skill\Alife.Function.Skill.csproj" />
+        <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Python\Alife.Function.Python.csproj" />
+    </ItemGroup>
 
 </Project>

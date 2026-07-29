@@ -158,7 +158,7 @@ public class QChatFunctionTests
             {
                 Console.WriteLine($"[验证成功] 拿到文件 URL: {info.Url}");
                 string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"recv_{received.File.Name}");
-                await AlifePlatform.DownloadFileAsync(info.Url, savePath);
+                await AlifeUtility.DownloadFileAsync(info.Url, savePath);
                 Console.WriteLine($"[验证成功] 已将文件下载至: {savePath}");
             }
             else

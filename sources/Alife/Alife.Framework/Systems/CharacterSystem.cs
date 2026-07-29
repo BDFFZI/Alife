@@ -16,10 +16,6 @@ public class CharacterSystem
     {
         return characters;
     }
-    public string GetCharacterConfigFile(Character character)
-    {
-        return storageSystem.GetObjectRealPath($"Character/{character.Name}/index");
-    }
 
     public Character CreateCharacter(string name)
     {
@@ -63,7 +59,7 @@ public class CharacterSystem
     public void RefreshCharacters()
     {
         characters.Clear();
-        string[] folder = storageSystem.GetFolders("Character");
+        string[] folder = storageSystem.GetSubFolders("Character");
         foreach (string name in folder)
         {
             Character? character = LoadCharacter(name);
@@ -81,7 +77,7 @@ public class CharacterSystem
         this.storageSystem = storageSystem;
         characters = new List<Character>();
 
-        string[] folder = storageSystem.GetFolders("Character");
+        string[] folder = storageSystem.GetSubFolders("Character");
         foreach (string name in folder)
         {
             Character? character = LoadCharacter(name);

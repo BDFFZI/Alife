@@ -4,20 +4,20 @@ namespace Alife.PluginMarket;
 
 public class FileSystemPluginProvider(string directoryPath) : IPluginProvider
 {
-    public Task<Plugin[]> GetPluginsAsync()
+    public Task<PluginPackage[]> GetPluginsAsync()
     {
         if (!Directory.Exists(directoryPath))
-            return Task.FromResult(Array.Empty<Plugin>());
+            return Task.FromResult(Array.Empty<PluginPackage>());
 
         string[] files = Directory.GetFiles(directoryPath, "*.json");
-        List<Plugin> plugins = new();
+        List<PluginPackage> plugins = new();
 
         foreach (string file in files)
         {
             try
             {
                 string json = File.ReadAllText(file);
-                Plugin? plugin = JsonConvert.DeserializeObject<Plugin>(json);
+                PluginPackage? plugin = JsonConvert.DeserializeObject<PluginPackage>(json);
                 if (plugin != null)
                     plugins.Add(plugin);
             }

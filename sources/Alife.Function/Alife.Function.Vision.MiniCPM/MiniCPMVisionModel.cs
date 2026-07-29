@@ -2,29 +2,39 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.PythonPipe;
+using Alife.Function.AIModelUtility;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Vision.MiniCPM;
 
-public partial class MiniCPMVisionModel
+[Module("MiniCPM视觉分析",
+    "基于MiniCPM-V 4.6的轻量本地视觉分析引擎",
+    defaultCategory: "Alife 官方/模型接入/视觉模型",
+    EditorUI = typeof(MiniCPMVisionModelUI))]
+public class MiniCPMVisionModel(
+    ILogger<MiniCPMVisionModel> logger) :
+    ChatBehaviour,
+    IConfigurable<MiniCPMVisionModelConfig>,
+    IVisionModel
 {
-    static PythonPipeProcess? pythonPipe;
+    public MiniCPMVisionModelConfig Configuration { get; set; } = null!;
 
-    static async Task TryInitializedAsync(ILogger<MiniCPMVisionModel> logger, MiniCPMVisionModelConfig? config)
+    public async Task<string> QueryAsync(string imagePath, string question, int maxResponseTokens,
+        CancellationToken cancellationToken = default)
     {
-        if (pythonPipe != null) return;
-
-        const string ModelId = "OpenBMB/MiniCPM-V-4.6";
-        string modelPath = AIModelUtility.AIModelUtility.EnsureModelExisting(ModelId);
-        string precision = config?.Precision ?? "int4";
-        pythonPipe = new PythonPipeProcess("minicpm_v", PythonCode);
-        pythonPipe.OnStderr += line => logger.LogWarning(line);
-        await pythonPipe.StartAsync();
-        await pythonPipe.InvokeAsync<string>("init", modelPath, precision);
+        try
+        {
+            return await pythonPipe.InvokeAsync<string>("query",
+                new { image_path = imagePath, question, max_new_tokens = maxResponseTokens });
+        }
+        catch (Exception ex)
+        {
+            return $"调用失败：{ex}";
+        }
     }
 
-    static readonly string PythonCode =
+    PythonPipeProcess pythonPipe = null!;
+    readonly string pythonCode =
         """
         import sys, json, torch
         from PIL import Image
@@ -84,35 +94,19 @@ public partial class MiniCPMVisionModel
             torch.cuda.empty_cache()
             return res[0].strip()
         """;
-}
 
-[Module("MiniCPM视觉分析", "基于MiniCPM-V 4.6的轻量本地视觉分析引擎",
-    defaultCategory: "Alife 官方/模型接入/视觉模型",
-    EditorUI = typeof(MiniCPMVisionModelUI))]
-public partial class MiniCPMVisionModel(
-    ILogger<MiniCPMVisionModel> logger
-) : IVisionModel,
-    ISystemEvent,
-    IConfigurable<MiniCPMVisionModelConfig>
-{
-    public MiniCPMVisionModelConfig? Configuration { get; set; }
-
-    public async Task<string> QueryAsync(string imagePath, string question, int maxResponseTokens,
-        CancellationToken cancellationToken = default)
+    protected override async Task OnAwake()
     {
-        try
-        {
-            return await pythonPipe!.InvokeAsync<string>("query",
-                new { image_path = imagePath, question, max_new_tokens = maxResponseTokens });
-        }
-        catch (Exception ex)
-        {
-            return $"调用失败：{ex}";
-        }
+        const string ModelId = "OpenBMB/MiniCPM-V-4.6";
+        string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
+        string precision = Configuration.Precision;
+        pythonPipe = new PythonPipeProcess("minicpm_v", pythonCode);
+        pythonPipe.OnStderr += line => logger.LogWarning(line);
+        await pythonPipe.StartAsync();
+        await pythonPipe.InvokeAsync<string>("init", modelPath, precision);
     }
-
-    public async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnDestroy()
     {
-        await TryInitializedAsync(logger, Configuration);
+        await pythonPipe.DisposeAsync();
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Alife.Platform;
@@ -8,24 +9,42 @@ namespace Alife.Framework;
 
 public class StorageSystem
 {
-    public string GetObjectRealPath(string key)
+    public string? GetProperty(string key, string? defaultValue = null)
     {
-        return Path.Combine(AlifePath.StorageFolderPath, key + ".json");
+        return GetValue("Settings/StringStorage/" + key, "txt", defaultValue);
     }
-    public string[] GetFolders(string key)
+    public void SetProperty(string key, string value)
     {
-        string path = $"{AlifePath.StorageFolderPath}/{key}";
-        if (Directory.Exists(path) == false)
+        SetValue("Settings/StringStorage/" + key, "txt", value);
+    }
+    public T? GetSetting<T>(string key, T? defaultValue = default)
+    {
+        return GetObject("Settings/" + key, defaultValue);
+    }
+    public void SetSetting<T>(string key, object value)
+    {
+        SetObject("Settings/" + key, value);
+    }
+
+    public string[] GetSubFolders(string path)
+    {
+        string absolutePath = $"{AlifePath.StorageFolderPath}/{path}";
+        if (Directory.Exists(absolutePath) == false)
             return [];
-        return Directory.GetDirectories(path)
-            .Select(f => Path.GetFileNameWithoutExtension(f))
+        return Directory.GetDirectories(absolutePath)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Cast<string>()
             .ToArray();
     }
-    public T? GetObject<T>(string key, T? defaultValue = default, JsonSerializerSettings? settings = null)
+    public string GetObjectAbsolutePath(string path)
+    {
+        return Path.Combine(AlifePath.StorageFolderPath, path + ".json");
+    }
+    public T? GetObject<T>(string path, T? defaultValue = default, JsonSerializerSettings? settings = null)
     {
         try
         {
-            string? data = GetValue(key, "json");
+            string? data = GetValue(path, "json");
             if (string.IsNullOrWhiteSpace(data))
                 return defaultValue;
             return JsonConvert.DeserializeObject<T>(data, settings);
@@ -36,35 +55,36 @@ public class StorageSystem
             return defaultValue;
         }
     }
-    public void SetObject(string key, object value, JsonSerializerSettings? settings = null)
+    public void SetObject(string path, object value, JsonSerializerSettings? settings = null)
     {
         settings ??= new JsonSerializerSettings();
         settings.Formatting = Formatting.Indented;
         string data = JsonConvert.SerializeObject(value, settings);
-        SetValue(key, "json", data);
+        SetValue(path, "json", data);
     }
-    public void DeleteObject(string key)
+    public void DeleteObject(string path)
     {
-        DeleteValue(key, "json");
+        DeleteValue(path, "json");
     }
-    string? GetValue(string key, string type, string? defaultValue = null)
+
+    string? GetValue(string path, string type, string? defaultValue = null)
     {
-        string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
-        if (File.Exists(path))
-            return File.ReadAllText(path);
+        string absolutePath = $"{AlifePath.StorageFolderPath}/{path}.{type}";
+        if (File.Exists(absolutePath))
+            return File.ReadAllText(absolutePath);
         return defaultValue;
     }
-    void SetValue(string key, string type, string value)
+    void SetValue(string path, string type, string value)
     {
-        string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
-        if (Directory.Exists(Path.GetDirectoryName(path)) == false)
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, value);
+        string absolutePath = $"{AlifePath.StorageFolderPath}/{path}.{type}";
+        if (Directory.Exists(Path.GetDirectoryName(absolutePath)) == false)
+            Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
+        File.WriteAllText(absolutePath, value);
     }
-    void DeleteValue(string key, string type)
+    void DeleteValue(string path, string type)
     {
-        string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
-        if (File.Exists(path))
-            File.Delete(path);
+        string absolutePath = $"{AlifePath.StorageFolderPath}/{path}.{type}";
+        if (File.Exists(absolutePath))
+            File.Delete(absolutePath);
     }
 }

@@ -31,7 +31,7 @@ public class UpdateService
     {
         try
         {
-            string response = await AlifePlatform.FetchStringAsync(RawGitHubApiUrl);
+            string response = await AlifeUtility.FetchStringAsync(RawGitHubApiUrl);
             JObject json = JObject.Parse(response);
 
             string? tagName = json["tag_name"]?.ToString();
@@ -72,7 +72,7 @@ public class UpdateService
             Directory.Delete(tempDir, true);
 
         string zipPath = Path.Combine(tempDir, "Alife.zip");
-        await AlifePlatform.DownloadFileAsync(updateInfo.DownloadUrl, zipPath, (read, total) => {
+        await AlifeUtility.DownloadFileAsync(updateInfo.DownloadUrl, zipPath, (read, total) => {
             if (total > 0)
                 onProgress?.Invoke((int)(read * 100 / total));
         });

@@ -71,7 +71,7 @@ public class PetServer : IAsyncDisposable
     }
     public async Task WaitReadyAsync()
     {
-        using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
+        using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(15));
         await using CancellationTokenRegistration registration = cancellationTokenSource.Token.Register(() => readyTask.TrySetException(new TimeoutException("无法连接到桌宠客户端")));
         await readyTask.Task;
     }

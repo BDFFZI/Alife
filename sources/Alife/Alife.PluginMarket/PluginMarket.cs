@@ -1,4 +1,4 @@
-﻿using Alife.Platform;
+﻿using Alife.PluginSystem;
 using Newtonsoft.Json;
 
 namespace Alife.PluginMarket;
@@ -9,31 +9,7 @@ public interface IPluginProvider
     /// 获取托管的所有插件信息
     /// </summary>
     /// <returns></returns>
-    public Task<Plugin[]> GetPluginsAsync();
-}
-
-public interface IPluginResolver
-{
-    /// <summary>
-    /// 以某种途径解析出当前存在的插件id和version
-    /// </summary>
-    /// <returns></returns>
-    public Dictionary<string, string> GetPlugins();
-}
-
-public interface IEnvironmentInstaller
-{
-    /// <summary>
-    /// 安装依赖环境清单
-    /// key：包名。可能重复。
-    /// value：版本要求.可能冲突。允许如下几种形式：
-    ///     >=x.x.x : 最小版本
-    ///     &lt;=x.x.x : 最大版本
-    ///     ==x.x.x : 精确版本（同时限制上下限）
-    ///     空字符串 : 等于 >=0.0.0（无限制）
-    /// </summary>
-    /// <param name="environment"></param>
-    public void InstallEnvironment(IEnumerable<KeyValuePair<string, string>> environment);
+    public Task<PluginPackage[]> GetPluginsAsync();
 }
 
 public interface IPluginInstaller
@@ -41,242 +17,130 @@ public interface IPluginInstaller
     /// <summary>
     /// 不需要考虑环境依赖，仅重新安装插件本体
     /// </summary>
-    /// <param name="plugin"></param>
+    /// <param name="pluginPackage"></param>
     /// <param name="version"></param>
-    public Task InstallPlugin(Plugin plugin, string version);
-    public Task UninstallPlugin(Plugin plugin);
+    public Task InstallPlugin(PluginPackage pluginPackage, string version);
+    public Task UninstallPlugin(string pluginId);
 }
 
+/// <summary>
+/// 一种在线的插件分发平台叫做插件市场，上传其中的插件都会提供一个包清单文件，里面包含对应插件的各种描述信息和发行源码等资源。
+/// 插件市场类就是负责处理其中插件的安装工作，安装仅涉及文件系统上的变动，不包含环境同步、插件加载等。
+/// </summary>
 public class PluginMarket
 {
-    /// <summary>
-    /// 从云端拉取插件列表，并写入缓存
-    /// </summary>
-    public async Task FetchOnlinePluginsAsync()
+    public IReadOnlyDictionary<string, PluginPackage> AllPluginPackages => allPluginPackages;
+
+    public async Task SyncOnlinePluginPackagesAsync()
     {
-        allPlugins = (await onlinePlugins.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
+        allPluginPackages = (await pluginProvider.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
         SaveCache();
     }
-    /// <summary>
-    /// 抓取本地已安装插件列表
-    /// </summary>
-    public void FetchLocalPlugins()
+    public async Task InstallPlugins(Dictionary<PluginPackage, string> plugins)
     {
-        hadPlugins = localPlugins.GetPlugins();
+        //校验插件安装输入
+        foreach (var (pluginPackage, version) in plugins)
+        {
+            if (pluginPackage.Releases == null)
+                throw new Exception($"插件 {pluginPackage.Id} 并没有发布版本，无法安装，请确保插件信息填写正确。");
+            if (pluginPackage.Releases.ContainsKey(version) == false)
+                throw new Exception($"插件 {pluginPackage} 不存在版本 {version}，请检查版本号填写是否正确。");
+        }
+
+        //收集完整的要装的插件
+        Dictionary<string, (PluginPackage plugin, string version)> installPlan = new();
+        DependencyResolver dependencyResolver = new();
+        foreach (var (plugin, version) in plugins)
+            CollectDependencies(plugin, version);
+
+        void CollectDependencies(PluginPackage pluginPackage, string version)
+        {
+            if (installPlan.ContainsKey(pluginPackage.Id))
+                return;//插件已被解算，不需要重复解算
+
+            installPlan[pluginPackage.Id] = (pluginPackage, version);
+
+            //解算依赖的插件
+            var dependencies = pluginPackage.GetDependencies(version);
+            if (dependencies != null)
+            {
+                //添加依赖需求
+                dependencyResolver.AddDependencies(dependencies);
+
+                //确认有满足依赖的插件
+                foreach (var (dependentPluginId, _) in dependencies)
+                {
+                    if (pluginSystem.AllPluginManifests.TryGetValue(dependentPluginId, out PluginManifest value) &&
+                        dependencyResolver.IsSatisfiedVersion(dependentPluginId, value.Version))
+                        continue;//插件已经安装，不需要重复安装
+
+                    if (allPluginPackages.TryGetValue(dependentPluginId, out PluginPackage? dependentPluginPackage) == false)
+                        throw new Exception($"{pluginPackage.Id} 依赖的插件 {dependentPluginId} 不存在，请确认依赖信息填写正确，或被依赖插件已上传市场并正确拉取。");
+
+                    IEnumerable<string>? versionList = dependentPluginPackage.Releases?.Keys;
+                    if (versionList == null)
+                        throw new Exception($"插件 {dependentPluginId} 并没有发布版本，无法安装，请确保插件信息填写正确。");
+
+                    string bestVersion = dependencyResolver.ResolveBestVersion(dependentPluginId, versionList);
+                    CollectDependencies(dependentPluginPackage, bestVersion);
+                }
+            }
+        }
+
+        //安装插件
+        foreach ((PluginPackage plugin, string version) in installPlan.Values)
+            await pluginInstaller.InstallPlugin(plugin, version);
     }
-
-
-    public IEnumerable<Plugin> GetAllPlugins()
+    public async Task UninstallPlugins(string pluginId)
     {
-        return allPlugins.Values;
+        List<string> dependencies = ResolvePluginDependencies(pluginId);
+        if (dependencies.Count != 0)
+            throw new Exception($"插件 {pluginId} 被 {string.Join(',', dependencies)} 插件所依赖，无法卸载，请先卸载这些依赖插件。");
+        await pluginInstaller.UninstallPlugin(pluginId);
     }
-    public Dictionary<string, string> GetInstalledPlugins()
-    {
-        return hadPlugins;
-    }
-
-    public List<string> GetDependents(string pluginId)
+    public List<string> ResolvePluginDependencies(string pluginId)
     {
         List<string> dependents = new();
-        foreach ((string id, string version) in hadPlugins)
+        foreach ((string id, PluginManifest manifest) in pluginSystem.AllPluginManifests)
         {
             if (id == pluginId)
                 continue;
 
-            Plugin? plugin = allPlugins.GetValueOrDefault(id);
-            if (plugin == null)
-                continue;
-
-            Dictionary<string, string>? dependencies = plugin.GetDependencies(version);
+            Dictionary<string, string>? dependencies = manifest.Dependencies;
             if (dependencies != null && dependencies.ContainsKey(pluginId))
                 dependents.Add(id);
         }
         return dependents;
     }
 
-    public async Task InstallPlugin(Plugin plugin, string version)
-    {
-        if (plugin.Releases == null)
-            throw new Exception($"Plugin {plugin.Id} is not released");
-        if (plugin.Releases.ContainsKey(version) == false)
-            throw new Exception($"Plugin {plugin.Id} version {version} not released");
-
-        var dependencies = plugin.GetDependencies(version);
-        if (dependencies != null)
-        {
-            VersionResolver versionResolver = new();
-            versionResolver.AddRange(dependencies);
-
-            foreach (KeyValuePair<string, string> pair in dependencies)
-            {
-                string? hadVersion = hadPlugins.GetValueOrDefault(pair.Key);
-                if (hadVersion != null && versionResolver.IsSatisfied(pair.Key, hadVersion))
-                    continue;
-
-                Plugin? dependentPlugin = allPlugins.GetValueOrDefault(pair.Key);
-                if (dependentPlugin == null)
-                    throw new Exception($"Plugin {plugin.Id} dependent unknown plugin type");
-                IEnumerable<string>? versionList = dependentPlugin.Releases?.Keys;
-                if (versionList == null)
-                    throw new Exception($"Plugin {plugin.Id} dependent plugin is not released");
-
-                string satisfiedVersion = versionResolver.Resolve(dependentPlugin.Id, versionList);
-                await InstallPlugin(dependentPlugin, satisfiedVersion);
-            }
-        }
-
-        var environments = plugin.GetEnvironments(version);
-        if (environments != null)
-        {
-            List<KeyValuePair<string, string>> environmentManifest = new();
-            foreach ((string type, Dictionary<string, string> environment) in environments)
-            {
-                IEnvironmentInstaller? environmentInstaller = environmentInstallers.GetValueOrDefault(type);
-                if (environmentInstaller == null)
-                    throw new Exception($"Plugin {plugin.Id} has no supported environment type");
-
-                GetEnvironment(type, environmentManifest);
-                environmentManifest.AddRange(environment);
-                environmentInstaller.InstallEnvironment(environmentManifest);
-            }
-        }
-
-        await pluginInstaller.InstallPlugin(plugin, version);
-    }
-    public async Task InstallPlugins(IEnumerable<(Plugin plugin, string version)> plugins)
-    {
-        var pluginList = plugins.ToList();
-
-        // 收集完全要装的全部插件
-        Dictionary<string, (Plugin plugin, string version)> installPlan = new();
-        VersionResolver versionResolver = new();
-        foreach (var (plugin, version) in pluginList)
-            CollectDependencies(plugin, version);
-
-        void CollectDependencies(Plugin plugin, string version)
-        {
-            if (installPlan.ContainsKey(plugin.Id)) return;
-
-            var dependencies = plugin.GetDependencies(version);
-            if (dependencies != null)
-            {
-                versionResolver.AddRange(dependencies);
-                foreach (var (depId, _) in dependencies)
-                {
-                    string? hadVersion = hadPlugins.GetValueOrDefault(depId);
-                    if (hadVersion != null && versionResolver.IsSatisfied(depId, hadVersion))
-                        continue;//插件已按照，跳过
-
-                    Plugin? depPlugin = allPlugins.GetValueOrDefault(depId);
-                    if (depPlugin == null)
-                        throw new Exception($"Unknown plugin: {depId}");
-                    IEnumerable<string>? versionList = depPlugin.Releases?.Keys;
-                    if (versionList == null)
-                        throw new Exception($"Plugin {depId} not released");
-
-                    string resolved = versionResolver.Resolve(depId, versionList);
-                    CollectDependencies(depPlugin, resolved);
-                }
-            }
-
-            installPlan[plugin.Id] = (plugin, version);
-        }
-
-        // 校验所有插件有合法
-        foreach (var (id, entry) in installPlan)
-        {
-            if (entry.plugin.Releases == null || !entry.plugin.Releases.ContainsKey(entry.version))
-                throw new Exception($"Plugin {id} version {entry.version} not released");
-        }
-
-        // 统一安装环境依赖
-        HashSet<string> envTypes = new();
-        foreach (var (_, entry) in installPlan)
-        {
-            var envs = entry.plugin.GetEnvironments(entry.version);
-            if (envs != null)
-                foreach (var type in envs.Keys)
-                    envTypes.Add(type);
-        }
-
-        foreach (string type in envTypes)
-        {
-            if (!environmentInstallers.TryGetValue(type, out var installer))
-                throw new Exception($"No installer for environment type: {type}");
-
-            List<KeyValuePair<string, string>> manifest = new();
-            GetEnvironment(type, manifest);
-
-            foreach (var (_, entry) in installPlan)
-            {
-                var envs = entry.plugin.GetEnvironments(entry.version)?.GetValueOrDefault(type);
-                if (envs != null)
-                    manifest.AddRange(envs);
-            }
-
-            installer.InstallEnvironment(manifest);
-        }
-
-        // 逐个安装插件本体
-        foreach (var (_, entry) in installPlan)
-        {
-            await pluginInstaller.InstallPlugin(entry.plugin, entry.version);
-        }
-    }
-    public async Task UninstallPlugin(Plugin plugin)
-    {
-        await pluginInstaller.UninstallPlugin(plugin);
-    }
-
-
-
-    readonly IPluginProvider onlinePlugins;
-    readonly IPluginResolver localPlugins;
+    readonly PluginSystem.PluginSystem pluginSystem;
+    readonly IPluginProvider pluginProvider;
     readonly IPluginInstaller pluginInstaller;
-    readonly Dictionary<string, IEnvironmentInstaller> environmentInstallers;
-    Dictionary<string, Plugin> allPlugins;
-    Dictionary<string, string> hadPlugins;
-    readonly string cacheDir = Path.Combine(AlifePath.RuntimeFolderPath, "PluginMarket");
+    readonly string pluginPackagesCacheDirectory;
+    Dictionary<string, PluginPackage> allPluginPackages = new();
 
-    public PluginMarket(IPluginProvider onlinePlugins, IPluginResolver localPlugins, IPluginInstaller pluginInstaller, Dictionary<string, IEnvironmentInstaller> environmentInstallers)
+    public PluginMarket(
+        PluginSystem.PluginSystem pluginSystem,
+        IPluginProvider pluginProvider,
+        IPluginInstaller pluginInstaller,
+        string pluginPackagesCacheDirectory)
     {
-        this.onlinePlugins = onlinePlugins;
-        this.localPlugins = localPlugins;
+        this.pluginSystem = pluginSystem;
+        this.pluginProvider = pluginProvider;
         this.pluginInstaller = pluginInstaller;
-        this.environmentInstallers = environmentInstallers;
-
-        allPlugins = new Dictionary<string, Plugin>();
-        hadPlugins = [];
+        this.pluginPackagesCacheDirectory = pluginPackagesCacheDirectory;
 
         LoadCache();
-        FetchLocalPlugins();
-    }
-
-    void GetEnvironment(string type, List<KeyValuePair<string, string>> environments)
-    {
-        environments.Clear();
-        foreach ((string pluginID, string version) in hadPlugins)
-        {
-            Plugin? plugin = allPlugins.GetValueOrDefault(pluginID);
-            if (plugin == null)
-                continue;
-            Dictionary<string, string>? environment = plugin.GetEnvironments(version)?.GetValueOrDefault(type);
-            if (environment == null)
-                continue;
-
-            environments.AddRange(environment);
-        }
     }
 
     void SaveCache()
     {
         try
         {
-            Directory.CreateDirectory(cacheDir);
-            foreach (var plugin in Directory.GetFiles(cacheDir))
+            foreach (var plugin in Directory.GetFiles(pluginPackagesCacheDirectory))
                 File.Delete(plugin);
-            foreach ((string _, Plugin plugin) in allPlugins)
-                File.WriteAllText(Path.Combine(cacheDir, $"{plugin.Id}.json"), JsonConvert.SerializeObject(plugin, Formatting.Indented));
+            foreach ((string _, PluginPackage plugin) in allPluginPackages)
+                File.WriteAllText(Path.Combine(pluginPackagesCacheDirectory, $"{plugin.Id}.json"), JsonConvert.SerializeObject(plugin, Formatting.Indented));
         }
         catch (Exception ex)
         {
@@ -287,17 +151,14 @@ public class PluginMarket
     {
         try
         {
-            if (!Directory.Exists(cacheDir))
-                return;
-
-            foreach (string pluginFile in Directory.GetFiles(cacheDir, "*.json"))
+            foreach (string pluginFile in Directory.GetFiles(pluginPackagesCacheDirectory, "*.json"))
             {
                 try
                 {
                     string json = File.ReadAllText(pluginFile);
-                    Plugin? plugin = JsonConvert.DeserializeObject<Plugin>(json);
+                    PluginPackage? plugin = JsonConvert.DeserializeObject<PluginPackage>(json);
                     if (plugin != null)
-                        allPlugins[plugin.Id] = plugin;
+                        allPluginPackages[plugin.Id] = plugin;
                 }
                 catch (Exception ex)
                 {

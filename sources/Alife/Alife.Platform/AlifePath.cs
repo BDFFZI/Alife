@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace Alife.Platform;
@@ -32,7 +33,11 @@ public static class AlifePath
         RuntimeFolderPath = Directory.Exists(Path.Combine(rootFolderPath, "Runtime"))
             ? Path.Combine(rootFolderPath, "Runtime")
             : Path.Combine(documentsPath, "Alife", "Runtime");
+#if DEBUG
+        TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.ClientDebug");
+#else
         TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.Client");
+#endif
 
         string configRuntime = AlifeConfig.GetString("runtime_path");
         if (!string.IsNullOrEmpty(configRuntime))
@@ -42,8 +47,18 @@ public static class AlifePath
         if (!string.IsNullOrEmpty(configStorage))
             StorageFolderPath = configStorage;
 
+        //尝试清理缓存
         if (Directory.Exists(TempFolderPath))
-            Directory.Delete(TempFolderPath, recursive: true);
+        {
+            try
+            {
+                Directory.Delete(TempFolderPath, recursive: true);
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogWarning(e);
+            }
+        }
 
         Directory.CreateDirectory(StorageFolderPath);
         Directory.CreateDirectory(RuntimeFolderPath);

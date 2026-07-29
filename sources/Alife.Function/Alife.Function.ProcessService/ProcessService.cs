@@ -7,13 +7,14 @@ using Alife.Function.Interpreter;
 
 namespace Alife.Function.ProcessService;
 
-[Module("进程操作", "提供进程创建、管理和管道通信能力",
-    defaultCategory: "Alife 官方/实用工具"
-)]
-public class ProcessService(XmlFunctionCaller functionCaller) : InteractiveModule<ProcessService>
+[Module("进程操作",
+    "提供进程创建、管理和管道通信能力",
+    defaultCategory: "Alife 官方/实用工具")]
+public class ProcessService(
+    XmlFunctionCaller functionCaller,
+    IInteractor<ProcessService> interactor) :
+    ChatBehaviour
 {
-    readonly ProcessManagerImpl impl = new(new SystemProcessFactory());
-
     [XmlFunction(FunctionMode.OneShot)]
     public void CreateProcess(
         [Description("进程名称(要兼具唯一性和可读性)")] string name,
@@ -22,16 +23,16 @@ public class ProcessService(XmlFunctionCaller functionCaller) : InteractiveModul
         string? workdir = null)
     {
         ProcessInfo info = impl.CreateProcess(command, name, arguments, workdir);
-        Poke($"进程已创建: {info.Name} (PID: {info.Id})");
+        interactor.Poke($"进程已创建: {info.Name} (PID: {info.Id})");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     public void KillProcess(string name)
     {
         if (impl.KillProcess(name))
-            Poke($"进程已杀死: {name}");
+            interactor.Poke($"进程已杀死: {name}");
         else
-            Throw($"进程不存在: {name}");
+            interactor.Throw($"进程不存在: {name}");
     }
 
     [XmlFunction(FunctionMode.Content)]
@@ -44,7 +45,7 @@ public class ProcessService(XmlFunctionCaller functionCaller) : InteractiveModul
             return;
 
         await impl.WriteAsync(name, context.FullContent, cancellationToken);
-        Poke($"已写入: {name}");
+        interactor.Poke($"已写入: {name}");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -54,42 +55,29 @@ public class ProcessService(XmlFunctionCaller functionCaller) : InteractiveModul
         [Description("最大读取行数")] int maxlines = 100,
         CancellationToken cancellationToken = default)
     {
-        Poke(await impl.ReadOutputAsync(name, waiting, maxlines, cancellationToken));
+        interactor.Poke(await impl.ReadOutputAsync(name, waiting, maxlines, cancellationToken));
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     public void ClearProcess(string name)
     {
         impl.ClearOutput(name);
-        Poke($"已清除进程输出缓冲: {name}");
+        interactor.Poke($"已清除进程输出缓冲: {name}");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     public void ListProcesses()
     {
-        Poke(impl.ListProcesses());
+        interactor.Poke(impl.ListProcesses());
     }
 
-    void TryCreateDefaultProcess(string name, string command, string? arguments = null)
-    {
-        try
-        {
-            impl.CreateProcess(command, name, arguments);
-        }
-        catch
-        {
-            // 可执行文件不存在等，静默跳过
-        }
-    }
+    readonly ProcessManagerImpl impl = new(new SystemProcessFactory());
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override Task OnAwake()
     {
-        await base.AwakeAsync(context);
-
         TryCreateDefaultProcess("python", "python", "-X utf8 -u -i");
         TryCreateDefaultProcess("pwsh", "pwsh");
 
-        functionCaller.AddPlainAreas(nameof(WriteProcess));
         XmlHandler xmlHandler = new(this) {
             Description = "当你需要启动外部进程并持续通讯时使用",
             Explanation = """
@@ -115,11 +103,27 @@ public class ProcessService(XmlFunctionCaller functionCaller) : InteractiveModul
                           - 当进程不使用时要记得杀死进程
                           """
         };
-        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit);
+        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
+        functionCaller.AddPlainAreas(nameof(WriteProcess));
+
+        return Task.CompletedTask;
     }
-    public override Task DestroyAsync()
+    protected override Task OnDestroy()
     {
         impl.KillAll();
-        return base.DestroyAsync();
+        
+        return Task.CompletedTask;
+    }
+
+    void TryCreateDefaultProcess(string name, string command, string? arguments = null)
+    {
+        try
+        {
+            impl.CreateProcess(command, name, arguments);
+        }
+        catch
+        {
+            // 可执行文件不存在等，静默跳过
+        }
     }
 }

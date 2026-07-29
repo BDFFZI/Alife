@@ -1,35 +1,31 @@
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.PythonPipe;
-using Alife.Platform;
 using Alife.Function.AIModelUtility;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Vision.Qwen;
 
-[Module("Qwen视觉分析", "基于Qwen2.5-VL的本地视觉分析引擎",
-defaultCategory: "Alife 官方/模型接入/视觉模型",
-EditorUI = typeof(QwenVisionModelUI))]
+[Module("Qwen视觉分析",
+    "基于Qwen2.5-VL的本地视觉分析引擎",
+    defaultCategory: "Alife 官方/模型接入/视觉模型",
+    EditorUI = typeof(QwenVisionModelUI))]
 public class QwenVisionModel(
-    ILogger<QwenVisionModel> logger
-) : IVisionModel,
-    IAsyncDisposable,
-    ISystemEvent,
+    ILogger<QwenVisionModel> logger) :
+    ChatBehaviour,
+    IVisionModel,
     IConfigurable<QwenVisionModelConfig>
 {
-    public static string RuntimeFolder => Path.Combine(AlifePath.RuntimeFolderPath, "QwenVL");
-    public QwenVisionModelConfig? Configuration { get; set; }
+    public QwenVisionModelConfig Configuration { get; set; } = null!;
 
     public async Task<string> QueryAsync(string imagePath, string question, int maxResponseTokens,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            return await pythonPipe!.InvokeAsync<string>("query",
-            new { image_path = imagePath, question, max_new_tokens = maxResponseTokens });
+            return await pythonPipe.InvokeAsync<string>("query",
+                new { image_path = imagePath, question, max_new_tokens = maxResponseTokens });
         }
         catch (Exception ex)
         {
@@ -37,7 +33,7 @@ public class QwenVisionModel(
         }
     }
 
-    PythonPipeProcess? pythonPipe;
+    PythonPipeProcess pythonPipe = null!;
     readonly string pythonCode =
         """
         import sys, json, torch
@@ -107,20 +103,17 @@ public class QwenVisionModel(
             return res[0].strip()
         """;
 
-    public async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
         const string ModelId = "Qwen/Qwen2.5-VL-3B-Instruct";
-        string modelPath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(ModelId);
+        string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
         pythonPipe = new("qwen_vl", pythonCode);
         pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath);
     }
-    public async ValueTask DisposeAsync()
+    protected override async Task OnDestroy()
     {
-        if (pythonPipe != null)
-        {
-            await pythonPipe.DisposeAsync();
-        }
+        await pythonPipe.DisposeAsync();
     }
 }

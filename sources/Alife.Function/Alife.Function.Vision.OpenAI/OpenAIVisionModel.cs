@@ -14,15 +14,16 @@ namespace Alife.Function.Vision.OpenAI;
 /// <summary>
 /// 在线 API 视觉分析器，兼容 OpenAI Chat Completions 多模态标准协议（如 GPT-4o, DashScope 兼容端点等）。
 /// </summary>
-[Module("OpenAI视觉分析", "基于OpenAI兼容API的在线视觉分析引擎",
-defaultCategory: "Alife 官方/模型接入/视觉模型",
-EditorUI = typeof(OpenAIVisionModelUI))]
+[Module("OpenAI视觉分析",
+    "基于OpenAI兼容API的在线视觉分析引擎",
+    defaultCategory: "Alife 官方/模型接入/视觉模型",
+    EditorUI = typeof(OpenAIVisionModelUI))]
 public class OpenAIVisionModel :
-    IVisionModel,
+    IConfigurable<OpenAIVisionModelConfig>,
     IDisposable,
-    IConfigurable<OpenAIVisionModelConfig>
+    IVisionModel
 {
-    public OpenAIVisionModelConfig? Configuration { get; set; }
+    public OpenAIVisionModelConfig Configuration { get; set; } = null!;
 
     public async Task<string> QueryAsync(string imagePath, string question, int maxResponseTokens, CancellationToken cancellationToken = default)
     {
@@ -35,7 +36,7 @@ public class OpenAIVisionModel :
 
             //构造请求体
             var requestBody = new {
-                model = Configuration!.ModelName,
+                model = Configuration.ModelName,
                 messages = new[] {
                     new {
                         role = "user",

@@ -15,7 +15,6 @@ public class XmlHandler
     public string? Description { get; init; }
     public string? Explanation { get; init; }
     public List<XmlFunction> Functions { get; init; } = new();
-    public object? Instance { get; init; }
 
     public string FunctionDocument()
     {
@@ -45,7 +44,6 @@ public class XmlHandler
     }
     public XmlHandler(object instance, string? explanation = null)
     {
-        Instance = instance;
         Type handlerType = instance.GetType();
         Name = handlerType.Name;
         Description = handlerType.GetCustomAttribute<DescriptionAttribute>()?.Description;
@@ -193,7 +191,7 @@ public class XmlHandler
                 if (isFilled)
                     parameterValuesBuffer[index] = result;
                 else if (parameterInfo.GetCustomAttribute<XmlFormAttribute>() == null)
-                    throw new Exception($"<{method.Name}/>缺少{parameterInfo.Name}参数，请检查是否遗漏，或传入的参数格式是否正确！");
+                    throw new Exception($"<{method.Name}> 缺少{parameterInfo.Name}参数，请检查是否遗漏，或传入的参数格式是否正确！");
             }
 
             //调用

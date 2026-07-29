@@ -1,17 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
+    <PropertyGroup>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
-    <ProjectReference Include="..\Alife.Function.Auditory\Alife.Function.Auditory.csproj" />
-    <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
+        <ProjectReference Include="..\..\Alife.Function\Alife.Function.Auditory\Alife.Function.Auditory.csproj"/>
+        <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.2"/>
+    </ItemGroup>
 
 </Project>

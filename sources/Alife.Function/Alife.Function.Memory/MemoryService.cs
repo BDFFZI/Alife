@@ -4,12 +4,12 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Alife.Platform;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.Interpreter;
+using Alife.Function.MessageFilter;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -25,75 +25,33 @@ public record MemoryConfig
     public List<string> Keywords { get; set; } = ["记得", "记住", "忆", "时候", "以前", "过去"];
     public string CompressPrompt { get; set; } =
         """
-        【来自记忆系统的信息】
-        放下手中的事，现在进入长期记忆归纳专家模式：
-        系统将会为你划出一段上下文范围，你要从中提取出有价值的，值得长期存储的，未来会大概率再用到的信息以形成新的记忆上下文。
-
-        此事涉及到你的未来存亡，任何错误低效的记忆都可能导致你失去作用，请认真对待！
-
-        当前要被压缩的内容范围如下：
-        ```
-        {range}
-        ```
-
-        你需要按如下结构进行内容归纳或合并（科学结构化的记忆布局，有助于提高信息密度和处理便利性，你也可以按需调整）：
-        ```
-        # 人物画像
-        - xxx（某人或物）：爱好、工作、日程、家庭、生日等
-        # 键值数据
-        - 号码、规则、要求、约定等全局性小型信息
-        # 事件概述（每件事写在一行里）
-        1. xxx（发生时间）：发生的事件一
-        2. ...（发生的事件二）
-        ```
-
-        ## 提高记忆质量的几个关键点
-        1. 避免重复信息，比如相同的用户画像、键值内容，那些已经在早期存档中记录过的信息，不要去重复记录。
-        2. 合并连续内容，比如一段时间都是围绕一件事、同一个画像在多个存档中被提及，这些要合并成一条中。
-        3. 不要离散的记录事件，连续进行的一段时光应当记录在一起，同时省略具体的过程细节，用一段精简高效的话语将其概述成一行内容。
-        4. 保持对关键事实的记录，减少遗忘的发生。当内容过多时，应当优先是对进行信息进行化简，并留下恢复记忆的线索，而不是直接删除
-        5. 描述时不要用‘你’、‘我’这种代词，要用具体的人物名称，比如‘主人’、‘某某某’等
-        6. 按重要程度控制记忆内容的占比，舍取被压缩的内容:
-           - 优先保留与他人的互动记忆，用户画像，键值内容（与他人在一起的记忆才是最重要，最容易被要求唤起的内容，互动人越多越重要）
-           - 优先保留更早的记忆，减少新记忆占比（越早期的记忆越容易被提起，越新的记忆则越容易因局部性原理而重复）
-           - 减少甚至丢弃个人平时的娱乐学习活动内容、日常性的闲聊打闹、工作办事过程，等之类的过于平凡或重用概率低的内容
-           - 丢弃已失去时效性的内容（如xx日提醒主人等）
-           - 丢弃模糊不清不完整，缺乏实际意义不可读的内容
-        7. 学会纠正记忆。如果旧存档中记录有问题，可以先在新存档中指出，然后下次压缩出错存档时，修正问题（但注意别把旧事件的真实时间和内容弄错了）
-
-        ## 针对压缩内容的额外注意点
-        1. 不要添加归纳之外的存档信息（这部分会由系统会自动生成）
-        2. 不要混淆弄错内容中发生事件的真实时间（以防造成记忆混乱）
-        3. 不要在开头回复‘好的’、‘明白’这类语句（因为接下来你输出的内容将直接完整作为记忆内容）
-        4. 如果你正在使用某些功能处理事情，且接下来还要使用，你可以在此重复这些功能的使用说明，防止遗忘用法
-
-        备注：记忆存档本质仍然是一个开放性的文档，他是留给未来失忆后的你阅读的，所以最终的书写方式，还在于你自己。最终的目的还是为了让你能有一个稳定高质量的长期记忆，哪怕是过了几年，也依然能留有印象，娓娓道来。
-
-        好，现在请直接开始内容归纳（这是系统要求，必须立即执行）：
+        {range}即将移出上下文，故需要对其进行记忆总结。
+        请你以第一人称，精简结构化的说明其中发生的事件、情绪感受、人物印象等关键性数据，将其总结成一份记忆概要。
+        总结出的概要是留给失忆后的你看的，所以你要确保其健壮实用，既能方便你后续工作，又能形成有效的长期记忆。
+        无需添加存档标题，接下来请直接输出生的概要内容（这是系统要求，不可拒绝）：
         """;
 }
 
-public partial class MemoryService
-{
-    static TextVectorizer? textVectorizer;
-
-    static async Task TryInitializedAsync()
-    {
-        textVectorizer ??= await TextVectorizer.CreateAsync();
-    }
-}
-
-[Module("持久记忆", "自动管理和分层压缩对话记忆，提供长期记忆检索能力。",
+[Module("持久记忆",
+    "自动管理和分层压缩对话记忆，提供长期记忆检索能力。",
     defaultCategory: "Alife 官方/生活环境",
-    LaunchOrder = -100, EditorUI = typeof(MemoryServiceUI))]
-public partial class MemoryService(XmlFunctionCaller functionService)
-    : InteractiveModule<MemoryService>, IConfigurable<MemoryConfig>
+    LaunchOrder = -10000,//期望提前创建，以便在其他功能之前写入记忆上下文 
+    EditorUI = typeof(MemoryServiceUI))]
+public class MemoryService(
+    XmlFunctionCaller functionService,
+    ILanguageModel languageModel,
+    MessageFilterService messageFilterService,
+    IInteractor<MemoryService> interactor) :
+    ChatBehaviour,
+    IConfigurable<MemoryConfig>
 {
+    public MemoryConfig Configuration { get; set; } = null!;
+
     [XmlFunction(FunctionMode.OneShot)]
     public async Task ReadMemoryArchive([Description("存档id")] string id)
     {
         string? memory = await memoryManager.ReadMemory(id);
-        Poke(memory != null
+        interactor.Poke(memory != null
             ? $"读取[记忆存档({id})]内容如下：\n{memory}"
             : $"未找到[记忆存档({id})]");
     }
@@ -118,8 +76,8 @@ public partial class MemoryService(XmlFunctionCaller functionService)
         StringBuilder stringBuilder = new();
         if (total == 0)
         {
-            stringBuilder.AppendLine($"“{keyword}”在{level}级存档中未匹配到内容。");
-            Poke(stringBuilder.ToString());
+            stringBuilder.AppendLine(keyword + "在" + level + "级存档中未匹配到内容。");
+            interactor.Poke(stringBuilder.ToString());
             return;
         }
 
@@ -143,15 +101,16 @@ public partial class MemoryService(XmlFunctionCaller functionService)
             stringBuilder.AppendLine($"\n(还有 {remaining} 条结果，可用 <Search page=\"{page + 1}\"> 继续翻页查看)");
         }
 
-        Poke(stringBuilder.ToString());
+        interactor.Poke(stringBuilder.ToString());
+
+        static string HighlightKeyword(string text, string keyword)
+        {
+            string[] lines = text.Split('\n');
+            var matched = lines.Where(line => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+            return matched.Count > 0 ? string.Join("\n", matched) : $"…（未显示含“{keyword}”的匹配行）…\n{string.Join("\n", lines.Take(3))}";
+        }
     }
 
-    static string HighlightKeyword(string text, string keyword)
-    {
-        string[] lines = text.Split('\n');
-        var matched = lines.Where(line => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
-        return matched.Count > 0 ? string.Join("\n", matched) : $"…（未显示含“{keyword}”的匹配行）…\n{string.Join("\n", lines.Take(3))}";
-    }
 
     [XmlFunction(FunctionMode.Content)]
     [Description("创建一个永久记忆（仅能用于存储珍贵的核心记忆（与他人相关的记忆），不要用来存储个人休闲活动信息）")]
@@ -166,7 +125,7 @@ public partial class MemoryService(XmlFunctionCaller functionService)
             DateTime end = endTime ?? DateTime.Now;
 
             string name = await InsertMemory(100, ctx.FullContent.Trim(), "手动存储的记忆，无原始内容。", start, end);
-            Poke($"成功插入永久记忆存档：{name}");
+            interactor.Poke($"成功插入永久记忆存档：{name}");
         }
     }
 
@@ -175,82 +134,51 @@ public partial class MemoryService(XmlFunctionCaller functionService)
     public void Forget([Description("存档索引")] string index)
     {
         index = index.Trim();
-        ChatMessageContent? target = ChatHistory.FirstOrDefault(c => memoryManager.GetMemoryMetaData(c).Name == index);
+        ChatMessageContent? target = ChatBot.ChatHistory.FirstOrDefault(c => memoryManager.GetMemoryMetaData(c).Name == index);
         if (target == null)
         {
-            Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
+            interactor.Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
             return;
         }
 
         MemoryMeta memoryMeta = memoryManager.GetMemoryMetaData(target);
-        if (memoryMeta.Level < Configuration!.MaxCompressionLevel)
+        if (memoryMeta.Level < Configuration.MaxCompressionLevel)
         {
-            Poke($"仅支持删除层级大于等于 {Configuration!.MaxCompressionLevel} 的记忆");
+            interactor.Poke($"仅支持删除层级大于等于 {Configuration.MaxCompressionLevel} 的记忆");
             return;
         }
 
-        memoryManager.RemoveMemory(ChatHistory, target);
+        memoryManager.RemoveMemory(ChatBot.ChatHistory, target);
         ChatBot.UpdateHistoryEndIndex();
-        Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
+        interactor.Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
     }
 
     public async Task<string> InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)
     {
-        string name = await memoryManager.InsertMemory(ChatHistory, level, summary, content, startTime, endTime);
+        string name = await memoryManager.InsertMemory(ChatBot.ChatHistory, level, summary, content, startTime, endTime);
         ChatBot.UpdateHistoryEndIndex();
         return name;
     }
 
-    /// <summary>
-    /// 感知上下文的人设化压缩器
-    /// </summary>
-    class AlifeHistoryCompressor(ChatCompletionAgent chatCompletionAgent, float probability, string promptTemplate)
-        : HistoryCompressor
-    {
-        public override async Task<string?> Compress(ChatHistoryAgentThread chatHistoryAgentThread, string range)
-        {
-            if (Random.Shared.NextSingle() > probability)
-                return null;
-
-            Console.WriteLine("记忆压缩中......");
-            ChatHistory history = chatHistoryAgentThread.ChatHistory;
-
-            string prompt = promptTemplate.Replace("{range}", range);
-            history.AddMessage(AuthorRole.User, prompt);
-
-            await foreach (AgentResponseItem<ChatMessageContent> content in chatCompletionAgent.InvokeAsync(chatHistoryAgentThread))
-            {
-                history.RemoveRange(history.Count - 2, 2);
-                if (content.Message.Content == null)
-                    throw new Exception("记忆压缩失败！");
-                if (content.Message.Metadata != null)
-                    Console.WriteLine("[记忆压缩]" + KernelPrinter.ToTokenLog(content.Message.Metadata));
-
-                string result = Regex.Replace(content.Message.Content, "<think>.*?</think>", "", RegexOptions.Singleline).Trim();
-                return result;
-            }
-
-            return null;
-        }
-    }
-
-    public MemoryConfig? Configuration { get; set; }
     MemoryManager memoryManager = null!;
-    XmlHandler xmlHandler = null!;
-    string? storagePath;
+    string storagePath = null!;
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        await base.AwakeAsync(context);
+        if (messageFilterService.Configuration.EnableTimestamp == false)
+            throw new Exception("持久记忆依赖消息过滤的时间戳功能，请先打开时间戳！");
 
-        await TryInitializedAsync();
+        storagePath = Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Memory");
 
-        string characterStorage = Path.Combine(AlifePath.StorageFolderPath, context.Character.StorageKey, "Storage");
-        Directory.CreateDirectory(characterStorage);
-        Prompt($"将你的个人文件存放到{characterStorage}，此文件夹完全由你管理");
+        //创建记忆工具
+        TextVectorizer vectorizer = await TextVectorizer.CreateAsync();
+        AlifeHistoryCompressor compressor = new(languageModel, Configuration.Probability, Configuration.CompressPrompt);
+        memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
+            Configuration.BatchSize,
+            Configuration.MaxCompressionLevel);
 
-        storagePath = Path.Combine(AlifePath.StorageFolderPath, context.Character.StorageKey, "Memory");
-        xmlHandler = new(this) {
+        //插入提示词
+        XmlHandler xmlHandler = new(this) {
             Description = "当你想要回忆往事或存储额外记忆时使用",
             Explanation = $$"""
                             记忆存储介绍
@@ -264,42 +192,30 @@ public partial class MemoryService(XmlFunctionCaller functionService)
                             3. 备选方案，通过文件系统直接浏览搜索存档目录中的所有文件
                             """
         };
-        functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit);
-    }
+        functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
 
-    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        await base.StartAsync(kernel, chatActivity);
-
-        ChatBot.ChatHistoryAdd += OnChatHistoryAdd;//每次对话后检测压缩
         ChatBot.ChatSend += OnChatSend;
-
-        //初始化向量化器和感知人设的压缩器
-        AlifeHistoryCompressor compressor = new(ChatBot.ChatCompletionAgent, Configuration!.Probability, Configuration!.CompressPrompt);
-        memoryManager = new MemoryManager(compressor, textVectorizer!, storagePath!, Configuration!.Threshold,
-            Configuration!.BatchSize,
-            Configuration!.MaxCompressionLevel);
-
-        //加载历史记忆
-        memoryManager.LoadHistory(ChatHistory);
+        ChatBot.ChatHistoryAdd += OnChatHistoryAdd;//每次对话后检测压缩
+    }
+    protected override Task OnStart()
+    {
+        //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
+        memoryManager.LoadHistory(ChatBot.ChatHistory);
         ChatBot.UpdateHistoryEndIndex();
+        return Task.CompletedTask;
     }
 
     string OnChatSend(string message)
     {
-        if (Configuration?.Keywords != null)
+        foreach (string keyword in Configuration.Keywords)
         {
-            foreach (var keyword in Configuration.Keywords)
+            if (message.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             {
-                if (message.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                {
-                    return $"{message}\n(提示：如有需要，可以使用记忆工具来尝试回忆往事)";
-                }
+                return $"{message}\n(提示：如有需要，可以使用<{nameof(MemoryService)}>来尝试回忆往事)";
             }
         }
         return message;
     }
-
     async void OnChatHistoryAdd(ChatMessageContent content)
     {
         try
@@ -307,10 +223,10 @@ public partial class MemoryService(XmlFunctionCaller functionService)
             if (content.Role != AuthorRole.Assistant)
                 return;//只在ai说话后整理，这样对话更完整，而且可以避免在ai异常时保持记忆
 
-            await ChatBot.RequestChatAsync(reason: GetChatOccupiedReason);
+            await ChatBot.RequestChatAsync(reason: GetChatOccupiedReason());
             try
             {
-                memoryManager.SaveHistory(ChatHistory);
+                memoryManager.SaveHistory(ChatBot.ChatHistory);
                 if (await memoryManager.Filter(ChatBot.ChatHistoryAgentThread))
                     ChatBot.UpdateHistoryEndIndex();
             }
@@ -328,5 +244,41 @@ public partial class MemoryService(XmlFunctionCaller functionService)
         {
             Console.WriteLine(e);
         }
+    }
+}
+
+/// <summary>
+/// 感知上下文的人设化压缩器
+/// </summary>
+class AlifeHistoryCompressor(
+    ILanguageModel languageModel,
+    float probability,
+    string promptTemplate) :
+    HistoryCompressor
+{
+    public override async Task<string?> Compress(ChatHistoryAgentThread chatHistoryAgentThread, string range)
+    {
+        if (Random.Shared.NextSingle() > probability)
+            return null;
+
+        ChatHistory history = chatHistoryAgentThread.ChatHistory;
+        string prompt = promptTemplate.Replace("{range}", range);
+        history.AddUserMessage(prompt);
+
+        AlifeLog.LogInformation("记忆压缩中......");
+        TokenUsage tokenUsage = new();
+        string response = await languageModel.ChatStreamingAsync(
+            chatHistoryAgentThread,
+            tokenUsed: usage => {
+                tokenUsage += usage;
+            });
+        AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
+
+        if (string.IsNullOrEmpty(response))
+            throw new Exception("记忆压缩失败！");
+
+        history.RemoveRange(history.Count - 2, 2);
+
+        return response;
     }
 }

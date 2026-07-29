@@ -7,7 +7,7 @@ Directory.CreateDirectory(pluginInstalledDir);
 
 // ============ 创建PluginMarket ============
 ZipPluginProvider provider = new("https://github.com/BDFFZI/Alife.PluginMarket/archive/refs/heads/main.zip");
-FileSystemPluginManager manager = new(pluginInstalledDir);
+FileSystemPluginInstaller installer = new(pluginInstalledDir);
 
 Dictionary<string, IEnvironmentInstaller> environmentInstallers = new()
 {
@@ -15,18 +15,18 @@ Dictionary<string, IEnvironmentInstaller> environmentInstallers = new()
     { "nuget", new NuGetEnvironmentInstaller(packageListFile) }
 };
 
-PluginMarket market = new PluginMarket(provider, manager, manager, environmentInstallers, pluginInstalledDir);
+PluginMarket market = new PluginMarket(provider, installer, installer, environmentInstallers, pluginInstalledDir);
 
 // ============ 1. 在线插件列表 ============
 Console.WriteLine("=== 在线插件列表 ===");
-Plugin[] onlinePlugins = await provider.GetPluginsAsync();
+PluginPackage[] onlinePlugins = await provider.GetPluginsAsync();
 Console.WriteLine($"  找到 {onlinePlugins.Length} 个在线插件\n");
 
 // ============ 2. 测试安装 Mcp（依赖FunctionCaller + nuget包） ============
 Console.WriteLine("=== 测试安装 Mcp（依赖FunctionCaller + nuget包） ===");
 try
 {
-    Plugin? mcp = onlinePlugins.FirstOrDefault(p => p.Id == "Alife.Function.Mcp");
+    PluginPackage? mcp = onlinePlugins.FirstOrDefault(p => p.Id == "Alife.Function.Mcp");
     if (mcp != null)
     {
         Console.WriteLine($"安装 {mcp.Id} v1.0.0...");
@@ -42,7 +42,7 @@ Console.WriteLine();
 
 // ============ 3. 查看已安装插件列表 ============
 Console.WriteLine("=== 已安装插件列表 ===");
-Dictionary<string, string> installedPlugins = manager.GetPlugins();
+Dictionary<string, string> installedPlugins = installer.GetPlugins();
 Console.WriteLine($"  找到 {installedPlugins.Count} 个已安装插件");
 foreach (var kvp in installedPlugins)
 {

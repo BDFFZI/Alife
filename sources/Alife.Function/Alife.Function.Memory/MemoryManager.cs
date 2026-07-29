@@ -82,7 +82,7 @@ public class MemoryManager
                 DateTime endTime = GetMemoryMetaData(chatHistory[areaStart + areaCompressionCount - 1]).EndTime;
                 string fullContent = PickContent(chatHistory, areaStart, areaStart + areaCompressionCount);
 
-                string range = $"当前上下文中，{(areaLevel == 0 ? "非记忆存档" : $"{areaLevel}级记忆存档")}，从 {startTime} 到 {endTime} 期间的内容";
+                string range = $"从`{startTime}`到`{endTime}`期间的`{(areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档")}`";
                 string? summary = await compressor.Compress(chatHistoryAgentThread, range);
                 if (summary == null)
                     return false;

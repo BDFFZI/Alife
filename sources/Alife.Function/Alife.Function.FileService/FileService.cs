@@ -8,10 +8,13 @@ using Alife.Platform;
 
 namespace Alife.Function.FileService;
 
-[Module("文件操作", "提供文件读写、编辑、搜索能力",
-    defaultCategory: "Alife 官方/实用工具"
-)]
-public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<FileService>
+[Module("文件操作",
+    "提供文件读写、编辑、搜索能力",
+    defaultCategory: "Alife 官方/实用工具")]
+public class FileService(
+    XmlFunctionCaller functionCaller,
+    IInteractor<FileService> interactor) :
+    ChatBehaviour
 {
     [XmlFunction(FunctionMode.Content)]
     [Description("创建或覆盖一个文件")]
@@ -21,7 +24,7 @@ public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<F
             return;
 
         await impl.WriteAsync(filePath, context.FullContent, cancellationToken);
-        Poke($"文件已写入: {filePath}");
+        interactor.Poke($"文件已写入: {filePath}");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -36,15 +39,15 @@ public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<F
 
         if (result.Error != null)
         {
-            Throw(result.Error);
+            interactor.Throw(result.Error);
         }
         else if (result.TempFilePath != null)
         {
-            Poke($"内容过大，已写入临时文件: {result.TempFilePath}");
+            interactor.Poke($"内容过大，已写入临时文件: {result.TempFilePath}");
         }
         else
         {
-            Poke(result.Content!);
+            interactor.Poke(result.Content!);
         }
     }
 
@@ -60,12 +63,12 @@ public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<F
         {
             if (string.IsNullOrEmpty(oldString) || string.IsNullOrEmpty(newString))
             {
-                Throw("未提供 oldstring 或 newstring 标签内容");
+                interactor.Throw("未提供 oldString 或 newString 标签内容");
                 return;
             }
 
             await impl.EditAsync(filePath, oldString, newString, replaceAll);
-            Poke("文件已更新");
+            interactor.Poke("文件已更新");
         }
     }
 
@@ -75,9 +78,9 @@ public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<F
     {
         string[] files = impl.Glob(path, pattern);
         if (files.Length == 0)
-            Poke("没有匹配的文件");
+            interactor.Poke("没有匹配的文件");
         else
-            Poke(string.Join("\n", files));
+            interactor.Poke(string.Join("\n", files));
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -93,21 +96,21 @@ public class FileService(XmlFunctionCaller functionCaller) : InteractiveModule<F
             ? string.Join("\n", result.Matches) + (result.Truncated ? "\n...(结果已截断)" : "")
             : "未找到匹配结果";
 
-        Poke(output);
+        interactor.Poke(output);
     }
 
     readonly FileServiceImpl impl = new() {
         TempFolderPath = AlifePath.TempFolderPath
     };
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override Task OnAwake()
     {
-        await base.AwakeAsync(context);
-
-        functionCaller.AddPlainAreas(nameof(Write));
         XmlHandler xmlHandler = new(this) {
             Description = "当你需要更方便快捷的查找编辑文件时使用，例如用于编程工作"
         };
-        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit);
+        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
+        functionCaller.AddPlainAreas(nameof(Write));
+
+        return Task.CompletedTask;
     }
 }

@@ -1,215 +1,210 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Autofac;
-using Autofac.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection;
+using Alife.Platform;
+using Alife.PluginSystem;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Newtonsoft.Json.Linq;
 
 namespace Alife.Framework;
 
-public partial class ChatActivity
-{
-    public static async Task<ChatActivity> Create(
-        Character character,
-        ConfigurationSystem configurationSystem,
-        ModuleSystem moduleSystem,
-        IProgress<(string, float)>? progress = null,
-        object[]? appendServices = null)
-    {
-        //创建服务容器
-        ContainerBuilder containerBuilder = new();
-
-        //添加基础服务
-        ServiceCollection serviceCollection = new();
-        serviceCollection.AddLogging(builder => {
-            builder.AddConsole();
-            builder.SetMinimumLevel(LogLevel.Information);
-        });
-        containerBuilder.Populate(serviceCollection);
-        //额外添加用户勾选模块（提高优先级）
-        Type[] moduleTypes = character.Modules
-            .Select(moduleSystem.GetModule)
-            .Where(t => t != null).Cast<Type>()
-            .ToArray();
-        foreach (Type moduleType in moduleTypes)
-        {
-            var registration = containerBuilder.RegisterType(moduleType)
-                .AsSelf()
-                .AsImplementedInterfaces()
-                .SingleInstance()
-                .OnActivated(args => {
-                    if (args.Instance is IConfigurable configurable)
-                    {
-                        object? configData = configurationSystem.GetConfiguration(args.Instance.GetType(), character.StorageKey);
-                        configurable.Configuration = configData;
-                    }
-                });
-            //同时注册所有非系统抽象基类
-            Type? baseType = moduleType.BaseType;
-            while (baseType != null && baseType != typeof(object))
-            {
-                registration.As(baseType);
-                baseType = baseType.BaseType;
-            }
-        }
-        //添加其他服务
-        if (appendServices != null)
-        {
-            foreach (var appendService in appendServices)
-                containerBuilder.RegisterInstance(appendService).As(appendService.GetType());
-        }
-        IContainer moduleContainer = containerBuilder.Build();
-
-        try
-        {
-            //创建人工智能构建器
-            IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
-            //创建上下文构建器
-            ChatHistoryAgentThread contextBuilder = new();
-            //进行系统初始化
-            List<ISystemEvent> allEventModules = new();
-            {
-                AwakeContext awakeContext = new() {
-                    Character = character,
-                    Services = (IServiceProvider)moduleContainer,
-                    KernelBuilder = kernelBuilder,
-                    ContextBuilder = contextBuilder
-                };
-
-                //触发系统初始化事件，首先获取支持系统事件的类
-                {
-                    Type[] allEventModuleTypes = moduleTypes
-                        .Where(type => type.IsAssignableTo(typeof(ISystemEvent)))
-                        .OrderBy(type => type.GetCustomAttribute<ModuleAttribute>()?.LaunchOrder)
-                        .ToArray();
-                    for (int index = 0; index < allEventModuleTypes.Length; index++)
-                    {
-                        Type moduleType = allEventModuleTypes[index];
-                        ModuleAttribute moduleAttribute = moduleType.GetCustomAttribute<ModuleAttribute>()!;
-                        progress?.Report(($"实例化模块 {moduleAttribute.Name}", (float)index / moduleTypes.Length));
-                        try
-                        {
-                            allEventModules.Add((ISystemEvent)moduleContainer.Resolve(moduleType));
-                        }
-                        catch (Exception ex)
-                        {
-                            throw new Exception($"实例化模块 {moduleAttribute.Name} 失败", ex);
-                        }
-                    }
-                }
-
-                for (int index = 0; index < allEventModules.Count; index++)
-                {
-                    ISystemEvent systemEvent = allEventModules[index];
-                    ModuleAttribute moduleAttribute = systemEvent.GetType().GetCustomAttribute<ModuleAttribute>()!;
-                    progress?.Report(($"初始化模块 {moduleAttribute.Name}", (float)index / allEventModules.Count));
-
-                    try
-                    {
-                        await systemEvent.AwakeAsync(awakeContext);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception($"初始化模块 {moduleAttribute.Name} 失败", ex);
-                    }
-                }
-            }
-
-            //创建最核心的对话机器人
-            ChatBot chatBot;
-            Kernel kernelService;
-            {
-                if (moduleContainer.TryResolve(out ILanguageModel? languageModel) == false)
-                    throw new Exception($"必须确保启用了一个文本模型模块！（系统依赖 {nameof(ILanguageModel)}）");
-                languageModel.RegisterChatCompletion(kernelBuilder);
-                kernelService = kernelBuilder.Build();
-                ChatCompletionAgent chatCompletionAgent = new() {
-                    Name = character.Name,
-                    Instructions = $"""
-                                    这是你的人物信息：
-                                    - 名称：{character.Name}
-                                    - 生日：{character.Birthday}
-                                    - 简介：{character.Description}
-                                    - 设定：
-                                    {character.Prompt}
-                                    """,
-                    InstructionsRole = AuthorRole.System,
-                    Kernel = kernelService,
-                    Arguments = new KernelArguments(languageModel.ProvidePromptExecutionSettings()),
-                };
-                chatBot = new ChatBot(chatCompletionAgent, contextBuilder);
-            }
-
-            return new(character, kernelService, moduleContainer, chatBot, allEventModules);
-        }
-        catch
-        {
-            await moduleContainer.DisposeAsync();
-            throw;
-        }
-    }
-}
-
-public partial class ChatActivity(Character character, Kernel kernelService, IContainer moduleService, ChatBot chatBot, List<ISystemEvent> eventModules) : IAsyncDisposable
+public class ChatActivity(
+    Character character,
+    ConfigurationSystem configurationSystem,
+    ModuleSystem moduleSystem,
+    object[]? appendServices = null)
 {
     public Character Character => character;
-    public Kernel KernelService => kernelService;
-    public IContainer ModuleService => moduleService;
-    public ChatBot ChatBot => chatBot;
-    public IReadOnlyList<ISystemEvent> EventModules => eventModules;
+    public ChatBot ChatBot { get; private set; } = null!;
 
-    public async Task Launch(IProgress<(string, float)>? progress = null)
+    public async Task Awake(IProgress<(string, float)>? progress = null)
     {
-        for (int index = 0; index < eventModules.Count; index++)
+        //解析用户启用的模块
+        Type[] enabledModuleTypes = character.Modules
+            .Select(moduleSystem.GetModule)
+            .Where(t => t != null).Cast<Type>()
+            .OrderBy(t => ModuleSystem.GetModuleAttribute(t)!.LaunchOrder)
+            .ToArray();
+
+        //创建基础环境
         {
-            ISystemEvent systemEvent = eventModules[index];
-            progress?.Report(($"启动模块 {systemEvent.GetType().Name}", (float)index / eventModules.Count));
-            ModuleAttribute moduleAttribute = systemEvent.GetType().GetCustomAttribute<ModuleAttribute>()!;
-            try
+            //创建服务容器
+            container = new();
+            //添加现有系统
+            if (appendServices != null)
             {
-                await systemEvent.StartAsync(kernelService, this);
+                foreach (var appendService in appendServices)
+                    await container.AddInstance(appendService);
             }
-            catch (Exception ex)
+            //添加可选工具
             {
-                throw new Exception($"启动模块 {moduleAttribute.Name} 失败", ex);
+                //logger功能
+                container.RegisterBuilder(typeof(LoggerFactory), _ =>
+                    Task.FromResult<object>(LoggerFactory.Create(builder => {
+                        builder.SetMinimumLevel(LogLevel.Information);
+                        builder.AddProvider(new AlifeLogProvider());
+                    }))
+                );
+                container.RegisterBuilder(typeof(Logger<>), isSingleton: false);
+                //interactor功能
+                container.RegisterBuilder(typeof(Interactor<>), isSingleton: false);
+            }
+            //添加用户模块（先插入优先级高）
+            foreach (Type moduleType in enabledModuleTypes)
+                container.RegisterBuilder(moduleType);
+            //添加全部模块（后备模块）
+            foreach (Type moduleType in moduleSystem.GetAllModules())
+            {
+                if (enabledModuleTypes.Contains(moduleType) == false)
+                    container.RegisterBuilder(moduleType);
+            }
+
+            //创建chatbot
+            progress?.Report(($"构造 {TypeUtility.GetReadableName(typeof(ChatBot))} 模块", 0));
+            container.RegisterBuilder(typeof(ChatBot));
+            ChatBot = (ChatBot)await container.RequireInstance(typeof(ChatBot));
+            //填充人设
+            ChatBot.ChatHistory.AddSystemMessage(
+                $"""
+                 这是你的人物信息：
+                 - 名称：{character.Name}
+                 - 生日：{character.Birthday}
+                 - 简介：{character.Description}
+                 - 设定：
+                 {character.Prompt}
+
+                 这是你的私人文件夹：
+                 {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
+                 """);
+            ChatBot.UpdateHistoryEndIndex();
+
+            //创建用户显式启用的模块
+            for (int index = 0; index < enabledModuleTypes.Length; index++)
+            {
+                Type moduleType = enabledModuleTypes[index];
+                progress?.Report(($"构造 {TypeUtility.GetReadableName(moduleType)} 模块", (float)index / enabledModuleTypes.Length));
+                await container.RequireInstance(moduleType);
             }
         }
+
+        //激活模块
+        {
+            AwakeContext awakeContext = new() {
+                Character = character,
+                ChatBot = ChatBot,
+                ChatActivity = this
+            };
+
+            for (int index = 0; index < container.Instances.Count; index++)
+            {
+                object instance = container.Instances[index];
+                progress?.Report(($"激活 {TypeUtility.GetReadableName(instance.GetType())} 模块", (float)index / enabledModuleTypes.Length));
+                await OnInstanceCreated(instance);//处理一下已创建物体
+            }
+            container.InstanceCreated += OnInstanceCreated;
+
+            async Task OnInstanceCreated(object instance)
+            {
+                if (instance is IConfigurable configurable)
+                {
+                    object configData = configurationSystem.GetConfiguration(instance.GetType(), character.StorageKey)!;
+                    configurable.Configuration = configData;
+                }
+
+                if (instance is ChatBehaviour behaviour)
+                {
+                    await behaviour.AwakeAsync(awakeContext);
+                }
+            }
+        }
+
+        moduleSystem.ModulesLoaded += OnModulesLoaded;
+        moduleSystem.ModulesUnloaded += OnModulesUnloaded;
     }
-    public async ValueTask DisposeAsync()
+    public async Task Start(IProgress<(string, float)>? progress = null)
+    {
+        //启动模块
+        {
+            ChatBehaviour[] behaviours = container.Instances.OfType<ChatBehaviour>().ToArray();
+            for (int index = 0; index < behaviours.Length; index++)
+            {
+                ChatBehaviour chatBehaviour = behaviours[index];
+                progress?.Report(($"启动 {TypeUtility.GetReadableName(chatBehaviour.GetType())} 模块", (float)index / behaviours.Length));
+                await chatBehaviour.UpdateAsync(new UpdateContext());
+            }
+        }
+        //开始update
+        cancelTimerSource = new CancellationTokenSource();
+        StartTimer(1f, cancelTimerSource.Token);
+    }
+    public async Task Destroy(IProgress<(string, float)>? progress = null)
+    {
+        moduleSystem.ModulesLoaded -= OnModulesLoaded;
+        moduleSystem.ModulesUnloaded -= OnModulesUnloaded;
+
+        if (cancelTimerSource != null)
+            await cancelTimerSource.CancelAsync();
+        await container.DisposeAsync(progress);
+    }
+
+    ConstructContainer container = null!;
+    CancellationTokenSource? cancelTimerSource;
+
+    async void StartTimer(float expectedDeltaTime, CancellationToken cancellationToken = default)
     {
         try
         {
-            foreach (ISystemEvent systemEvent in ((IEnumerable<ISystemEvent>)eventModules).Reverse())
-                await systemEvent.DestroyAsync();
-            await moduleService.DisposeAsync();
-            await chatBot.DisposeAsync();
+            DateTime startTime = DateTime.Now;
+            DateTime lastTime = DateTime.Now;
+            int frameIndex = 0;
+            float time = 0;
+
+            while (cancellationToken.IsCancellationRequested == false)
+            {
+                //避免真的每帧更新
+                await Task.Delay(TimeSpan.FromSeconds(expectedDeltaTime), cancellationToken);
+
+                DateTime currentTime = DateTime.Now;
+                float deltaTime = (float)(currentTime - lastTime).TotalSeconds;
+                lastTime = currentTime;
+                UpdateContext context = new() {
+                    FrameCount = ++frameIndex,
+                    RealTime = (float)(startTime - currentTime).TotalSeconds,
+                    ExpectedDeltaTime = expectedDeltaTime,
+                    DeltaTime = deltaTime,
+                    Time = time += deltaTime,
+                };
+
+                foreach (ChatBehaviour behaviour in container.Instances.OfType<ChatBehaviour>())
+                    await behaviour.UpdateAsync(context);
+            }
         }
+        catch (OperationCanceledException) {}
         catch (Exception e)
         {
             Console.WriteLine(e);
-            throw;
         }
     }
 
-    public IEnumerable<string> GetImplicitFunctionContext()
+    async Task OnModulesUnloaded(List<Type> moduleTypes)
     {
-        return kernelService.Plugins.GetFunctionsMetadata()
-            .Select(metadata => metadata.ToOpenAIFunction().ToFunctionDefinition(true))
-            .Select(chatTool => new JObject() {
-                ["kind"] = chatTool.Kind.GetHashCode(),
-                ["FunctionName"] = chatTool.FunctionName,
-                ["FunctionDescription"] = chatTool.FunctionDescription,
-                ["FunctionParameters"] = JToken.Parse(Encoding.UTF8.GetString(chatTool.FunctionParameters)),
-                ["FunctionSchemaIsStrict"] = chatTool.FunctionSchemaIsStrict
-            }).Select(jObject => jObject.ToString());
+        foreach (Type moduleType in moduleTypes)
+            container.UnRegisterBuilder(moduleType);
+        object[] invalidModules = container.Instances.Where(instance => moduleTypes.Contains(instance.GetType())).ToArray();
+        foreach (object instance in invalidModules)
+            container.RemoveInstance(instance);
+
+        await TypeUtility.DisposeObjects(invalidModules);
+    }
+    async Task OnModulesLoaded(List<Type> moduleTypes)
+    {
+        Type[] enabledModuleTypes = moduleTypes.Where(type => Character.Modules.Contains(ModuleSystem.GetModuleID(type))).ToArray();
+
+        foreach (Type moduleType in enabledModuleTypes)
+            container.RegisterBuilder(moduleType);
+        foreach (Type moduleType in enabledModuleTypes)
+            await container.RequireInstance(moduleType);
     }
 }

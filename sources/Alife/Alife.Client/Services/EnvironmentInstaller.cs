@@ -41,7 +41,7 @@ public class EnvironmentInstaller
     public async Task CheckDotNetSdkAsync()
     {
         // 先尝试系统 PATH 中的 dotnet
-        string output = AlifePlatform.Command("dotnet", "--list-sdks");
+        string output = AlifeUtility.Command("dotnet", "--list-sdks");
         if (output.Contains("10."))
         {
             IsDotNetSdkReady = true;
@@ -52,7 +52,7 @@ public class EnvironmentInstaller
         string programFilesDotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
         if (File.Exists(programFilesDotnet))
         {
-            output = AlifePlatform.Command($"\"{programFilesDotnet}\"", "--list-sdks");
+            output = AlifeUtility.Command($"\"{programFilesDotnet}\"", "--list-sdks");
             if (output.Contains("10."))
             {
                 IsDotNetSdkReady = true;
@@ -64,7 +64,7 @@ public class EnvironmentInstaller
         string localDotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "dotnet", "dotnet.exe");
         if (File.Exists(localDotnet))
         {
-            output = AlifePlatform.Command($"\"{localDotnet}\"", "--list-sdks");
+            output = AlifeUtility.Command($"\"{localDotnet}\"", "--list-sdks");
             if (output.Contains("10."))
             {
                 IsDotNetSdkReady = true;
@@ -85,7 +85,7 @@ public class EnvironmentInstaller
         try
         {
             string pyExe = Path.Combine(PythonDir, "python.exe");
-            string output = AlifePlatform.Command(pyExe, "-c \"import torch; print(torch.version.cuda or 'none')\"");
+            string output = AlifeUtility.Command(pyExe, "-c \"import torch; print(torch.version.cuda or 'none')\"");
             string trimmed = output.Trim();
             IsCudaReady = trimmed.Contains("12.");
         }
@@ -99,10 +99,10 @@ public class EnvironmentInstaller
     {
         progress?.Report("正在下载 Visual C++ Redistributable...");
         string tempExe = Path.Combine(Path.GetTempPath(), "vc_redist.x64.exe");
-        await AlifePlatform.DownloadFileAsync("https://aka.ms/vs/17/release/vc_redist.x64.exe", tempExe);
+        await AlifeUtility.DownloadFileAsync("https://aka.ms/vs/17/release/vc_redist.x64.exe", tempExe);
 
         progress?.Report("正在静默安装 Visual C++ Redistributable...");
-        AlifePlatform.Command(tempExe, "/install /quiet /norestart");
+        AlifeUtility.Command(tempExe, "/install /quiet /norestart");
 
         try { File.Delete(tempExe); }
         catch {}
@@ -116,7 +116,7 @@ public class EnvironmentInstaller
         Directory.CreateDirectory(pyDir);
 
         progress?.Report("正在下载 Python 3.12 嵌入版...");
-        await AlifePlatform.DownloadFileAsync(
+        await AlifeUtility.DownloadFileAsync(
             "https://repo.huaweicloud.com/python/3.12.10/python-3.12.10-embed-amd64.zip",
             Path.Combine(Path.GetTempPath(), "py.zip"));
 
@@ -138,15 +138,15 @@ public class EnvironmentInstaller
         progress?.Report("正在安装 pip...");
         string getPyUrl = "https://bootstrap.pypa.io/get-pip.py";
         string getPyPath = Path.Combine(Path.GetTempPath(), "get-pip.py");
-        await AlifePlatform.DownloadFileAsync(getPyUrl, getPyPath);
+        await AlifeUtility.DownloadFileAsync(getPyUrl, getPyPath);
 
-        AlifePlatform.Command(Path.Combine(pyDir, "python.exe"), $"\"{getPyPath}\" --no-warn-script-location");
+        AlifeUtility.Command(Path.Combine(pyDir, "python.exe"), $"\"{getPyPath}\" --no-warn-script-location");
         try { File.Delete(getPyPath); }
         catch {}
 
         progress?.Report("正在安装 setuptools / wheel...");
         string pyExe = Path.Combine(pyDir, "python.exe");
-        AlifePlatform.Command(pyExe, "-m pip install --upgrade pip setuptools wheel --quiet --no-warn-script-location");
+        AlifeUtility.Command(pyExe, "-m pip install --upgrade pip setuptools wheel --quiet --no-warn-script-location");
 
         PythonDir = pyDir;
         CheckPython();
@@ -156,10 +156,10 @@ public class EnvironmentInstaller
     {
         progress?.Report("正在下载 .NET SDK 10 安装包...");
         string tempExe = Path.Combine(Path.GetTempPath(), "dotnet-sdk-10.exe");
-        await AlifePlatform.DownloadFileAsync("https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.301/dotnet-sdk-10.0.301-win-x64.exe", tempExe);
+        await AlifeUtility.DownloadFileAsync("https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.301/dotnet-sdk-10.0.301-win-x64.exe", tempExe);
 
         progress?.Report("正在安装 .NET SDK 10...");
-        AlifePlatform.Command(tempExe, "/install /quiet /norestart");
+        AlifeUtility.Command(tempExe, "/install /quiet /norestart");
 
         try { File.Delete(tempExe); }
         catch {}
@@ -177,12 +177,12 @@ public class EnvironmentInstaller
         string pyExe = Path.Combine(PythonDir, "python.exe");
 
         progress?.Report("正在卸载已有 torch...");
-        AlifePlatform.Command(pyExe, "-m pip uninstall torch torchvision -y");
+        AlifeUtility.Command(pyExe, "-m pip uninstall torch torchvision -y");
 
         progress?.Report("正在安装 PyTorch 2.10.0 + CUDA 12.8（可能需要较长时间）...");
-        string pytorchIndex = MirrorProvider.TransformUrl("--index-url https://download.pytorch.org/whl/cu128");
+        string pytorchIndex = AlifeMirror.TransformUrl("--index-url https://download.pytorch.org/whl/cu128");
         string pipInstall = $"install torch==2.10.0+cu128 torchvision==0.25.0+cu128 {pytorchIndex}";
-        AlifePlatform.Command(pyExe, $"-m pip {pipInstall}");
+        AlifeUtility.Command(pyExe, $"-m pip {pipInstall}");
 
         await CheckCudaAsync();
         progress?.Report("CUDA 安装完成");

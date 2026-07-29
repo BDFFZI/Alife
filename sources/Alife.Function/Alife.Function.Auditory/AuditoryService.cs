@@ -7,19 +7,20 @@ using Windows.Media.Capture;
 using Windows.Media.MediaProperties;
 using Windows.Media.Render;
 using Alife.Framework;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Function.Auditory;
 
-[Module("语音识别", "为AI增加语音识别能力。",
+[Module("语音识别",
+    "为AI增加语音识别能力。",
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(AuditoryServiceUI))]
-public class AuditoryService(IAuditoryModel auditoryModel) :
-    InteractiveModule<AuditoryService>,
-    IConfigurable<AuditoryServiceConfig>,
-    IDisposable
+public class AuditoryService(
+    IAuditoryModel auditoryModel,
+    IInteractor<AuditoryService> interactor) :
+    ChatBehaviour,
+    IConfigurable<AuditoryServiceConfig>
 {
-    public AuditoryServiceConfig? Configuration { get; set; }
+    public AuditoryServiceConfig Configuration { get; set; } = null!;
     public bool IsRunning { get; private set; }
     public bool IsListening { get; private set; } = true;
     public event Action<bool>? IsListeningChanged;
@@ -66,7 +67,7 @@ public class AuditoryService(IAuditoryModel auditoryModel) :
         graph?.QuantumStarted -= OnQuantumStarted;
         graph?.UnrecoverableErrorOccurred -= OnUnrecoverableErrorOccurred;
         graph?.Stop();
-        
+
         outputNode?.Dispose();
         outputNode = null;
         inputNode?.Dispose();
@@ -76,64 +77,27 @@ public class AuditoryService(IAuditoryModel auditoryModel) :
         IsRunning = false;
     }
 
-    protected override string ChatTextFilter(string text)
-    {
-        return $"""
-                {base.ChatTextFilter(text)}
-                (来自语音消息，可能误识别)
-                (请用语音功能回复)
-                """;
-    }
-
     AudioGraph? graph;
     AudioDeviceInputNode? inputNode;
     AudioFrameOutputNode? outputNode;
 
-    void UpdateListeningState()
+    protected override async Task OnStart()
     {
-        string? keyName = Configuration?.PushToTalkKey;
-        bool newState;
-        if (string.IsNullOrEmpty(keyName))
-        {
-            newState = true;
-        }
-        else if (Enum.TryParse(keyName, true, out ConsoleKey key))
-        {
-            newState = (GetAsyncKeyState((int)key) & 0x8000) != 0;
-
-            [DllImport("user32.dll")]
-            static extern short GetAsyncKeyState(int vKey);
-        }
-        else
-        {
-            newState = true;
-        }
-
-        if (newState != IsListening)
-        {
-            IsListening = newState;
-            IsListeningChanged?.Invoke(IsListening);
-        }
-    }
-    void OnRecognized(string text)
-    {
-        Chat(text);
-    }
-
-    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        await base.StartAsync(kernel, chatActivity);
+        interactor.ChatTextFilter = text =>
+            $"""
+             消息来源:[{nameof(AuditoryService)}]
+             {text}
+             (语音识别结果，容易误识别)
+             (建议用语音功能回复)
+             """;
         auditoryModel.Recognized += OnRecognized;
         await StartRecordingAsync();
     }
-    public override async Task DestroyAsync()
+    protected override Task OnDestroy()
     {
         auditoryModel.Recognized -= OnRecognized;
-        await base.DestroyAsync();
-    }
-    public void Dispose()
-    {
         StopRecording();
+        return Task.CompletedTask;
     }
 
     unsafe void OnQuantumStarted(AudioGraph sender, object args)
@@ -152,6 +116,7 @@ public class AuditoryService(IAuditoryModel auditoryModel) :
 
         // C#/WinRT 的 IInspectable 在跨越本机 COM 边界时会遇到无法转换回原始接口的 bug
         // 这里通过 CsWinRT 暴露的 NativeObject 获取原生 IUnknown 指针，再通过 QueryInterface 和函数指针调用
+        // ReSharper disable once SuspiciousTypeConversion.Global
         IntPtr unk = ((WinRT.IWinRTObject)reference).NativeObject.ThisPtr;
         Guid iid = new Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D");// IMemoryBufferByteAccess
         if (Marshal.QueryInterface(unk, in iid, out IntPtr ptr) != 0)
@@ -190,9 +155,40 @@ public class AuditoryService(IAuditoryModel auditoryModel) :
         {
             Marshal.Release(ptr);
         }
+
+        void UpdateListeningState()
+        {
+            string? keyName = Configuration.PushToTalkKey;
+            bool newState;
+            if (string.IsNullOrEmpty(keyName))
+            {
+                newState = true;
+            }
+            else if (Enum.TryParse(keyName, true, out ConsoleKey key))
+            {
+                newState = (GetAsyncKeyState((int)key) & 0x8000) != 0;
+
+                [DllImport("user32.dll")]
+                static extern short GetAsyncKeyState(int vKey);
+            }
+            else
+            {
+                newState = true;
+            }
+
+            if (newState != IsListening)
+            {
+                IsListening = newState;
+                IsListeningChanged?.Invoke(IsListening);
+            }
+        }
     }
     void OnUnrecoverableErrorOccurred(AudioGraph audioGraph, AudioGraphUnrecoverableErrorOccurredEventArgs audioGraphUnrecoverableErrorOccurredEventArgs)
     {
         StopRecording();
+    }
+    void OnRecognized(string text)
+    {
+        interactor.Chat(text);
     }
 }

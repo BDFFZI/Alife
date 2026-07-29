@@ -38,9 +38,9 @@ else
         //业务环境初始化
         try
         {
-            await Task.Run(() => {
+            await Task.Run(async () => {
+                await Program.ServiceProvider.InitAlife();
                 EnvironmentInstaller.SetupEnvironmentPaths();
-                MirrorProvider.SetupEnvironment();
                 Program.ServiceProvider.GetRequiredService<ChatMessageService>();
                 Program.ServiceProvider.GetRequiredService<PluginMarketService>();
             });

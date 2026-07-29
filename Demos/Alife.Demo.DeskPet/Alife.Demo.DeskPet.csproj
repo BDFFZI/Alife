@@ -3,16 +3,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-  </ItemGroup>
-
+  
   <ItemGroup>
     <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj" />
   </ItemGroup>
 

@@ -6,7 +6,7 @@ namespace Alife.Function.Interpreter;
 /// 被标记的参数，在生成文档时会将其显示为嵌套xml
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
-public class XmlFormAttribute() : Attribute {}
+public class XmlFormAttribute : Attribute;
 
 public record XmlParameter
 {

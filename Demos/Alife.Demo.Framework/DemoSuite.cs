@@ -1,86 +1,92 @@
-using System;
-using System.Linq;
 using Alife.Platform;
 using Alife.Framework;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using Alife.Function.FunctionCaller;
+using Alife.Function.Language.OpenAI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-public class DemoSuite : IAsyncDisposable
+public static class DemoSuite
 {
-    public static async Task<DemoSuite> InitializeAsync(Character character, Action<ConfigurationSystem>? configure = null)
+    public static async Task Run(
+        Character character,
+        Action<ServiceProvider>? systemCreated = null,
+        Action<ChatActivity>? activityCreated = null)
     {
-        Console.OutputEncoding = Encoding.UTF8;
-        AlifeTerminal.Log("========================================", ConsoleColor.Magenta);
-        AlifeTerminal.Log($"   Alife.Client Demo 套件: {character.Name}", ConsoleColor.Magenta);
-        AlifeTerminal.Log("========================================", ConsoleColor.Magenta);
+        Console.WriteLine("导入:" + typeof(OpenAILanguageModel));
+        Console.WriteLine("导入:" + typeof(XmlFunctionCaller));
 
-        AlifeTerminal.LogInfo("正在初始化系统环境 (Storage, Config)...");
-        StorageSystem storage = new();
-        ConfigurationSystem config = new(storage);
-        using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        ModuleSystem plugins = new(storage, loggerFactory.CreateLogger<ModuleSystem>());
-        plugins.ReloadModules();
-        configure?.Invoke(config);
+        ServiceCollection serviceCollection = new();
+        serviceCollection.AddAlife();
+        ServiceProvider provider = serviceCollection.BuildServiceProvider();
+        await provider.InitAlife();
 
-        AlifeTerminal.LogInfo("正在创建 ChatActivity 并注入模块...");
-        ChatActivity activity = await ChatActivity.Create(character, config, plugins, null, [config, storage]);
+        systemCreated?.Invoke(provider);
 
-        AlifeTerminal.LogInfo($"[模块加载完毕]: {string.Join(", ", activity.EventModules.Select(p => p.GetType().Name))}");
+        ChatActivitySystem chatActivitySystem = provider.GetRequiredService<ChatActivitySystem>();
+        chatActivitySystem.ActivatingProcess += (_, progress) => {
+            DemeLog.LogInfo(progress.Step);
+        };
+        chatActivitySystem.ActivationFailed += (_, exception) => {
+            DemeLog.LogError(exception.ToString());
+        };
 
-        DemoSuite suite = new(activity);
-
-        LogSystem($"[角色系统提示词]:\n{character.Prompt}");
-        AlifeTerminal.LogHint("环境构建完成喵！✨");
-
-        await activity.Launch();
-
-        return suite;
-    }
-
-    public ChatBot ChatBot => chatActivity.ChatBot;
-    public async Task RunAsync()
-    {
-        AlifeTerminal.LogInfo("文字输入已就绪，可直接在下方输入文字与 AI 交流。输入 'exit' 退出。");
-
-        while (isRunning)
+        //进行活动
         {
-            Console.Write("\n> ");
-            string? input = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(input))
-                continue;
-            if (input.Equals("exit", StringComparison.CurrentCultureIgnoreCase))
-                break;
+            DemeLog.LogInfo("激活对话中...");
+            ChatActivity? chatActivity = await chatActivitySystem.Activate(character);
+            if (chatActivity == null)
+            {
+                DemeLog.LogError("对话活动启动失败");
+                return;
+            }
 
-            await ChatBot.ChatAsync(input);
-            Console.WriteLine();
+            AddChatLog(chatActivity.ChatBot);
+            activityCreated?.Invoke(chatActivity);
+
+            DemeLog.LogInfo("对话开始。直接在下方输入文字与 AI 交流。输入 'exit' 退出。");
+            StartChat(chatActivity.ChatBot);
+
+            DemeLog.LogInfo("关闭对话中...");
+            await chatActivitySystem.Deactivate(character);
+
+            DemeLog.LogInfo("对话结束");
         }
-        AlifeTerminal.LogInfo("正在退出套件...");
     }
 
-    readonly ChatActivity chatActivity;
-    bool isRunning = true;
-    bool isReceivingChat;
-
-    DemoSuite(ChatActivity activity)
+    static void AddChatLog(ChatBot chatBot)
     {
-        chatActivity = activity;
+        bool isFirstMessage = false;
+        bool isFirstReasoning = false;
 
-        ChatBot.ChatSent += (msg) => {
+        chatBot.ChatSent += msg => {
             LogSent("USER", msg);
-            isReceivingChat = true;
+            isFirstMessage = true;
+            isFirstReasoning = true;
         };
-        ChatBot.ChatReceived += (msg) => {
-            if (isReceivingChat)
+        chatBot.ReasoningReceived += msg => {
+            if (isFirstReasoning)
             {
-                isReceivingChat = false;
-                LogReceivedStart("AI");
+                isFirstReasoning = false;
+                LogReceivedStart("Reasoning");
             }
-            LogReceivedContent(msg);
+            LogReceivedContent(msg, ConsoleColor.Gray);
         };
-        ChatBot.ChatOver += () => Console.WriteLine();
+        chatBot.ChatReceived += msg => {
+            if (isFirstMessage)
+            {
+                isFirstMessage = false;
+                Console.WriteLine();
+                LogReceivedStart("Message");
+            }
+            LogReceivedContent(msg, ConsoleColor.White);
+        };
+        chatBot.ChatOver += Console.WriteLine;
+        chatBot.ChatHistoryAdd += OnChatHistoryAdd;
+        chatBot.ChatExceptionThrow += AlifeLog.LogError;
+
+        foreach (ChatMessageContent chatMessageContent in chatBot.ChatHistory)
+            OnChatHistoryAdd(chatMessageContent);
 
         void OnChatHistoryAdd(ChatMessageContent msg)
         {
@@ -93,24 +99,29 @@ public class DemoSuite : IAsyncDisposable
             else if (msg.Role == AuthorRole.Tool)
                 LogSystem($"[TOOL_USED] {content}");
             else
-                AlifeTerminal.Log($"[{msg.Role.ToString().ToUpper()}] {content}", ConsoleColor.DarkGray);
+                DemeLog.Log($"[{msg.Role.ToString().ToUpper()}] {content}", ConsoleColor.DarkGray);
         }
-
-        ChatBot.ChatHistoryAdd += OnChatHistoryAdd;
-        foreach (ChatMessageContent chatMessageContent in ChatBot.ChatHistory)
-            OnChatHistoryAdd(chatMessageContent);
     }
-    public async ValueTask DisposeAsync()
+    static void StartChat(ChatBot chatBot)
     {
-        isRunning = false;
-        await chatActivity.DisposeAsync();
-        GC.SuppressFinalize(this);
+        while (true)
+        {
+            Console.Write("\n> ");
+            string? input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(input))
+                continue;
+            if (input.Equals("exit", StringComparison.CurrentCultureIgnoreCase))
+                break;
+
+            chatBot.Chat(input);
+            Console.WriteLine();
+        }
     }
 
-    static void LogSystem(string message) => AlifeTerminal.Log($"[System] {message}", ConsoleColor.DarkYellow);
+    static void LogSystem(string message) => DemeLog.Log($"[System] {message}", ConsoleColor.DarkYellow);
     static void LogSent(string sender, string message)
     {
-        lock (AlifeTerminal.ConsoleLock)
+        lock (DemeLog.ConsoleLock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
@@ -123,7 +134,7 @@ public class DemoSuite : IAsyncDisposable
     }
     static void LogReceivedStart(string receiver)
     {
-        lock (AlifeTerminal.ConsoleLock)
+        lock (DemeLog.ConsoleLock)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
@@ -132,10 +143,11 @@ public class DemoSuite : IAsyncDisposable
             Console.ForegroundColor = ConsoleColor.White;
         }
     }
-    static void LogReceivedContent(string content)
+    static void LogReceivedContent(string content, ConsoleColor consoleColor)
     {
-        lock (AlifeTerminal.ConsoleLock)
+        lock (DemeLog.ConsoleLock)
         {
+            Console.ForegroundColor = consoleColor;
             Console.Write(content);
         }
     }

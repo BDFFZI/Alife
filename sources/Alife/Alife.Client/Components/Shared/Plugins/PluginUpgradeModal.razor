@@ -18,7 +18,7 @@
                 style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
                 <Checkbox @bind-Value="item.isSelected" Disabled="@item.isLocked">
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; font-size: 14px;">@item.plugin.Name</div>
+                        <div style="font-weight: 600; font-size: 14px;">@item.PluginPackage.Name</div>
                         <div style="font-size: 12px; color: #999;">
                             v@(item.oldVersion) → v@(item.newVersion)
                         </div>
@@ -63,7 +63,7 @@
 
         try
         {
-            await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (x.plugin, x.newVersion)));
+            await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (plugin: x.PluginPackage, x.newVersion)));
             MessageService.Success($"已升级 {toUpgrade.Count} 个插件");
             foreach (var item in toUpgrade)
                 UpgradeList.Remove(item);
@@ -78,7 +78,7 @@
 
             try
             {
-                await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (x.plugin, x.oldVersion)));
+                await PluginMarketService.InstallPlugins(toUpgrade.Select(x => (plugin: x.PluginPackage, x.oldVersion)));
                 MessageService.Warning($"已回滚 {toUpgrade.Count} 个插件");
                 await OnUpgradeComplete.InvokeAsync();
             }
@@ -96,7 +96,7 @@
 
     public class UpgradeItem
     {
-        public Plugin plugin { get; set; } = null!;
+        public PluginPackage PluginPackage { get; set; } = null!;
         public string newVersion { get; set; } = "";
         public string oldVersion { get; set; } = "";
         public bool isSelected = true;

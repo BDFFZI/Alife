@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Function.FunctionCaller;
 using Alife.Function.Interpreter;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
@@ -15,7 +14,7 @@ namespace Alife.Function.Mcp;
 public static class McpXmlAdapter
 {
     public static async Task<(McpClient Client, XmlHandler Handler)> CreateAsync(
-        McpServerConfig config,
+        McpServerItem config,
         Action<string, string>? resultCallback = null,
         ILoggerFactory? loggerFactory = null)
     {
@@ -38,8 +37,7 @@ public static class McpXmlAdapter
         XmlHandler handler = new() {
             Name = config.Name,
             Description = config.Description,
-            Functions = functions,
-            Instance = client,
+            Functions = functions
         };
 
         return (client, handler);

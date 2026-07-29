@@ -4,13 +4,10 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    </ItemGroup>
-
+    
     <ItemGroup>
       <ProjectReference Include="..\Alife.Platform\Alife.Platform.csproj" />
+      <ProjectReference Include="..\Alife.PluginSystem\Alife.PluginSystem.csproj" />
     </ItemGroup>
 
 </Project>

@@ -47,8 +47,11 @@ public class ConfigurationSystem(StorageSystem storageSystem)
     }
     public void SetConfiguration(Type target, object configuration, string root = "")
     {
-        if (CanConfiguration(target) == false)
-            throw new Exception("目标类型不支持配置功能！");
+        Type? configurationType = GetConfigurationType(target);
+        if (configurationType == null)
+            throw new Exception("目标不支持配置功能！");
+        if (configurationType.IsInstanceOfType(configuration) == false)
+            throw new Exception("目标不支持当前配置类型！");
 
         storageSystem.SetObject(Path.Combine(root, "Configuration", target.FullName!), configuration);
     }
@@ -69,13 +72,13 @@ public class ConfigurationSystem(StorageSystem storageSystem)
         // 先检查角色配置
         if (!string.IsNullOrEmpty(root))
         {
-            string rootPath = storageSystem.GetObjectRealPath(Path.Combine(root, "Configuration", target.FullName!));
+            string rootPath = storageSystem.GetObjectAbsolutePath(Path.Combine(root, "Configuration", target.FullName!));
             if (File.Exists(rootPath))
                 return rootPath;
         }
 
         // 回退到全局配置
-        string globalPath = storageSystem.GetObjectRealPath(Path.Combine("Configuration", target.FullName!));
+        string globalPath = storageSystem.GetObjectAbsolutePath(Path.Combine("Configuration", target.FullName!));
         if (File.Exists(globalPath))
             return globalPath;
 

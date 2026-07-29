@@ -13,26 +13,30 @@ public class BrowserConfig
     public int PageCharLimit { get; set; } = 1000;
 }
 
-[Module("浏览器工具", "让AI可以像人一样操控真实的浏览器，从而能够执行各种网页任务的同时，避免反爬。",
+[Module("浏览器工具",
+    "让AI可以像人一样操控真实的浏览器，从而能够执行各种网页任务的同时，避免反爬。",
     defaultCategory: "Alife 官方/实用工具")]
-public class BrowserService(XmlFunctionCaller functionService)
-    : InteractiveModule<BrowserService>, IConfigurable<BrowserConfig>, IAsyncDisposable
+public class BrowserService(
+    XmlFunctionCaller functionService,
+    IInteractor<BrowserService> interactor) :
+    ChatBehaviour,
+    IConfigurable<BrowserConfig>
 {
-    public BrowserConfig? Configuration { get; set; }
+    public BrowserConfig Configuration { get; set; } = null!;
 
     [XmlFunction(FunctionMode.OneShot)]
     public async Task OpenWebsite(string url)
     {
         await browser.OpenWebsiteAsync(url);
-        Poke("已打开网站");
+        interactor.Poke("已打开网站");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description($"返回当前打开网页的文本。其中可交互元素会以[{{交互类型}}{{id}}:{{描述}}]的格式返回。交互类型中：t=文本框，b=按钮；id则可在{nameof(GetElementInfo)}中用来查看对应元素的原始html信息")]
     public async Task ReadWebsite([Description("从1开始")] int page)
     {
-        string result = await browser.ReadWebsiteAsync(page, Configuration!.PageCharLimit);
-        Poke($"页面内容：{result}\n提示：翻页寻找可疑的交互元素，然后使用{nameof(GetElementInfo)}查看");
+        string result = await browser.ReadWebsiteAsync(page, Configuration.PageCharLimit);
+        interactor.Poke($"页面内容：{result}\n提示：翻页寻找可疑的交互元素，然后使用{nameof(GetElementInfo)}查看");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -40,7 +44,7 @@ public class BrowserService(XmlFunctionCaller functionService)
     public async Task GetElementInfo(int id)
     {
         string result = await browser.GetElementInfoAsync(id);
-        Poke("元素内容：" + result);
+        interactor.Poke("元素内容：" + result);
     }
 
     [XmlFunction(FunctionMode.Content)]
@@ -50,15 +54,14 @@ public class BrowserService(XmlFunctionCaller functionService)
         {
             string code = context.FullContent.Trim();
             string result = await browser.RunWebsiteJsAsync(code);
-            Poke($"JS结果：{result}\n注意：执行成功不代表符合预期，请验证执行结果");
+            interactor.Poke($"JS结果：{result}\n注意：执行成功不代表符合预期，请验证执行结果");
         }
     }
 
     readonly BrowserEngine browser = new();
 
-    public override async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        await base.AwakeAsync(context);
         await browser.WaitToLoadedAsync(TimeSpan.FromSeconds(3));
 
         XmlHandler xmlHandler = new(this) {
@@ -80,10 +83,10 @@ public class BrowserService(XmlFunctionCaller functionService)
                             6. 如果要下载浏览器中的内容可以先创建副本（如用canvas复制图片），然后用<a>触发下载，再从下载文件夹中拿文件，这样就能绕过验证机制
                             """
         };
-        functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit);
+        functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
         functionService.AddPlainAreas(nameof(RunWebsiteJs));
     }
-    public async ValueTask DisposeAsync()
+    protected override async Task OnDestroy()
     {
         await browser.DisposeAsync();
     }

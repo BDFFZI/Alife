@@ -41,7 +41,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     {
         commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Flush));
     }
-    public async Task CancelAsync()
+    public async Task CancelAndClearAsync()
     {
         while (commandChannel.Reader.TryRead(out _)) {}
         await handleTokenSource.CancelAsync();

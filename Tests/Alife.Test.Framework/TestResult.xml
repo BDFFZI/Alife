@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" name="Alife.Test.Framework.dll" fullname="C:\Users\13309\Desktop\Alife\Outputs\Debug\Alife.Test.Framework\Alife.Test.Framework.dll" testcasecount="2" result="Passed" start-time="2026-07-26T10:35:31.9464899Z" end-time="2026-07-26T10:35:32.5529819Z" duration="0.606413" total="2" initiated="2" passed="2" failed="0" warnings="0" completed="2" skipped="0" inconclusive="0" asserts="0" random-seed="2136170379">
+  <command-line><![CDATA[C:\Users\13309\Desktop\Alife\Outputs\Debug\Alife.Test.Framework\Alife.Test.Framework.dll]]></command-line>
+  <filter />
+  <test-suite type="Assembly" id="1004" name="Alife.Test.Framework.dll" fullname="C:\Users\13309\Desktop\Alife\Outputs\Debug\Alife.Test.Framework\Alife.Test.Framework.dll" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-07-26T10:35:31.9464899Z" end-time="2026-07-26T10:35:32.5529819Z" duration="0.606413" total="2" initiated="2" passed="2" failed="0" warnings="0" completed="2" skipped="0" inconclusive="0" asserts="0">
+    <environment framework-version="4.6.0.0" clr-version="10.0.5" os-version="Microsoft Windows 10.0.26200" platform="Win32NT" cwd="C:\Users\13309\Desktop\Alife\Tests\Alife.Test.Framework" machine-name="BDXK" user="13309" user-domain="BDXK" culture="en-US" uiculture="zh-CN" os-architecture="x64" />
+    <settings>
+      <setting name="WorkDirectory" value="C:\Users\13309\Desktop\Alife\Tests\Alife.Test.Framework" />
+      <setting name="NumberOfTestWorkers" value="16" />
+    </settings>
+    <properties>
+      <property name="_PID" value="37056" />
+      <property name="_APPDOMAIN" value="Alife.Test.Framework" />
+    </properties>
+    <test-suite type="TestSuite" id="1005" name="Alife" fullname="Alife" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-07-26T10:35:31.9530892Z" end-time="2026-07-26T10:35:32.5529788Z" duration="0.599889" total="2" initiated="2" passed="2" failed="0" warnings="0" completed="2" skipped="0" inconclusive="0" asserts="0">
+      <test-suite type="TestSuite" id="1006" name="Test" fullname="Alife.Test" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-07-26T10:35:31.9534831Z" end-time="2026-07-26T10:35:32.5529754Z" duration="0.599492" total="2" initiated="2" passed="2" failed="0" warnings="0" completed="2" skipped="0" inconclusive="0" asserts="0">
+        <test-suite type="TestSuite" id="1007" name="Framework" fullname="Alife.Test.Framework" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-07-26T10:35:31.9534948Z" end-time="2026-07-26T10:35:32.5529722Z" duration="0.599477" total="2" initiated="2" passed="2" failed="0" warnings="0" completed="2" skipped="0" inconclusive="0" asserts="0">
+          <test-suite type="TestFixture" id="1000" name="ConstructContainerTests" fullname="Alife.Test.Framework.ConstructContainerTests" classname="Alife.Test.Framework.ConstructContainerTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-07-26T10:35:31.9549763Z" end-time="2026-07-26T10:35:32.1577015Z" duration="0.202726" total="1" initiated="1" passed="1" failed="0" warnings="0" completed="1" skipped="0" inconclusive="0" asserts="0">
+            <test-case id="1001" name="Test" fullname="Alife.Test.Framework.ConstructContainerTests.Test" methodname="Test" classname="Alife.Test.Framework.ConstructContainerTests" runstate="Runnable" seed="401584892" result="Passed" start-time="2026-07-26T10:35:31.9585276Z" end-time="2026-07-26T10:35:32.1524617Z" duration="0.194117" asserts="0">
+              <output><![CDATA[Alife.Test.Framework.ConstructContainerTests+SystemA
+Alife.Test.Framework.ConstructContainerTests+PluginA
+Alife.Test.Framework.ConstructContainerTests+ModuleA
+Alife.Test.Framework.ConstructContainerTests+PluginB
+Microsoft.Extensions.Logging.LoggerFactory+DisposingLoggerFactory
+Microsoft.Extensions.Logging.Logger`1[Alife.Test.Framework.ConstructContainerTests+PluginC]
+Alife.Test.Framework.ConstructContainerTests+PluginC
+Alife.Test.Framework.ConstructContainerTests+PluginD
+]]></output>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1002" name="FrameworkTests" fullname="Alife.Test.Framework.FrameworkTests" classname="Alife.Test.Framework.FrameworkTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-07-26T10:35:32.1599060Z" end-time="2026-07-26T10:35:32.5529630Z" duration="0.393056" total="1" initiated="1" passed="1" failed="0" warnings="0" completed="1" skipped="0" inconclusive="0" asserts="0">
+            <test-case id="1003" name="TestFramework" fullname="Alife.Test.Framework.FrameworkTests.TestFramework" methodname="TestFramework" classname="Alife.Test.Framework.FrameworkTests" runstate="Runnable" seed="1379583903" result="Passed" start-time="2026-07-26T10:35:32.1603052Z" end-time="2026-07-26T10:35:32.5528972Z" duration="0.392592" asserts="0" />
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

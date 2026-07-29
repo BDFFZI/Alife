@@ -1,7 +1,6 @@
 /*/*
 /*.*
 
-!/.gemini/*
 !/Demos/*
 !/Tests/*
 !/Sources/*
@@ -10,12 +9,9 @@
 !/.gitignore
 !/Alife.slnx
 !/Directory.Build.props
-
+!/LICENSE.md
 !/README.md
-!/LICENSE
-
 !/Publish.ps1
-!/Launch.ps1
 
 obj/
 bin/

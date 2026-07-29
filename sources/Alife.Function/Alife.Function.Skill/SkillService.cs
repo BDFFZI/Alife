@@ -21,11 +21,17 @@ public class SkillInfo
     public string Description { get; set; } = "";
 }
 
-[Module("Skill工具", "Skill 是一种渐进式（按需加载省token）的工具包，通过预编写的手册引导和规范AI完成各种各样的复杂任务。\n你可以使用\u201Cmodelscope skills add\u201D来手动添加新的技能。",
-    defaultCategory: "Alife 官方/功能底座", EditorUI = typeof(SkillServiceUI))]
-public class SkillService(XmlFunctionCaller functionService) : InteractiveModule<SkillService>, IConfigurable<SkillConfig>
+[Module("Skill工具",
+    "Skill 是一种渐进式（按需加载省token）的工具包，通过预编写的手册引导和规范AI完成各种各样的复杂任务。\n你可以使用\u201Cmodelscope skills add\u201D来手动添加新的技能。",
+    defaultCategory: "Alife 官方/功能底座",
+    EditorUI = typeof(SkillServiceUI))]
+public class SkillService(
+    XmlFunctionCaller functionService,
+    IInteractor<SkillService> interactor) :
+    ChatBehaviour,
+    IConfigurable<SkillConfig>
 {
-    public SkillConfig? Configuration { get; set; }
+    public SkillConfig Configuration { get; set; } = null!;
 
     [XmlFunction(FunctionMode.OneShot)]
     public void StudySkill(string name)
@@ -47,7 +53,7 @@ public class SkillService(XmlFunctionCaller functionService) : InteractiveModule
         string skillDoc = File.ReadAllText(skillDocPath);
         string[] appendFiles = Directory.GetFiles(skillDir, "*", SearchOption.AllDirectories);
 
-        Poke(
+        interactor.Poke(
             $"""
              [{nameof(StudySkill)}] 已读取 {name} skill
 
@@ -61,31 +67,11 @@ public class SkillService(XmlFunctionCaller functionService) : InteractiveModule
              """);
     }
 
-    string? FindSkillDirectory(string name)
+    readonly string skillsPath = Path.Combine(AlifePath.StorageFolderPath, "Skills");
+    readonly Regex frontmatterRegex = new(@"^---\s*\n(.*?)\n---\s*\n", RegexOptions.Singleline);
+
+    protected override Task OnAwake()
     {
-        if (!Directory.Exists(skillsPath)) return null;
-
-        foreach (string dir in Directory.GetDirectories(skillsPath))
-        {
-            string dirName = Path.GetFileName(dir);
-            if (dirName == name) return dir;
-
-            string skillDocPath = Path.Combine(dir, "SKILL.md");
-            if (File.Exists(skillDocPath))
-            {
-                string content = File.ReadAllText(skillDocPath);
-                var (frontName, _) = ParseFrontmatter(content);
-                if (frontName == name) return dir;
-            }
-        }
-
-        return null;
-    }
-
-    public override async Task AwakeAsync(AwakeContext context)
-    {
-        await base.AwakeAsync(context);
-
         //获取所有skill并解析frontmatter
         List<SkillInfo> allSkills = [];
         if (Directory.Exists(skillsPath))
@@ -108,7 +94,7 @@ public class SkillService(XmlFunctionCaller functionService) : InteractiveModule
 
         //黑名单过滤
         IEnumerable<SkillInfo> filtered = allSkills;
-        if (Configuration?.Blacklist.Count > 0)
+        if (Configuration.Blacklist.Count > 0)
         {
             HashSet<string> blacklist = new(Configuration.Blacklist);
             filtered = allSkills.Where(s => !blacklist.Contains(s.Name));
@@ -124,19 +110,39 @@ public class SkillService(XmlFunctionCaller functionService) : InteractiveModule
             Explanation = $$"""
                             已有Skill
                             - {{(skillLines.Length == 0 ? "无Skill" : string.Join("\n- ", skillLines))}}
-                            
+
                             创建Skill
                             在`{{skillsPath}}`目录下存放一个`{Skill名称}/SKILL.md`即可被识别为Skill，然后你可以在此基础上增加额外的脚本文件等，具体可以参考其中或网络上常见的Skill写法
                             """
         };
-        functionService.RegisterHandler(xmlHandler);
+        functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
+
+        return Task.CompletedTask;
     }
 
-    static readonly Regex FrontmatterRegex = new(@"^---\s*\n(.*?)\n---\s*\n", RegexOptions.Singleline);
-
-    static (string? name, string? description) ParseFrontmatter(string content)
+    string? FindSkillDirectory(string name)
     {
-        Match match = FrontmatterRegex.Match(content);
+        if (!Directory.Exists(skillsPath)) return null;
+
+        foreach (string dir in Directory.GetDirectories(skillsPath))
+        {
+            string dirName = Path.GetFileName(dir);
+            if (dirName == name) return dir;
+
+            string skillDocPath = Path.Combine(dir, "SKILL.md");
+            if (File.Exists(skillDocPath))
+            {
+                string content = File.ReadAllText(skillDocPath);
+                var (frontName, _) = ParseFrontmatter(content);
+                if (frontName == name) return dir;
+            }
+        }
+
+        return null;
+    }
+    (string? name, string? description) ParseFrontmatter(string content)
+    {
+        Match match = frontmatterRegex.Match(content);
         if (!match.Success) return (null, null);
 
         string yaml = match.Groups[1].Value;
@@ -154,6 +160,4 @@ public class SkillService(XmlFunctionCaller functionService) : InteractiveModule
 
         return (name, description);
     }
-
-    readonly string skillsPath = Path.Combine(AlifePath.StorageFolderPath, "Skills");
 }

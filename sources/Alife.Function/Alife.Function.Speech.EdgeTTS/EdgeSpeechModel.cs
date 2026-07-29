@@ -9,14 +9,15 @@ using Alife.Platform;
 
 namespace Alife.Function.Speech.EdgeTTS;
 
-[Module("Edge语音合成", "基于Edge-TTS的在线语音合成引擎",
-defaultCategory: "Alife 官方/模型接入/语音模型",
-EditorUI = typeof(EdgeSpeechModelUI))]
+[Module("Edge语音合成",
+    "基于Edge-TTS的在线语音合成引擎",
+    defaultCategory: "Alife 官方/模型接入/语音模型",
+    EditorUI = typeof(EdgeSpeechModelUI))]
 public class EdgeSpeechModel :
     ISpeechModel,
     IConfigurable<EdgeSpeechModelConfig>
 {
-    public EdgeSpeechModelConfig? Configuration { get; set; }
+    public EdgeSpeechModelConfig Configuration { get; set; } = null!;
 
     public async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
     {
@@ -30,7 +31,7 @@ public class EdgeSpeechModel :
 
         ProcessStartInfo psi = new() {
             FileName = "python",
-            Arguments = $"-m edge_tts --text \"{fileSafeText}\" --voice {Configuration!.VoiceTone} --write-media \"{outputPath}\"",
+            Arguments = $"-m edge_tts --text \"{fileSafeText}\" --voice {Configuration.VoiceTone} --write-media \"{outputPath}\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -44,14 +45,14 @@ public class EdgeSpeechModel :
         try
         {
             await Task.WhenAny(
-            process.WaitForExitAsync(cancellationToken),
-            Task.Delay(5000, cancellationToken)
+                process.WaitForExitAsync(cancellationToken),
+                Task.Delay(5000, cancellationToken)
             );
             if (process.HasExited == false)
                 throw new TimeoutException();
             if (process.ExitCode != 0)
                 throw new Exception(
-                $"{outputPath}\n{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}"
+                    $"{outputPath}\n{await process.StandardOutput.ReadToEndAsync(cancellationToken)}\n{await process.StandardError.ReadToEndAsync(cancellationToken)}"
                 );
             if (File.Exists(outputPath) == false)
                 throw new Exception($"语音文件未生成：{outputPath}");

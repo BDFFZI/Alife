@@ -4,24 +4,24 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.PythonPipe;
+using Alife.Function.AIModelUtility;
 using Alife.Platform;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Speech.Genie;
 
-[Module("Genie语音合成", "基于GPT-SoVITS的本地离线语音合成引擎",
+[Module("Genie语音合成",
+    "基于GPT-SoVITS的本地离线语音合成引擎",
     defaultCategory: "Alife 官方/模型接入/语音模型",
     EditorUI = typeof(GenieSpeechModelUI))]
 public class GenieSpeechModel(
     ILogger<GenieSpeechModel> logger
-) : ISpeechModel,
-    IAsyncDisposable,
-    ISystemEvent,
+) : ChatBehaviour,
+    ISpeechModel,
     IConfigurable<GenieSpeechModelConfig>
 {
     public static string RuntimeFolder => Path.Combine(AlifePath.RuntimeFolderPath, "Genie");
-    public GenieSpeechModelConfig? Configuration { get; set; }
+    public GenieSpeechModelConfig Configuration { get; set; } = null!;
 
     public async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
     {
@@ -35,7 +35,7 @@ public class GenieSpeechModel(
             md5Hash = Convert.ToHexString(hashBytes);
         }
 
-        string charaName = Configuration!.CharacterName;
+        string charaName = Configuration.CharacterName;
         string safeFileName = $"genie_{charaName}_{md5Hash}.wav";
         string outputPath = Path.Combine(AlifePath.TempFolderPath, safeFileName);
 
@@ -44,7 +44,7 @@ public class GenieSpeechModel(
 
         try
         {
-            await pythonPipe!.InvokeAsync<string>("synthesize", text, outputPath, charaName);
+            await pythonPipe.InvokeAsync<string>("synthesize", text, outputPath, charaName);
             return outputPath;
         }
         catch (Exception ex)
@@ -54,7 +54,7 @@ public class GenieSpeechModel(
         }
     }
 
-    PythonPipeProcess? pythonPipe;
+    PythonPipeProcess pythonPipe = null!;
     readonly string pythonCode =
         """
         import os, json
@@ -119,20 +119,17 @@ public class GenieSpeechModel(
             return output_path
         """;
 
-    public async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
-        string charaName = Configuration?.CharacterName ?? "feibi";
-        string language = Configuration?.Language ?? "Chinese";
+        string charaName = Configuration.CharacterName;
+        string language = Configuration.Language;
         pythonPipe = new("genie_speech", pythonCode);
         pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", RuntimeFolder, charaName, language);
     }
-    public async ValueTask DisposeAsync()
+    protected override async Task OnDestroy()
     {
-        if (pythonPipe != null)
-        {
-            await pythonPipe.DisposeAsync();
-        }
+        await pythonPipe.DisposeAsync();
     }
 }

@@ -6,7 +6,7 @@ namespace Alife.Components.Services;
 
 public class PluginMarketConfig
 {
-    public string SourceUrl { get; set; } = "https://github.com/BDFFZI/Alife.PluginMarket/archive/refs/heads/main.zip";
+   
 }
 
 public class PluginMarketService
@@ -24,7 +24,7 @@ public class PluginMarketService
 
             var onlineProvider = new ZipPluginProvider(value);
             pluginMarket = new Alife.PluginMarket.PluginMarket
-            (onlineProvider, localManager, localManager,
+            (onlineProvider, localInstaller, localInstaller,
                 new Dictionary<string, IEnvironmentInstaller> {
                     { "nuget", nugetInstaller },
                     { "pip", pipInstaller }
@@ -39,13 +39,13 @@ public class PluginMarketService
     {
         return GetInstalledPlugins().ContainsKey(pluginId);
     }
-    public bool HasUpdate(Plugin plugin)
+    public bool HasUpdate(PluginPackage pluginPackage)
     {
-        string? installedVersion = GetInstalledVersion(plugin.Id);
-        if (installedVersion == null || plugin.Releases == null)
+        string? installedVersion = GetInstalledVersion(pluginPackage.Id);
+        if (installedVersion == null || pluginPackage.Releases == null)
             return false;
 
-        string? latestVersion = plugin.Releases.Keys
+        string? latestVersion = pluginPackage.Releases.Keys
             .Where(IsClientCompatible)
             .OrderByDescending(v => v, Comparer<string>.Create(VersionResolver.CompareVersions))
             .FirstOrDefault();
@@ -58,9 +58,9 @@ public class PluginMarketService
         return VersionResolver.GetMajorVersion(pluginVersion) <= VersionResolver.GetMajorVersion(clientVersion);
     }
 
-    public Plugin[] GetAllPlugins()
+    public PluginPackage[] GetAllPlugins()
     {
-        return pluginMarket.GetAllPlugins().ToArray();
+        return pluginMarket.GetAllPluginPackages().ToArray();
     }
     public Dictionary<string, string> GetInstalledPlugins()
     {
@@ -71,9 +71,9 @@ public class PluginMarketService
     {
         return GetInstalledPlugins().GetValueOrDefault(pluginId);
     }
-    public string? GetLatestVersion(Plugin plugin)
+    public string? GetLatestVersion(PluginPackage pluginPackage)
     {
-        return plugin.Releases?.Keys
+        return pluginPackage.Releases?.Keys
             .Where(IsClientCompatible)
             .OrderByDescending(v => v, Comparer<string>.Create(VersionResolver.CompareVersions))
             .FirstOrDefault();
@@ -81,7 +81,7 @@ public class PluginMarketService
 
     public async Task FetchOnlinePluginsAsync()
     {
-        await pluginMarket.FetchOnlinePluginsAsync();
+        await pluginMarket.SyncOnlinePluginPackagesAsync();
         pluginMarket.FetchLocalPlugins();
     }
     public void RefreshLocalPlugins()
@@ -91,15 +91,15 @@ public class PluginMarketService
 
     public List<string> GetDependents(string pluginId)
     {
-        return pluginMarket.GetDependents(pluginId);
+        return pluginMarket.GetPluginDependents(pluginId);
     }
-    public async Task InstallPlugin(Plugin plugin, string version)
+    public async Task InstallPlugin(PluginPackage pluginPackage, string version)
     {
         await installLock.WaitAsync();
         try
         {
             await Task.Run(async () => {
-                await pluginMarket.InstallPlugin(plugin, version);
+                await pluginMarket.InstallPlugin(pluginPackage, version);
                 LoadModuleNugetEnvironment();
                 try
                 {
@@ -107,7 +107,7 @@ public class PluginMarketService
                 }
                 catch
                 {
-                    await pluginMarket.UninstallPlugin(plugin);
+                    await pluginMarket.UninstallPlugin(pluginPackage);
                     throw;
                 }
             });
@@ -118,7 +118,7 @@ public class PluginMarketService
         }
         OnInstalled?.Invoke();
     }
-    public async Task InstallPlugins(IEnumerable<(Plugin plugin, string version)> plugins)
+    public async Task InstallPlugins(IEnumerable<(PluginPackage pluginPackage, string version)> plugins)
     {
         await installLock.WaitAsync();
         try
@@ -135,13 +135,13 @@ public class PluginMarketService
         }
         OnInstalled?.Invoke();
     }
-    public async Task UninstallPlugin(Plugin plugin)
+    public async Task UninstallPlugin(PluginPackage pluginPackage)
     {
         await installLock.WaitAsync();
         try
         {
             await Task.Run(async () => {
-                await pluginMarket.UninstallPlugin(plugin);
+                await pluginMarket.UninstallPlugin(pluginPackage);
                 LoadModuleNugetEnvironment();
                 moduleSystem.ReloadModules();
             });
@@ -153,7 +153,7 @@ public class PluginMarketService
         OnInstalled?.Invoke();
     }
 
-    public List<Plugin> GetForceUpgradedPlugins()
+    public List<PluginPackage> GetForceUpgradedPlugins()
     {
         return GetAllPlugins()
             .Where(NeedForceUpgrade)
@@ -165,7 +165,7 @@ public class PluginMarketService
     readonly UpdateService updateService;
     readonly SemaphoreSlim installLock = new(1, 1);
 
-    readonly FileSystemPluginManager localManager;
+    readonly FileSystemPluginInstaller localInstaller;
     readonly NuGetEnvironmentInstaller nugetInstaller;
     readonly PipEnvironmentInstaller pipInstaller;
     Alife.PluginMarket.PluginMarket pluginMarket;
@@ -180,13 +180,13 @@ public class PluginMarketService
         this.updateService = updateService;
 
         //创建基础插件市场功能
-        localManager = new FileSystemPluginManager(Path.Combine(AlifePath.StorageFolderPath, "Plugins"));
+        localInstaller = new FileSystemPluginInstaller(Path.Combine(AlifePath.StorageFolderPath, "Plugins"));
         nugetInstaller = new NuGetEnvironmentInstaller(Path.Combine(AlifePath.RuntimeFolderPath, "NugetPackages.txt"), Path.Combine(AlifePath.RuntimeFolderPath, "NugetRestoreProject"));
         pipInstaller = new PipEnvironmentInstaller(Path.Combine(AlifePath.RuntimeFolderPath, "PipPackages.txt"));
         pluginMarket = new Alife.PluginMarket.PluginMarket(
             new ZipPluginProvider(SourceUrl),
-            localManager,
-            localManager,
+            localInstaller,
+            localInstaller,
             new() {
                 { "nuget", nugetInstaller },
                 { "pip", pipInstaller }
@@ -242,7 +242,7 @@ public class PluginMarketService
         List<KeyValuePair<string, string>> manifest = new();
         foreach (var (pluginId, version) in installed)
         {
-            Plugin? plugin = pluginMarket.GetAllPlugins().FirstOrDefault(p => p.Id == pluginId);
+            PluginPackage? plugin = pluginMarket.GetAllPluginPackages().FirstOrDefault(p => p.Id == pluginId);
             if (plugin == null) continue;
             var envs = plugin.GetEnvironments(version);
             if (envs != null && envs.TryGetValue("nuget", out var nuget))
@@ -252,10 +252,10 @@ public class PluginMarketService
         if (manifest.Count > 0)
             nugetInstaller.InstallEnvironment(manifest);
     }
-    bool NeedForceUpgrade(Plugin plugin)
+    bool NeedForceUpgrade(PluginPackage pluginPackage)
     {
-        string? installedVersion = GetInstalledVersion(plugin.Id);
-        if (installedVersion == null || plugin.Releases == null)
+        string? installedVersion = GetInstalledVersion(pluginPackage.Id);
+        if (installedVersion == null || pluginPackage.Releases == null)
             return false;
 
         string clientVersion = updateService.GetCurrentVersion();
@@ -265,6 +265,6 @@ public class PluginMarketService
         if (installedMajor >= clientMajor)
             return false;
 
-        return plugin.Releases.Keys.Any(v => VersionResolver.GetMajorVersion(v) == clientMajor);
+        return pluginPackage.Releases.Keys.Any(v => VersionResolver.GetMajorVersion(v) == clientMajor);
     }
 }

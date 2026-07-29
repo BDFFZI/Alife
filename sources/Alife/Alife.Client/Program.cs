@@ -35,8 +35,7 @@ public static class Program
         Console.WriteLine(typeof(Function.DeskPet.DeskPetService).Assembly);
         Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
         Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
-
-        Console.WriteLine(typeof(Function.AIModelUtility.AIModelUtility).Assembly);
+        
         Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
         Console.WriteLine(typeof(Function.Speech.EdgeTTS.EdgeSpeechModel).Assembly);
         Console.WriteLine(typeof(Function.Speech.Genie.GenieSpeechModel).Assembly);
@@ -45,7 +44,7 @@ public static class Program
         Console.WriteLine(typeof(Function.Vision.OpenAI.OpenAIVisionModel).Assembly);
         Console.WriteLine(typeof(Function.Vision.Qwen.QwenVisionModel).Assembly);
 #endif
-        //TODO 为了支持基于 WebView2 的浏览器插件而加载，v4 中应当去除
+        //TODO 为了支持基于 WebView2 的浏览器插件而加载，未来应当去除
         Console.WriteLine(typeof(Form).Assembly);
 
         //控制台编码设置
@@ -65,12 +64,9 @@ public static class Program
                 builder.Services.AddElectron();
                 builder.UseElectron(args, OnElectronAppReady);
             }
-            //系统功能
-            builder.Services.AddSingleton<StorageSystem>();
-            builder.Services.AddSingleton<ConfigurationSystem>();
-            builder.Services.AddSingleton<ModuleSystem>();
-            builder.Services.AddSingleton<CharacterSystem>();
-            builder.Services.AddSingleton<ChatActivitySystem>();
+            //后端功能
+            builder.Services.AddAlife();
+            //前端功能
             builder.Services.AddSingleton<ChatMessageService>();
             builder.Services.AddSingleton<PluginMarketService>();
             builder.Services.AddSingleton<UpdateService>();

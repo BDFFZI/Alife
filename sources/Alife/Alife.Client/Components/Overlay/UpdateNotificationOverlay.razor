@@ -68,7 +68,7 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
 
 @code {
     UpdateInfo? updateInfo;
-    Plugin[] upgradablePlugins = [];
+    PluginPackage[] upgradablePlugins = [];
     List<PluginUpgradeModal.UpgradeItem> forceUpgradeList = [];
     bool isDownloading;
     int downloadProgress;
@@ -109,7 +109,7 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
                     continue;
 
                 forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
-                    plugin = plugin,
+                    PluginPackage = plugin,
                     oldVersion = oldVersion,
                     newVersion = newVersion,
                     isLocked = true,
@@ -126,7 +126,7 @@ else if (showPluginUpdate && upgradablePlugins.Length > 0)
                     continue;
 
                 forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
-                    plugin = plugin,
+                    PluginPackage = plugin,
                     oldVersion = oldVersion,
                     newVersion = newVersion
                 });

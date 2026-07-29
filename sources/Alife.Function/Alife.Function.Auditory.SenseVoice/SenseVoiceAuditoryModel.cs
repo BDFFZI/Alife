@@ -1,34 +1,34 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using SherpaOnnx;
 using Alife.Framework;
-using Alife.Function.AIModelUtility;
-using Alife.Function.Auditory;
 
 namespace Alife.Function.Auditory.SenseVoice;
 
-[Module("SenseVoice语音识别", "基于SenseVoice的本地语音识别引擎",
+[Module("SenseVoice语音识别",
+    "基于SenseVoice的本地语音识别引擎",
     defaultCategory: "Alife 官方/模型接入/听觉模型",
     EditorUI = typeof(SenseVoiceAuditoryModelUI))]
 public class SenseVoiceAuditoryModel :
-    IAuditoryModel,
-    IDisposable,
-    IConfigurable<SenseVoiceAuditoryModelConfig>
+    ChatBehaviour,
+    IConfigurable<SenseVoiceAuditoryModelConfig>,
+    IAuditoryModel
 {
     public static bool ModelsExists
     {
         get
         {
-            string senseVoicePath = Path.Combine(Alife.Function.AIModelUtility.AIModelUtility.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
-            string vadPath = Path.Combine(Alife.Function.AIModelUtility.AIModelUtility.ModelScopeModelPath, VadId.Replace(".", "___"));
+            string senseVoicePath = Path.Combine(AIModelUtility.ModelDownloader.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
+            string vadPath = Path.Combine(AIModelUtility.ModelDownloader.ModelScopeModelPath, VadId.Replace(".", "___"));
             return File.Exists(Path.Combine(senseVoicePath, "model.int8.onnx"))
                    && File.Exists(Path.Combine(vadPath, "silero_vad.onnx"));
         }
     }
 
-    public SenseVoiceAuditoryModelConfig? Configuration { get; set; }
-
+    public SenseVoiceAuditoryModelConfig Configuration { get; set; } = null!;
     public event Action<string>? Recognized;
+
     public void AcceptWaveform(float[] samples)
     {
         var detector = vad;
@@ -43,53 +43,56 @@ public class SenseVoiceAuditoryModel :
                 detector.Pop();
             }
         }
+
+        void ProcessSegment(float[] samples)
+        {
+            using OfflineStream stream = recognizer.CreateStream();
+            stream.AcceptWaveform(16000, samples);
+            recognizer.Decode(stream);
+
+            string text = stream.Result.Text;
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+            if (text == "。")
+                return;
+            Recognized?.Invoke(text);
+        }
     }
 
     const string SenseVoiceId = "pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue";
     const string VadId = "pengzhendong/silero-vad";
-    readonly OfflineRecognizer recognizer;
-    readonly VoiceActivityDetector vad;
+    OfflineRecognizer recognizer = null!;
+    VoiceActivityDetector vad = null!;
 
-    void ProcessSegment(float[] samples)
+    protected override Task OnAwake()
     {
-        using OfflineStream stream = recognizer.CreateStream();
-        stream.AcceptWaveform(16000, samples);
-        recognizer.Decode(stream);
-
-        string text = stream.Result.Text;
-        if (string.IsNullOrWhiteSpace(text))
-            return;
-        if (text == "。")
-            return;
-        Recognized?.Invoke(text);
-    }
-
-    public SenseVoiceAuditoryModel()
-    {
-        string senseVoicePath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(SenseVoiceId);
-        string vadModelPath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(VadId, "silero_vad.onnx");
+        string senseVoicePath = AIModelUtility.ModelDownloader.EnsureModelExisting(SenseVoiceId);
+        string vadModelPath = AIModelUtility.ModelDownloader.EnsureModelExisting(VadId, "silero_vad.onnx");
 
         OfflineRecognizerConfig config = new();
         config.ModelConfig.SenseVoice.Model = Path.Combine(senseVoicePath, "model.int8.onnx");
-        config.ModelConfig.SenseVoice.Language = Configuration?.Language ?? "zh";
-        config.ModelConfig.SenseVoice.UseInverseTextNormalization = (Configuration?.UseInverseTextNormalization ?? true) ? 1 : 0;
+        config.ModelConfig.SenseVoice.Language = Configuration.Language;
+        config.ModelConfig.SenseVoice.UseInverseTextNormalization = Configuration.UseInverseTextNormalization ? 1 : 0;
         config.ModelConfig.Tokens = Path.Combine(senseVoicePath, "tokens.txt");
-        config.ModelConfig.NumThreads = Configuration?.NumThreads ?? 1;
+        config.ModelConfig.NumThreads = Configuration.NumThreads;
         config.ModelConfig.Debug = 0;
         recognizer = new OfflineRecognizer(config);
 
         VadModelConfig vadConfig = new();
         vadConfig.SileroVad.Model = vadModelPath;
-        vadConfig.SileroVad.Threshold = Configuration?.VadThreshold ?? 0.5f;
-        vadConfig.SileroVad.MinSilenceDuration = Configuration?.VadMinSilenceDuration ?? 0.5f;
-        vadConfig.SileroVad.MinSpeechDuration = Configuration?.VadMinSpeechDuration ?? 0.25f;
+        vadConfig.SileroVad.Threshold = Configuration.VadThreshold;
+        vadConfig.SileroVad.MinSilenceDuration = Configuration.VadMinSilenceDuration;
+        vadConfig.SileroVad.MinSpeechDuration = Configuration.VadMinSpeechDuration;
         vadConfig.SampleRate = 16000;
         vad = new VoiceActivityDetector(vadConfig, bufferSizeInSeconds: 30);
+
+        return Task.CompletedTask;
     }
-    public void Dispose()
+    protected override Task OnDestroy()
     {
         recognizer.Dispose();
         vad.Dispose();
-        GC.SuppressFinalize(this);
+
+        return Task.CompletedTask;
     }
 }

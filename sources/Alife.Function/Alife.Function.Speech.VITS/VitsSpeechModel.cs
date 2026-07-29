@@ -2,30 +2,30 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.PythonPipe;
+using Alife.Function.AIModelUtility;
 using Alife.Platform;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Speech.VITS;
 
-[Module("VITS语音合成", "基于VITS的本地离线语音合成引擎",
+[Module(
+    "VITS语音合成",
+    "基于VITS的本地离线语音合成引擎",
     defaultCategory: "Alife 官方/模型接入/语音模型",
     EditorUI = typeof(VitsSpeechModelUI))]
 public class VitsSpeechModel(
-    ILogger<VitsSpeechModel> logger
-) :
+    ILogger<VitsSpeechModel> logger) :
+    ChatBehaviour,
     ISpeechModel,
-    IAsyncDisposable,
-    ISystemEvent,
     IConfigurable<VitsSpeechModelConfig>
 {
     public static string RuntimeFolder => Path.Combine(AlifePath.RuntimeFolderPath, "VITS");
-    public VitsSpeechModelConfig? Configuration { get; set; }
+
+    public VitsSpeechModelConfig Configuration { get; set; } = null!;
 
     public async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
     {
@@ -39,7 +39,7 @@ public class VitsSpeechModel(
             md5Hash = Convert.ToHexString(hashBytes);
         }
 
-        string safeFileName = $"vits_{Configuration!.SpeakerId}_{md5Hash}.wav";
+        string safeFileName = $"vits_{Configuration.SpeakerId}_{md5Hash}.wav";
         string outputPath = Path.Combine(AlifePath.TempFolderPath, safeFileName);
 
         if (File.Exists(outputPath))
@@ -47,7 +47,7 @@ public class VitsSpeechModel(
 
         try
         {
-            return await pythonPipe!.InvokeAsync<string>("synthesize", text, outputPath,
+            return await pythonPipe.InvokeAsync<string>("synthesize", text, outputPath,
                 Configuration.SpeakerId, Configuration.NoiseScale,
                 Configuration.NoiseScaleW, Configuration.LengthScale);
         }
@@ -57,7 +57,7 @@ public class VitsSpeechModel(
         }
     }
 
-    PythonPipeProcess? pythonPipe;
+    PythonPipeProcess pythonPipe = null!;
     readonly string pythonCode =
         """
         # coding=utf-8
@@ -131,7 +131,7 @@ public class VitsSpeechModel(
             return output_path
         """;
 
-    public async Task AwakeAsync(AwakeContext context)
+    protected override async Task OnAwake()
     {
         if (Directory.Exists(RuntimeFolder) == false)
             await DownloadAndExtractAsync();
@@ -141,23 +141,18 @@ public class VitsSpeechModel(
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", RuntimeFolder);
     }
-    public async ValueTask DisposeAsync()
+    protected override async Task OnDestroy()
     {
-        if (pythonPipe != null)
-        {
-            await pythonPipe.DisposeAsync();
-        }
+        await pythonPipe.DisposeAsync();
     }
-
     async Task DownloadAndExtractAsync()
     {
-        const string zipUrl = "https://github.com/BDFFZI/Alife/releases/download/VITS/VITS.zip";
+        const string ZipUrl = "https://github.com/BDFFZI/Alife/releases/download/VITS/VITS.zip";
         string zipPath = Path.Combine(AlifePath.TempFolderPath, "VITS.zip");
 
         logger.LogInformation("正在下载 VITS 模型文件...");
 
-        await AlifePlatform.DownloadFileAsync(zipUrl, zipPath, (readSoFar, totalBytes) =>
-        {
+        await AlifeUtility.DownloadFileAsync(ZipUrl, zipPath, (readSoFar, totalBytes) => {
             if (totalBytes > 0)
                 logger.LogInformation("下载进度: {Pct:F1}% ({ReadMB}MB / {TotalMB}MB)",
                     (double)readSoFar / totalBytes * 100,
@@ -170,12 +165,12 @@ public class VitsSpeechModel(
         logger.LogInformation("下载完成，正在解压...");
         string extractRoot = AlifePath.RuntimeFolderPath;
         bool hasTopLevelVits;
-        using (var archive = ZipFile.OpenRead(zipPath))
+        await using (var archive = await ZipFile.OpenReadAsync(zipPath))
             hasTopLevelVits = archive.Entries.Any(e => e.FullName.StartsWith("VITS/", StringComparison.OrdinalIgnoreCase));
         if (hasTopLevelVits == false)
             extractRoot = Path.Combine(AlifePath.RuntimeFolderPath, "VITS");
 
-        ZipFile.ExtractToDirectory(zipPath, extractRoot, overwriteFiles: true);
+        await ZipFile.ExtractToDirectoryAsync(zipPath, extractRoot, overwriteFiles: true);
         File.Delete(zipPath);
         logger.LogInformation("VITS 模型文件准备就绪。");
     }

@@ -24,4 +24,4 @@ public abstract class ModuleUIBase<TModule, TConfig> : ComponentBase
 /// 模块 UI 基类（无配置）。
 /// </summary>
 public abstract class ModuleUIBase<TModule> : ModuleUIBase<TModule, object>
-    where TModule : ISystemEvent {}
+    where TModule : ChatBehaviour {}

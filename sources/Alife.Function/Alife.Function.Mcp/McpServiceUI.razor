@@ -1,5 +1,5 @@
 @namespace Alife.Function.Mcp
-@inherits Alife.Framework.ModuleUIBase<McpService, McpModuleConfig>
+@inherits Alife.Framework.ModuleUIBase<McpService, McpServerConfig>
 @using AntDesign
 
 <div style="background: #fff; padding: 20px; border-radius: 8px;">
@@ -8,7 +8,7 @@
         <Button Type="@ButtonType.Primary" OnClick="AddServer">添加服务器</Button>
     </Flex>
 
-    <Table TItem="McpServerConfig" DataSource="@Configuration.Servers" Bordered Size="@TableSize.Small">
+    <Table TItem="McpServerItem" DataSource="@Configuration.Servers" Bordered Size="@TableSize.Small">
         <PropertyColumn Property="c=>c.Name" Title="名称"></PropertyColumn>
         <PropertyColumn Property="c=>c.Command" Title="命令"></PropertyColumn>
         <PropertyColumn Property="c=>c.Description" Title="描述"></PropertyColumn>
@@ -36,7 +36,7 @@
             OnClose="() => isEditingServer = false">
         @if (editingServer != null)
         {
-            <Form TModel="McpServerConfig" Model="@editingServer" Layout="@FormLayout.Vertical">
+            <Form TModel="McpServerItem" Model="@editingServer" Layout="@FormLayout.Vertical">
                 <FormItem Label="名称">
                     <Input @bind-Value="editingServer.Name"/>
                 </FormItem>
@@ -61,23 +61,23 @@
 
 @code {
 
-    McpServerConfig? editingServer;
+    McpServerItem? editingServer;
     bool isEditingServer;
 
     void AddServer()
     {
-        editingServer = new McpServerConfig();
+        editingServer = new McpServerItem();
         Configuration.Servers.Add(editingServer);
         isEditingServer = true;
     }
 
-    void EditServer(McpServerConfig server)
+    void EditServer(McpServerItem server)
     {
         editingServer = server;
         isEditingServer = true;
     }
 
-    void RemoveServer(McpServerConfig server)
+    void RemoveServer(McpServerItem server)
     {
         Configuration.Servers.Remove(server);
     }

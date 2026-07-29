@@ -7,7 +7,7 @@ public class ZipPluginProvider(string zipUrl) : IPluginProvider
 {
     readonly string repoDir = Path.Combine(AlifePath.TempFolderPath, "PluginRepo");
 
-    public async Task<Plugin[]> GetPluginsAsync()
+    public async Task<PluginPackage[]> GetPluginsAsync()
     {
         await FetchRepositoryAsync();
         return LoadPlugins();
@@ -18,21 +18,21 @@ public class ZipPluginProvider(string zipUrl) : IPluginProvider
         if (Directory.Exists(repoDir))
             Directory.Delete(repoDir, true);
 
-        await AlifePlatform.DownloadZipFileAsync(repoDir, zipUrl);
+        await AlifeUtility.DownloadZipFileAsync(repoDir, zipUrl);
     }
 
-    Plugin[] LoadPlugins()
+    PluginPackage[] LoadPlugins()
     {
         if (!Directory.Exists(repoDir))
             return [];
 
-        List<Plugin> plugins = new();
+        List<PluginPackage> plugins = new();
         foreach (string file in Directory.GetFiles(repoDir, "*.json", SearchOption.AllDirectories))
         {
             try
             {
                 string json = File.ReadAllText(file);
-                Plugin? plugin = JsonConvert.DeserializeObject<Plugin>(json);
+                PluginPackage? plugin = JsonConvert.DeserializeObject<PluginPackage>(json);
                 if (plugin != null && !string.IsNullOrEmpty(plugin.Id))
                     plugins.Add(plugin);
             }

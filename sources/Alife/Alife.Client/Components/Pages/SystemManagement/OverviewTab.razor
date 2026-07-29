@@ -117,9 +117,9 @@
         {
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
             if (value)
-                Platform.AlifePlatform.Command("schtasks", $"/create /tn \"Alife\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f");
+                Platform.AlifeUtility.Command("schtasks", $"/create /tn \"Alife\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f");
             else
-                Platform.AlifePlatform.Command("schtasks", "/delete /tn \"Alife\" /f");
+                Platform.AlifeUtility.Command("schtasks", "/delete /tn \"Alife\" /f");
 
             _autoStart = value;
             _ = NotificationService.Success(new NotificationConfig
@@ -140,7 +140,7 @@
     {
         try
         {
-            string result = Platform.AlifePlatform.Command("schtasks", "/query /tn \"Alife\" /fo csv /nh");
+            string result = Platform.AlifeUtility.Command("schtasks", "/query /tn \"Alife\" /fo csv /nh");
             return result.Contains("Alife");
         }
         catch { return false; }

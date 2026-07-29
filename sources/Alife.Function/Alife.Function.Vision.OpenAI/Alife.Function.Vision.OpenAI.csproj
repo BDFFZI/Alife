@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
-    <ProjectReference Include="..\Alife.Function.Vision\Alife.Function.Vision.csproj" />
+    <ProjectReference Include="..\..\Alife.Function\Alife.Function.Vision\Alife.Function.Vision.csproj" />
   </ItemGroup>
 
 </Project>

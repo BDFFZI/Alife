@@ -12,29 +12,29 @@
         <Flex Align="FlexAlign.Start">
             <div>
                 <Flex Align="FlexAlign.Center" Gap="@("12")">
-                    <Title Level="3" Style="margin: 0;">@Plugin.Name</Title>
+                    <Title Level="3" Style="margin: 0;">@PluginPackage.Name</Title>
                     @if (isInstalled)
                     {
                         <Tag Color="@("green")">已安装</Tag>
                     }
                 </Flex>
-                <AntDesign.Text Type="@TextElementType.Secondary" Style="margin-top: 4px; display: block;">@Plugin.Id</AntDesign.Text>
-                @if (!string.IsNullOrEmpty(Plugin.Author))
+                <AntDesign.Text Type="@TextElementType.Secondary" Style="margin-top: 4px; display: block;">@PluginPackage.Id</AntDesign.Text>
+                @if (!string.IsNullOrEmpty(PluginPackage.Author))
                 {
-                    <span style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @Plugin.Author</span>
+                    <span style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @PluginPackage.Author</span>
                 }
             </div>
         </Flex>
 
         <Paragraph Style="margin-top: 16px; color: rgba(0,0,0,0.65);">
-            @Plugin.Description
+            @PluginPackage.Description
         </Paragraph>
 
-        @if (!string.IsNullOrEmpty(Plugin.Source))
+        @if (!string.IsNullOrEmpty(PluginPackage.Source))
         {
             <div style="margin-top: 8px;">
                 <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 13px;">
-                    <Icon Type="@IconType.Outline.Link" /> <a href="@Plugin.Source" target="_blank" style="color: #1890ff;">@Plugin.Source</a>
+                    <Icon Type="@IconType.Outline.Link" /> <a href="@PluginPackage.Source" target="_blank" style="color: #1890ff;">@PluginPackage.Source</a>
                 </AntDesign.Text>
             </div>
         }
@@ -43,7 +43,7 @@
         <Flex Gap="@("12")" Style="margin-top: 16px;">
             @if (!isInstalled)
             {
-                <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{Plugin.Name}] 安装成功"))" Loading="isOperating">
+                <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{PluginPackage.Name}] 安装成功"))" Loading="isOperating">
                     <Icon Type="@IconType.Outline.CloudDownload" /> 安装
                 </Button>
             }
@@ -71,7 +71,7 @@
     @* 依赖警告弹窗 *@
     <Modal Title="卸载警告" Visible="showDependentWarning" OnCancel="@(() => showDependentWarning = false)" Footer="null" Width="480">
         <div style="margin-bottom: 16px;">
-            <AntDesign.Text>以下插件依赖于 <strong>@Plugin.Name</strong>，卸载后可能导致它们无法正常工作：</AntDesign.Text>
+            <AntDesign.Text>以下插件依赖于 <strong>@PluginPackage.Name</strong>，卸载后可能导致它们无法正常工作：</AntDesign.Text>
         </div>
         <div style="max-height: 200px; overflow-y: auto; margin-bottom: 16px;">
             @foreach (var dep in dependentPlugins)
@@ -92,9 +92,9 @@
     <div style="flex: 1; overflow-y: auto; padding: 16px 0;">
         <Title Level="4">版本历史</Title>
         <Timeline>
-            @if (Plugin.Releases != null)
+            @if (PluginPackage.Releases != null)
             {
-                @foreach (var release in Plugin.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(VersionResolver.CompareVersions)))
+                @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(VersionResolver.CompareVersions)))
                 {
                     bool isCompatible = PluginMarketService.IsClientCompatible(release.Key);
                     <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
@@ -118,7 +118,7 @@
                             {
                                 <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Loading="operatingVersion == release.Key"
                                          OnClick="@(() => InstallVersion(release.Key))">
-                                    @(PluginMarketService.IsInstalled(Plugin.Id) ? "切换到此版本" : "安装")
+                                    @(PluginMarketService.IsInstalled(PluginPackage.Id) ? "切换到此版本" : "安装")
                                 </Button>
                             }
                         </div>
@@ -143,7 +143,7 @@
 </div>
 
 @code {
-    [Parameter] public Plugin Plugin { get; set; } = null!;
+    [Parameter] public PluginPackage PluginPackage { get; set; } = null!;
     [Parameter] public EventCallback OnBack { get; set; }
 
     bool isInstalled;
@@ -159,10 +159,10 @@
 
     protected override void OnParametersSet()
     {
-        isInstalled = PluginMarketService.IsInstalled(Plugin.Id);
-        installedVersion = PluginMarketService.GetInstalledVersion(Plugin.Id);
-        latestVersion = PluginMarketService.GetLatestVersion(Plugin);
-        hasUpdate = PluginMarketService.HasUpdate(Plugin);
+        isInstalled = PluginMarketService.IsInstalled(PluginPackage.Id);
+        installedVersion = PluginMarketService.GetInstalledVersion(PluginPackage.Id);
+        latestVersion = PluginMarketService.GetLatestVersion(PluginPackage);
+        hasUpdate = PluginMarketService.HasUpdate(PluginPackage);
     }
 
     async Task Install(string message)
@@ -171,7 +171,7 @@
         isOperating = true;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, latestVersion);
+            await PluginMarketService.InstallPlugin(PluginPackage, latestVersion);
             _ = NotificationService.Success(new NotificationConfig { Message = message });
             OnParametersSet();
         }
@@ -188,8 +188,8 @@
         isOperating = true;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, installedVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 重装成功" });
+            await PluginMarketService.InstallPlugin(PluginPackage, installedVersion);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 重装成功" });
             OnParametersSet();
         }
         catch (Exception ex)
@@ -206,16 +206,16 @@
         isOperating = true;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 升级成功" });
+            await PluginMarketService.InstallPlugin(PluginPackage, latestVersion);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级成功" });
             OnParametersSet();
         }
         catch (Exception ex)
         {
             try
             {
-                await PluginMarketService.InstallPlugin(Plugin, previousVersion);
-                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 升级失败，已回退到 v{previousVersion}" });
+                await PluginMarketService.InstallPlugin(PluginPackage, previousVersion);
+                _ = NotificationService.Warning(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 升级失败，已回退到 v{previousVersion}" });
                 OnParametersSet();
             }
             catch { }
@@ -231,7 +231,7 @@
 
     void OnUninstallClick()
     {
-        dependentPlugins = PluginMarketService.GetDependents(Plugin.Id);
+        dependentPlugins = PluginMarketService.GetDependents(PluginPackage.Id);
         if (dependentPlugins.Count > 0)
         {
             showDependentWarning = true;
@@ -259,8 +259,8 @@
         isOperating = true;
         try
         {
-            await PluginMarketService.UninstallPlugin(Plugin);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 已卸载！" });
+            await PluginMarketService.UninstallPlugin(PluginPackage);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 已卸载！" });
             await OnBack.InvokeAsync();
         }
         catch (Exception ex)
@@ -275,8 +275,8 @@
         operatingVersion = version;
         try
         {
-            await PluginMarketService.InstallPlugin(Plugin, version);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 已安装版本 {version}！" });
+            await PluginMarketService.InstallPlugin(PluginPackage, version);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{PluginPackage.Name}] 已安装版本 {version}！" });
             OnParametersSet();
         }
         catch (Exception ex)
