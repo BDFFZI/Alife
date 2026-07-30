@@ -1,8 +1,8 @@
 @using Alife.Components.Services
 @using Alife.PluginMarket
-@using Alife.PluginSystem
+@using Alife.PluginContext
 @inject UpdateService UpdateService
-@inject MarketSystem MarketSystem
+@inject PluginSystem PluginSystem
 @inject NavigationManager Navigation
 
 @if (showAppUpdate)
@@ -101,15 +101,15 @@ else if (showPluginUpdate)
 
         void CheckForceUpgrade()
         {
-            var forcePlugins = MarketSystem.GetForceUpgradedPlugins();
+            var forcePlugins = PluginSystem.GetForceUpgradedPlugins();
             if (forcePlugins.Count == 0) return;
 
             var forceIds = new HashSet<string>(forcePlugins.Select(p => p.Id));
 
             foreach (var plugin in forcePlugins)
             {
-                string? oldVersion = MarketSystem.GetInstalledVersion(plugin.Id);
-                string? newVersion = MarketSystem.GetLatestVersion(plugin);
+                string? oldVersion = PluginSystem.GetInstalledVersion(plugin.Id);
+                string? newVersion = PluginSystem.GetLatestVersion(plugin);
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
@@ -122,11 +122,11 @@ else if (showPluginUpdate)
                 });
             }
 
-            var allPlugins = MarketSystem.GetAllOnlinePlugins().Values;
-            foreach (var plugin in allPlugins.Where(p => !forceIds.Contains(p.Id) && MarketSystem.HasUpdate(p)))
+            var allPlugins = PluginSystem.GetAllOnlinePlugins().Values;
+            foreach (var plugin in allPlugins.Where(p => !forceIds.Contains(p.Id) && PluginSystem.HasUpdate(p)))
             {
-                string? oldVersion = MarketSystem.GetInstalledVersion(plugin.Id);
-                string? newVersion = MarketSystem.GetLatestVersion(plugin);
+                string? oldVersion = PluginSystem.GetInstalledVersion(plugin.Id);
+                string? newVersion = PluginSystem.GetLatestVersion(plugin);
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
@@ -145,9 +145,9 @@ else if (showPluginUpdate)
 
         void CheckPluginUpdates()
         {
-            var allPlugins = MarketSystem.GetAllOnlinePlugins().Values;
+            var allPlugins = PluginSystem.GetAllOnlinePlugins().Values;
             upgradablePlugins = allPlugins
-                .Where(p => MarketSystem.HasUpdate(p))
+                .Where(p => PluginSystem.HasUpdate(p))
                 .ToArray();
 
             if (upgradablePlugins.Length > 0)

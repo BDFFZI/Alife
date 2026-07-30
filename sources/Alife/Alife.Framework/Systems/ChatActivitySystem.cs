@@ -10,18 +10,22 @@ public class ChatActivitySystem
     /// 开始激活角色
     /// </summary>
     public event Action<Character>? Activating;
+
     /// <summary>
     /// 活动创建并调用Awake后
     /// </summary>
     public event Action<ChatActivity>? ActivatingCreated;
+
     /// <summary>
     /// 活动调用Start并正式加入统计，即完成创建后
     /// </summary>
     public event Action<ChatActivity>? Activated;
+
     /// <summary>
     /// 激活中的进度回调
     /// </summary>
     public event Action<Character, (string Step, float Progress)>? ActivatingProcess;
+
     /// <summary>
     /// 激活过程发生报错（生命周期事件不会引发该错误）
     /// </summary>
@@ -31,6 +35,7 @@ public class ChatActivitySystem
     /// 活动即将销毁
     /// </summary>
     public event Action<ChatActivity>? Destroying;
+
     /// <summary>
     /// 活动销毁并移出全局统计后
     /// </summary>
@@ -58,15 +63,10 @@ public class ChatActivitySystem
     {
         try
         {
-            Progress<(string, float)> progress = new(tuple => {
-                ActivatingProcess?.Invoke(character, tuple);
-            });
+            Progress<(string, float)> progress = new(tuple => { ActivatingProcess?.Invoke(character, tuple); });
 
             Activating?.Invoke(character);
-            ChatActivity chatActivity = new(
-                character, configurationSystem, moduleSystem,
-                appendObjects.ToArray()
-            );
+            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, appendObjects);
             await chatActivity.Awake(progress);
             ActivatingCreated?.Invoke(chatActivity);
             await chatActivity.Start(progress);
@@ -96,22 +96,28 @@ public class ChatActivitySystem
     }
 
     public ChatActivitySystem(
-        CharacterSystem characterSystem,
+        StorageSystem storageSystem,
         ConfigurationSystem configurationSystem,
-        ModuleSystem moduleSystem,
-        StorageSystem storageSystem)
+        CharacterSystem characterSystem,
+        PluginSystem pluginSystem,
+        ModuleSystem moduleSystem)
     {
-        appendObjects.Add(characterSystem);
-        appendObjects.Add(configurationSystem);
-        appendObjects.Add(moduleSystem);
-        appendObjects.Add(storageSystem);
-        appendObjects.Add(this);
+        appendObjects =
+        [
+            storageSystem,
+            configurationSystem,
+            characterSystem,
+            pluginSystem,
+            moduleSystem,
+            this
+        ];
+
         this.moduleSystem = moduleSystem;
         this.configurationSystem = configurationSystem;
     }
 
     readonly ModuleSystem moduleSystem;
     readonly ConfigurationSystem configurationSystem;
-    readonly List<object> appendObjects = new();
+    readonly object[] appendObjects;
     readonly Dictionary<string, ChatActivity> activities = new();
 }

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Platform;
-using Alife.PluginSystem;
+using Alife.PluginContext;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Framework;

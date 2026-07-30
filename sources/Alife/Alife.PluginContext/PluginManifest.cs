@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public struct PluginManifest
 {

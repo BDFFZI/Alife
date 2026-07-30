@@ -17,7 +17,7 @@ namespace Alife.Function.Developer;
 public class DeveloperService(
     CharacterSystem characterSystem,
     ChatActivitySystem chatActivitySystem,
-    PluginSystem.PluginSystem pluginSystem,
+    PluginSystem pluginSystem,
     ModuleSystem moduleSystem,
     XmlFunctionCaller functionCaller,
     ILogger<DeveloperService> logger,
@@ -55,7 +55,7 @@ public class DeveloperService(
     [XmlFunction(FunctionMode.OneShot)]
     public async Task ReloadPlugin(string pluginId)
     {
-        await pluginSystem.ReloadPluginDll(pluginId);
+        await pluginSystem.ReloadPlugin(pluginId);
         interactor.Poke("插件重载成功");
     }
 
@@ -218,7 +218,7 @@ public class DeveloperService(
                             应用目录：{{AppContext.BaseDirectory}}
                             环境目录：{{AlifePath.RuntimeFolderPath}}
                             存储目录：{{AlifePath.StorageFolderPath}}
-                            插件目录：{{pluginSystem.PluginRootDirectory}}
+                            插件目录：{{pluginSystem.PluginContext.PluginRootDirectory}}
                             角色目录：{存储目录}/Character/{{Character.Name}}
                             模块配置：{存储目录}/Configuration
                             角色模块配置（优先级更高）：{角色目录}/Configuration

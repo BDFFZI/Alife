@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Alife.Platform;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnvironmentInstaller
 {

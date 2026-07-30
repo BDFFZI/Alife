@@ -1,5 +1,5 @@
 @using Alife.PluginMarket
-@inject MarketSystem MarketSystem
+@inject PluginSystem PluginSystem
 
 <div class="plugin-card" @onclick="HandleClick">
     <div class="plugin-card-header">
@@ -7,7 +7,7 @@
             <div class="plugin-icon">
                 <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: #1890ff;" />
             </div>
-            @if (MarketSystem.IsInstalled(PluginPackage.Id))
+            @if (PluginSystem.IsInstalled(PluginPackage.Id))
             {
                 <div class="plugin-badge"></div>
             }
@@ -20,9 +20,9 @@
             }
         </div>
         <div class="plugin-actions">
-            @if (MarketSystem.IsInstalled(PluginPackage.Id))
+            @if (PluginSystem.IsInstalled(PluginPackage.Id))
             {
-                <span class="plugin-version">v@(MarketSystem.GetInstalledVersion(PluginPackage.Id))</span>
+                <span class="plugin-version">v@(PluginSystem.GetInstalledVersion(PluginPackage.Id))</span>
             }
             <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small"
                      OnClick="@AddToCart" OnClickStopPropagation="true"

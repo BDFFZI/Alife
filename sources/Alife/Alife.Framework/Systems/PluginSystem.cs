@@ -3,14 +3,17 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Alife.PluginMarket;
-using Alife.PluginSystem;
+using Alife.PluginContext;
 
 namespace Alife.Framework;
 
-public class MarketSystem(
+public class PluginSystem(
     PluginMarket.PluginMarket pluginMarket,
-    PluginSystem.PluginSystem pluginSystem)
+    PluginContext.PluginContext pluginContext)
 {
+    public PluginMarket.PluginMarket PluginMarket => pluginMarket;
+    public PluginContext.PluginContext PluginContext => pluginContext;
+
     /// <summary>
     /// 云端拉取插件
     /// </summary>
@@ -23,7 +26,7 @@ public class MarketSystem(
     /// </summary>
     public async Task SyncPluginEnvironment()
     {
-        await pluginSystem.SyncPluginEnvironment();
+        await pluginContext.SyncPluginEnvironment();
     }
 
     public IReadOnlyDictionary<string, PluginPackage> GetAllOnlinePlugins()
@@ -32,7 +35,7 @@ public class MarketSystem(
     }
     public IReadOnlyDictionary<string, PluginManifest> GetAllLocalPlugins()
     {
-        return pluginSystem.AllPluginManifests;
+        return pluginContext.AllPluginManifests;
     }
     public List<PluginPackage> GetForceUpgradedPlugins()
     {
@@ -92,24 +95,28 @@ public class MarketSystem(
     {
         return pluginMarket.ResolveBeDependentPlugins(pluginId);
     }
-    
+
     public async Task InstallPlugins(Dictionary<PluginPackage, string> plugins)
     {
         await pluginMarket.InstallPlugins(plugins);
-        PluginSyncReport report = await pluginSystem.SyncPluginEnvironment();
+        PluginSyncReport report = await pluginContext.SyncPluginEnvironment();
         foreach (PluginPackage pluginPackage in plugins.Keys)
         {
             if (report.ReloadedPlugins.Contains(pluginPackage.Id))
                 continue;
-            await pluginSystem.ReloadPluginDll(pluginPackage.Id);
+            await pluginContext.ReloadPluginDll(pluginPackage.Id);
         }
     }
     public async Task UninstallPlugins(IEnumerable<PluginPackage> pluginPackages)
     {
         foreach (var plugin in pluginPackages)
             await pluginMarket.UninstallPlugins(plugin.Id);
-        await pluginSystem.SyncPluginEnvironment();
+        await pluginContext.SyncPluginEnvironment();
     }
-    
+    public async Task ReloadPlugin(string pluginId)
+    {
+        await pluginContext.ReloadPluginDll(pluginId);
+    }
+
     readonly string currentClientVersion = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
 }

@@ -7,7 +7,7 @@
     
     <ItemGroup>
       <ProjectReference Include="..\Alife.Platform\Alife.Platform.csproj" />
-      <ProjectReference Include="..\Alife.PluginSystem\Alife.PluginSystem.csproj" />
+      <ProjectReference Include="..\Alife.PluginContext\Alife.PluginContext.csproj" />
     </ItemGroup>
 
 </Project>

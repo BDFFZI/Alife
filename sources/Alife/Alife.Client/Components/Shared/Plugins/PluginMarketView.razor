@@ -4,7 +4,7 @@
 @using Alife.PluginMarket
 @using Alife.Platform
 @using Microsoft.JSInterop
-@inject MarketSystem MarketSystem
+@inject PluginSystem PluginSystem
 @inject IMessageService MessageService
 @inject IJSRuntime JsRuntime
 @inject StorageSystem StorageSystem
@@ -346,7 +346,7 @@
 
         try
         {
-            await MarketSystem.SyncPluginMarket();
+            await PluginSystem.SyncPluginMarket();
             RefreshLocal();
         }
         catch (Exception ex)
@@ -471,13 +471,13 @@
 
     async void RefreshLocal(bool resetPage = true)
     {
-        await MarketSystem.SyncPluginEnvironment();
-        var onlinePlugins = MarketSystem.GetAllOnlinePlugins().Values.OrderByDescending(plugin => {
+        await PluginSystem.SyncPluginEnvironment();
+        var onlinePlugins = PluginSystem.GetAllOnlinePlugins().Values.OrderByDescending(plugin => {
             if (plugin.Releases != null && plugin.Releases.Count > 0 && DateTime.TryParse(plugin.Releases.First().Value.Date, out DateTime time))
                 return time;
             return DateTime.MinValue;
         });
-        var installed = MarketSystem.GetAllLocalPlugins();
+        var installed = PluginSystem.GetAllLocalPlugins();
 
         if (viewMode == "installed")
         {

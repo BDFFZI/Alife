@@ -28,8 +28,8 @@
     <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
     <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
     <Project Path="Sources/Alife/Alife.Platform/Alife.Platform.csproj" />
+    <Project Path="Sources/Alife/Alife.PluginContext/Alife.PluginContext.csproj" />
     <Project Path="Sources/Alife/Alife.PluginMarket/Alife.PluginMarket.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.DeskPet/">
     <Project Path="Sources/Alife.DeskPet/Alife.DeskPet.Client/Alife.DeskPet.Client.csproj" />

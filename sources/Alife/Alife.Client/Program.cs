@@ -36,6 +36,7 @@ public static class Program
         Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
         Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
         
+        Console.WriteLine(typeof(Function.Language.OpenAI.OpenAILanguageModel).Assembly);
         Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
         Console.WriteLine(typeof(Function.Speech.EdgeTTS.EdgeSpeechModel).Assembly);
         Console.WriteLine(typeof(Function.Speech.Genie.GenieSpeechModel).Assembly);

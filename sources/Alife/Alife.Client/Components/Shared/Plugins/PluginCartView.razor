@@ -1,7 +1,7 @@
 @using Alife.Framework
 @using Alife.Components.Shared.Common
 @using Alife.PluginMarket
-@inject MarketSystem MarketSystem
+@inject PluginSystem PluginSystem
 @inject INotificationService NotificationService
 
 <ErrorWindowUI @bind-Value="@operException" />
@@ -22,8 +22,8 @@
         <div style="flex: 1; overflow-y: auto; padding: 12px 0;">
             @foreach (var item in CartItems.ToList())
             {
-                bool isInstalled = MarketSystem.IsInstalled(item.Id);
-                bool hasUpdate = MarketSystem.HasUpdate(item);
+                bool isInstalled = PluginSystem.IsInstalled(item.Id);
+                bool hasUpdate = PluginSystem.HasUpdate(item);
                 string status = isInstalled ? (hasUpdate ? "可升级" : "已安装") : "待安装";
                 string statusColor = isInstalled ? (hasUpdate ? "#faad14" : "#52c41a") : "#1890ff";
 
@@ -83,8 +83,8 @@
     bool isOperating;
     Exception? operException;
 
-    int installableCount => CartItems.Count(p => !MarketSystem.IsInstalled(p.Id) || MarketSystem.HasUpdate(p));
-    int uninstallableCount => CartItems.Count(p => MarketSystem.IsInstalled(p.Id));
+    int installableCount => CartItems.Count(p => !PluginSystem.IsInstalled(p.Id) || PluginSystem.HasUpdate(p));
+    int uninstallableCount => CartItems.Count(p => PluginSystem.IsInstalled(p.Id));
 
     async Task RemoveFromCart(PluginPackage item)
     {
@@ -101,8 +101,8 @@
     async Task InstallSelected()
     {
         var toInstall = CartItems
-            .Where(p => !MarketSystem.IsInstalled(p.Id) || MarketSystem.HasUpdate(p))
-            .Select(p => new { Plugin = p, Version = MarketSystem.GetLatestVersion(p) ?? "" })
+            .Where(p => !PluginSystem.IsInstalled(p.Id) || PluginSystem.HasUpdate(p))
+            .Select(p => new { Plugin = p, Version = PluginSystem.GetLatestVersion(p) ?? "" })
             .Where(x => !string.IsNullOrEmpty(x.Version))
             .ToDictionary(x => x.Plugin, x => x.Version);
 
@@ -113,7 +113,7 @@
 
         try
         {
-            await MarketSystem.InstallPlugins(toInstall);
+            await PluginSystem.InstallPlugins(toInstall);
             _ = NotificationService.Success(new NotificationConfig { Message = $"成功安装/升级 {toInstall.Count} 个插件" });
             CartItems.Clear();
             await CartItemsChanged.InvokeAsync(CartItems);
@@ -131,7 +131,7 @@
     async Task UninstallSelected()
     {
         var toUninstall = CartItems
-            .Where(p => MarketSystem.IsInstalled(p.Id))
+            .Where(p => PluginSystem.IsInstalled(p.Id))
             .ToList();
 
         if (toUninstall.Count == 0) return;
@@ -141,7 +141,7 @@
 
         try
         {
-            await MarketSystem.UninstallPlugins(toUninstall);
+            await PluginSystem.UninstallPlugins(toUninstall);
             _ = NotificationService.Success(new NotificationConfig { Message = $"成功卸载 {toUninstall.Count} 个插件" });
             CartItems.Clear();
             await CartItemsChanged.InvokeAsync(CartItems);

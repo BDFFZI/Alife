@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Alife.Platform;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public class PipEnvironmentInstaller(string packageListOutput) : IEnvironmentInstaller
 {

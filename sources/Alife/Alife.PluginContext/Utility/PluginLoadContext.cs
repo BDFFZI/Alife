@@ -8,7 +8,7 @@ using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Alife.Platform;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public partial class PluginLoadContext
 {

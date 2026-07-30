@@ -1,4 +1,4 @@
-﻿using Alife.PluginSystem;
+﻿using Alife.Framework;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 

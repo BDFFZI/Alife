@@ -16,10 +16,10 @@ public class FrameworkTests
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
         await provider.InitAlife();
 
-        MarketSystem marketSystem = provider.GetRequiredService<MarketSystem>();
+        Alife.Framework.PluginSystem pluginSystem = provider.GetRequiredService<Alife.Framework.PluginSystem>();
 
-        await marketSystem.SyncPluginMarket();
-        foreach (KeyValuePair<string, PluginPackage> plugin in marketSystem.GetAllOnlinePlugins())
+        await pluginSystem.SyncPluginMarket();
+        foreach (KeyValuePair<string, PluginPackage> plugin in pluginSystem.GetAllOnlinePlugins())
             TestContext.WriteLine($"{plugin.Key}:{plugin.Value.Name}");
     }
 }

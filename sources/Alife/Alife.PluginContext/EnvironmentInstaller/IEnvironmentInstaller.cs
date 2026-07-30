@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public interface IEnvironmentInstaller
 {

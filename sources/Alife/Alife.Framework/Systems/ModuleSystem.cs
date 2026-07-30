@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Alife.Platform;
-using Alife.PluginSystem;
+using Alife.PluginContext;
 
 namespace Alife.Framework;
 
@@ -53,16 +53,16 @@ public class ModuleSystem
     readonly StorageSystem storageSystem;
     readonly StringFolder moduleFolder;
 
-    public ModuleSystem(PluginSystem.PluginSystem pluginSystem, StorageSystem storageSystem)
+    public ModuleSystem(PluginContext.PluginContext pluginContext, StorageSystem storageSystem)
     {
         this.storageSystem = storageSystem;
         moduleFolder = storageSystem.GetSetting("ModuleCategory", new StringFolder("全部模块"))!;
 
         //插件重载时触发模块重载
-        pluginSystem.PluginLoaded += OnPluginLoaded;
-        pluginSystem.PluginUnloaded += OnPluginUnloaded;
+        pluginContext.PluginLoaded += OnPluginLoaded;
+        pluginContext.PluginUnloaded += OnPluginUnloaded;
         //加载现有插件的模块
-        foreach ((string pluginId, PluginLoadContext pluginLoadContext) in pluginSystem.CurrentPluginLoadContexts)
+        foreach ((string pluginId, PluginLoadContext pluginLoadContext) in pluginContext.CurrentPluginLoadContexts)
             LoadPluginModule(pluginId, pluginLoadContext);
         //加载默认上下文
         LoadPluginModule(AssemblyLoadContext.Default.Name!, AssemblyLoadContext.Default);

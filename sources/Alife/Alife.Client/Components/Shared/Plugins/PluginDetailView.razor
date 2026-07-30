@@ -1,8 +1,8 @@
 @using Alife.Framework
 @using Alife.Components.Shared.Common
 @using Alife.PluginMarket
-@using Alife.PluginSystem
-@inject MarketSystem MarketSystem
+@using Alife.PluginContext
+@inject PluginSystem PluginSystem
 
 <div style="display: flex; flex-direction: column; height: 100%;">
     @* 页头 *@
@@ -53,7 +53,7 @@
             {
                 @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(DependencyResolver.CompareVersions)))
                 {
-                    bool isCompatible = MarketSystem.IsClientCompatible(release.Key);
+                    bool isCompatible = PluginSystem.IsClientCompatible(release.Key);
                     <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <Tooltip Title="@(isCompatible ? "" : "版本不兼容：插件大版本号高于当前客户端版本")">
@@ -103,9 +103,9 @@
 
     protected override void OnParametersSet()
     {
-        isInstalled = MarketSystem.IsInstalled(PluginPackage.Id);
-        installedVersion = MarketSystem.GetInstalledVersion(PluginPackage.Id);
-        latestVersion = MarketSystem.GetLatestVersion(PluginPackage);
+        isInstalled = PluginSystem.IsInstalled(PluginPackage.Id);
+        installedVersion = PluginSystem.GetInstalledVersion(PluginPackage.Id);
+        latestVersion = PluginSystem.GetLatestVersion(PluginPackage);
     }
 
     async Task AddToCart()

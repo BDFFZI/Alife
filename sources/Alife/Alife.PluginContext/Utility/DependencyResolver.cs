@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public enum VersionConstraintType
 {

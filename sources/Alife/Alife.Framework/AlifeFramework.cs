@@ -7,7 +7,7 @@ using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Alife.Platform;
 using Alife.PluginMarket;
-using Alife.PluginSystem;
+using Alife.PluginContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Framework;
@@ -39,7 +39,7 @@ public static class AlifeFramework
         services.AddSingleton<PipEnvironmentInstaller>(_ => new(
             Path.Combine(pluginSystemDirectory, "PipPackages.txt")
         ));
-        services.AddSingleton<Alife.PluginSystem.PluginSystem>(provider => new(
+        services.AddSingleton<Alife.PluginContext.PluginContext>(provider => new(
             pluginDirectory,
             pluginCompliedDirectory,
             new Dictionary<string, IEnvironmentInstaller>() {
@@ -49,7 +49,7 @@ public static class AlifeFramework
             provider.GetRequiredService<CSharpCompiler>()
         ));
         services.AddSingleton<Alife.PluginMarket.PluginMarket>(provider => new(
-            provider.GetRequiredService<PluginSystem.PluginSystem>(),
+            provider.GetRequiredService<PluginContext.PluginContext>(),
             new ZipPluginProvider(pluginMarketAddress),
             new FileSystemPluginInstaller(pluginDirectory),
             pluginMarketDirectory
@@ -57,7 +57,7 @@ public static class AlifeFramework
         services.AddSingleton<StorageSystem>();
         services.AddSingleton<ConfigurationSystem>();
         services.AddSingleton<ModuleSystem>();
-        services.AddSingleton<MarketSystem>();
+        services.AddSingleton<PluginSystem>();
         services.AddSingleton<CharacterSystem>();
         services.AddSingleton<ChatActivitySystem>();
     }
@@ -65,7 +65,7 @@ public static class AlifeFramework
     {
         //插件基础设施组装
         {
-            PluginSystem.PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem.PluginSystem>();
+            PluginContext.PluginContext pluginContext = provider.GetRequiredService<PluginContext.PluginContext>();
             NuGetEnvironmentInstaller nugetEnvironmentInstaller = provider.GetRequiredService<NuGetEnvironmentInstaller>();
             CSharpCompiler cSharpCompiler = provider.GetRequiredService<CSharpCompiler>();
             PluginMarket.PluginMarket pluginMarket = provider.GetRequiredService<PluginMarket.PluginMarket>();
@@ -98,8 +98,8 @@ public static class AlifeFramework
             };
 
             //兼容老版本的插件信息
-            pluginSystem.PluginManifestFallback = pluginId => {
-                string versionPath = Path.Combine(pluginSystem.PluginRootDirectory, pluginId, "VERSION.txt");
+            pluginContext.PluginManifestFallback = pluginId => {
+                string versionPath = Path.Combine(pluginContext.PluginRootDirectory, pluginId, "VERSION.txt");
                 PluginPackage? pluginPackage = pluginMarket.AllPluginPackages.GetValueOrDefault(pluginId);
                 return new PluginManifest() {
                     Version = File.Exists(versionPath) ? File.ReadAllText(versionPath) : "0.0.0",
@@ -109,7 +109,7 @@ public static class AlifeFramework
             };
 
             //立即将插件环境加载到程序
-            await pluginSystem.SyncPluginEnvironment();
+            await pluginContext.SyncPluginEnvironment();
         }
 
         //网络镜像功能

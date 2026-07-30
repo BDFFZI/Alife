@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Alife.Platform;
 using Newtonsoft.Json;
 
-namespace Alife.PluginSystem;
+namespace Alife.PluginContext;
 
 public struct PluginSyncReport
 {
@@ -23,7 +23,7 @@ public struct PluginSyncReport
 /// <param name="dllOutputDirectory"></param>
 /// <param name="environmentInstallers"></param>
 /// <param name="codeCompiler"></param>
-public class PluginSystem(string pluginRootDirectory, string dllOutputDirectory, Dictionary<string, IEnvironmentInstaller> environmentInstallers, CSharpCompiler codeCompiler)
+public class PluginContext(string pluginRootDirectory, string dllOutputDirectory, Dictionary<string, IEnvironmentInstaller> environmentInstallers, CSharpCompiler codeCompiler)
 {
     public event Func<string, PluginLoadContext, Task>? PluginLoaded;
     public event Func<string, PluginLoadContext, Task>? PluginUnloaded;

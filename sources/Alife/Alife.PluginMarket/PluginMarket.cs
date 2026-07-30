@@ -1,4 +1,4 @@
-﻿using Alife.PluginSystem;
+﻿using Alife.PluginContext;
 using Newtonsoft.Json;
 
 namespace Alife.PluginMarket;
@@ -70,7 +70,7 @@ public class PluginMarket
                 //确认有满足依赖的插件
                 foreach (var (dependentPluginId, _) in dependencies)
                 {
-                    if (pluginSystem.AllPluginManifests.TryGetValue(dependentPluginId, out PluginManifest value) &&
+                    if (pluginContext.AllPluginManifests.TryGetValue(dependentPluginId, out PluginManifest value) &&
                         dependencyResolver.IsSatisfiedVersion(dependentPluginId, value.Version))
                         continue;//插件已经安装，不需要重复安装
 
@@ -101,7 +101,7 @@ public class PluginMarket
     public List<string> ResolveBeDependentPlugins(string pluginId)
     {
         List<string> dependents = new();
-        foreach ((string id, PluginManifest manifest) in pluginSystem.AllPluginManifests)
+        foreach ((string id, PluginManifest manifest) in pluginContext.AllPluginManifests)
         {
             if (id == pluginId)
                 continue;
@@ -113,19 +113,19 @@ public class PluginMarket
         return dependents;
     }
 
-    readonly PluginSystem.PluginSystem pluginSystem;
+    readonly PluginContext.PluginContext pluginContext;
     readonly IPluginProvider pluginProvider;
     readonly IPluginInstaller pluginInstaller;
     readonly string pluginPackagesCacheDirectory;
     Dictionary<string, PluginPackage> allPluginPackages = new();
 
     public PluginMarket(
-        PluginSystem.PluginSystem pluginSystem,
+        PluginContext.PluginContext pluginContext,
         IPluginProvider pluginProvider,
         IPluginInstaller pluginInstaller,
         string pluginPackagesCacheDirectory)
     {
-        this.pluginSystem = pluginSystem;
+        this.pluginContext = pluginContext;
         this.pluginProvider = pluginProvider;
         this.pluginInstaller = pluginInstaller;
         this.pluginPackagesCacheDirectory = pluginPackagesCacheDirectory;

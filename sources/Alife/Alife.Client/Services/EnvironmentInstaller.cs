@@ -6,8 +6,6 @@ using Alife.Platform;
 
 namespace Alife.Components.Services;
 
-
-
 public class EnvironmentInstaller
 {
     public bool IsVCRedistReady { get; private set; }
@@ -33,11 +31,13 @@ public class EnvironmentInstaller
         IsVCRedistReady = File.Exists(path);
         return Task.CompletedTask;
     }
+
     public void CheckPython()
     {
         PythonDir = FindPythonDir();
         IsPythonReady = PythonDir != null;
     }
+
     public async Task CheckDotNetSdkAsync()
     {
         // 先尝试系统 PATH 中的 dotnet
@@ -61,7 +61,8 @@ public class EnvironmentInstaller
         }
 
         // 最后尝试 LocalAppData 路径
-        string localDotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "dotnet", "dotnet.exe");
+        string localDotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "dotnet",
+            "dotnet.exe");
         if (File.Exists(localDotnet))
         {
             output = AlifeUtility.Command($"\"{localDotnet}\"", "--list-sdks");
@@ -74,6 +75,7 @@ public class EnvironmentInstaller
 
         IsDotNetSdkReady = false;
     }
+
     public async Task CheckCudaAsync()
     {
         if (PythonDir == null)
@@ -104,12 +106,18 @@ public class EnvironmentInstaller
         progress?.Report("正在静默安装 Visual C++ Redistributable...");
         AlifeUtility.Command(tempExe, "/install /quiet /norestart");
 
-        try { File.Delete(tempExe); }
-        catch {}
+        try
+        {
+            File.Delete(tempExe);
+        }
+        catch
+        {
+        }
 
         await CheckVCppRedistAsync();
         progress?.Report("Visual C++ 安装完成");
     }
+
     public async Task InstallPythonAsync(IProgress<string>? progress = null)
     {
         string pyDir = Path.Combine(AlifePath.RuntimeFolderPath, "Python312");
@@ -123,8 +131,13 @@ public class EnvironmentInstaller
         progress?.Report("正在解压 Python 3.12...");
         System.IO.Compression.ZipFile.ExtractToDirectory(
             Path.Combine(Path.GetTempPath(), "py.zip"), pyDir, overwriteFiles: true);
-        try { File.Delete(Path.Combine(Path.GetTempPath(), "py.zip")); }
-        catch {}
+        try
+        {
+            File.Delete(Path.Combine(Path.GetTempPath(), "py.zip"));
+        }
+        catch
+        {
+        }
 
         progress?.Report("配置 site-packages...");
         string pthFile = Path.Combine(pyDir, "python312._pth");
@@ -141,8 +154,13 @@ public class EnvironmentInstaller
         await AlifeUtility.DownloadFileAsync(getPyUrl, getPyPath);
 
         AlifeUtility.Command(Path.Combine(pyDir, "python.exe"), $"\"{getPyPath}\" --no-warn-script-location");
-        try { File.Delete(getPyPath); }
-        catch {}
+        try
+        {
+            File.Delete(getPyPath);
+        }
+        catch
+        {
+        }
 
         progress?.Report("正在安装 setuptools / wheel...");
         string pyExe = Path.Combine(pyDir, "python.exe");
@@ -152,6 +170,7 @@ public class EnvironmentInstaller
         CheckPython();
         progress?.Report("Python 3.12 安装完成");
     }
+
     public async Task InstallDotNetSdkAsync(IProgress<string>? progress = null)
     {
         progress?.Report("正在下载 .NET SDK 10 安装包...");
@@ -161,12 +180,18 @@ public class EnvironmentInstaller
         progress?.Report("正在安装 .NET SDK 10...");
         AlifeUtility.Command(tempExe, "/install /quiet /norestart");
 
-        try { File.Delete(tempExe); }
-        catch {}
+        try
+        {
+            File.Delete(tempExe);
+        }
+        catch
+        {
+        }
 
         await CheckDotNetSdkAsync();
         progress?.Report(".NET SDK 10 安装完成");
     }
+
     public async Task InstallCudaAsync(IProgress<string>? progress = null)
     {
         if (PythonDir == null)
@@ -209,18 +234,25 @@ public class EnvironmentInstaller
                 Environment.SetEnvironmentVariable("PATH", $"{extra}{Path.PathSeparator}{path}");
         }
     }
+
     static string? FindPythonDir()
     {
-        // 1. Check %LOCALAPPDATA%\Programs\Python\Python312
-        string systemPy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Python", "Python312");
-        if (File.Exists(Path.Combine(systemPy, "python.exe")))
-            return systemPy;
-
-        // 2. Check Runtime dir
+        //优先使用 Runtime 中的沙盒 python
         string runtimePy = Path.Combine(AlifePath.RuntimeFolderPath, "Python312");
         if (File.Exists(Path.Combine(runtimePy, "python.exe")))
             return runtimePy;
 
+        //否则尝试使用环境中的 Python
+        string? paths = Environment.GetEnvironmentVariable("Path");
+        if (paths != null)
+        {
+            foreach (var path in paths.Split(";"))
+            {
+                if (File.Exists(Path.Combine(path, "python.exe")))
+                    return path;
+            }
+        }
+        
         return null;
     }
 }
