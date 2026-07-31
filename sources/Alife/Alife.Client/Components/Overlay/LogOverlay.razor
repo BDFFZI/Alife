@@ -1,45 +1,89 @@
-@using System.IO
 @using System.Text
 @using Alife.Platform
+@inject IMessageService MessageService
 @inject IJSRuntime JsRuntime
+@implements IDisposable
 
-<div class="log-floating-button" @onclick="ToggleLog">
+<ErrorWindowUI @bind-Value="exception" Title="程序异常喵！"/>
+
+<div class="log-floating-button" @onclick="OpenModal">
     <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
+    @if (errorBadge > 0)
+    {
+        <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+    }
+    else if (warningBadge > 0)
+    {
+        <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+    }
 </div>
 
 <Modal @bind-Visible="visible"
        Title="运行日志"
        Width="@("80%")"
        Style="top: 20px;"
-       MaskStyle="z-index: 99998;"
        WrapClassName="log-modal-top"
-       ZIndex="99999"
-       Footer="null"
-       AfterOpen="OnModalOpened"
-       AfterClose="OnModalClosed">
+       Footer="null">
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; align-items: center;">
-        <span style="font-size: 12px;">锁定到最新</span>
+        <span style="font-size: 12px;">最大条数</span>
+        <AntDesign.InputNumber @bind-Value="CurrentMaxLines" Min="100" Max="100000" Size="@InputSize.Small" Style="width: 90px;"/>
+        <span style="font-size: 12px;">自动滚动</span>
         <Switch @bind-Value="autoScroll"/>
-        <Button Size="@ButtonSize.Small" OnClick="@ExportLogs">导出</Button>
+        <Button Size="@ButtonSize.Small" OnClick="ExportLogs">导出</Button>
+    </div>
+    <div class="log-tabs-bar">
+        <Tabs ActiveKey="@activeKey" ActiveKeyChanged="OnActiveKeyChanged" Size="@TabSize.Small">
+            <TabPane Key="log">
+                <TabTemplate>
+                    <span>日志</span>
+                </TabTemplate>
+            </TabPane>
+            <TabPane Key="warning">
+                <TabTemplate>
+                    <span class="log-tab-label">
+                        警告
+                        @if (warningBadge > 0)
+                        {
+                            <span class="log-tab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+                        }
+                    </span>
+                </TabTemplate>
+            </TabPane>
+            <TabPane Key="error">
+                <TabTemplate>
+                    <span class="log-tab-label">
+                        错误
+                        @if (errorBadge > 0)
+                        {
+                            <span class="log-tab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+                        }
+                    </span>
+                </TabTemplate>
+            </TabPane>
+        </Tabs>
     </div>
     <div @ref="container" class="log-container">
-        @foreach (LogEntry entry in entries)
+        @if (activeKey == "log")
         {
-            <div style="word-break: break-all;"><span
-                    style="color: #666;">@entry.Timestamp.ToString("HH:mm:ss.fff")</span><span
-                    style="margin: 0 6px; color: #555;">|</span>
-                @foreach (AnsiSegment segment in ParseAnsi(entry.Message))
-                {
-                    if (string.IsNullOrEmpty(segment.CssColor))
+            @foreach (string line in logLines)
+            {
+                <div class="log-line">
+                    @foreach (AnsiSegment segment in ParseAnsi(line))
                     {
-                        <span>@segment.Text</span>
+                        <span style="color: @segment.Color;">@segment.Text</span>
                     }
-                    else
-                    {
-                        <span style="color: @segment.CssColor;">@segment.Text</span>
-                    }
-                }
-            </div>
+                </div>
+            }
+        }
+        else
+        {
+            var (list, color) = activeKey == "warning"
+                ? (warningLines, "#e5c07b")
+                : (errorLines, "#f14c4c");
+            @foreach (string line in list)
+            {
+                <div class="log-line" style="color: @color;">@line</div>
+            }
         }
     </div>
 </Modal>
@@ -61,12 +105,43 @@
         z-index: 99999;
         transition: all 0.2s;
     }
-
     .log-floating-button:hover {
         background: #40a9ff;
         transform: scale(1.1);
     }
-
+    .log-fab-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 9px;
+        color: #fff;
+        font-size: 11px;
+        line-height: 18px;
+        text-align: center;
+        box-shadow: 0 0 0 2px #fff;
+    }
+    .log-tab-label {
+        position: relative;
+    }
+    .log-tab-badge {
+        position: absolute;
+        top: -8px;
+        right: -20px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 10px;
+        line-height: 16px;
+        text-align: center;
+    }
+    .log-tabs-bar .ant-tabs-content-holder {
+        display: none;
+    }
     .log-container {
         height: 60vh;
         overflow-y: auto;
@@ -78,10 +153,14 @@
         border-radius: 4px;
         line-height: 1.5;
     }
+    .log-line {
+        word-break: break-all;
+        white-space: pre-wrap;
+    }
 </style>
 
 @code {
-    const string jsHelpers =
+    const string JsHelpers =
         "window.alifeLogScroll=function(el){if(el)el.scrollTop=el.scrollHeight;};" +
         "window.alifeDownloadText=function(text,fname){" +
         "var b=new Blob([text],{type:'text/plain;charset=utf-8'});" +
@@ -90,54 +169,194 @@
         "a.href=u;a.download=fname;document.body.appendChild(a);a.click();" +
         "setTimeout(function(){URL.revokeObjectURL(u);a.remove();},200);};";
 
-    const int MaxLogCount = 5000;
-    const string LogFileName = "alife.log";
-    static readonly Dictionary<int, string> ForegroundColors = new() {
+    static readonly Dictionary<int, string> ColorMap = new()
+    {
         [30] = "#000000", [31] = "#cd3131", [32] = "#0dbc79", [33] = "#e5e510",
         [34] = "#2472c8", [35] = "#bc3fbc", [36] = "#11a8cd", [37] = "#e5e5e5",
         [90] = "#666666", [91] = "#f14c4c", [92] = "#23d18b", [93] = "#f5f543",
         [94] = "#3b8eea", [95] = "#d670d6", [96] = "#29b8db", [97] = "#e5e5e5",
     };
 
-    readonly List<LogEntry> logs = new();
-    readonly Lock syncLock = new();
-    readonly string logFilePath = Path.Combine(AlifePath.TempFolderPath, LogFileName);
-    StreamWriter? logFileWriter;
-
+    readonly List<string> logLines = new();
+    readonly List<string> warningLines = new();
+    readonly List<string> errorLines = new();
+    int maxLogLines = 5000;
+    int maxWarningLines = 1000;
+    int maxErrorLines = 1000;
+    int warningBadge;
+    int errorBadge;
+    string activeKey = "log";
     bool visible;
-    bool autoScroll;
-    IReadOnlyList<LogEntry> entries = Array.Empty<LogEntry>();
+    bool autoScrollField = true;
+    bool scrollPending;
+    Exception? exception;
+
+    bool autoScroll
+    {
+        get => autoScrollField;
+        set
+        {
+            autoScrollField = value;
+            //开启自动滚动时立即滚动到底部
+            if (value && visible)
+                scrollPending = true;
+        }
+    }
     ElementReference container;
-    System.Timers.Timer? refreshTimer;
+
+    int CurrentMaxLines
+    {
+        get => activeKey switch
+        {
+            "warning" => maxWarningLines,
+            "error" => maxErrorLines,
+            _ => maxLogLines,
+        };
+        set
+        {
+            switch (activeKey)
+            {
+                case "warning":
+                    maxWarningLines = value;
+                    Trim(warningLines, value);
+                    break;
+                case "error":
+                    maxErrorLines = value;
+                    Trim(errorLines, value);
+                    break;
+                default:
+                    maxLogLines = value;
+                    Trim(logLines, value);
+                    break;
+            }
+        }
+    }
 
     protected override void OnInitialized()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
-        logFileWriter = new StreamWriter(logFilePath, false, Encoding.UTF8) { AutoFlush = true };
-        Console.SetOut(new CapturingWriter("INF", Console.Out, this));
-        Console.SetError(new CapturingWriter("ERR", Console.Error, this));
+        AlifeLog.WarningLogged += OnWarning;
+        AlifeLog.ErrorLogged += OnError;
+
+        Console.SetOut(new CapturingWriter(this, Console.Out));
+        Console.SetError(new CapturingWriter(this, Console.Error));
     }
 
-    void Push(LogEntry entry)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        string message = entry.Message.Trim();
-        if (string.IsNullOrEmpty(message)) return;
-        entry = entry with { Message = message };
+        if (firstRender)
+            await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
 
-        lock (syncLock)
+        //DOM已更新，此时滚动才能到达真正的底部
+        if (scrollPending && visible)
         {
-            logs.Add(entry);
-            if (logs.Count > MaxLogCount)
-                logs.RemoveRange(0, logs.Count - MaxLogCount);
+            scrollPending = false;
+            await ScrollToEnd();
         }
-
-        logFileWriter?.WriteLine($"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{entry.Level}] {StripAnsi(entry.Message)}");
     }
 
-    IReadOnlyList<LogEntry> GetEntries()
+    public void Dispose()
     {
-        lock (syncLock)
-            return logs.ToArray();
+        AlifeLog.WarningLogged -= OnWarning;
+        AlifeLog.ErrorLogged -= OnError;
+    }
+
+    void OnWarning(string message)
+    {
+        PushEntry(warningLines, maxWarningLines, message, "warning");
+        _ = InvokeAsync(() => MessageService.Warning(message, 3));
+    }
+    void OnError(string message)
+    {
+        PushEntry(errorLines, maxErrorLines, message, "error");
+        _ = InvokeAsync(() => MessageService.Error(message, 5));
+    }
+    
+    void PushConsole(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        logLines.Add(text);
+        Trim(logLines, maxLogLines);
+        RefreshAndScroll("log");
+    }
+
+    void PushEntry(List<string> list, int max, string message, string key)
+    {
+        if (string.IsNullOrEmpty(message)) return;
+        list.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+        Trim(list, max);
+        if (visible && activeKey == key)
+        {
+            //正在查看对应选项卡，无需角标
+        }
+        else if (key == "warning")
+        {
+            warningBadge++;
+        }
+        else
+        {
+            errorBadge++;
+        }
+        RefreshAndScroll(key);
+    }
+
+    void RefreshAndScroll(string key)
+    {
+        _ = InvokeAsync(() =>
+        {
+            if (autoScroll && visible && activeKey == key)
+                scrollPending = true;
+            StateHasChanged();
+        });
+    }
+
+    static void Trim(List<string> list, int max)
+    {
+        if (list.Count > max)
+            list.RemoveRange(0, list.Count - max);
+    }
+
+    void OpenModal()
+    {
+        visible = true;
+        ClearBadge(activeKey);
+        if (autoScroll)
+            scrollPending = true;
+    }
+
+    void OnActiveKeyChanged(string key)
+    {
+        activeKey = key;
+        ClearBadge(key);
+        if (autoScroll)
+            scrollPending = true;
+    }
+
+    void ClearBadge(string key)
+    {
+        if (key == "warning") warningBadge = 0;
+        else if (key == "error") errorBadge = 0;
+    }
+
+    static string BadgeText(int count) => count > 99 ? "99+" : count.ToString();
+
+    async Task ScrollToEnd()
+    {
+        try { await JsRuntime.InvokeVoidAsync("alifeLogScroll", container); }
+        catch { }
+    }
+
+    async Task ExportLogs()
+    {
+        var (list, name) = activeKey switch
+        {
+            "warning" => (warningLines, "warning"),
+            "error" => (errorLines, "error"),
+            _ => (logLines, "log"),
+        };
+        StringBuilder sb = new();
+        foreach (string line in list)
+            sb.AppendLine(StripAnsi(line));
+        await JsRuntime.InvokeVoidAsync("alifeDownloadText", sb.ToString(), $"alife-{name}-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
     }
 
     static string StripAnsi(string text)
@@ -161,7 +380,7 @@
         return sb.ToString();
     }
 
-    static IReadOnlyList<AnsiSegment> ParseAnsi(string text)
+    static List<AnsiSegment> ParseAnsi(string text)
     {
         List<AnsiSegment> segments = new();
         StringBuilder sb = new();
@@ -181,15 +400,12 @@
                 int end = text.IndexOf('m', i + 2);
                 if (end < 0) break;
 
-                string seq = text.Substring(i + 2, end - (i + 2));
-                foreach (string part in seq.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                foreach (string part in text.Substring(i + 2, end - i - 2).Split(';', StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (int.TryParse(part, out int code))
                     {
-                        if (code == 0 || code == 39)
-                            currentColor = "";
-                        else if (ForegroundColors.TryGetValue(code, out string? color))
-                            currentColor = color;
+                        if (code == 0 || code == 39) currentColor = "";
+                        else if (ColorMap.TryGetValue(code, out string? c)) currentColor = c;
                     }
                 }
 
@@ -210,125 +426,51 @@
         return segments;
     }
 
-    void ToggleLog()
+    class CapturingWriter(LogOverlay overlay, TextWriter inner) : TextWriter
     {
-        visible = visible == false;
-        if (visible)
-        {
-            entries = GetEntries();
-            StartRefreshTimer();
-        }
-        else
-        {
-            StopRefreshTimer();
-        }
-    }
-
-    void OnModalOpened() => _ = ScrollToEnd();
-    void OnModalClosed() => StopRefreshTimer();
-
-    void StartRefreshTimer()
-    {
-        StopRefreshTimer();
-        refreshTimer = new System.Timers.Timer(100);
-        refreshTimer.Elapsed += (_, _) => {
-            entries = GetEntries();
-            _ = InvokeAsync(() => {
-                StateHasChanged();
-                if (autoScroll) _ = ScrollToEnd();
-            });
-        };
-        refreshTimer.Start();
-    }
-
-    void StopRefreshTimer()
-    {
-        refreshTimer?.Stop();
-        refreshTimer?.Dispose();
-        refreshTimer = null;
-    }
-
-    async Task ExportLogs()
-    {
-        StringBuilder sb = new();
-        foreach (LogEntry e in entries)
-            sb.AppendLine($"[{e.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{e.Level}] {StripAnsi(e.Message)}");
-        await JsRuntime.InvokeVoidAsync("alifeDownloadText", sb.ToString(), $"alife-log-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-            await JsRuntime.InvokeVoidAsync("eval", jsHelpers);
-    }
-
-    async Task ScrollToEnd()
-    {
-        try { await JsRuntime.InvokeVoidAsync("alifeLogScroll", container); }
-        catch {}
-    }
-
-    sealed class CapturingWriter : TextWriter
-    {
-        readonly string level;
-        readonly TextWriter inner;
-        readonly LogOverlay overlay;
-        readonly StringBuilder line = new();
-
-        public CapturingWriter(string level, TextWriter inner, LogOverlay overlay)
-        {
-            this.level = level;
-            this.inner = inner;
-            this.overlay = overlay;
-        }
-
         public override Encoding Encoding => inner.Encoding;
-
-        void FlushLine()
-        {
-            if (line.Length == 0) return;
-            string msg = line.ToString().TrimEnd('\r');
-            line.Clear();
-            overlay.Push(new LogEntry(DateTime.Now, level, msg));
-        }
-
-        void Append(char c)
-        {
-            if (c == '\n') FlushLine();
-            else line.Append(c);
-        }
 
         public override void Write(char value)
         {
             inner.Write(value);
-            Append(value);
+            if (value == '\n') FlushLine();
+            else line.Append(value);
         }
-        public override void Write(char[] buffer, int index, int count)
-        {
-            inner.Write(buffer, index, count);
-            for (int i = 0; i < count; i++) Append(buffer[index + i]);
-        }
+
         public override void Write(string? value)
         {
             if (value == null) return;
             inner.Write(value);
-            foreach (char c in value) Append(c);
+            foreach (char c in value)
+            {
+                if (c == '\n') FlushLine();
+                else line.Append(c);
+            }
         }
+
         public override void WriteLine(string? value)
         {
             inner.WriteLine(value);
             if (value != null) line.Append(value);
             FlushLine();
         }
-        public override void WriteLine()
+
+        public override void WriteLine() => FlushLine();
+
+        readonly StringBuilder line = new();
+
+        void FlushLine()
         {
-            inner.WriteLine();
-            FlushLine();
+            if (line.Length == 0) return;
+            string msg = line.ToString().TrimEnd('\r');
+            line.Clear();
+            overlay.PushConsole(msg);
         }
     }
 
-    readonly record struct AnsiSegment(string Text, string CssColor);
-
-    readonly record struct LogEntry(DateTime Timestamp, string Level, string Message);
-
+    readonly struct AnsiSegment(string text, string color)
+    {
+        public string Text { get; } = text;
+        public string Color { get; } = color;
+    }
 }

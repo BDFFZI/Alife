@@ -1,17 +1,17 @@
 @using Alife.Components.Services
 @using Alife.PluginMarket
 @using Alife.PluginContext
-@inject UpdateService UpdateService
 @inject PluginSystem PluginSystem
 @inject NavigationManager Navigation
+@inject ClientUpgrade ClientUpgrade
 
 @if (showAppUpdate)
 {
-    <PopupNotification Title="@($"发现新版本 v{updateInfo!.Version}")"
+    <PopupNotification Title="@($"发现新版本 v{ClientUpgrade.NewVersion!.Version}")"
                        Icon="@IconType.Outline.Bell"
                        ProgressVisible="@isDownloading"
                        ProgressValue="@downloadProgress"
-                       BodyText="@updateInfo.ReleaseNotes">
+                       BodyText="@ClientUpgrade.NewVersion.ReleaseNotes">
         <Body>
         @if (isMajorUpdate)
         {
@@ -21,7 +21,7 @@
                 此次为非兼容性更新，部分第三方插件可能不支持，官方插件也需在更新后立即升级。
             </div>
         }
-        @((MarkupString)updateInfo.ReleaseNotes!.Replace("\n", "<br/>"))
+        @((MarkupString)ClientUpgrade.NewVersion.ReleaseNotes!.Replace("\n", "<br/>"))
         </Body>
         <Actions>
             <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@UpdateClient">
@@ -69,9 +69,9 @@ else if (showPluginUpdate)
 }
 
 @code {
+
     //应用更新
     bool showAppUpdate;
-    UpdateInfo? updateInfo;
     bool isMajorUpdate;
     //插件强制更新
     bool showForceUpgrade;
@@ -84,22 +84,20 @@ else if (showPluginUpdate)
 
     protected override void OnInitialized()
     {
-        ClientUpgrade();
-        CheckForceUpgrade();
+        CheckClientUpgrade();
+        CheckPluginForceUpgrade();
         if (!showForceUpgrade)
             CheckPluginUpdates();
 
-        void ClientUpgrade()
+        void CheckClientUpgrade()
         {
-            if (UpdateService.HasUpdate && UpdateService.LatestUpdate != null)
+            if (ClientUpgrade.NewVersion != null)
             {
-                updateInfo = UpdateService.LatestUpdate;
                 showAppUpdate = true;
-                isMajorUpdate = DependencyResolver.GetMajorVersion(updateInfo.Version) > DependencyResolver.GetMajorVersion(UpdateService.LocalVersion);
+                isMajorUpdate = DependencyResolver.GetMajorVersion(ClientUpgrade.NewVersion.Version) > DependencyResolver.GetMajorVersion(PluginSystem.ClientVersion);
             }
         }
-
-        void CheckForceUpgrade()
+        void CheckPluginForceUpgrade()
         {
             var forcePlugins = PluginSystem.GetForceUpgradedPlugins();
             if (forcePlugins.Count == 0) return;
@@ -113,7 +111,8 @@ else if (showPluginUpdate)
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
-                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
+                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem
+                {
                     PluginPackage = plugin,
                     oldVersion = oldVersion,
                     newVersion = newVersion,
@@ -130,7 +129,8 @@ else if (showPluginUpdate)
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
-                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
+                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem
+                {
                     PluginPackage = plugin,
                     oldVersion = oldVersion,
                     newVersion = newVersion
@@ -142,7 +142,6 @@ else if (showPluginUpdate)
                 showForceUpgrade = true;
             }
         }
-
         void CheckPluginUpdates()
         {
             var allPlugins = PluginSystem.GetAllOnlinePlugins().Values;
@@ -159,14 +158,13 @@ else if (showPluginUpdate)
 
     async Task UpdateClient()
     {
-        if (updateInfo == null) return;
-
         isDownloading = true;
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            await UpdateService.ApplyUpdateAsync(updateInfo, progress => {
+            await ClientUpgrade.ApplyNewVersion(progress =>
+            {
                 downloadProgress = progress;
                 InvokeAsync(StateHasChanged);
             });
@@ -179,7 +177,7 @@ else if (showPluginUpdate)
             await InvokeAsync(StateHasChanged);
         }
     }
-    
+
     void GoToPluginMarket()
     {
         showPluginUpdate = false;

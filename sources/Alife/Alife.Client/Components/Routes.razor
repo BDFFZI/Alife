@@ -1,8 +1,6 @@
 @using Alife.Components.Overlay
 @using Alife.Components.Services
 @using ElectronNET.API
-@inject CharacterSystem CharacterSystem
-@inject NavigationManager Navigation
 @inject IJSRuntime JsRuntime
 
 @if (isAppInitialized)
@@ -28,7 +26,6 @@ else
     bool isAppInitialized;
     Exception? exception;
 
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender == false)
@@ -37,10 +34,20 @@ else
         //业务环境初始化
         try
         {
-            await Task.Run(async () => {
-                await Program.ServiceProvider.InitAlife();
-                EnvironmentInstaller.SetupEnvironmentPaths();//客户端提供的运行环境
-                Program.ServiceProvider.GetRequiredService<ChatMessageService>();//客户端对话统计
+            await Task.Run(async () =>
+            {
+                ClientEnvironment.SyncEnvironment(); //客户端提供的基础运行环境
+                Program.ServiceProvider.InitAlife(); //初始化 Alife 功能
+
+                //拉取加载插件
+                PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
+                await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
+                await pluginSystem.SyncLocalPlugins();
+                
+                //拉取版本信息
+                await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
+                
+                Program.ServiceProvider.GetRequiredService<ChatMessageService>(); //客户端对话统计
             });
         }
         catch (Exception ex)
@@ -52,15 +59,6 @@ else
 
         isAppInitialized = true;
         await JsRuntime.InvokeVoidAsync("alifeLaunching.complete");
-
-        //老用户重定向
-        if (new Uri(Navigation.Uri).AbsolutePath is "/")
-        {
-            if (CharacterSystem.GetAllCharacters().Count > 0)
-            {
-                Navigation.NavigateTo("/system");
-            }
-        }
 
         StateHasChanged();
     }

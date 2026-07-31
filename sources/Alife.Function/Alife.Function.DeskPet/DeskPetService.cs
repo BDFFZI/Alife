@@ -130,7 +130,7 @@ public class DeskPetService(
             if (!Directory.Exists(clientPath))
             {
                 const string ZipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
-                await AlifeUtility.DownloadZipFileAsync(clientPath, ZipUrl);
+                await AlifeUtility.DownloadZipFileAsync(ZipUrl, clientPath);
             }
 
             string modelName = Configuration.ModelName;

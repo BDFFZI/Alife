@@ -36,7 +36,9 @@ public class AlifeLogger(string categoryName) : ILogger
     {
         public static readonly NullScope Instance = new();
 
-        public void Dispose() {}
+        public void Dispose()
+        {
+        }
     }
 }
 
@@ -47,11 +49,16 @@ public class AlifeLogProvider : ILoggerProvider
         return new AlifeLogger(categoryName);
     }
 
-    public void Dispose() {}
+    public void Dispose()
+    {
+    }
 }
 
 public static class AlifeLog
 {
+    public static event Action<string>? WarningLogged;
+    public static event Action<string>? ErrorLogged;
+
     public static void LogInformation(object message)
     {
         DefaultLogger.LogInformation(message.ToString());
@@ -64,11 +71,10 @@ public static class AlifeLog
     {
         DefaultLogger.LogError(message.ToString());
     }
-    public static void LogError(Exception ex)
-    {
-        DefaultLogger.LogError(ex.ToString());
-    }
-    public static void Handle<TState>(
+
+    static AlifeLogger DefaultLogger { get; } = new("");
+
+    internal static void Handle<TState>(
         string category,
         LogLevel logLevel,
         EventId eventId,
@@ -77,11 +83,14 @@ public static class AlifeLog
         Func<TState, Exception?, string> formatter)
     {
         string message = formatter(state, exception);
+
+        if (logLevel == LogLevel.Warning)
+            WarningLogged?.Invoke(message);
+        else if (logLevel == LogLevel.Error)
+            ErrorLogged?.Invoke(message);
+
         WriteConsole(logLevel, category, message, exception);
     }
-
-    static AlifeLogger DefaultLogger { get; } = new("");
-
     static void WriteConsole(
         LogLevel logLevel,
         string category,
@@ -122,7 +131,8 @@ public static class AlifeLog
     static ConsoleColor GetColor(
         LogLevel level)
     {
-        return level switch {
+        return level switch
+        {
             LogLevel.Trace =>
                 ConsoleColor.DarkGray,
 

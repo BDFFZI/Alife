@@ -23,7 +23,11 @@ public struct PluginSyncReport
 /// <param name="dllOutputDirectory"></param>
 /// <param name="environmentInstallers"></param>
 /// <param name="codeCompiler"></param>
-public class PluginContext(string pluginRootDirectory, string dllOutputDirectory, Dictionary<string, IEnvironmentInstaller> environmentInstallers, CSharpCompiler codeCompiler)
+public class PluginContext(
+    string pluginRootDirectory,
+    string dllOutputDirectory,
+    Dictionary<string, IEnvironmentInstaller> environmentInstallers,
+    CSharpCompiler codeCompiler)
 {
     public event Func<string, PluginLoadContext, Task>? PluginLoaded;
     public event Func<string, PluginLoadContext, Task>? PluginUnloaded;
@@ -48,8 +52,9 @@ public class PluginContext(string pluginRootDirectory, string dllOutputDirectory
         void SyncPluginManifests()
         {
             allPluginManifests.Clear();
-            foreach (var pluginId in Directory.GetDirectories(pluginRootDirectory))
+            foreach (var pluginDirectory in Directory.GetDirectories(pluginRootDirectory))
             {
+                string pluginId = Path.GetFileName(pluginDirectory);
                 string pluginDependencyFile = GetPluginDependencyPath(pluginId);
                 PluginManifest pluginManifest = File.Exists(pluginDependencyFile)
                     ? JsonConvert.DeserializeObject<PluginManifest>(File.ReadAllText(pluginDependencyFile))
@@ -136,7 +141,8 @@ public class PluginContext(string pluginRootDirectory, string dllOutputDirectory
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
-        pluginLoadContext.Disposed += async () => {
+        pluginLoadContext.Disposed += async () =>
+        {
             currentPluginLoadContexts.Remove(pluginId);
             if (PluginUnloaded != null)
             {
@@ -182,7 +188,7 @@ public class PluginContext(string pluginRootDirectory, string dllOutputDirectory
         if (!Directory.Exists(pluginDirectory))
             throw new Exception($"未找到名为 {pluginId} 的插件目录，每个插件需在插件根目录建立同名子目录作为插件目录");
 
-        if (!allPluginManifests.TryGetValue(pluginId, out PluginManifest pluginEnvironment))
+        if (!allPluginManifests.TryGetValue(pluginId, out PluginManifest pluginManifest))
             throw new Exception($"未找到插件环境信息，请先使用 {nameof(SyncPluginEnvironment)} 同步环境。");
 
         string[] codeFiles = Directory.GetFiles(pluginDirectory, "*.cs", SearchOption.AllDirectories);
@@ -190,25 +196,23 @@ public class PluginContext(string pluginRootDirectory, string dllOutputDirectory
             throw new Exception("插件目录中不存在 cs 文件，请确认插件是否真的需要编译代码，且代码文件放在了插件目录中。");
 
         List<string> dllFiles = Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories).ToList();
-        if (pluginEnvironment.Dependencies != null)
+        if (pluginManifest.Dependencies != null)
         {
-            //验证依赖插件存在
-            foreach (string dependencyPlugin in pluginEnvironment.Dependencies.Keys)
-            {
-                if (allPluginManifests.ContainsKey(dependencyPlugin) == false)
-                    throw new Exception($"未找到依赖的插件 {dependencyPlugin}，请检查依赖的插件 id 填写是否正确，是否存在，或是否已同步插件环境。");
-            }
-
-            //验证依赖插件兼容
             DependencyResolver pluginDependencyResolver = new();
-            pluginDependencyResolver.AddDependencies(pluginEnvironment.Dependencies);
-            foreach (string dependencyPlugin in pluginEnvironment.Dependencies.Keys)
-            {
-                if (pluginDependencyResolver.IsSatisfiedVersion(dependencyPlugin, allPluginManifests[dependencyPlugin].Version))
-                    throw new Exception($"环境中的 {dependencyPlugin} 插件版本不满足于 {pluginId} 的要求，请更换插件版本，或调整版本号要求。");
-            }
+            pluginDependencyResolver.AddDependencies(pluginManifest.Dependencies);
 
-            dllFiles.AddRange(RequirePluginDll(pluginId));
+            foreach (string dependencyPlugin in pluginManifest.Dependencies.Keys)
+            {
+                //验证依赖插件存在
+                if (allPluginManifests.TryGetValue(dependencyPlugin, out var manifest) == false)
+                    throw new Exception($"未找到依赖的插件 {dependencyPlugin}，请检查依赖的插件 id 填写是否正确，是否存在，或是否已同步插件环境。");
+
+                //验证依赖插件当前版本可用
+                if (!pluginDependencyResolver.IsSatisfiedVersion(dependencyPlugin, manifest.Version))
+                    throw new Exception($"环境中的 {dependencyPlugin} 插件版本不满足于 {pluginId} 的要求，请更换插件版本，或调整版本号要求。");
+
+                dllFiles.AddRange(RequirePluginDll(dependencyPlugin));
+            }
         }
 
         codeCompiler.Compile(GetPluginCompiledDllPath(pluginId), codeFiles, dllFiles.ToArray());
@@ -226,6 +230,7 @@ public class PluginContext(string pluginRootDirectory, string dllOutputDirectory
                 CompilePluginCode(pluginId);
             result.Add(pluginCompiledDllPath);
         }
+
         //添加已编译的dll
         result.AddRange(Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories));
 

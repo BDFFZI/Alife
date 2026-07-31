@@ -2,16 +2,44 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Alife.Platform;
 
+public struct CommandResult
+{
+    public int ExitCode { get; init; }
+    public string StandardOutput { get; init; }
+    public string StandardError { get; init; }
+}
+
 public static class AlifeUtility
 {
+    /// <summary>
+    /// 通过 HttpClient 获取报文内容字符串
+    /// </summary>
+    /// <param name="url">请求地址</param>
+    /// <param name="timeout">超时时间，默认 30 秒</param>
+    /// <returns>响应内容字符串</returns>
+    public static async Task<string> FetchStringAsync(string url, TimeSpan? timeout = null)
+    {
+        //应用镜像替换
+        url = AlifeMirror.TransformUrl(url);
+
+        //伪装用户
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+        //设置超时
+        using var httpClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
+        using var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadAsStringAsync();
+    }
     /// <summary>
     /// 通过 HttpClient 下载文件到本地
     /// </summary>
@@ -26,7 +54,8 @@ public static class AlifeUtility
 
         //伪装用户
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        request.Headers.Add("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         if (url.Contains("multimedia.nt.qq.com.cn") || url.Contains("qpic.cn"))
             request.Headers.Add("Referer", "https://q.qq.com/");
 
@@ -60,36 +89,14 @@ public static class AlifeUtility
             if (progress != null && readSoFar >= nextReport)
             {
                 progress(readSoFar, totalBytes);
-                nextReport = readSoFar + 10 * 1024 * 1024;// 每 10MB 报告一次
+                nextReport = readSoFar + 10 * 1024 * 1024; // 每 10MB 报告一次
             }
         }
 
         //最终进度报告
         progress?.Invoke(readSoFar, totalBytes);
     }
-    /// <summary>
-    /// 通过 HttpClient 获取远程字符串内容
-    /// </summary>
-    /// <param name="url">请求地址</param>
-    /// <param name="timeout">超时时间，默认 30 秒</param>
-    /// <returns>响应内容字符串</returns>
-    public static async Task<string> FetchStringAsync(string url, TimeSpan? timeout = null)
-    {
-        //应用镜像替换
-        url = AlifeMirror.TransformUrl(url);
-
-        //伪装用户
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-
-        //设置超时
-        using var httpClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
-        using var response = await httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadAsStringAsync();
-    }
-    public static async Task DownloadZipFileAsync(string rootPath, string url)
+    public static async Task DownloadZipFileAsync(string url, string rootPath)
     {
         if (Directory.Exists(rootPath) == false)
             Directory.CreateDirectory(rootPath);
@@ -101,18 +108,12 @@ public static class AlifeUtility
         File.Delete(zipPath);
     }
 
-    public static string Command(string fileName, string arguments)
+    public static CommandResult Command(string fileName, string arguments)
     {
-        if (CommandIgnore.Length != 0)
+        ProcessStartInfo psi = new()
         {
-            string fullCommand = $"{fileName} {arguments}";
-            if (CommandIgnore.Any(ignore => Regex.IsMatch(fullCommand, ignore)))
-                return "";
-        }
-
-        ProcessStartInfo psi = new() {
             FileName = "cmd.exe",
-            Arguments = $"/c {fileName} {arguments}",
+            Arguments = $"/c chcp 65001 > nul && {fileName} {arguments}",
             CreateNoWindow = true,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -121,34 +122,32 @@ public static class AlifeUtility
             StandardErrorEncoding = Encoding.UTF8,
         };
         using Process? process = Process.Start(psi);
+        if (process == null)
+            throw new Exception("进程不存在，无法启动。");
+
         StringBuilder stdoutBuilder = new();
         StringBuilder stderrBuilder = new();
-        if (process != null)
+        process.OutputDataReceived += (_, e) =>
         {
-            process.OutputDataReceived += (_, e) => {
-                Console.WriteLine(e.Data);
-                stdoutBuilder.AppendLine(e.Data);
-            };
-            process.ErrorDataReceived += (_, e) => {
-                Console.WriteLine(e.Data);
-                stderrBuilder.AppendLine(e.Data);
-            };
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            process.WaitForExit();
-        }
+            Console.WriteLine(e.Data);
+            stdoutBuilder.AppendLine(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            Console.WriteLine(e.Data);
+            stderrBuilder.AppendLine(e.Data);
+        };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        process.WaitForExit();
 
-        string stdout = stdoutBuilder.ToString();
-        string stderr = stderrBuilder.ToString();
+        CommandResult commandResult = new()
+        {
+            ExitCode = process.ExitCode,
+            StandardOutput = stdoutBuilder.ToString().Trim(),
+            StandardError = stderrBuilder.ToString().Trim(),
+        };
 
-        return string.IsNullOrEmpty(stderr) ? stdout : $"{stdout}\n{stderr}";
-    }
-
-    static readonly string[] CommandIgnore;
-
-    static AlifeUtility()
-    {
-        string commandIgnoreFile = Path.Combine(AlifePath.RuntimeFolderPath, "CommandIgnore.txt");
-        CommandIgnore = File.Exists(commandIgnoreFile) ? File.ReadAllLines(commandIgnoreFile).Where(s => string.IsNullOrEmpty(s.Trim()) == false).ToArray() : [];
+        return commandResult;
     }
 }

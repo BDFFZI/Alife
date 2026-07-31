@@ -19,17 +19,13 @@ public static class DemoSuite
         ServiceCollection serviceCollection = new();
         serviceCollection.AddAlife();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
-        await provider.InitAlife();
+        provider.InitAlife();
 
         systemCreated?.Invoke(provider);
 
         ChatActivitySystem chatActivitySystem = provider.GetRequiredService<ChatActivitySystem>();
-        chatActivitySystem.ActivatingProcess += (_, progress) => {
-            DemeLog.LogInfo(progress.Step);
-        };
-        chatActivitySystem.ActivationFailed += (_, exception) => {
-            DemeLog.LogError(exception.ToString());
-        };
+        chatActivitySystem.ActivatingProcess += (_, progress) => { DemeLog.LogInfo(progress.Step); };
+        chatActivitySystem.ActivationFailed += (_, exception) => { DemeLog.LogError(exception.ToString()); };
 
         //进行活动
         {
@@ -59,26 +55,31 @@ public static class DemoSuite
         bool isFirstMessage = false;
         bool isFirstReasoning = false;
 
-        chatBot.ChatSent += msg => {
+        chatBot.ChatSent += msg =>
+        {
             LogSent("USER", msg);
             isFirstMessage = true;
             isFirstReasoning = true;
         };
-        chatBot.ReasoningReceived += msg => {
+        chatBot.ReasoningReceived += msg =>
+        {
             if (isFirstReasoning)
             {
                 isFirstReasoning = false;
                 LogReceivedStart("Reasoning");
             }
+
             LogReceivedContent(msg, ConsoleColor.Gray);
         };
-        chatBot.ChatReceived += msg => {
+        chatBot.ChatReceived += msg =>
+        {
             if (isFirstMessage)
             {
                 isFirstMessage = false;
                 Console.WriteLine();
                 LogReceivedStart("Message");
             }
+
             LogReceivedContent(msg, ConsoleColor.White);
         };
         chatBot.ChatOver += Console.WriteLine;

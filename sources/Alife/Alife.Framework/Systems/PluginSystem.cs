@@ -13,18 +13,20 @@ public class PluginSystem(
 {
     public PluginMarket.PluginMarket PluginMarket => pluginMarket;
     public PluginContext.PluginContext PluginContext => pluginContext;
+    public string ClientVersion { get; } = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
 
     /// <summary>
     /// 云端拉取插件
     /// </summary>
-    public async Task SyncPluginMarket()
+    public async Task SyncOnlinePlugins()
     {
         await pluginMarket.SyncOnlinePluginPackagesAsync();
     }
     /// <summary>
-    /// 刷新本地插件
+    /// 刷新本地插件。
+    /// 安装卸载插件时会自动同步，因此默认情况下无需调用，只有手动修改插件清单等数据后，才会用到此函数来主动同步。
     /// </summary>
-    public async Task SyncPluginEnvironment()
+    public async Task SyncLocalPlugins()
     {
         await pluginContext.SyncPluginEnvironment();
     }
@@ -47,7 +49,7 @@ public class PluginSystem(
             if (installedVersion == null || pluginPackage.Releases == null)
                 return false;
 
-            int clientMajor = DependencyResolver.GetMajorVersion(currentClientVersion);
+            int clientMajor = DependencyResolver.GetMajorVersion(ClientVersion);
             int installedMajor = DependencyResolver.GetMajorVersion(installedVersion);
 
             if (installedMajor >= clientMajor)
@@ -63,7 +65,7 @@ public class PluginSystem(
     }
     public bool IsClientCompatible(string pluginVersion)
     {
-        return DependencyResolver.GetMajorVersion(pluginVersion) <= DependencyResolver.GetMajorVersion(currentClientVersion);
+        return DependencyResolver.GetMajorVersion(pluginVersion) <= DependencyResolver.GetMajorVersion(ClientVersion);
     }
     public bool HasUpdate(PluginPackage pluginPackage)
     {
@@ -117,6 +119,4 @@ public class PluginSystem(
     {
         await pluginContext.ReloadPluginDll(pluginId);
     }
-
-    readonly string currentClientVersion = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
 }

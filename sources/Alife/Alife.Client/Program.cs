@@ -14,39 +14,39 @@ public static class Program
 
     static void Main(string[] args)
     {
-#if DEBUG
-        Console.WriteLine(typeof(Function.Memory.MemoryService).Assembly.FullName);
-        Console.WriteLine(typeof(Function.MessageFilter.MessageFilterService).Assembly);
-        Console.WriteLine(typeof(Function.SystemEvent.SystemEventService).Assembly);
-        Console.WriteLine(typeof(Function.VirtualWorld.VirtualWorldService).Assembly);
-        Console.WriteLine(typeof(Function.Developer.DeveloperService).Assembly);
-
-        Console.WriteLine(typeof(Function.FunctionCaller.XmlFunctionCaller).Assembly);
-        Console.WriteLine(typeof(Function.Mcp.McpService).Assembly);
-        Console.WriteLine(typeof(Function.Skill.SkillService).Assembly);
-
-        Console.WriteLine(typeof(Function.Browser.BrowserService).Assembly);
-        Console.WriteLine(typeof(Function.Python.PythonService).Assembly);
-        Console.WriteLine(typeof(Function.Vision.VisionService).Assembly);
-        Console.WriteLine(typeof(Function.FileService.FileService).Assembly);
-        Console.WriteLine(typeof(Function.ProcessService.ProcessService).Assembly);
-
-        Console.WriteLine(typeof(Function.Auditory.AuditoryService).Assembly);
-        Console.WriteLine(typeof(Function.DeskPet.DeskPetService).Assembly);
-        Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
-        Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
-        
-        Console.WriteLine(typeof(Function.Language.OpenAI.OpenAILanguageModel).Assembly);
-        Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
-        Console.WriteLine(typeof(Function.Speech.EdgeTTS.EdgeSpeechModel).Assembly);
-        Console.WriteLine(typeof(Function.Speech.Genie.GenieSpeechModel).Assembly);
-        Console.WriteLine(typeof(Function.Speech.VITS.VitsSpeechModel).Assembly);
-        Console.WriteLine(typeof(Function.Vision.MiniCPM.MiniCPMVisionModel).Assembly);
-        Console.WriteLine(typeof(Function.Vision.OpenAI.OpenAIVisionModel).Assembly);
-        Console.WriteLine(typeof(Function.Vision.Qwen.QwenVisionModel).Assembly);
-#endif
-        //TODO 为了支持基于 WebView2 的浏览器插件而加载，未来应当去除
-        Console.WriteLine(typeof(Form).Assembly);
+// #if DEBUG
+//         Console.WriteLine(typeof(Function.Memory.MemoryService).Assembly.FullName);
+//         Console.WriteLine(typeof(Function.MessageFilter.MessageFilterService).Assembly);
+//         Console.WriteLine(typeof(Function.SystemEvent.SystemEventService).Assembly);
+//         Console.WriteLine(typeof(Function.VirtualWorld.VirtualWorldService).Assembly);
+//         Console.WriteLine(typeof(Function.Developer.DeveloperService).Assembly);
+//
+//         Console.WriteLine(typeof(Function.FunctionCaller.XmlFunctionCaller).Assembly);
+//         Console.WriteLine(typeof(Function.Mcp.McpService).Assembly);
+//         Console.WriteLine(typeof(Function.Skill.SkillService).Assembly);
+//
+//         Console.WriteLine(typeof(Function.Browser.BrowserService).Assembly);
+//         Console.WriteLine(typeof(Function.Python.PythonService).Assembly);
+//         Console.WriteLine(typeof(Function.Vision.VisionService).Assembly);
+//         Console.WriteLine(typeof(Function.FileService.FileService).Assembly);
+//         Console.WriteLine(typeof(Function.ProcessService.ProcessService).Assembly);
+//
+//         Console.WriteLine(typeof(Function.Auditory.AuditoryService).Assembly);
+//         Console.WriteLine(typeof(Function.DeskPet.DeskPetService).Assembly);
+//         Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
+//         Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
+//         
+//         Console.WriteLine(typeof(Function.Language.OpenAI.OpenAILanguageModel).Assembly);
+//         Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
+//         Console.WriteLine(typeof(Function.Speech.EdgeTTS.EdgeSpeechModel).Assembly);
+//         Console.WriteLine(typeof(Function.Speech.Genie.GenieSpeechModel).Assembly);
+//         Console.WriteLine(typeof(Function.Speech.VITS.VitsSpeechModel).Assembly);
+//         Console.WriteLine(typeof(Function.Vision.MiniCPM.MiniCPMVisionModel).Assembly);
+//         Console.WriteLine(typeof(Function.Vision.OpenAI.OpenAIVisionModel).Assembly);
+//         Console.WriteLine(typeof(Function.Vision.Qwen.QwenVisionModel).Assembly);
+// #endif
+//         //TODO 为了支持基于 WebView2 的浏览器插件而加载，未来应当去除
+//         Console.WriteLine(typeof(Form).Assembly);
 
         //控制台编码设置
         Console.OutputEncoding = Encoding.UTF8;
@@ -69,8 +69,7 @@ public static class Program
             builder.Services.AddAlife();
             //前端功能
             builder.Services.AddSingleton<ChatMessageService>();
-            builder.Services.AddSingleton<UpdateService>();
-            builder.Services.AddSingleton<EnvironmentInstaller>();
+            builder.Services.AddSingleton<ClientUpgrade>();
         }
 
         var app = builder.Build();

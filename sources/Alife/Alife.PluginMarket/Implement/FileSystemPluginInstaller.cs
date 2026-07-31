@@ -22,7 +22,7 @@ public class FileSystemPluginInstaller(string directory) : IPluginInstaller
             {
                 case ".zip":
                     await UninstallPlugin(pluginPackage.Id);
-                    await AlifeUtility.DownloadZipFileAsync(pluginDirectory, pluginRelease.File);
+                    await AlifeUtility.DownloadZipFileAsync(pluginRelease.File, pluginDirectory);
                     break;
                 default:
                     throw new Exception($"Plugin {pluginPackage.Id} file type is not supported");

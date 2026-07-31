@@ -49,7 +49,7 @@ public class DeveloperService(
     [XmlFunction(FunctionMode.OneShot)]
     public async Task SyncPluginEnvironment()
     {
-        await pluginSystem.SyncPluginEnvironment();
+        await pluginSystem.SyncLocalPlugins();
         interactor.Poke("插件环境同步成功");
     }
     [XmlFunction(FunctionMode.OneShot)]

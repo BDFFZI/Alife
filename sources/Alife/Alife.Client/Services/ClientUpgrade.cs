@@ -1,78 +1,52 @@
 using System.Diagnostics;
-using System.IO;
-using System.Reflection;
+using Alife.Framework;
 using Alife.Platform;
 using ElectronNET.API;
 using Newtonsoft.Json.Linq;
-using Process=System.Diagnostics.Process;
+using Process = System.Diagnostics.Process;
 
 namespace Alife.Components.Services;
-
 public record UpdateInfo(string Version, string? ReleaseNotes, string DownloadUrl);
-
-public class UpdateService
+public class ClientUpgrade(PluginSystem pluginSystem)
 {
-    const string RawGitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
-
-    public string LocalVersion { get; }
-    public string? RemoteVersion { get; private set; }
-    public bool HasUpdate { get; private set; }
-    public UpdateInfo? LatestUpdate { get; private set; }
-
-    public UpdateService()
+    public string CurrentVersion => pluginSystem.ClientVersion;
+    public UpdateInfo? NewVersion { get; private set; }
+    public async Task FetchNewVersion()
     {
-        LocalVersion = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
-        Task.Run(CheckForUpdateAsync).Wait();
-    }
+        const string rawGitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
+        string response = await AlifeUtility.FetchStringAsync(rawGitHubApiUrl);
+        JObject json = JObject.Parse(response);
 
-    public string GetCurrentVersion() => LocalVersion;
+        string? tagName = json["tag_name"]?.ToString();
+        if (tagName == null)
+            throw new Exception("客户端版本同步失败，无法获取到标签信息。");
 
-    public async Task<UpdateInfo?> CheckForUpdateAsync()
-    {
-        try
+        string remoteVersion = tagName.TrimStart('v');
+        if (new Version(remoteVersion) <= new Version(pluginSystem.ClientVersion))
         {
-            string response = await AlifeUtility.FetchStringAsync(RawGitHubApiUrl);
-            JObject json = JObject.Parse(response);
-
-            string? tagName = json["tag_name"]?.ToString();
-            if (string.IsNullOrEmpty(tagName))
-                return null;
-
-            RemoteVersion = tagName.TrimStart('v');
-
-            if (new Version(RemoteVersion) > new Version(LocalVersion))
-            {
-                HasUpdate = true;
-                string? body = json["body"]?.ToString();
-                string? downloadUrl = json["assets"]?[0]?["browser_download_url"]?.ToString();
-
-                if (string.IsNullOrEmpty(downloadUrl) == false)
-                {
-                    LatestUpdate = new UpdateInfo(RemoteVersion, body, downloadUrl);
-                    return LatestUpdate;
-                }
-            }
-            else
-            {
-                HasUpdate = false;
-            }
-        }
-        catch
-        {
-            // 网络异常静默忽略
+            NewVersion = null;
+            return; //本地比云端新
         }
 
-        return null;
-    }
+        string? body = json["body"]?.ToString();
+        string? downloadUrl = json["assets"]?[0]?["browser_download_url"]?.ToString();
+        if (string.IsNullOrEmpty(downloadUrl))
+            throw new Exception("客户端版本同步失败，无法获取到下载地址。");
 
-    public async Task ApplyUpdateAsync(UpdateInfo updateInfo, Action<int>? onProgress = null)
+        NewVersion = new UpdateInfo(remoteVersion, body, downloadUrl);
+    }
+    public async Task ApplyNewVersion(Action<int>? onProgress = null)
     {
+        if (NewVersion == null)
+            throw new Exception("没有新版本。");
+
         string tempDir = Path.Combine(AlifePath.TempFolderPath, "Update");
         if (Directory.Exists(tempDir))
             Directory.Delete(tempDir, true);
 
         string zipPath = Path.Combine(tempDir, "Alife.zip");
-        await AlifeUtility.DownloadFileAsync(updateInfo.DownloadUrl, zipPath, (read, total) => {
+        await AlifeUtility.DownloadFileAsync(NewVersion.DownloadUrl, zipPath, (read, total) =>
+        {
             if (total > 0)
                 onProgress?.Invoke((int)(read * 100 / total));
         });
@@ -137,7 +111,8 @@ public class UpdateService
               exit
               """);
 
-        Process.Start(new ProcessStartInfo {
+        Process.Start(new ProcessStartInfo
+        {
             FileName = "powershell.exe",
             Arguments = $"-ExecutionPolicy Bypass -File \"{psPath}\"",
             CreateNoWindow = false,

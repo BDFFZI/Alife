@@ -1,10 +1,9 @@
 @using Alife.Platform
 @using Alife.Components.Services
-@using ElectronNET.API
 @using ElectronNET.API.Entities
-@using UpdateInfo = Alife.Components.Services.UpdateInfo
+@using ElectronNET.API
 @inject INotificationService NotificationService
-@inject UpdateService UpdateService
+@inject ClientUpgrade ClientUpgrade
 
 <div style="padding: 24px; height: 100%; overflow-y: auto;">
     <Title Level="4" Style="margin-bottom: 24px;">系统配置</Title>
@@ -13,7 +12,7 @@
         <Text Strong Style="margin-bottom: 8px; display: block;">数据存储目录 (Storage)</Text>
         <div style="display: flex; gap: 8px; align-items: center;">
             <Input @bind-Value="storageFolderPath" Style="flex: 1;" ReadOnly/>
-            <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OnPickStorageFolderAsync"/>
+            <Button Icon="@IconType.Outline.FolderOpen" OnClick="@PickStorageFolderAsync"></Button>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             存放角色数据、对话记录等用户数据。重启后生效。
@@ -24,7 +23,7 @@
         <Text Strong Style="margin-bottom: 8px; display: block;">运行时目录 (Runtime)</Text>
         <div style="display: flex; gap: 8px; align-items: center;">
             <Input @bind-Value="runtimeFolderPath" Style="flex: 1;" ReadOnly/>
-            <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OnPickRuntimeFolderAsync"/>
+            <Button Icon="@IconType.Outline.FolderOpen" OnClick="@PickRuntimeFolderAsync"></Button>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             存放浏览器数据、模型文件等运行时数据。重启后生效。
@@ -35,7 +34,7 @@
     <div style="margin-bottom: 24px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <Text Strong>开机自启</Text>
-            <Switch Checked="_autoStart" OnChange="OnAutoStartChanged"/>
+            <Switch Checked="autoStartOnBoot" OnChange="@ChangeAutoStartOnBoot"/>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             开启后，系统启动时自动运行 Alife。
@@ -47,33 +46,35 @@
     <Title Level="5" Style="margin-bottom: 12px;">版本信息</Title>
     <Descriptions Column="1" Size="@DescriptionsSize.Small" Bordered>
         <DescriptionsItem Title="当前版本">
-            <Text Code Style="font-size: 12px;">v@(_currentVersion)</Text>
+            <Text Code Style="font-size: 12px;">v@(ClientUpgrade.CurrentVersion)</Text>
         </DescriptionsItem>
-        @if (_latestVersion != null)
+        @if (ClientUpgrade.NewVersion != null)
         {
             <DescriptionsItem Title="最新版本">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <Text Code Style="font-size: 12px; color: #52c41a;">v@(_latestVersion)</Text>
-                    @if (_isDownloading)
+                    <Text Code Style="font-size: 12px; color: #52c41a;">v@(ClientUpgrade.NewVersion.Version)</Text>
+                    @if (isUpgradeDownloading)
                     {
-                        <Progress Percent="@_downloadProgress" Status="ProgressStatus.Active" Style="flex: 1;" />
+                        <Progress Percent="@upgradeDownloadProgress" Status="ProgressStatus.Active"
+                                  Style="flex: 1;"></Progress>
                     }
                     else
                     {
-                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="StartUpdate">立即升级</Button>
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@StartClientUpdate">立即升级
+                        </Button>
                     }
                 </div>
             </DescriptionsItem>
         }
     </Descriptions>
     <div style="margin-top: 8px;">
-        @if (_isChecking)
+        @if (isUpgradeChecking)
         {
             <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">正在检查更新...</AntDesign.Text>
         }
-        else if (_latestVersion == null)
+        else if (ClientUpgrade.NewVersion == null)
         {
-            <Button Size="@ButtonSize.Small" OnClick="CheckForUpdate">检查更新</Button>
+            <Button Size="@ButtonSize.Small" OnClick="@CheckClientUpdate">检查更新</Button>
         }
     </div>
 
@@ -82,136 +83,141 @@
     <Title Level="5" Style="margin-bottom: 12px;">路径一览</Title>
     <Descriptions Column="1" Size="@DescriptionsSize.Small" Bordered>
         <DescriptionsItem Title="StorageFolderPath">
-            <Text Code Style="font-size: 12px;">@Platform.AlifePath.StorageFolderPath</Text>
+            <Text Code Style="font-size: 12px;">@AlifePath.StorageFolderPath</Text>
         </DescriptionsItem>
         <DescriptionsItem Title="RuntimeFolderPath">
-            <Text Code Style="font-size: 12px;">@Platform.AlifePath.RuntimeFolderPath</Text>
+            <Text Code Style="font-size: 12px;">@AlifePath.RuntimeFolderPath</Text>
         </DescriptionsItem>
         <DescriptionsItem Title="TempFolderPath">
-            <Text Code Style="font-size: 12px;">@Platform.AlifePath.TempFolderPath</Text>
+            <Text Code Style="font-size: 12px;">@AlifePath.TempFolderPath</Text>
         </DescriptionsItem>
     </Descriptions>
 </div>
 
 @code {
-    string _currentVersion = null!;
-    string? _latestVersion;
-    UpdateInfo? _updateInfo;
-    bool _isChecking;
-    bool _isDownloading;
-    int _downloadProgress;
-    bool _autoStart;
+    bool isUpgradeChecking;
+    bool isUpgradeDownloading;
+    int upgradeDownloadProgress;
+    bool autoStartOnBoot;
 
-    string storageFolderPath = Platform.AlifePath.StorageFolderPath;
-    string runtimeFolderPath = Platform.AlifePath.RuntimeFolderPath;
+    string storageFolderPath = AlifePath.StorageFolderPath;
+    string runtimeFolderPath = AlifePath.RuntimeFolderPath;
 
     protected override void OnInitialized()
     {
-        _currentVersion = UpdateService.GetCurrentVersion();
-        _autoStart = ReadAutoStart();
+        autoStartOnBoot = CheckIsAutoStart();
+
+        static bool CheckIsAutoStart()
+        {
+            try
+            {
+                string result = AlifeUtility.Command("schtasks", "/query /tn \"Alife\" /fo csv /nh").StandardOutput;
+                return result.Contains("Alife");
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
-    void OnAutoStartChanged(bool value)
+    async Task ChangeAutoStartOnBoot(bool value)
     {
         try
         {
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
-            if (value)
-                Platform.AlifeUtility.Command("schtasks", $"/create /tn \"Alife\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f");
-            else
-                Platform.AlifeUtility.Command("schtasks", "/delete /tn \"Alife\" /f");
+            AlifeUtility.Command("schtasks", value
+                ? $"/create /tn \"Alife\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f"
+                : "/delete /tn \"Alife\" /f");
 
-            _autoStart = value;
-            _ = NotificationService.Success(new NotificationConfig
+            autoStartOnBoot = value;
+
+            await NotificationService.Success(new NotificationConfig
             {
                 Message = value ? "已开启开机自启" : "已关闭开机自启"
             });
         }
         catch (Exception ex)
         {
-            _ = NotificationService.Error(new NotificationConfig
+            await NotificationService.Error(new NotificationConfig
             {
                 Message = $"设置开机自启失败: {ex.Message}"
             });
         }
     }
 
-    static bool ReadAutoStart()
+    async Task CheckClientUpdate()
     {
+        isUpgradeChecking = true;
+        await InvokeAsync(StateHasChanged);
         try
         {
-            string result = Platform.AlifeUtility.Command("schtasks", "/query /tn \"Alife\" /fo csv /nh");
-            return result.Contains("Alife");
+            await ClientUpgrade.FetchNewVersion();
+            if (ClientUpgrade.NewVersion == null)
+                await NotificationService.Success(new NotificationConfig { Message = "当前已是最新版本。" });
         }
-        catch { return false; }
+        catch (Exception e)
+        {
+            await NotificationService.Error(new NotificationConfig
+            {
+                NotificationType = NotificationType.Error,
+                Message = "检查更新失败。",
+            });
+            AlifeLog.LogError(e);
+        }
+        finally
+        {
+            isUpgradeChecking = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
-
-    async Task CheckForUpdate()
+    async Task StartClientUpdate()
     {
-        _isChecking = true;
-        await InvokeAsync(StateHasChanged);
-
-        _updateInfo = await UpdateService.CheckForUpdateAsync();
-        _latestVersion = _updateInfo?.Version;
-        _isChecking = false;
-        await InvokeAsync(StateHasChanged);
-
-        if (_updateInfo == null)
-            _ = NotificationService.Success(new NotificationConfig { Message = "当前已是最新版本~" });
-    }
-
-    async Task StartUpdate()
-    {
-        if (_updateInfo == null) return;
-
-        _isDownloading = true;
+        isUpgradeDownloading = true;
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            await UpdateService.ApplyUpdateAsync(_updateInfo, progress =>
+            await ClientUpgrade.ApplyNewVersion(progress =>
             {
-                _downloadProgress = progress;
+                upgradeDownloadProgress = progress;
                 InvokeAsync(StateHasChanged);
             });
         }
-        catch (Exception ex)
+        finally
         {
-            _isDownloading = false;
-            _downloadProgress = 0;
-            Console.WriteLine($"更新失败: {ex.Message}");
+            isUpgradeDownloading = false;
             await InvokeAsync(StateHasChanged);
         }
     }
 
-    async Task OnPickStorageFolderAsync()
+    async Task PickStorageFolderAsync()
     {
         string? result = await PickFolderAsync();
         if (string.IsNullOrWhiteSpace(result) is false)
         {
             storageFolderPath = result;
-            Platform.AlifePath.SetStorageFolderPath(storageFolderPath);
+            AlifePath.SetStorageFolderPath(storageFolderPath);
             _ = NotificationService.Success(new NotificationConfig { Message = "存储路径已保存！重启后生效喵~" });
         }
     }
-
-    async Task OnPickRuntimeFolderAsync()
+    async Task PickRuntimeFolderAsync()
     {
         string? result = await PickFolderAsync();
         if (string.IsNullOrWhiteSpace(result) is false)
         {
             runtimeFolderPath = result;
-            Platform.AlifePath.SetRuntimeFolderPath(runtimeFolderPath);
+            AlifePath.SetRuntimeFolderPath(runtimeFolderPath);
             _ = NotificationService.Success(new NotificationConfig { Message = "运行时目录已保存！重启后生效喵~" });
         }
     }
-
     static async Task<string?> PickFolderAsync()
     {
         var browserWindow = Electron.WindowManager.BrowserWindows.First();
-        var options = new OpenDialogOptions {
+        var options = new OpenDialogOptions
+        {
             Title = "请选择文件夹",
-            Properties = new[] { OpenDialogProperty.openDirectory }
+            Properties = [OpenDialogProperty.openDirectory]
         };
         string[] result = await Electron.Dialog.ShowOpenDialogAsync(browserWindow, options);
         return result.FirstOrDefault();

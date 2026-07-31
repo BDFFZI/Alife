@@ -1,7 +1,4 @@
 @using Alife.Components.Services
-@using Alife.Platform
-@using System.IO
-@inject EnvironmentInstaller EnvChecker
 
 <div class="step-content">
     <ErrorWindowUI @bind-Value="@installException"/>
@@ -13,12 +10,12 @@
 
     <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
            Message="下载时间取决于网络情况，如果是 CUDA 额外还需要下载 2-3GB 内容。可查看任务管理器的磁盘或网络波动来确认是否正常下载中。"></Alert>
-    
+
     <div class="env-grid">
-        @RenderEnv("VC++ 运行库", EnvChecker.IsVCRedistReady)
-        @RenderEnv("Python 3.12", EnvChecker.IsPythonReady)
-        @RenderEnv(".NET SDK 10", EnvChecker.IsDotNetSdkReady)
-        @RenderEnv("CUDA (本地模型GPU加速)", EnvChecker.IsCudaReady, true)
+        @RenderEnv("VC++ 运行库", ClientEnvironment.IsVCRedistReady)
+        @RenderEnv("Python 3.12", ClientEnvironment.IsPythonReady)
+        @RenderEnv(".NET SDK 10", ClientEnvironment.IsDotNetSdkReady)
+        @RenderEnv("CUDA (本地模型GPU加速)", ClientEnvironment.IsCudaReady, true)
     </div>
 
     @if (isInstallingEnv && !string.IsNullOrEmpty(envProgressMsg))
@@ -32,11 +29,12 @@
     }
 
     <div class="step-actions">
-        <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload" Loading="@isCheckingEnv" OnClick="@OnCheckEnv">
+        <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload" Loading="@isEnvRefreshing"
+                OnClick="@RefreshEnvironment">
             检测
         </Button>
         <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Icon="@IconType.Outline.Thunderbolt"
-                Loading="@isInstallingEnv" OnClick="@OnInstallAllRequired">一键安装必要环境
+                Loading="@isInstallingEnv" OnClick="@InstallAllRequired">一键安装必要环境
         </Button>
         <Button Size="@ButtonSize.Small" OnClick="@OnInstallCuda" Loading="@isInstallingCuda">
             安装 CUDA 环境（需显卡支持，否则不要装）
@@ -49,7 +47,7 @@
             <Icon Type="@IconType.Outline.ArrowLeft"/>
             上一步
         </Button>
-        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(!envAllReady)" OnClick="@OnNext">
+        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(!EnvAllReady)" OnClick="@OnNext">
             下一步
             <Icon Type="@IconType.Outline.ArrowRight"/>
         </Button>
@@ -60,15 +58,17 @@
     [Parameter] public EventCallback OnPrevStep { get; set; }
     [Parameter] public EventCallback OnNextStep { get; set; }
 
-    bool isCheckingEnv, isInstallingEnv, isInstallingCuda;
+    bool isEnvRefreshing, isInstallingEnv, isInstallingCuda;
     string envProgressMsg = "";
     Exception? installException;
-    bool envAllReady =>
-        EnvChecker.IsVCRedistReady
-        && EnvChecker.IsPythonReady
-        && EnvChecker.IsDotNetSdkReady;
 
-    RenderFragment RenderEnv(string label, bool isReady, bool optional = false) => builder => {
+    bool EnvAllReady =>
+        ClientEnvironment.IsVCRedistReady
+        && ClientEnvironment.IsPythonReady
+        && ClientEnvironment.IsDotNetSdkReady;
+
+    RenderFragment RenderEnv(string label, bool isReady, bool optional = false) => builder =>
+    {
         builder.OpenElement(0, "div");
         builder.AddAttribute(1, "class", "ev" + (optional ? " ev-opt" : ""));
 
@@ -101,25 +101,14 @@
         builder.CloseElement();
     };
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    async Task RefreshEnvironment()
     {
-        if (!firstRender) return;
-        isCheckingEnv = true;
-        StateHasChanged();
-        await EnvChecker.CheckAllAsync();
-        isCheckingEnv = false;
-        StateHasChanged();
+        isEnvRefreshing = true;
+        await Task.Run(ClientEnvironment.SyncEnvironment);
+        isEnvRefreshing = false;
     }
 
-    async Task OnCheckEnv()
-    {
-        isCheckingEnv = true;
-        StateHasChanged();
-        await EnvChecker.CheckAllAsync();
-        isCheckingEnv = false;
-    }
-
-    async Task OnInstallAllRequired()
+    async Task InstallAllRequired()
     {
         isInstallingEnv = true;
         envProgressMsg = "";
@@ -127,18 +116,19 @@
         StateHasChanged();
         try
         {
-            IProgress<string> p = new Progress<string>(msg => {
+            IProgress<string> p = new Progress<string>(msg =>
+            {
                 envProgressMsg = msg;
                 InvokeAsync(StateHasChanged);
             });
-            await Task.Run(async () => {
-                if (!EnvChecker.IsVCRedistReady) await EnvChecker.InstallVCppRedistAsync(p);
-                if (!EnvChecker.IsPythonReady) await EnvChecker.InstallPythonAsync(p);
-                if (!EnvChecker.IsDotNetSdkReady) await EnvChecker.InstallDotNetSdkAsync(p);
+            await Task.Run(async () =>
+            {
+                if (!ClientEnvironment.IsVCRedistReady) await ClientEnvironment.InstallVCppRedistAsync(p);
+                if (!ClientEnvironment.IsPythonReady) await ClientEnvironment.InstallPythonAsync(p);
+                if (!ClientEnvironment.IsDotNetSdkReady) await ClientEnvironment.InstallDotNetSdkAsync(p);
             });
             p.Report("验证环境");
-            await EnvChecker.CheckAllAsync();
-            EnvironmentInstaller.SetupEnvironmentPaths();
+            await RefreshEnvironment();
             envProgressMsg = "必要环境配置完成！";
         }
         catch (Exception ex)
@@ -160,13 +150,12 @@
         StateHasChanged();
         try
         {
-            IProgress<string> p = new System.Progress<string>(msg => {
+            IProgress<string> p = new System.Progress<string>(msg =>
+            {
                 envProgressMsg = msg;
                 InvokeAsync(StateHasChanged);
             });
-            await Task.Run(async () => {
-                await EnvChecker.InstallCudaAsync(p);
-            });
+            await Task.Run(() => ClientEnvironment.InstallCuda(p));
         }
         catch (Exception ex)
         {

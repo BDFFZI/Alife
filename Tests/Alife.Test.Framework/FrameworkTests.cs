@@ -1,4 +1,5 @@
 ﻿using Alife.Framework;
+using Alife.PluginContext;
 using Alife.PluginMarket;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
@@ -16,10 +17,38 @@ public class FrameworkTests
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
         await provider.InitAlife();
 
-        Alife.Framework.PluginSystem pluginSystem = provider.GetRequiredService<Alife.Framework.PluginSystem>();
+        PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
+        await pluginSystem.SyncOnlinePlugins();
 
-        await pluginSystem.SyncPluginMarket();
+        LogOnlinePlugins(pluginSystem);
+
+        LogLocalPlugins(pluginSystem);
+
+        TestContext.WriteLine("安装插件:");
+        await pluginSystem.InstallPlugins(new()
+        {
+            { pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"], "1.0.0" },
+        });
+
+        LogLocalPlugins(pluginSystem);
+
+        TestContext.WriteLine("卸载插件:");
+        await pluginSystem.UninstallPlugins([pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"]]);
+        
+        LogLocalPlugins(pluginSystem);
+    }
+
+    void LogOnlinePlugins(PluginSystem pluginSystem)
+    {
+        TestContext.WriteLine("在线插件:");
         foreach (KeyValuePair<string, PluginPackage> plugin in pluginSystem.GetAllOnlinePlugins())
             TestContext.WriteLine($"{plugin.Key}:{plugin.Value.Name}");
+    }
+
+    void LogLocalPlugins(PluginSystem pluginSystem)
+    {
+        TestContext.WriteLine("本地插件:");
+        foreach (KeyValuePair<string, PluginManifest> plugin in pluginSystem.GetAllLocalPlugins())
+            TestContext.WriteLine($"{plugin.Key}:{plugin.Value.Version}");
     }
 }
