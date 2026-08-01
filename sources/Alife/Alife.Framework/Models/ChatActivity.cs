@@ -4,8 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Platform;
-using Alife.PluginContext;
+using Alife.Foundation;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Framework;
@@ -14,10 +13,12 @@ public class ChatActivity(
     Character character,
     ConfigurationSystem configurationSystem,
     ModuleSystem moduleSystem,
+    CharacterSystem characterSystem,
     object[]? appendServices = null)
 {
     public Character Character => character;
     public ChatBot ChatBot { get; private set; } = null!;
+
     /// <summary>
     /// 为了支持插件热重载，请不要缓存其中的对象类型，因为重载后便会失效
     /// </summary>
@@ -42,11 +43,13 @@ public class ChatActivity(
                 foreach (var appendService in appendServices)
                     await container.AddInstance(appendService);
             }
+
             //添加可选工具
             {
                 //logger功能
                 container.RegisterBuilder(typeof(LoggerFactory), _ =>
-                    Task.FromResult<object>(LoggerFactory.Create(builder => {
+                    Task.FromResult<object>(LoggerFactory.Create(builder =>
+                    {
                         builder.SetMinimumLevel(LogLevel.Information);
                         builder.AddProvider(new AlifeLogProvider());
                     }))
@@ -105,8 +108,9 @@ public class ChatActivity(
             {
                 object instance = container.Instances[index];
                 progress?.Report(($"激活 {TypeUtility.GetReadableName(instance.GetType())} 模块", (float)index / enabledModuleTypes.Length));
-                await OnInstanceCreated(instance);//处理一下已创建物体
+                await OnInstanceCreated(instance); //处理一下已创建物体
             }
+
             container.InstanceCreated += OnInstanceCreated;
 
             async Task OnInstanceCreated(object instance)
@@ -126,7 +130,9 @@ public class ChatActivity(
 
         moduleSystem.ModulesLoadedAsync += OnModulesLoadedAsync;
         moduleSystem.ModulesUnloadedAsync += OnModulesUnloadedAsync;
+        characterSystem.CharacterReloadedAsync += OnCharacterReloadedAsync;
     }
+
     public async Task Start(IProgress<(string, float)>? progress = null)
     {
         //启动模块
@@ -147,6 +153,7 @@ public class ChatActivity(
     {
         moduleSystem.ModulesLoadedAsync -= OnModulesLoadedAsync;
         moduleSystem.ModulesUnloadedAsync -= OnModulesUnloadedAsync;
+        characterSystem.CharacterReloadedAsync -= OnCharacterReloadedAsync;
 
         if (cancelTimerSource != null)
             await cancelTimerSource.CancelAsync();
@@ -185,7 +192,9 @@ public class ChatActivity(
                     await behaviour.UpdateAsync(context);
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -206,6 +215,19 @@ public class ChatActivity(
     {
         Type[] enabledModuleTypes = moduleTypes.Where(type => Character.Modules.Contains(ModuleSystem.GetModuleID(type))).ToArray();
 
+        foreach (Type moduleType in enabledModuleTypes)
+            container.RegisterBuilder(moduleType);
+        foreach (Type moduleType in enabledModuleTypes)
+            await container.RequireInstance(moduleType);
+    }
+    async Task OnCharacterReloadedAsync(Character reloadedCharacter)
+    {
+        if (reloadedCharacter != character)
+            return;
+
+        Type[] enabledModuleTypes = reloadedCharacter.Modules
+            .Select(moduleSystem.GetModule).Where(type => type != null).Cast<Type>()
+            .Except(container.Instances.Select(instance => instance.GetType())).ToArray();
         foreach (Type moduleType in enabledModuleTypes)
             container.RegisterBuilder(moduleType);
         foreach (Type moduleType in enabledModuleTypes)

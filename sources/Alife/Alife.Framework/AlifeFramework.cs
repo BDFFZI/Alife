@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.PluginMarket;
 using Alife.PluginContext;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +35,9 @@ public static class AlifeFramework
             CSharpCompiler compiler = new();
             //立即加载软件依赖的所有程序集，这样就可以获取到dotnet运行时的dll，以便用于插件功能
             LoadAssemblyChain(Assembly.GetEntryAssembly()!);
-            compiler.SetBasicDllFiles(AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.Location));
+            compiler.SetBasicDllFiles(AssemblyLoadContext.Default.Assemblies
+                .Select(assembly => assembly.Location)
+                .Where(location => !string.IsNullOrEmpty(location)));
             return compiler;
 
             void LoadAssemblyChain(Assembly entryAssembly)
@@ -76,8 +78,7 @@ public static class AlifeFramework
         services.AddSingleton<Alife.PluginContext.PluginContext>(provider => new(
             pluginDirectory,
             pluginCompliedDirectory,
-            new Dictionary<string, IEnvironmentInstaller>()
-            {
+            new Dictionary<string, IEnvironmentInstaller>() {
                 { "nuget", provider.GetRequiredService<NuGetEnvironmentInstaller>() },
                 { "pip", provider.GetRequiredService<PipEnvironmentInstaller>() }
             },
@@ -108,31 +109,43 @@ public static class AlifeFramework
             CSharpCompiler cSharpCompiler = provider.GetRequiredService<CSharpCompiler>();
             PluginMarket.PluginMarket pluginMarket = provider.GetRequiredService<PluginMarket.PluginMarket>();
 
-
             //nuget环境变动时需要同步程序集环境
             nugetEnvironmentInstaller.PackagesUpdatedAsync += async () =>
             {
                 //重新设置编译环境
                 cSharpCompiler.SetBasicDllFiles(
-                    nugetEnvironmentInstaller.Managed.Concat(AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.Location)));
+                    AssemblyLoadContext.Default.Assemblies
+                        .Select(assembly => assembly.Location)
+                        .Where(location => !string.IsNullOrEmpty(location))
+                        .Concat(nugetEnvironmentInstaller.ManagedDirectories
+                            .Select(directory => Directory.GetFiles(directory, "*.dll"))
+                            .SelectMany(strings => strings)
+                        ));
 
                 //重载nuget程序集环境
                 if (PluginLoadContext.RootPluginContext != null)
                     await PluginLoadContext.RootPluginContext.DisposeAsync();
                 PluginLoadContext rootPluginContext =
-                    new("NuGetPackages", nugetEnvironmentInstaller.Unmanaged.Append(AppContext.BaseDirectory).ToArray());
-                foreach (string managedDirectory in nugetEnvironmentInstaller.Managed)
+                    new("NuGetPackages", nugetEnvironmentInstaller.UnmanagedDirectories.Append(AppContext.BaseDirectory).ToArray());
+                HashSet<string> defaultAssemblies = AssemblyLoadContext.Default.Assemblies
+                    .Select(assembly => assembly.GetName().Name)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Cast<string>().ToHashSet();
+                foreach (string managedDirectory in nugetEnvironmentInstaller.ManagedDirectories)
                 {
                     foreach (string file in Directory.GetFiles(managedDirectory, "*.dll"))
                     {
                         try
                         {
-                            if (AssemblyName.GetAssemblyName(file).Name != null)
-                                rootPluginContext.LoadFromAssemblyPath(file);
+                            string? assemblyName = AssemblyName.GetAssemblyName(file).Name;
+                            if (assemblyName == null || defaultAssemblies.Contains(assemblyName))
+                                continue;
+
+                            rootPluginContext.LoadDll(file);
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine(e);
+                            AlifeLog.LogError(e);
                         }
                     }
                 }
@@ -141,13 +154,22 @@ public static class AlifeFramework
             };
 
             //兼容老版本的插件信息
+            pluginMarket.PluginInstalled += (pluginPackage, version) =>
+            {
+                if (File.Exists(pluginContext.GetPluginManifestPath(pluginPackage.Id)) == false)
+                {
+                    string versionFile = Path.Combine(pluginContext.GetPluginDirectoryPath(pluginPackage.Id), "VERSION.txt");
+                    File.WriteAllText(versionFile, version);
+                }
+            };
             pluginContext.PluginManifestFallback = pluginId =>
             {
-                string versionPath = Path.Combine(pluginContext.PluginRootDirectory, pluginId, "VERSION.txt");
+                string versionFile = Path.Combine(pluginContext.GetPluginDirectoryPath(pluginId), "VERSION.txt");
+                string? version = File.Exists(versionFile) ? File.ReadAllText(versionFile) : null;
                 PluginPackage? pluginPackage = pluginMarket.AllPluginPackages.GetValueOrDefault(pluginId);
-                return new PluginManifest()
-                {
-                    Version = File.Exists(versionPath) ? File.ReadAllText(versionPath) : "0.0.0",
+
+                return new PluginManifest() {
+                    Version = string.IsNullOrEmpty(version) ? "0.0.0" : version,
                     Dependencies = pluginPackage?.GetDependencies(pluginId),
                     Environments = pluginPackage?.GetEnvironments(pluginId)
                 };

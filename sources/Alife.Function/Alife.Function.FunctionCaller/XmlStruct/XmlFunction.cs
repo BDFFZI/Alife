@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Alife.Function.Interpreter;
+namespace Alife.Function.FunctionCaller;
 
 [Flags]
 public enum FunctionMode

@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Sources\Alife\Alife.Platform\Alife.Platform.csproj" />
+    <ProjectReference Include="..\..\Sources\Alife\Alife.Foundation\Alife.Foundation.csproj" />
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.QChat\Alife.Function.QChat.csproj" />
   </ItemGroup>
 

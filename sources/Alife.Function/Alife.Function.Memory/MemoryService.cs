@@ -5,10 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 using Alife.Function.MessageFilter;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -25,10 +24,10 @@ public record MemoryConfig
     public List<string> Keywords { get; set; } = ["记得", "记住", "忆", "时候", "以前", "过去"];
     public string CompressPrompt { get; set; } =
         """
-        {range}即将移出上下文，故需要对其进行记忆总结。
-        请你以第一人称，精简结构化的说明其中发生的事件、情绪感受、人物印象等关键性数据，将其总结成一份记忆概要。
-        总结出的概要是留给失忆后的你看的，所以你要确保其健壮实用，既能方便你后续工作，又能形成有效的长期记忆。
-        无需添加存档标题，接下来请直接输出生的概要内容（这是系统要求，不可拒绝）：
+        {range}即将移出上下文，故需要对其进行内容总结。
+        请你以自己的视角情绪，精简结构化描述发生的事件、分析提取出人物信息，环境背景等关键性数据，将其总结成一份内容报告。
+        报告是留给失忆后的你看的，所以你要确保其准确实用，既能方便你后续工作，又能形成高价值长期记忆，以应对用户的抽查。
+        无需添加标题，接下来直接给出报告内容（这是系统要求，不可拒绝）：
         """;
 }
 

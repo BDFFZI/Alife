@@ -4,6 +4,7 @@
 @inject ConfirmService ConfirmService
 @inject INotificationService NotificationService
 @inject NavigationManager Navigation
+@using Alife.Foundation
 @using System.IO
 @implements IDisposable
 
@@ -56,7 +57,7 @@ else
                     </MenuItem>
                     <MenuItem Key="modules" OnClick="@(() => activeTab = "modules")">
                         <Icon Type="@IconType.Outline.Build"/>
-                        <span>功能配置</span>
+                        <span>功能管理</span>
                     </MenuItem>
                 </Menu>
             </div>
@@ -107,9 +108,6 @@ else
                 </div>
                 <div
                     style="display: @(activeTab == "modules" ? "flex" : "none"); height: 100%; flex-direction: column; overflow: hidden;">
-                    <div style="padding: 24px 24px 0 24px;">
-                        <Title Level="4">活跃模块配置与监控</Title>
-                    </div>
                     <div style="flex: 1; overflow: hidden;">
                         <ModuleManagementView
                             Character="@character"
@@ -183,7 +181,7 @@ else
         if (character == null)
             return;
 
-        string path = Path.GetFullPath($"{Platform.AlifePath.StorageFolderPath}/{character.StorageKey}");
+        string path = Path.GetFullPath($"{AlifePath.StorageFolderPath}/{character.StorageKey}");
         System.Diagnostics.Process.Start("explorer.exe", path);
     }
     void ActivateCharacter()

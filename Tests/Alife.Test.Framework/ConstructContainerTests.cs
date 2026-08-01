@@ -1,6 +1,7 @@
 ﻿using Alife.Framework;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+#pragma warning disable CS9113 // 参数未读。
 
 namespace Alife.Test.Framework;
 

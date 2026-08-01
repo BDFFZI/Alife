@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Alife.Platform;
+using System.Threading.Tasks;
+using Alife.Foundation;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -10,7 +11,8 @@ namespace Alife.Framework;
 
 public class CharacterSystem
 {
-    public event Action? OnChanged;
+    public event Action? CharacterListChanged;
+    public event Func<Character, Task>? CharacterReloadedAsync;
 
     public List<Character> GetAllCharacters()
     {
@@ -29,7 +31,7 @@ public class CharacterSystem
 
         Character character = new Character { Name = uniqueName };
         characters.Add(character);
-        OnChanged?.Invoke();
+        CharacterListChanged?.Invoke();
         return character;
 
         static string SanitizeName(string name)
@@ -44,17 +46,31 @@ public class CharacterSystem
     {
         storageSystem.DeleteObject($"{character.StorageKey}/index");
         characters.Remove(character);
-        OnChanged?.Invoke();
+        CharacterListChanged?.Invoke();
     }
     public void SaveCharacter(Character character)
     {
         JObject jObject = JObject.FromObject(character);
         storageSystem.SetObject($"Character/{character.Name}/index", jObject);
     }
-    public void LoadCharacter(Character character)
+    public async Task LoadCharacter(Character character)
     {
-        string json = File.ReadAllText(Path.Combine(AlifePath.StorageFolderPath, "Character", character.Name, "index.json"));
+        string json = await File.ReadAllTextAsync(Path.Combine(AlifePath.StorageFolderPath, "Character", character.Name, "index.json"));
         JsonConvert.PopulateObject(json, character);
+
+        if (CharacterReloadedAsync != null)
+        {
+            try
+            {
+                await Task.WhenAll(CharacterReloadedAsync.GetInvocationList()
+                    .Cast<Func<Character, Task>>()
+                    .Select(func => func(character)));
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        }
     }
     public void RefreshCharacters()
     {
@@ -66,7 +82,8 @@ public class CharacterSystem
             if (character != null)
                 characters.Add(character);
         }
-        OnChanged?.Invoke();
+
+        CharacterListChanged?.Invoke();
     }
 
     readonly StorageSystem storageSystem;

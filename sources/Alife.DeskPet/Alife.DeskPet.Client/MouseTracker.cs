@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 /// <summary>
 /// 全局鼠标追踪器：监听系统级鼠标移动事件。

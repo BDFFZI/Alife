@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.Framework;
 

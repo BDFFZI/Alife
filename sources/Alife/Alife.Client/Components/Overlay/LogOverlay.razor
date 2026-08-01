@@ -1,35 +1,37 @@
 @using System.Text
-@using Alife.Platform
-@inject IMessageService MessageService
+@using Alife.Foundation
+@inject INotificationService NotificationService
 @inject IJSRuntime JsRuntime
 @implements IDisposable
 
-<ErrorWindowUI @bind-Value="exception" Title="程序异常喵！"/>
-
-<div class="log-floating-button" @onclick="OpenModal">
-    <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
-    @if (errorBadge > 0)
-    {
-        <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
-    }
-    else if (warningBadge > 0)
-    {
-        <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
-    }
-</div>
+<Tooltip Title="运行日志" Placement="@Placement.Right">
+    <div class="log-floating-button" @onclick="@OpenModal">
+        <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
+        @if (errorBadge > 0)
+        {
+            <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+        }
+        else if (warningBadge > 0)
+        {
+            <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+        }
+    </div>
+</Tooltip>
 
 <Modal @bind-Visible="visible"
        Title="运行日志"
        Width="@("80%")"
        Style="top: 20px;"
-       WrapClassName="log-modal-top"
+       WrapClassName="modal-top"
        Footer="null">
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; align-items: center;">
         <span style="font-size: 12px;">最大条数</span>
-        <AntDesign.InputNumber @bind-Value="CurrentMaxLines" Min="100" Max="100000" Size="@InputSize.Small" Style="width: 90px;"/>
+        <AntDesign.InputNumber @bind-Value="CurrentMaxLines" Min="100" Max="100000" Size="@InputSize.Small"
+                               Style="width: 90px;"/>
         <span style="font-size: 12px;">自动滚动</span>
-        <Switch @bind-Value="autoScroll"/>
-        <Button Size="@ButtonSize.Small" OnClick="ExportLogs">导出</Button>
+        <Switch @bind-Value="AutoScroll"/>
+        <Button Size="@ButtonSize.Small" OnClick="@ClearLogs">清空</Button>
+        <Button Size="@ButtonSize.Small" OnClick="@ExportLogs">导出</Button>
     </div>
     <div class="log-tabs-bar">
         <Tabs ActiveKey="@activeKey" ActiveKeyChanged="OnActiveKeyChanged" Size="@TabSize.Small">
@@ -78,8 +80,8 @@
         else
         {
             var (list, color) = activeKey == "warning"
-                ? (warningLines, "#e5c07b")
-                : (errorLines, "#f14c4c");
+                ? (warnings, "#e5c07b")
+                : (errors, "#f14c4c");
             @foreach (string line in list)
             {
                 <div class="log-line" style="color: @color;">@line</div>
@@ -105,10 +107,12 @@
         z-index: 99999;
         transition: all 0.2s;
     }
+
     .log-floating-button:hover {
         background: #40a9ff;
         transform: scale(1.1);
     }
+
     .log-fab-badge {
         position: absolute;
         top: -4px;
@@ -123,9 +127,11 @@
         text-align: center;
         box-shadow: 0 0 0 2px #fff;
     }
+
     .log-tab-label {
         position: relative;
     }
+
     .log-tab-badge {
         position: absolute;
         top: -8px;
@@ -139,9 +145,11 @@
         line-height: 16px;
         text-align: center;
     }
+
     .log-tabs-bar .ant-tabs-content-holder {
         display: none;
     }
+
     .log-container {
         height: 60vh;
         overflow-y: auto;
@@ -153,6 +161,7 @@
         border-radius: 4px;
         line-height: 1.5;
     }
+
     .log-line {
         word-break: break-all;
         white-space: pre-wrap;
@@ -160,6 +169,14 @@
 </style>
 
 @code {
+    static void Trim(List<string> list, int max)
+    {
+        if (list.Count > max)
+            list.RemoveRange(0, list.Count - max);
+    }
+    static string BadgeText(int count) => count > 99 ? "99+" : count.ToString();
+
+    //滚动功能
     const string JsHelpers =
         "window.alifeLogScroll=function(el){if(el)el.scrollTop=el.scrollHeight;};" +
         "window.alifeDownloadText=function(text,fname){" +
@@ -168,48 +185,45 @@
         "var a=document.createElement('a');" +
         "a.href=u;a.download=fname;document.body.appendChild(a);a.click();" +
         "setTimeout(function(){URL.revokeObjectURL(u);a.remove();},200);};";
-
-    static readonly Dictionary<int, string> ColorMap = new()
+    bool AutoScroll
     {
-        [30] = "#000000", [31] = "#cd3131", [32] = "#0dbc79", [33] = "#e5e510",
-        [34] = "#2472c8", [35] = "#bc3fbc", [36] = "#11a8cd", [37] = "#e5e5e5",
-        [90] = "#666666", [91] = "#f14c4c", [92] = "#23d18b", [93] = "#f5f543",
-        [94] = "#3b8eea", [95] = "#d670d6", [96] = "#29b8db", [97] = "#e5e5e5",
-    };
-
-    readonly List<string> logLines = new();
-    readonly List<string> warningLines = new();
-    readonly List<string> errorLines = new();
-    int maxLogLines = 5000;
-    int maxWarningLines = 1000;
-    int maxErrorLines = 1000;
-    int warningBadge;
-    int errorBadge;
-    string activeKey = "log";
-    bool visible;
-    bool autoScrollField = true;
-    bool scrollPending;
-    Exception? exception;
-
-    bool autoScroll
-    {
-        get => autoScrollField;
+        get;
         set
         {
-            autoScrollField = value;
+            field = value;
             //开启自动滚动时立即滚动到底部
             if (value && visible)
                 scrollPending = true;
         }
-    }
+    } = true;
+    bool scrollPending;
+
+    //日志捕获功
+    readonly List<string> logLines = new();
+    int maxLogLines = 3000;
+
+
+    //警告捕获
+    readonly List<string> warnings = new();
+    int maxWarningCount = 30;
+    int warningBadge;
+
+    //错误捕获
+    readonly List<string> errors = new();
+    int maxErrorCount = 30;
+    int errorBadge;
+
+    string activeKey = "log";
+    bool visible;
+
+
     ElementReference container;
 
     int CurrentMaxLines
     {
-        get => activeKey switch
-        {
-            "warning" => maxWarningLines,
-            "error" => maxErrorLines,
+        get => activeKey switch {
+            "warning" => maxWarningCount,
+            "error" => maxErrorCount,
             _ => maxLogLines,
         };
         set
@@ -217,12 +231,12 @@
             switch (activeKey)
             {
                 case "warning":
-                    maxWarningLines = value;
-                    Trim(warningLines, value);
+                    maxWarningCount = value;
+                    Trim(warnings, value);
                     break;
                 case "error":
-                    maxErrorLines = value;
-                    Trim(errorLines, value);
+                    maxErrorCount = value;
+                    Trim(errors, value);
                     break;
                 default:
                     maxLogLines = value;
@@ -234,123 +248,145 @@
 
     protected override void OnInitialized()
     {
-        AlifeLog.WarningLogged += OnWarning;
-        AlifeLog.ErrorLogged += OnError;
-
         Console.SetOut(new CapturingWriter(this, Console.Out));
         Console.SetError(new CapturingWriter(this, Console.Error));
+        AlifeLog.WarningLogged += OnWarning;
+        AlifeLog.ErrorLogged += OnError;
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-            await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
-
-        //DOM已更新，此时滚动才能到达真正的底部
-        if (scrollPending && visible)
-        {
-            scrollPending = false;
-            await ScrollToEnd();
-        }
-    }
-
     public void Dispose()
     {
         AlifeLog.WarningLogged -= OnWarning;
         AlifeLog.ErrorLogged -= OnError;
     }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
 
+        if (scrollPending && visible)
+        {
+            scrollPending = false;
+            await JsRuntime.InvokeVoidAsync("alifeLogScroll", container);
+        }
+    }
+
+    void OnLogUpdate()
+    {
+        if (AutoScroll)
+        {
+            _ = InvokeAsync(() =>
+            {
+                scrollPending = true;
+                StateHasChanged();
+            });
+        }
+    }
+
+    class CapturingWriter(LogOverlay overlay, TextWriter inner) : TextWriter
+    {
+        public override Encoding Encoding => inner.Encoding;
+
+        public override void Write(char value)
+        {
+            inner.Write(value);
+            if (value == '\n') FlushLine();
+            else line.Append(value);
+        }
+
+        public override void Write(string? value)
+        {
+            if (value == null) return;
+            inner.Write(value);
+            foreach (char c in value)
+            {
+                if (c == '\n') FlushLine();
+                else line.Append(c);
+            }
+        }
+
+        public override void WriteLine(string? value)
+        {
+            inner.WriteLine(value);
+            if (value != null) line.Append(value);
+            FlushLine();
+        }
+
+        public override void WriteLine() => FlushLine();
+
+        readonly StringBuilder line = new();
+
+        void FlushLine()
+        {
+            if (line.Length == 0) return;
+            string msg = line.ToString();
+            line.Clear();
+            if (string.IsNullOrEmpty(msg)) return;
+
+            overlay.InvokeAsync(() =>
+            {
+                overlay.logLines.Add(msg);
+                Trim(overlay.logLines, overlay.maxLogLines);
+                overlay.OnLogUpdate();
+            });
+        }
+    }
     void OnWarning(string message)
     {
-        PushEntry(warningLines, maxWarningLines, message, "warning");
-        _ = InvokeAsync(() => MessageService.Warning(message, 3));
+        InvokeAsync(() =>
+        {
+            warnings.Add(message);
+            Trim(warnings, maxWarningCount);
+            if (visible == false || activeKey != "warning")
+                warningBadge++;
+
+            NotificationService.Warning(new NotificationConfig() { Description = message });
+
+            OnLogUpdate();
+        });
     }
     void OnError(string message)
     {
-        PushEntry(errorLines, maxErrorLines, message, "error");
-        _ = InvokeAsync(() => MessageService.Error(message, 5));
-    }
-    
-    void PushConsole(string text)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        logLines.Add(text);
-        Trim(logLines, maxLogLines);
-        RefreshAndScroll("log");
-    }
+        InvokeAsync(() =>
+        {
+            errors.Add(message);
+            Trim(errors, maxErrorCount);
+            if (visible == false || activeKey != "error")
+                errorBadge++;
 
-    void PushEntry(List<string> list, int max, string message, string key)
-    {
-        if (string.IsNullOrEmpty(message)) return;
-        list.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
-        Trim(list, max);
-        if (visible && activeKey == key)
-        {
-            //正在查看对应选项卡，无需角标
-        }
-        else if (key == "warning")
-        {
-            warningBadge++;
-        }
-        else
-        {
-            errorBadge++;
-        }
-        RefreshAndScroll(key);
-    }
+            NotificationService.Error(new NotificationConfig() {
+                Description = message
+            });
 
-    void RefreshAndScroll(string key)
-    {
-        _ = InvokeAsync(() =>
-        {
-            if (autoScroll && visible && activeKey == key)
-                scrollPending = true;
-            StateHasChanged();
+            OnLogUpdate();
         });
     }
 
-    static void Trim(List<string> list, int max)
-    {
-        if (list.Count > max)
-            list.RemoveRange(0, list.Count - max);
-    }
 
     void OpenModal()
     {
         visible = true;
         ClearBadge(activeKey);
-        if (autoScroll)
+        if (AutoScroll)
             scrollPending = true;
     }
-
     void OnActiveKeyChanged(string key)
     {
         activeKey = key;
         ClearBadge(key);
-        if (autoScroll)
+        if (AutoScroll)
             scrollPending = true;
     }
-
     void ClearBadge(string key)
     {
         if (key == "warning") warningBadge = 0;
         else if (key == "error") errorBadge = 0;
     }
 
-    static string BadgeText(int count) => count > 99 ? "99+" : count.ToString();
-
-    async Task ScrollToEnd()
-    {
-        try { await JsRuntime.InvokeVoidAsync("alifeLogScroll", container); }
-        catch { }
-    }
-
     async Task ExportLogs()
     {
-        var (list, name) = activeKey switch
-        {
-            "warning" => (warningLines, "warning"),
-            "error" => (errorLines, "error"),
+        var (list, name) = activeKey switch {
+            "warning" => (warnings, "warning"),
+            "error" => (errors, "error"),
             _ => (logLines, "log"),
         };
         StringBuilder sb = new();
@@ -359,27 +395,37 @@
         await JsRuntime.InvokeVoidAsync("alifeDownloadText", sb.ToString(), $"alife-{name}-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
     }
 
-    static string StripAnsi(string text)
+    void ClearLogs()
     {
-        StringBuilder sb = new(text.Length);
-        int i = 0;
-        while (i < text.Length)
+        switch (activeKey)
         {
-            if (text[i] == '\x1b' && i + 1 < text.Length && text[i + 1] == '[')
-            {
-                int end = text.IndexOf('m', i + 2);
-                if (end < 0) break;
-                i = end + 1;
-            }
-            else
-            {
-                sb.Append(text[i]);
-                i++;
-            }
+            case "warning":
+                warnings.Clear();
+                warningBadge = 0;
+                break;
+            case "error":
+                errors.Clear();
+                errorBadge = 0;
+                break;
+            default:
+                logLines.Clear();
+                break;
         }
-        return sb.ToString();
+
+        StateHasChanged();
     }
 
+    readonly struct AnsiSegment(string text, string color)
+    {
+        public string Text { get; } = text;
+        public string Color { get; } = color;
+    }
+    static readonly Dictionary<int, string> ColorMap = new() {
+        [30] = "#000000", [31] = "#cd3131", [32] = "#0dbc79", [33] = "#e5e510",
+        [34] = "#2472c8", [35] = "#bc3fbc", [36] = "#11a8cd", [37] = "#e5e5e5",
+        [90] = "#666666", [91] = "#f14c4c", [92] = "#23d18b", [93] = "#f5f543",
+        [94] = "#3b8eea", [95] = "#d670d6", [96] = "#29b8db", [97] = "#e5e5e5",
+    }; //识别日志颜色
     static List<AnsiSegment> ParseAnsi(string text)
     {
         List<AnsiSegment> segments = new();
@@ -425,52 +471,25 @@
 
         return segments;
     }
-
-    class CapturingWriter(LogOverlay overlay, TextWriter inner) : TextWriter
+    static string StripAnsi(string text)
     {
-        public override Encoding Encoding => inner.Encoding;
-
-        public override void Write(char value)
+        StringBuilder sb = new(text.Length);
+        int i = 0;
+        while (i < text.Length)
         {
-            inner.Write(value);
-            if (value == '\n') FlushLine();
-            else line.Append(value);
-        }
-
-        public override void Write(string? value)
-        {
-            if (value == null) return;
-            inner.Write(value);
-            foreach (char c in value)
+            if (text[i] == '\x1b' && i + 1 < text.Length && text[i + 1] == '[')
             {
-                if (c == '\n') FlushLine();
-                else line.Append(c);
+                int end = text.IndexOf('m', i + 2);
+                if (end < 0) break;
+                i = end + 1;
+            }
+            else
+            {
+                sb.Append(text[i]);
+                i++;
             }
         }
 
-        public override void WriteLine(string? value)
-        {
-            inner.WriteLine(value);
-            if (value != null) line.Append(value);
-            FlushLine();
-        }
-
-        public override void WriteLine() => FlushLine();
-
-        readonly StringBuilder line = new();
-
-        void FlushLine()
-        {
-            if (line.Length == 0) return;
-            string msg = line.ToString().TrimEnd('\r');
-            line.Clear();
-            overlay.PushConsole(msg);
-        }
-    }
-
-    readonly struct AnsiSegment(string text, string color)
-    {
-        public string Text { get; } = text;
-        public string Color { get; } = color;
+        return sb.ToString();
     }
 }

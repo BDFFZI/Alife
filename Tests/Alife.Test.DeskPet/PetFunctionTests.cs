@@ -1,5 +1,5 @@
 using Alife.Function.DeskPet;
-using Alife.Platform;
+using Alife.Foundation;
 using System.IO;
 using System.Windows;
 

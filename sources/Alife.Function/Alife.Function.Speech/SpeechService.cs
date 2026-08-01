@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 using Microsoft.Extensions.Logging;
 using NAudio.Wave;
 

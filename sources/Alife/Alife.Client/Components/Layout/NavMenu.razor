@@ -87,7 +87,7 @@
 
     protected override void OnInitialized()
     {
-        CharacterSystem.OnChanged += Refresh;
+        CharacterSystem.CharacterListChanged += Refresh;
         ChatActivitySystem.Activated += OnActivityChanged;
         ChatActivitySystem.Destroyed += OnActivityChanged;
     }
@@ -107,7 +107,7 @@
 
     public void Dispose()
     {
-        CharacterSystem.OnChanged -= Refresh;
+        CharacterSystem.CharacterListChanged -= Refresh;
         ChatActivitySystem.Activated -= OnActivityChanged;
         ChatActivitySystem.Destroyed -= OnActivityChanged;
     }

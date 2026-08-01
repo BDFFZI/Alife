@@ -39,7 +39,7 @@
                 <TabTemplate>
                     <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
                         <Icon Type="@IconType.Outline.AppstoreAdd"/>
-                        <span style="font-size: 12px">功能配置</span>
+                        <span style="font-size: 12px">功能管理</span>
                     </Flex>
                 </TabTemplate>
                 <ChildContent>
@@ -56,6 +56,18 @@
                 </TabTemplate>
                 <ChildContent>
                     <PluginMarketTab/>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="pluginContext">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.Api"/>
+                        <span style="font-size: 12px">插件环境</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <PluginContextTab/>
                 </ChildContent>
             </TabPane>
         </Tabs>

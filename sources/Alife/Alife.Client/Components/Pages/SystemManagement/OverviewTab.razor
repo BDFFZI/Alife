@@ -1,4 +1,4 @@
-@using Alife.Platform
+@using Alife.Foundation
 @using Alife.Components.Services
 @using ElectronNET.API.Entities
 @using ElectronNET.API
@@ -154,7 +154,7 @@
         {
             await ClientUpgrade.FetchNewVersion();
             if (ClientUpgrade.NewVersion == null)
-                await NotificationService.Success(new NotificationConfig { Message = "当前已是最新版本。" });
+                _ = NotificationService.Success(new NotificationConfig { Message = "当前已是最新版本。" });
         }
         catch (Exception e)
         {

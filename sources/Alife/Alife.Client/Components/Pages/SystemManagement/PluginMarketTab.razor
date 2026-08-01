@@ -1,5 +1,513 @@
-@using Alife.Components.Shared.Plugins
+@using Alife.PluginMarket
+@inject PluginSystem PluginSystem
+@inject IJSRuntime JsRuntime
+@implements IAsyncDisposable
 
 <div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;">
-    <PluginMarketView />
+    @* 标题栏 *@
+    <div
+        style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+        <Title Level="4" Style="margin: 0;">插件市场</Title>
+        <Flex Gap="@("12")" Align="FlexAlign.Center">
+            <RadioGroup TValue="string" Value="@viewMode" ValueChanged="@(ChangeViewMode)">
+                <Radio Value="@("all")">全部插件</Radio>
+                <Radio Value="@("installed")">已安装</Radio>
+            </RadioGroup>
+            <Tooltip Title="上传自己的插件或用Issue反馈已有插件的问题">
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.PlusCircle" OnClick="@OpenContributePage">
+                    贡献反馈插件
+                </Button>
+            </Tooltip>
+            <Tooltip Title="重载插件市场">
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.CloudDownload" OnClick="@FetchOnlinePlugin"
+                        Loading="isFetching"></Button>
+            </Tooltip>
+            <Tooltip Title="打开市场目录">
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.FolderOpen"
+                        OnClick="@OpenPluginFolder"></Button>
+            </Tooltip>
+            <PluginUpgradeButton OnUpgradeComplete="HandleUpgradeComplete"/>
+            <Badge Count="@(cartItems.Count)">
+                <Button Type="@ButtonType.Primary" Shape="@ButtonShape.Round" Icon="@IconType.Outline.ShoppingCart"
+                        OnClick="@(() => showCartModal = true)">
+                    购物车
+                </Button>
+            </Badge>
+        </Flex>
+    </div>
+
+    @* 搜索栏 *@
+    <div style="padding: 8px 16px; background: #fff; border-bottom: 1px solid #f0f0f0;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <Search Placeholder="搜索插件名称、ID、描述..." @bind-Value="searchText" OnSearch="@(() => FilterPlugins())"
+                    Style="flex: 1;"/>
+            <AutoComplete @bind-Value="authorSearchText"
+                          Options="authorOptions"
+                          Placeholder="作者筛选"
+                          Style="flex: 1; min-width: 180px;"
+                          AllowClear="true"
+                          AllowFilter="true"
+                          OnSelectionChange="@((e) =>
+                                             {
+                                                 authorSearchText = e.Value?.ToString() ?? "";
+                                                 FilterPlugins();
+                                             })"
+                          OnInput="@(e =>
+                                   {
+                                       authorSearchText = e.Value?.ToString() ?? "";
+                                       FilterPlugins();
+                                   })">
+            </AutoComplete>
+        </div>
+        @if (allTags.Length > 0)
+        {
+            <div style="display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
+                <div
+                    style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 56px; overflow: hidden; flex: 1; min-width: 0;">
+                    @foreach (var tag in allTags)
+                    {
+                        <Tag Color="@GetTagColor(tag)"
+                             Style="@GetTagStyle(tag)"
+                             OnClick="@(() => ToggleTag(tag))">
+                            @GetTagPrefix(tag)@tag
+                        </Tag>
+                    }
+                </div>
+                <Popover Trigger="@([Trigger.Click])" Placement="@Placement.BottomRight">
+                    <ChildContent>
+                        <Tag Style="cursor: pointer; flex-shrink: 0;">
+                            <Icon Type="@IconType.Outline.Search"/>
+                        </Tag>
+                    </ChildContent>
+                    <ContentTemplate>
+                        <div style="width: 200px;">
+                            <Input Placeholder="搜索标签..." @bind-Value="tagSearchText" Size="@InputSize.Small"/>
+                            <div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
+                                @foreach (var tag in allTags.Where(t => string.IsNullOrEmpty(tagSearchText) || t.Contains(tagSearchText, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <Tag Color="@GetTagColor(tag)"
+                                         Style="@GetTagStyle(tag)"
+                                         OnClick="@(() => ToggleTag(tag))">
+                                        @GetTagPrefix(tag)@tag
+                                    </Tag>
+                                }
+                            </div>
+                        </div>
+                    </ContentTemplate>
+                </Popover>
+            </div>
+        }
+    </div>
+
+    @* 插件列表 *@
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0;">
+        <div id="pluginMarketContainer"
+             style="flex: 1; overflow: hidden; padding: 12px; min-width: 0; display: flex; align-items: center; justify-content: center;">
+            @if (isFetching)
+            {
+                <Spin Tip="加载中..." Style="display: flex; justify-content: center; padding: 48px;"/>
+            }
+            else if (filteredPlugins.Length == 0)
+            {
+                @if (allPlugins.Length == 0)
+                {
+                    <div
+                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.6;">
+                        <Icon Type="@IconType.Outline.CloudDownload" Style="font-size: 48px; margin-bottom: 16px;"/>
+                        <AntDesign.Text Style="font-size: 14px; margin-bottom: 8px;">暂无插件信息</AntDesign.Text>
+                        <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">
+                            请点击右上角的「从云端拉取」按钮获取插件市场信息
+                        </AntDesign.Text>
+                    </div>
+                }
+                else
+                {
+                    <Empty Description="@("未找到匹配的插件")"/>
+                }
+            }
+            else
+            {
+                <div id="pluginMarketGrid"
+                     style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 4px; justify-content: center; align-content: center; width: 100%;">
+                    @foreach (var plugin in pagedPlugins)
+                    {
+                        <PluginCardUI PluginPackage="plugin" IsInCart="@(cartItems.Any(p => p.Id == plugin.Id))"
+                                      OnClick="@(() => OnShowDetail(plugin))"
+                                      OnToggleCart="@((val) => ToggleCart(plugin, val))"/>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (!isFetching && filteredPlugins.Length > 0 && TotalPages > 1)
+        {
+            <div
+                style="flex-shrink: 0; display: flex; justify-content: center; padding: 12px; border-top: 1px solid #f0f0f0; background: #fff;">
+                <Pagination Current="currentPage" Total="filteredPlugins.Length" PageSize="pageSize"
+                            OnChange="@ChangePageIndex" ShowSizeChanger="false"/>
+            </div>
+        }
+    </div>
 </div>
+
+@* 插件详情弹窗 *@
+<Modal Title="@(inspectingPlugin?.Name ?? "")"
+       Visible="@(inspectingPlugin != null)"
+       OnCancel="@(() => inspectingPlugin = null)"
+       Footer="null"
+       Width="640"
+       Centered="true"
+       Style="top: 40px;">
+    @if (inspectingPlugin != null)
+    {
+        <PluginDetailView PluginPackage="inspectingPlugin" IsInCart="@(cartItems.Any(p => p.Id == inspectingPlugin?.Id))"
+                          OnBack="@(() => inspectingPlugin = null)"
+                          OnToggleCart="@((val) => ToggleCart(inspectingPlugin!, val))"/>
+    }
+</Modal>
+
+@* 购物车弹窗 *@
+<Modal Title="@($"购物车 ({cartItems.Count})")"
+       Visible="showCartModal"
+       OnCancel="@(() => showCartModal = false)"
+       Footer="null"
+       Width="480"
+       Centered="true">
+    <PluginCartView @bind-CartItems="cartItems" OnOperationComplete="OnCartOperationComplete"/>
+</Modal>
+
+<style>
+    @@keyframes upgrade-bounce {
+        0%, 100% {
+            transform: rotate(0deg) scale(1);
+        }
+        20% {
+            transform: rotate(-15deg) scale(1.25);
+        }
+        40% {
+            transform: rotate(12deg) scale(1.15);
+        }
+        60% {
+            transform: rotate(-10deg) scale(1.2);
+        }
+        80% {
+            transform: rotate(8deg) scale(1.1);
+        }
+    }
+</style>
+
+<ErrorWindowUI @bind-Value="@operException"/>
+
+@code {
+    bool isFetching;
+    Exception? operException;
+    PluginPackage? inspectingPlugin;
+    DotNetObjectReference<PluginMarketTab>? dotnetRef;
+
+    //筛选输入条件
+    string viewMode = "all";
+    string searchText = "";
+    string authorSearchText = "";
+    readonly Dictionary<string, bool> selectedTags = []; // true=include, false=exclude
+    string tagSearchText = "";
+    int currentPage = 1;
+    int pageSize = 12;
+
+    //筛选源和结果
+    string[] allTags = [];
+    string[] authorOptions = [];
+    int TotalPages => (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
+    PluginPackage[] allPlugins = [];
+    PluginPackage[] filteredPlugins = [];
+    PluginPackage[] pagedPlugins = [];
+
+    List<PluginPackage> cartItems = [];
+    bool showCartModal;
+
+    protected override void OnInitialized()
+    {
+        UpdatePluginOptions();
+    }
+    public async ValueTask DisposeAsync()
+    {
+        await JsRuntime.InvokeVoidAsync("unwatchPluginMarketResize");
+        dotnetRef?.Dispose();
+    }
+
+    class Dimensions
+    {
+        public int Width { get; init; }
+        public int Height { get; init; }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        const string JsHelpers =
+            "window.getPluginMarketDimensions = () => {" +
+            "    const container = document.getElementById('pluginMarketContainer');" +
+            "    if (!container) return { width: 0, height: 0 };" +
+            "    return { width: container.clientWidth, height: container.clientHeight };" +
+            "};" +
+            "window._pluginMarketResizeObserver = null;" +
+            "window.watchPluginMarketResize = (dotnetRef) => {" +
+            "    window.unwatchPluginMarketResize();" +
+            "    const container = document.getElementById('pluginMarketContainer');" +
+            "    if (!container) return;" +
+            "    let debounceTimer = null;" +
+            "    window._pluginMarketResizeObserver = new ResizeObserver((entries) => {" +
+            "        if (debounceTimer) clearTimeout(debounceTimer);" +
+            "        debounceTimer = setTimeout(() => {" +
+            "            const entry = entries[0];" +
+            "            if (entry) {" +
+            "                const { width, height } = entry.contentRect;" +
+            "                dotnetRef.invokeMethodAsync('OnContainerResized', Math.round(width), Math.round(height));" +
+            "            }" +
+            "        }, 100);" +
+            "    });" +
+            "    window._pluginMarketResizeObserver.observe(container);" +
+            "};" +
+            "window.unwatchPluginMarketResize = () => {" +
+            "    if (window._pluginMarketResizeObserver) {" +
+            "        window._pluginMarketResizeObserver.disconnect();" +
+            "        window._pluginMarketResizeObserver = null;" +
+            "    }" +
+            "};";
+        await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
+
+        dotnetRef = DotNetObjectReference.Create(this);
+        await JsRuntime.InvokeVoidAsync("watchPluginMarketResize", dotnetRef);
+
+        var dimensions = await JsRuntime.InvokeAsync<Dimensions>("getPluginMarketDimensions");
+        if (dimensions is { Width: > 0, Height: > 0 })
+            ApplyPageSize(dimensions.Width, dimensions.Height);
+    }
+    [JSInvokable]
+    public void OnContainerResized(int width, int height)
+    {
+        if (width > 0 && height > 0)
+            ApplyPageSize(width, height);
+    }
+    void ApplyPageSize(int containerWidth, int containerHeight)
+    {
+        int newPageSize = CalculatePageSize(containerWidth, containerHeight);
+        if (newPageSize != pageSize && newPageSize > 0)
+        {
+            pageSize = newPageSize;
+            int newTotalPages = (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
+            if (currentPage > newTotalPages && newTotalPages > 0)
+                currentPage = newTotalPages;
+            PagePlugins();
+            StateHasChanged();
+        }
+
+        int CalculatePageSize(int containerWidth, int containerHeight)
+        {
+            const int CardMinWidth = 220;
+            const int CardHeight = 100;
+            const int Gap = 12;
+            const int Padding = 24;
+
+            int columns = Math.Max(1, (containerWidth - Padding + Gap) / (CardMinWidth + Gap));
+            int rows = Math.Max(1, (containerHeight - Padding + Gap) / (CardHeight + Gap));
+
+            return columns * rows;
+        }
+    }
+
+
+    async Task FetchOnlinePlugin()
+    {
+        isFetching = true;
+        StateHasChanged();
+
+        try
+        {
+            await PluginSystem.SyncOnlinePlugins();
+            await PluginSystem.SyncLocalPlugins();
+            UpdatePluginOptions();
+        }
+        catch (Exception e)
+        {
+            operException = e;
+            StateHasChanged();
+        }
+
+        isFetching = false;
+        StateHasChanged();
+    }
+    void UpdatePluginOptions()
+    {
+        var onlinePlugins = PluginSystem.GetAllOnlinePlugins().Values
+            .Where(package => package.Releases != null && package.Releases.Count != 0)
+            .OrderByDescending(plugin => plugin.Releases!.Max(pair => pair.Value.Date));
+
+        if (viewMode == "installed")
+        {
+            var installed = PluginSystem.GetAllLocalPlugins();
+            allPlugins = onlinePlugins
+                .Where(p => installed.ContainsKey(p.Id))
+                .ToArray();
+        }
+        else
+        {
+            allPlugins = onlinePlugins.ToArray();
+        }
+
+        allTags = allPlugins
+            .Where(p => p.Tags != null)
+            .SelectMany(p => p.Tags!)
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .ToArray();
+
+        authorOptions = allPlugins
+            .Where(p => !string.IsNullOrEmpty(p.Author))
+            .Select(p => p.Author)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(a => a)
+            .ToArray();
+
+        foreach (var key in selectedTags.Keys.Where(k => !allTags.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList())
+            selectedTags.Remove(key);
+
+        FilterPlugins();
+    }
+    void FilterPlugins(bool resetPage = true)
+    {
+        IEnumerable<PluginPackage> result = allPlugins;
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            result = result.Where(p =>
+                p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Id.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(authorSearchText))
+        {
+            result = result.Where(p =>
+                p.Author.Contains(authorSearchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (selectedTags.Any())
+        {
+            var includeTags = selectedTags.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+            var excludeTags = selectedTags.Where(kv => !kv.Value).Select(kv => kv.Key).ToList();
+
+            if (includeTags.Any())
+                result = result.Where(p => p.Tags != null && includeTags.All(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
+            if (excludeTags.Any())
+                result = result.Where(p => p.Tags == null || !excludeTags.Any(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
+        }
+
+        filteredPlugins = result.ToArray();
+
+        if (resetPage)
+            currentPage = 1;
+
+        PagePlugins();
+    }
+    void PagePlugins()
+    {
+        pagedPlugins = filteredPlugins
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+    }
+
+    void OnCartOperationComplete()
+    {
+        showCartModal = false;
+        UpdatePluginOptions();
+    }
+    void HandleUpgradeComplete()
+    {
+        UpdatePluginOptions();
+    }
+
+    #region 页面功能回调
+    void OpenContributePage()
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = "https://github.com/BDFFZI/Alife.PluginMarket",
+            UseShellExecute = true
+        });
+    }
+    void OpenPluginFolder()
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = PluginSystem.PluginMarket.PluginPackagesCacheDirectory,
+            UseShellExecute = true
+        });
+    }
+    void ChangeViewMode(string value)
+    {
+        viewMode = value;
+        UpdatePluginOptions();
+    }
+    void ChangePageIndex(PaginationEventArgs args)
+    {
+        currentPage = args.Page;
+        PagePlugins();
+    }
+    #endregion
+
+    #region 插件选项回调
+    void ToggleCart(PluginPackage plugin, bool addToCart)
+    {
+        if (addToCart)
+        {
+            if (cartItems.All(p => p.Id != plugin.Id))
+                cartItems.Add(plugin);
+        }
+        else
+        {
+            cartItems.RemoveAll(p => p.Id == plugin.Id);
+        }
+        StateHasChanged();
+    }
+    void OnShowDetail(PluginPackage pluginPackage)
+    {
+        inspectingPlugin = pluginPackage;
+    }
+    #endregion
+
+    readonly string[] tagColorPool = ["#f50", "#2db7f5", "#87d068", "#108ee9", "#f56a00", "#722ed1", "#eb2f96", "#52c41a", "#1890ff", "#faad14"];
+    string GetTagColor(string tag)
+    {
+        if (!selectedTags.TryGetValue(tag, out var mode))
+            return "";
+        return mode
+            ? tagColorPool[Math.Abs(tag.GetHashCode()) % tagColorPool.Length]
+            : "#ff4d4f";
+    }
+    string GetTagStyle(string tag)
+    {
+        if (!selectedTags.TryGetValue(tag, out var mode))
+            return "cursor: pointer; border: 1px dashed #d9d9d9; background: #fafafa;";
+        if (mode)
+            return "cursor: pointer;";
+        return "cursor: pointer; text-decoration: line-through;";
+    }
+    string GetTagPrefix(string tag)
+    {
+        if (selectedTags.TryGetValue(tag, out var mode) && !mode)
+            return "✕ ";
+        return "";
+    }
+    void ToggleTag(string tag)
+    {
+        if (!selectedTags.TryGetValue(tag, out var mode))
+            selectedTags[tag] = true; // not selected → include
+        else if (mode)
+            selectedTags[tag] = false; // include → exclude
+        else
+            selectedTags.Remove(tag); // exclude → not selected
+        FilterPlugins();
+    }
+
+}

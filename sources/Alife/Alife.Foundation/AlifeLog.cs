@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 public class AlifeLogger(string categoryName) : ILogger
 {

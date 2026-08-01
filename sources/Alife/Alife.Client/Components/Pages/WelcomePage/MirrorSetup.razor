@@ -1,4 +1,4 @@
-@using Alife.Platform
+@using Alife.Foundation
 
 <div class="step-content">
     <div class="step-icon" style="background:rgba(114,46,209,.1);color:#722ed1;">
@@ -25,7 +25,7 @@
                         }
                         else
                         {
-                            <Tag Color="@("gold")">不推荐</Tag>
+                            <Tag Color="@("red")">不推荐</Tag>
                         }
                     </div>
                     <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@mirror.Description</Text>
@@ -151,7 +151,8 @@
         else
         {
             foreach (var mirror in AvailableMirrors)
-                enabledMirrors[mirror.Id] = mirror.Recommended;
+                enabledMirrors[mirror.Id] = true;
+                // enabledMirrors[mirror.Id] = mirror.Recommended;
         }
 
         static bool IsMirrorConfigured(MirrorItem mirror)

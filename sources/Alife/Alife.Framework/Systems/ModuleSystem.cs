@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.PluginContext;
 
 namespace Alife.Framework;

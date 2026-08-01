@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
-
+  
   <ItemGroup>
     <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />

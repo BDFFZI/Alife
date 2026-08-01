@@ -8,6 +8,10 @@
     <div class="loading-logo-wrapper">
         <img class="loading-logo" src="images/alife-icon.png" alt="Alife"/>
         <div class="loading-title">ALIFE</div>
+        @if (!string.IsNullOrEmpty(SubTitle))
+        {
+            <div class="loading-subtitle">@SubTitle</div>
+        }
     </div>
 
     <div class="loading-bar-container">
@@ -24,6 +28,11 @@
         <div class="cloud cloud--3"></div>
     </div>
 </div>
+
+@code {
+    [Parameter]
+    public string? SubTitle { get; set; }
+}
 
 <style>
     :root {

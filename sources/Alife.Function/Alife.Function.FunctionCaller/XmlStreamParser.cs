@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Alife.Function.Interpreter;
+namespace Alife.Function.FunctionCaller;
 
 public class XmlStreamParser
 {

@@ -1,5 +1,5 @@
 using System;
-using Alife.Platform;
+using Alife.Foundation;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 
 namespace Alife.Function.Python;
 

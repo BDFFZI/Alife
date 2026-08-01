@@ -3,10 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 
 namespace Alife.Function.Skill;
 

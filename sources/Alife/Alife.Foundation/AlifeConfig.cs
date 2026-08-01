@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 public static class AlifeConfig
 {

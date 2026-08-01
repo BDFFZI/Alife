@@ -1,4 +1,4 @@
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.Language.OpenAI;

@@ -1,5 +1,5 @@
 using System;
-using Alife.Platform;
+using Alife.Foundation;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -13,7 +13,6 @@ using Windows.Media.Ocr;
 using Windows.Storage;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 
 namespace Alife.Function.Vision;
 
@@ -40,7 +39,7 @@ public class VisionService(
     /// 获取当前可以截取的所有可用窗口的列表，供 AI 选择截屏目标。
     /// </summary>
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("查询当前的激活窗口，以及其 hwnd 和焦点")]
+    [Description("查询当前可见窗口，及其hwnd和焦点")]
     public void QueryWindows()
     {
         var windows = WindowCaptureHelper.EnumerateWindows()
@@ -48,10 +47,10 @@ public class VisionService(
             .ToList();
 
         interactor.Poke($"""
-                         【当前窗口列表】
+                         【可见窗口列表】
                          {string.Join("\n", windows.Select(info => $"hwnd: {info.Handle.ToInt64()} | 标题: {info.Title}"))}
                          hwnd: -1 | 直接查看全屏内容
-                         【当前焦点窗口】
+                         【当前用户聚焦】
                          {GetActiveWindowTitle()}
                          """);
     }

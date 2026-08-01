@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Alife.Platform;
+using Alife.Foundation;
 using Newtonsoft.Json;
 
 namespace Alife.Framework;

@@ -15,8 +15,19 @@
     @* 组件自定义样式 *@
     <link rel="stylesheet" href="@Assets["alife-client.styles.css"]"/>
     <style>
-        .log-modal-top.ant-modal-wrap {
+        .modal-top.ant-modal-wrap {
             z-index: 99999 !important;
+        }
+
+        .ant-notification {
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
     </style> @* 实现置顶弹窗 *@
 

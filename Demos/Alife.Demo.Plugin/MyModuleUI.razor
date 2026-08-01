@@ -1,8 +1,28 @@
-﻿@inherits Alife.Framework.ModuleUIBase<MyChatBehaviour, MyModuleData>
+﻿@* Alife 使用 AntDesign 作为前端框架，因此你可以使用其构建 UI 组件。但如果是 ai编程 我建议直接写 html，这样不容易出错 *@
+@using AntDesign
+@using System.Reflection
+@using Alife.Framework
+@* 使用 ModuleUIBase 基类来实现自定义 UI。如果模块没有配置功能，可以省略第二个配置类型参数 *@
+@inherits Alife.Framework.ModuleUIBase<MyModule, MyModuleConfig>
 
-<h3>MyModule</h3>
-<p>当前默认随机数：@(Configuration.DefaultMax)</p>
+<Title>MyModule</Title>
+<Paragraph>只是一个自定义UI的Demo</Paragraph>
 
-@code {
-
+@* 当处于角色页面时，可以拿到相应的角色对象，否则说明在系统总览页 *@
+@if (Character != null)
+{
+    <div>当前角色:@(Character.Name)</div>
 }
+
+@* 当处于角色激活环境时，可以通过 Module、ChatActivity 拿到对应上下文，否则说明为系统总览或非活动角色页 *@
+@if (Module != null)
+{
+    <div>当前模块 @(Module.GetType().GetCustomAttribute<ModuleAttribute>()!.Name) </div>
+    <div>当前活动 @(ChatActivity) </div>
+}
+
+@* 通过 Configuration 获取模块的配置数据 *@
+<Paragraph>当前默认随机数：@(Configuration.DefaultMax)</Paragraph>
+
+@* 即使自定义UI，你也依然可以显示默认UI，以便简化数据编辑等功能的实现 *@
+@DefaultUI 

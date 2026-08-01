@@ -66,7 +66,7 @@ public class ChatActivitySystem
             Progress<(string, float)> progress = new(tuple => { ActivatingProcess?.Invoke(character, tuple); });
 
             Activating?.Invoke(character);
-            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, appendObjects);
+            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, characterSystem, appendObjects);
             await chatActivity.Awake(progress);
             ActivatingCreated?.Invoke(chatActivity);
             await chatActivity.Start(progress);
@@ -102,8 +102,7 @@ public class ChatActivitySystem
         PluginSystem pluginSystem,
         ModuleSystem moduleSystem)
     {
-        appendObjects =
-        [
+        appendObjects = [
             storageSystem,
             configurationSystem,
             characterSystem,
@@ -114,10 +113,12 @@ public class ChatActivitySystem
 
         this.moduleSystem = moduleSystem;
         this.configurationSystem = configurationSystem;
+        this.characterSystem = characterSystem;
     }
 
     readonly ModuleSystem moduleSystem;
     readonly ConfigurationSystem configurationSystem;
+    readonly CharacterSystem characterSystem;
     readonly object[] appendObjects;
     readonly Dictionary<string, ChatActivity> activities = new();
 }

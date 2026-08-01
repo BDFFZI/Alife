@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Alife.Framework;
-using Alife.Platform;
+using Alife.Foundation;
 using ElectronNET.API;
 using Newtonsoft.Json.Linq;
 using Process = System.Diagnostics.Process;

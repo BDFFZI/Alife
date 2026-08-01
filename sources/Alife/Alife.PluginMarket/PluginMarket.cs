@@ -1,8 +1,8 @@
-﻿using Alife.PluginContext;
+﻿using Alife.Foundation;
+using Alife.PluginContext;
 using Newtonsoft.Json;
 
 namespace Alife.PluginMarket;
-
 public interface IPluginProvider
 {
     /// <summary>
@@ -11,7 +11,6 @@ public interface IPluginProvider
     /// <returns></returns>
     public Task<PluginPackage[]> GetPluginsAsync();
 }
-
 public interface IPluginInstaller
 {
     /// <summary>
@@ -22,7 +21,6 @@ public interface IPluginInstaller
     public Task InstallPlugin(PluginPackage pluginPackage, string version);
     public Task UninstallPlugin(string pluginId);
 }
-
 /// <summary>
 /// 一种在线的插件分发平台叫做插件市场，上传其中的插件都会提供一个包清单文件，里面包含对应插件的各种描述信息和发行源码等资源。
 /// 插件市场类就是负责处理其中插件的安装工作，安装仅涉及文件系统上的变动，不包含环境同步、插件加载等。
@@ -30,6 +28,8 @@ public interface IPluginInstaller
 public class PluginMarket
 {
     public IReadOnlyDictionary<string, PluginPackage> AllPluginPackages => allPluginPackages;
+    public string PluginPackagesCacheDirectory => pluginPackagesCacheDirectory;
+    public event Action<PluginPackage , string >? PluginInstalled;
 
     public async Task SyncOnlinePluginPackagesAsync()
     {
@@ -56,7 +56,7 @@ public class PluginMarket
         void CollectDependencies(PluginPackage pluginPackage, string version)
         {
             if (installPlan.ContainsKey(pluginPackage.Id))
-                return;//插件已被解算，不需要重复解算
+                return; //插件已被解算，不需要重复解算
 
             installPlan[pluginPackage.Id] = (pluginPackage, version);
 
@@ -72,7 +72,7 @@ public class PluginMarket
                 {
                     if (pluginContext.AllPluginManifests.TryGetValue(dependentPluginId, out PluginManifest value) &&
                         dependencyResolver.IsSatisfiedVersion(dependentPluginId, value.Version))
-                        continue;//插件已经安装，不需要重复安装
+                        continue; //插件已经安装，不需要重复安装
 
                     if (allPluginPackages.TryGetValue(dependentPluginId, out PluginPackage? dependentPluginPackage) == false)
                         throw new Exception($"{pluginPackage.Id} 依赖的插件 {dependentPluginId} 不存在，请确认依赖信息填写正确，或被依赖插件已上传市场并正确拉取。");
@@ -89,7 +89,10 @@ public class PluginMarket
 
         //安装插件
         foreach ((PluginPackage plugin, string version) in installPlan.Values)
+        {
             await pluginInstaller.InstallPlugin(plugin, version);
+            PluginInstalled?.Invoke(plugin, version);
+        }
     }
     public async Task UninstallPlugins(string pluginId)
     {
@@ -110,6 +113,7 @@ public class PluginMarket
             if (dependencies != null && dependencies.ContainsKey(pluginId))
                 dependents.Add(id);
         }
+
         return dependents;
     }
 
@@ -140,7 +144,8 @@ public class PluginMarket
             foreach (var plugin in Directory.GetFiles(pluginPackagesCacheDirectory))
                 File.Delete(plugin);
             foreach ((string _, PluginPackage plugin) in allPluginPackages)
-                File.WriteAllText(Path.Combine(pluginPackagesCacheDirectory, $"{plugin.Id}.json"), JsonConvert.SerializeObject(plugin, Formatting.Indented));
+                File.WriteAllText(Path.Combine(pluginPackagesCacheDirectory, $"{plugin.Id}.json"),
+                    JsonConvert.SerializeObject(plugin, Formatting.Indented));
         }
         catch (Exception ex)
         {
@@ -162,8 +167,7 @@ public class PluginMarket
                 }
                 catch (Exception ex)
                 {
-                    File.Delete(pluginFile);
-                    Console.WriteLine(ex);
+                    AlifeLog.LogWarning($"加载插件缓存包信息失败:\n{pluginFile}\n{ex}");
                 }
             }
         }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using ChatMessageContent=Microsoft.SemanticKernel.ChatMessageContent;

@@ -1,6 +1,4 @@
-@using Alife.Framework
 @using Alife.PluginMarket
-@using Alife.Platform
 @inject PluginSystem PluginSystem
 @inject INotificationService NotificationService
 
@@ -93,28 +91,26 @@
         "Alife.Function.SystemEvent",
         "Alife.Function.Developer",
         //实用工具
-        "Alife.Function.Browser",
-        "Alife.Function.FileService",
-        "Alife.Function.Python",
-        "Alife.Function.ProcessService",
         "Alife.Function.DeskPet",
+        "Alife.Function.Browser",
+        "Alife.Function.Python",
+        "Alife.Function.FileService",
         //模型接入
         "Alife.Function.AIModelUtility",
         "Alife.Function.Auditory",
         "Alife.Function.Auditory.SenseVoice",
         "Alife.Function.Speech",
         "Alife.Function.Speech.VITS",
-        "Alife.Function.Vision",
-        // "Alife.Function.Vision.MiniCPM",
+        "Alife.Function.Vision"
     ];
 
-    List<PluginPackage> availablePlugins = new();
-    HashSet<string> selectedIds = new();
+    readonly List<PluginPackage> availablePlugins = new();
+    readonly HashSet<string> selectedIds = new();
     (int Current, int Total, string Name)? installProgress;
     Exception? operException;
     bool installDone;
     int installedCount;
-    
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -148,6 +144,7 @@
                     selectedIds.Add(id);
             }
         }
+
         StateHasChanged();
     }
 
@@ -172,7 +169,7 @@
 
         try
         {
-            await PluginSystem.InstallPlugins(toInstall);
+            await Task.Run(() => PluginSystem.InstallPlugins(toInstall));
 
             installedCount = toInstall.Count;
             installDone = true;
@@ -193,8 +190,14 @@
         await OnNextStep.InvokeAsync();
     }
 
-    async Task OnPrev() { await OnPrevStep.InvokeAsync(); }
-    async Task OnNext() { await OnNextStep.InvokeAsync(); }
+    async Task OnPrev()
+    {
+        await OnPrevStep.InvokeAsync();
+    }
+    async Task OnNext()
+    {
+        await OnNextStep.InvokeAsync();
+    }
 }
 
 <style>

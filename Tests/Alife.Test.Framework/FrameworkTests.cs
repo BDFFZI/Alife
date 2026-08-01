@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
 namespace Alife.Test.Framework;
-
 [TestFixture]
 public class FrameworkTests
 {
@@ -15,7 +14,7 @@ public class FrameworkTests
         ServiceCollection serviceCollection = new();
         serviceCollection.AddAlife();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
-        await provider.InitAlife();
+        provider.InitAlife();
 
         PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
         await pluginSystem.SyncOnlinePlugins();
@@ -25,8 +24,7 @@ public class FrameworkTests
         LogLocalPlugins(pluginSystem);
 
         TestContext.WriteLine("安装插件:");
-        await pluginSystem.InstallPlugins(new()
-        {
+        await pluginSystem.InstallPlugins(new() {
             { pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"], "1.0.0" },
         });
 
@@ -34,7 +32,7 @@ public class FrameworkTests
 
         TestContext.WriteLine("卸载插件:");
         await pluginSystem.UninstallPlugins([pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"]]);
-        
+
         LogLocalPlugins(pluginSystem);
     }
 

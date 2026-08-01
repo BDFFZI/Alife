@@ -5,10 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Interpreter;
 using Alife.Function.Speech;
 using Microsoft.Extensions.Logging;
 

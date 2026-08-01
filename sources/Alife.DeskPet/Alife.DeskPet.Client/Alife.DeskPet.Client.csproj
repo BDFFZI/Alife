@@ -13,13 +13,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3065.39" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="*" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Alife.DeskPet.Protocol\Alife.DeskPet.Protocol.csproj" />
-    <ProjectReference Include="..\..\Alife\Alife.Platform\Alife.Platform.csproj" />
+    <ProjectReference Include="..\..\Alife\Alife.Foundation\Alife.Foundation.csproj" />
   </ItemGroup>
 
 </Project>

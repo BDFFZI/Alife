@@ -4,15 +4,15 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.PluginContext;
 
 public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnvironmentInstaller
 {
     public event Func<Task>? PackagesUpdatedAsync;
-    public HashSet<string> Managed { get; set; } = new();
-    public HashSet<string> Unmanaged { get; set; } = new();
+    public HashSet<string> ManagedDirectories { get; private set; } = new();
+    public HashSet<string> UnmanagedDirectories { get; private set; } = new();
 
     public async Task InstallEnvironment(IEnumerable<KeyValuePair<string, string>> environment)
     {
@@ -147,11 +147,11 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
             }
         }
 
-        if (managedDirs.SetEquals(Managed) && nativeDirs.SetEquals(Unmanaged))
+        if (managedDirs.SetEquals(ManagedDirectories) && nativeDirs.SetEquals(UnmanagedDirectories))
             return false;
 
-        Managed = managedDirs;
-        Unmanaged = nativeDirs;
+        ManagedDirectories = managedDirs;
+        UnmanagedDirectories = nativeDirs;
         return true;
     }
 }

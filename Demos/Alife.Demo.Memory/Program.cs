@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using Alife.Framework;
 using Alife.Function.Memory;
 using Alife.Function.MessageFilter;
-using Alife.Platform;
+using Alife.Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel.ChatCompletion;
 

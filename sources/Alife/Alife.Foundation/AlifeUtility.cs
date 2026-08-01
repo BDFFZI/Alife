@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 public struct CommandResult
 {

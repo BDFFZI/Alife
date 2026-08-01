@@ -4,6 +4,6 @@
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\Alife.Platform\Alife.Platform.csproj" />
+      <ProjectReference Include="..\Alife.Foundation\Alife.Foundation.csproj" />
     </ItemGroup>
 </Project>

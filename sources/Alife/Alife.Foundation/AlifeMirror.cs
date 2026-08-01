@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 /// <summary>
 /// 通过替换链接和配置环境变量来实现镜像下载功能

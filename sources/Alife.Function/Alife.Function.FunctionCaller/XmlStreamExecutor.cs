@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace Alife.Function.Interpreter;
+namespace Alife.Function.FunctionCaller;
 
 public class XmlExecutorContext : XmlContext
 {

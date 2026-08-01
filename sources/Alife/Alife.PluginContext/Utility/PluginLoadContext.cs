@@ -6,33 +6,38 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.PluginContext;
-
 public partial class PluginLoadContext
 {
     public static PluginLoadContext? RootPluginContext { get; set; }
     static readonly Dictionary<string, Assembly> LoadedAssemblies = new();
     static readonly Dictionary<Assembly, PluginLoadContext> AssemblyOwners = new();
 }
-
-public partial class PluginLoadContext(string name, string[] unmanagedDirectories) : AssemblyLoadContext(isCollectible: true, name: name), IAsyncDisposable
+public partial class PluginLoadContext(string name, string[] unmanagedDirectories)
+    : AssemblyLoadContext(isCollectible: true, name: name), IAsyncDisposable
 {
     public bool IsDisposed => isDisposed;
     public event Func<Task>? Disposed;
-
-    public void Complete()
+    
+    public Assembly LoadDll(string dllPath)
     {
-        foreach (Assembly assembly in Assemblies)
-        {
-            string? assemblyName = assembly.GetName().Name;
-            if (assemblyName == null)
-                continue;
+        string pdbPath = Path.ChangeExtension(dllPath, ".pdb");
+        var dllStream = new MemoryStream(File.ReadAllBytes(dllPath));
+        MemoryStream? pdbStream = File.Exists(pdbPath) ? new MemoryStream(File.ReadAllBytes(pdbPath)) : null;
+        Assembly assembly = LoadFromStream(dllStream, pdbStream);
+        dllStream.Dispose();
+        pdbStream?.Dispose();
 
+        string? assemblyName = assembly.GetName().Name;
+        if (assemblyName != null)
+        {
             LoadedAssemblies.Add(assemblyName, assembly);
             AssemblyOwners.Add(assembly, this);
         }
+
+        return assembly;
     }
     public async ValueTask DisposeAsync()
     {
@@ -55,6 +60,7 @@ public partial class PluginLoadContext(string name, string[] unmanagedDirectorie
             LoadedAssemblies.Remove(assemblyName);
             AssemblyOwners.Remove(assembly);
         }
+
         Unload();
 
         if (Disposed != null)
@@ -70,16 +76,6 @@ public partial class PluginLoadContext(string name, string[] unmanagedDirectorie
                 AlifeLog.LogError(e);
             }
         }
-    }
-    public Assembly LoadDll(string dllPath)
-    {
-        string pdbPath = Path.ChangeExtension(dllPath, ".pdb");
-        var dllStream = new MemoryStream(File.ReadAllBytes(dllPath));
-        MemoryStream? pdbStream = File.Exists(pdbPath) ? new MemoryStream(File.ReadAllBytes(pdbPath)) : null;
-        Assembly assembly = LoadFromStream(dllStream, pdbStream);
-        dllStream.Dispose();
-        pdbStream?.Dispose();
-        return assembly;
     }
 
     protected override Assembly? Load(AssemblyName assemblyName)

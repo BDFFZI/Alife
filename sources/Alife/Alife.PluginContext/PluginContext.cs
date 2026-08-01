@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
-using Alife.Platform;
+using Alife.Foundation;
 using Newtonsoft.Json;
 
 namespace Alife.PluginContext;
-
 public struct PluginSyncReport
 {
     public string[] UnloadedPlugins { get; set; }
     public string[] ReloadedPlugins { get; set; }
 }
-
 /// <summary>
 /// 一个插件代表一个包含 cs、dll、版本、依赖信息 的文件夹。
 /// 插件系统负责安装这些插件依赖的环境，编译 cs 为 dll，以及将他们加载到程序中，从而可以被实际使用。
@@ -55,7 +54,7 @@ public class PluginContext(
             foreach (var pluginDirectory in Directory.GetDirectories(pluginRootDirectory))
             {
                 string pluginId = Path.GetFileName(pluginDirectory);
-                string pluginDependencyFile = GetPluginDependencyPath(pluginId);
+                string pluginDependencyFile = GetPluginManifestPath(pluginId);
                 PluginManifest pluginManifest = File.Exists(pluginDependencyFile)
                     ? JsonConvert.DeserializeObject<PluginManifest>(File.ReadAllText(pluginDependencyFile))
                     : PluginManifestFallback(pluginId);
@@ -111,13 +110,21 @@ public class PluginContext(
             //加载新增的插件
             foreach (string pluginId in report.ReloadedPlugins)
             {
-                await ReloadPluginDll(pluginId);
+                try
+                {
+                    if (currentPluginLoadContexts.ContainsKey(pluginId) == false)
+                        await ReloadPluginDll(pluginId);
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(e);
+                }
             }
         }
 
         return report;
     }
-    public async Task ReloadPluginDll(string pluginId)
+    public async Task ReloadPluginDll(string pluginId, bool recompile = false)
     {
         if (!allPluginManifests.TryGetValue(pluginId, out PluginManifest pluginEnvironment))
             throw new Exception("未找到插件信息，请确认插件存在并已同步环境。");
@@ -125,6 +132,8 @@ public class PluginContext(
         //卸载旧dll
         if (currentPluginLoadContexts.TryGetValue(pluginId, out PluginLoadContext? pluginLoadContext))
             await pluginLoadContext.DisposeAsync();
+        if (recompile)
+            File.Delete(GetPluginCompiledDllPath(pluginId));
 
         //确保依赖插件环境存在
         if (pluginEnvironment.Dependencies != null)
@@ -137,7 +146,7 @@ public class PluginContext(
         }
 
         //加载新插件dll
-        pluginLoadContext = new(pluginId, [GetPluginCompiledDllPath(pluginId)]);
+        pluginLoadContext = new(pluginId, [GetPluginDirectoryPath(pluginId)]);
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
@@ -174,13 +183,15 @@ public class PluginContext(
             }
         }
     }
+    public string GetPluginManifestPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");
+    public string GetPluginDirectoryPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId);
+
 
     readonly Dictionary<string, PluginManifest> allPluginManifests = new();
     readonly Dictionary<string, PluginLoadContext> currentPluginLoadContexts = new();
 
     string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
-    string GetPluginDirectoryPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId);
-    string GetPluginDependencyPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");
+
 
     void CompilePluginCode(string pluginId)
     {
@@ -226,14 +237,35 @@ public class PluginContext(
         if (Directory.GetFiles(pluginDirectory, "*.cs", SearchOption.AllDirectories).Length > 0)
         {
             string pluginCompiledDllPath = GetPluginCompiledDllPath(pluginId);
-            if (File.Exists(pluginCompiledDllPath) == false)
+            if (HasValidDll(pluginCompiledDllPath) == false)
                 CompilePluginCode(pluginId);
             result.Add(pluginCompiledDllPath);
         }
 
-        //添加已编译的dll
+        //添加插件自带的dll
         result.AddRange(Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories));
 
         return result;
+
+        static bool HasValidDll(string path)
+        {
+            try
+            {
+                AssemblyName.GetAssemblyName(path);
+                return true;
+            }
+            catch (BadImageFormatException)
+            {
+                return false;
+            }
+            catch (FileNotFoundException)
+            {
+                return false;
+            }
+            catch (FileLoadException)
+            {
+                return false;
+            }
+        }
     }
 }

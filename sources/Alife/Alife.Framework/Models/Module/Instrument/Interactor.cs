@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Framework;
 
@@ -14,9 +16,7 @@ public interface IInteractor
     public Task ChatAsync(string message);
     public Task ImplicitChatAsync(string message);
 }
-
 public interface IInteractor<T> : IInteractor;
-
 public class Interactor<T>(ChatBot target) : IInteractor<T>
 {
     public string GetPromptTag()
@@ -30,7 +30,14 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
         if (target.ChatHistory.Any(content => content.Content?.StartsWith(GetPromptTag()) ?? false))
             return;
 
-        target.ChatHistory.AddSystemMessage($"{GetPromptTag()}\n{prompt}");
+        (ChatMessageContent item, int index) = target.ChatHistory
+            .Select((item, index) => (item, index))
+            .FirstOrDefault(x => x.item.Role == AuthorRole.System);
+        if (item == null)
+            target.ChatHistory.AddSystemMessage($"{GetPromptTag()}\n{prompt}");
+        else
+            target.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, $"{GetPromptTag()}\n{prompt}"));
+
         target.UpdateHistoryEndIndex();
     }
     public void Throw(string error)

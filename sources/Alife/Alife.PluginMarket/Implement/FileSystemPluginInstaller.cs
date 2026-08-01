@@ -1,4 +1,4 @@
-﻿using Alife.Platform;
+﻿using Alife.Foundation;
 
 namespace Alife.PluginMarket;
 

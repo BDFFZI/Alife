@@ -1,6 +1,5 @@
 @using Alife.Components.Overlay
 @using Alife.Components.Services
-@using ElectronNET.API
 @inject IJSRuntime JsRuntime
 
 @if (isAppInitialized)
@@ -14,15 +13,16 @@
 }
 else
 {
-    <Launching/>
+    <Launching SubTitle="@launchingProgress"/>
 }
 
 <LogOverlay/>
 <AntContainer/>
-<ErrorWindowUI Value="@exception" Title="启动失败" ValueChanged="OnErrorConfirm"/>
+<ErrorWindowUI @bind-Value="@exception" Title="系统初始化异常"/>
 
 @code
 {
+    string? launchingProgress;
     bool isAppInitialized;
     Exception? exception;
 
@@ -36,36 +36,35 @@ else
         {
             await Task.Run(async () =>
             {
+                launchingProgress = "正在初始化软件环境...";
+                await InvokeAsync(StateHasChanged);
                 ClientEnvironment.SyncEnvironment(); //客户端提供的基础运行环境
                 Program.ServiceProvider.InitAlife(); //初始化 Alife 功能
-
-                //拉取加载插件
-                PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
-                await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
-                await pluginSystem.SyncLocalPlugins();
-                
-                //拉取版本信息
-                await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
-                
                 Program.ServiceProvider.GetRequiredService<ChatMessageService>(); //客户端对话统计
+
+                PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
+
+                // launchingProgress = "正在查询客户端版本...";
+                // await InvokeAsync(StateHasChanged);
+                // await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
+                //
+                // launchingProgress = "正在拉取在线插件...";
+                // await InvokeAsync(StateHasChanged);
+                // await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
+
+                launchingProgress = "正在加载本地插件...";
+                await InvokeAsync(StateHasChanged);
+                await pluginSystem.SyncLocalPlugins();
             });
         }
         catch (Exception ex)
         {
             exception = ex;
-            StateHasChanged();
-            return;
         }
 
         isAppInitialized = true;
         await JsRuntime.InvokeVoidAsync("alifeLaunching.complete");
 
         StateHasChanged();
-    }
-
-    void OnErrorConfirm(Exception? obj)
-    {
-        if (obj == null)
-            Electron.App.Exit();
     }
 }

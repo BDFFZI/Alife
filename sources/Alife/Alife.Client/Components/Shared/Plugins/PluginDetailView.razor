@@ -1,5 +1,3 @@
-@using Alife.Framework
-@using Alife.Components.Shared.Common
 @using Alife.PluginMarket
 @using Alife.PluginContext
 @inject PluginSystem PluginSystem
@@ -15,11 +13,17 @@
                     {
                         <Tag Color="@("green")">已安装</Tag>
                     }
+                    @if (hasUpdate)
+                    {
+                        <Tag Color="@("orange")">可升级</Tag>
+                    }
                 </Flex>
-                <AntDesign.Text Type="@TextElementType.Secondary" Style="margin-top: 4px; display: block;">@PluginPackage.Id</AntDesign.Text>
+                <AntDesign.Text Type="@TextElementType.Secondary"
+                                Style="margin-top: 4px; display: block;">@PluginPackage.Id</AntDesign.Text>
                 @if (!string.IsNullOrEmpty(PluginPackage.Author))
                 {
-                    <span style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @PluginPackage.Author</span>
+                    <span
+                        style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @PluginPackage.Author</span>
                 }
             </div>
         </Flex>
@@ -32,15 +36,17 @@
         {
             <div style="margin-top: 8px;">
                 <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 13px;">
-                    <Icon Type="@IconType.Outline.Link" /> <a href="@PluginPackage.Source" target="_blank" style="color: #1890ff;">@PluginPackage.Source</a>
+                    <Icon Type="@IconType.Outline.Link"/>
+                    <a href="@PluginPackage.Source" target="_blank" style="color: #1890ff;">@PluginPackage.Source</a>
                 </AntDesign.Text>
             </div>
         }
 
         @* 操作按钮 *@
         <Flex Gap="@("12")" Style="margin-top: 16px;">
-            <Button Type="@ButtonType.Primary" OnClick="AddToCart">
-                <Icon Type="@IconType.Outline.Plus" /> 加入购物车
+            <Button Type="@(IsInCart ? ButtonType.Primary : ButtonType.Default)" OnClick="@ToggleCart">
+                <Icon Type="shopping-cart" Theme="IconThemeType.Outline"/>
+                @(isInCart ? "移出购物车" : "加入购物车")
             </Button>
         </Flex>
     </div>
@@ -57,7 +63,8 @@
                     <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <Tooltip Title="@(isCompatible ? "" : "版本不兼容：插件大版本号高于当前客户端版本")">
-                                <AntDesign.Text Strong Style="@(isCompatible ? "" : "opacity: 0.4;")">@release.Key</AntDesign.Text>
+                                <AntDesign.Text Strong
+                                                Style="@(isCompatible ? "" : "opacity: 0.4;")">@release.Key</AntDesign.Text>
                             </Tooltip>
                             @if (isInstalled && release.Key == installedVersion)
                             {
@@ -72,16 +79,18 @@
                                 <Tag Color="@("red")">不兼容</Tag>
                             }
                         </div>
-                        <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@release.Value.Date</AntDesign.Text>
+                        <AntDesign.Text Type="@TextElementType.Secondary"
+                                        Style="font-size: 12px;">@release.Value.Date</AntDesign.Text>
                         @if (!string.IsNullOrEmpty(release.Value.Note))
                         {
-                            <div style="margin-top: 4px; white-space: pre-wrap; @(isCompatible ? "" : "opacity: 0.4;")">@release.Value.Note</div>
+                            <div
+                                style="margin-top: 4px; white-space: pre-wrap; @(isCompatible ? "" : "opacity: 0.4;")">@release.Value.Note</div>
                         }
                         @if (!string.IsNullOrEmpty(release.Value.File))
                         {
                             <div style="margin-top: 4px; word-break: break-all; @(isCompatible ? "" : "opacity: 0.4;")">
                                 <a href="@release.Value.File" target="_blank" style="font-size: 12px; color: #1890ff;">
-                                    <Icon Type="@IconType.Outline.Download" /> @release.Value.File
+                                    <Icon Type="@IconType.Outline.Download"/> @release.Value.File
                                 </a>
                             </div>
                         }
@@ -94,10 +103,13 @@
 
 @code {
     [Parameter] public PluginPackage PluginPackage { get; set; } = null!;
+    [Parameter] public bool IsInCart { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
-    [Parameter] public EventCallback<PluginPackage> OnAddToCart { get; set; }
+    [Parameter] public EventCallback<bool> OnToggleCart { get; set; }
 
     bool isInstalled;
+    bool hasUpdate;
+    bool isInCart;
     string? installedVersion;
     string? latestVersion;
 
@@ -106,10 +118,12 @@
         isInstalled = PluginSystem.IsInstalled(PluginPackage.Id);
         installedVersion = PluginSystem.GetInstalledVersion(PluginPackage.Id);
         latestVersion = PluginSystem.GetLatestVersion(PluginPackage);
+        hasUpdate = isInstalled && PluginSystem.HasUpdate(PluginPackage);
+        isInCart = IsInCart;
     }
 
-    async Task AddToCart()
+    async Task ToggleCart()
     {
-        await OnAddToCart.InvokeAsync(PluginPackage);
+        await OnToggleCart.InvokeAsync(!isInCart);
     }
 }

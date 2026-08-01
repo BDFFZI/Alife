@@ -5,8 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.Interpreter;
-using Alife.Platform;
+using Alife.Foundation;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 

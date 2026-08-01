@@ -6,7 +6,7 @@
     </PropertyGroup>
     
     <ItemGroup>
-      <ProjectReference Include="..\Alife.Platform\Alife.Platform.csproj" />
+      <ProjectReference Include="..\Alife.Foundation\Alife.Foundation.csproj" />
       <ProjectReference Include="..\Alife.PluginContext\Alife.PluginContext.csproj" />
     </ItemGroup>
 

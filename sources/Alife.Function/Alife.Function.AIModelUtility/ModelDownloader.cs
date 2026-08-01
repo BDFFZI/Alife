@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.Function.AIModelUtility;
 

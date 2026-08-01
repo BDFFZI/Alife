@@ -1,4 +1,4 @@
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 public static class DemeLog
 {

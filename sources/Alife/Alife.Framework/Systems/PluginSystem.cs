@@ -117,6 +117,6 @@ public class PluginSystem(
     }
     public async Task ReloadPlugin(string pluginId)
     {
-        await pluginContext.ReloadPluginDll(pluginId);
+        await pluginContext.ReloadPluginDll(pluginId, true);
     }
 }

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 public static class AlifePath
 {

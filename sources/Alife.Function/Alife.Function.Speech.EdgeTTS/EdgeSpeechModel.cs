@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.Function.Speech.EdgeTTS;
 

@@ -1,36 +1,45 @@
 <Modal Visible="@(Value != null)"
        VisibleChanged="@(b => ValueChanged.InvokeAsync(b ? Value : null))"
+       WrapClassName="modal-top"
        Width="800"
        Centered="true">
     <div style="max-height: 500px; overflow-y: auto;">
         @if (Value != null)
         {
-            <div
-                style="margin-bottom: 24px; padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
-                <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
-                    <Icon Type="warning"/> @Title
-                </div>
-
-                <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@errorMessage</div>
-
-                @if (!string.IsNullOrEmpty(innerMessage))
-                {
-                    <div style="margin-bottom: 8px; color: #820014;">
-                        内部原因：@innerMessage
+            @if (chain.Count > 1)
+            {
+                <Tabs ActiveKey="@activeKey" ActiveKeyChanged="OnTabChanged" Size="@TabSize.Small">
+                    @for (int i = 0; i < chain.Count; i++)
+                    {
+                        var ex = chain[i];
+                        var idx = i;
+                        <TabPane Key="@idx.ToString()">
+                            <TabTemplate>
+                                @(idx == 0 ? "异常" : $"内部异常 {idx}")
+                            </TabTemplate>
+                            <ChildContent>
+                                <div style="padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
+                                    <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
+                                        <Icon Type="warning"/> @Title
+                                    </div>
+                                    <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@ex.Message</div>
+                                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@ex.StackTrace</pre>
+                                </div>
+                            </ChildContent>
+                        </TabPane>
+                    }
+                </Tabs>
+            }
+            else
+            {
+                <div style="padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
+                    <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
+                        <Icon Type="warning"/> @Title
                     </div>
-                }
-
-                <pre style="max-height: 300px; 
-                        overflow-y: auto; 
-                        font-size: 11px; 
-                        background: rgba(0,0,0,0.05); 
-                        padding: 8px; 
-                        border-radius: 4px;
-                        white-space: pre-wrap;
-                        margin-top: 8px;">
-                    @stackTrace
-                </pre>
-            </div>
+                    <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@Value.Message</div>
+                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@Value.StackTrace</pre>
+                </div>
+            }
         }
         else
         {
@@ -39,32 +48,36 @@
     </div>
 </Modal>
 
-
-
 @code {
     [Parameter] public Exception? Value { get; set; }
     [Parameter] public EventCallback<Exception?> ValueChanged { get; set; }
     [Parameter] public string Title { get; set; } = "操作失败喵！";
 
-    string errorMessage = "";
-    string innerMessage = "";
-    string stackTrace = "";
+    readonly List<Exception> chain = new();
+    string activeKey = "0";
+
+    void OnTabChanged(string key)
+    {
+        activeKey = key;
+    }
 
     protected override void OnParametersSet()
     {
         if (Value != null)
         {
-            errorMessage = Value.Message;
-            stackTrace = Value.StackTrace ?? "";
-
-            var finalException = Value.InnerException;
-            while (finalException?.InnerException != null)
-                finalException = finalException.InnerException;
-            if (finalException != null)
+            chain.Clear();
+            var current = (Exception?)Value;
+            while (current != null)
             {
-                innerMessage = finalException.Message;
-                stackTrace = finalException.StackTrace ?? stackTrace;
+                chain.Add(current);
+                current = current.InnerException;
             }
+
+            activeKey = "0";
+        }
+        else
+        {
+            chain.Clear();
         }
     }
 }

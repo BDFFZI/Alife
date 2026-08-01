@@ -1,4 +1,4 @@
-using Alife.Platform;
+using Alife.Foundation;
 using Newtonsoft.Json;
 
 namespace Alife.PluginMarket;

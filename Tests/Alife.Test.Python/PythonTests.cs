@@ -1,4 +1,4 @@
-﻿using Alife.Platform;
+﻿using Alife.Foundation;
 using Alife.Function.Python;
 
 namespace Alife.Test.Python;

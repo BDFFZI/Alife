@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Windows;
-using Alife.Platform;
+using Alife.Foundation;
 
 namespace Alife.Test.QChat;
 

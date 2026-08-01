@@ -3,18 +3,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Alife.Foundation;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace Alife.PluginContext;
-
 public class CSharpCompiler
 {
     public void SetBasicDllFiles(IEnumerable<string> baseDllFiles)
     {
         baseDllReferences.Clear();
-        baseAddedDlls.Clear();
-        AddAssemblies(baseDllReferences, baseAddedDlls, baseDllFiles);
+        baseAddedDllNames.Clear();
+        AddAssemblies(baseDllReferences, baseAddedDllNames, baseDllFiles);
     }
     public void Compile(string outputDll, string[] csFiles, string[] dllFiles)
     {
@@ -28,7 +28,7 @@ public class CSharpCompiler
 
         //统计dll元数据
         List<MetadataReference> dllReferences = new(baseDllReferences);
-        HashSet<string> addedDlls = new(baseAddedDlls);
+        HashSet<string> addedDlls = new(baseAddedDllNames);
         AddAssemblies(dllReferences, addedDlls, dllFiles);
 
         //编译
@@ -57,7 +57,7 @@ public class CSharpCompiler
     }
 
     readonly List<MetadataReference> baseDllReferences = new();
-    readonly HashSet<string> baseAddedDlls = new();
+    readonly HashSet<string> baseAddedDllNames = new();
 
     static void AddAssemblies(List<MetadataReference> dllReferences, HashSet<string> addedDlls, IEnumerable<string> dllFiles)
     {
@@ -72,9 +72,9 @@ public class CSharpCompiler
                 dllReferences.Add(MetadataReference.CreateFromFile(file));
                 addedDlls.Add(name.Name!);
             }
-            catch
+            catch (Exception e)
             {
-                // ignored
+                AlifeLog.LogError(e);
             }
         }
     }

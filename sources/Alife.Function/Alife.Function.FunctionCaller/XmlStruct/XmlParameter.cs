@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Alife.Function.Interpreter;
+namespace Alife.Function.FunctionCaller;
 
 /// <summary>
 /// 被标记的参数，在生成文档时会将其显示为嵌套xml

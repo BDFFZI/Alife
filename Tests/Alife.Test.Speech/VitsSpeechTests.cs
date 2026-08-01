@@ -1,4 +1,4 @@
-using Alife.Platform;
+using Alife.Foundation;
 using Alife.Function.Speech.VITS;
 using Microsoft.Extensions.Logging.Abstractions;
 

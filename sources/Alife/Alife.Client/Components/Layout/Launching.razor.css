@@ -134,6 +134,15 @@
     text-shadow: 0 2px 10px rgba(56, 77, 203, 0.5);
 }
 
+.loading-subtitle {
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 2px;
+    text-shadow: 0 1px 6px rgba(56, 77, 203, 0.3);
+    margin-top: 8px;
+}
+
 .loading-bar-container {
     position: relative;
     z-index: 10;

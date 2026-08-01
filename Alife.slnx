@@ -26,8 +26,8 @@
   </Folder>
   <Folder Name="/Sources/Alife/">
     <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
+    <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
     <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
-    <Project Path="Sources/Alife/Alife.Platform/Alife.Platform.csproj" />
     <Project Path="Sources/Alife/Alife.PluginContext/Alife.PluginContext.csproj" />
     <Project Path="Sources/Alife/Alife.PluginMarket/Alife.PluginMarket.csproj" />
   </Folder>

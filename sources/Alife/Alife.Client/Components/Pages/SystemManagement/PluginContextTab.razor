@@ -1,0 +1,255 @@
+@using Alife.PluginContext
+@inject PluginContext PluginContext
+@inject INotificationService NotificationService
+
+<div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;">
+    @* 标题栏 *@
+    <div
+        style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+        <Title Level="4" Style="margin: 0;">插件环境</Title>
+        <Flex Gap="@("12")" Align="FlexAlign.Center">
+            <Tooltip Title="同步本地插件环境">
+                <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Reload" OnClick="@SyncEnvironment"
+                        Loading="@isSyncing">
+                    同步环境
+                </Button>
+            </Tooltip>
+            <Tooltip Title="打开插件目录">
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.FolderOpen"
+                        OnClick="@OpenPluginFolder"></Button>
+            </Tooltip>
+        </Flex>
+    </div>
+
+    @* 内容区 *@
+    <div style="flex: 1; display: flex; overflow: hidden;">
+        @* 左侧插件列表 *@
+        <div style="width: 360px; border-right: 1px solid #f0f0f0; overflow-y: auto; background: #fff;">
+            @if (allPluginIds.Length == 0)
+            {
+                <div style="padding: 24px; text-align: center;">
+                    <Empty Description="@("暂无已安装插件")"/>
+                </div>
+            }
+            else
+            {
+                <Menu Mode="MenuMode.Inline" SelectedKeys="@selectedKeys" OnMenuItemClicked="OnMenuClick">
+                    @foreach (var pluginId in allPluginIds)
+                    {
+                        <MenuItem Key="@pluginId">
+                            <Icon Type="@IconType.Outline.Appstore"/>
+                            <span>@pluginId</span>
+                            @if (IsPluginLoaded(pluginId))
+                            {
+                                <Badge Status="BadgeStatus.Success" Style="margin-left: 8px;"/>
+                            }
+                        </MenuItem>
+                    }
+                </Menu>
+            }
+        </div>
+
+        @* 右侧详情 *@
+        <div style="flex: 1; overflow-y: auto; padding: 24px;">
+            @if (selectedPluginId == null)
+            {
+                <div
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.6;">
+                    <Icon Type="@IconType.Outline.Appstore" Style="font-size: 48px; margin-bottom: 16px;"/>
+                    <AntDesign.Text Style="font-size: 14px;">请从左侧选择一个插件查看详情</AntDesign.Text>
+                </div>
+            }
+            else
+            {
+                <Title Level="4" Style="margin-bottom: 16px;">@selectedPluginId</Title>
+
+                <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
+                    <DescriptionsItem Title="版本">
+                        <Text Code>@currentManifest.Version</Text>
+                    </DescriptionsItem>
+                    <DescriptionsItem Title="加载状态">
+                        @if (IsPluginLoaded(selectedPluginId))
+                        {
+                            <Tag Color="@("green")">已加载</Tag>
+                        }
+                        else
+                        {
+                            <Tag Color="@("red")">未加载</Tag>
+                        }
+                    </DescriptionsItem>
+                    <DescriptionsItem Title="功能依赖">
+                        @if (currentManifest.Dependencies == null || currentManifest.Dependencies.Count == 0)
+                        {
+                            <AntDesign.Text Type="@TextElementType.Secondary">无功能依赖</AntDesign.Text>
+                        }
+                        else
+                        {
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                @foreach (var dep in currentManifest.Dependencies)
+                                {
+                                    <div>
+                                        <Tag>@dep.Key</Tag>
+                                        @if (!string.IsNullOrEmpty(dep.Value))
+                                        {
+                                            <AntDesign.Text Code Style="font-size: 12px;">@dep.Value</AntDesign.Text>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </DescriptionsItem>
+                    <DescriptionsItem Title="环境依赖">
+                        @if (currentManifest.Environments == null || currentManifest.Environments.Count == 0)
+                        {
+                            <AntDesign.Text Type="@TextElementType.Secondary">无环境依赖</AntDesign.Text>
+                        }
+                        else
+                        {
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                @foreach (var env in currentManifest.Environments)
+                                {
+                                    <div>
+                                        <Tag Color="@("blue")">@env.Key</Tag>
+                                        <div
+                                            style="margin-top: 4px; padding: 8px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                                            @foreach (var kv in env.Value)
+                                            {
+                                                <div>@(string.IsNullOrEmpty(kv.Value) ? kv.Key : $"{kv.Key}{kv.Value}")</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </DescriptionsItem>
+                </Descriptions>
+
+                <Flex Gap="@("8")" Style="margin-top: 16px;">
+                    <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Reload" OnClick="@ReloadSelectedPlugin"
+                            Loading="@isReloading">
+                        重载此插件
+                    </Button>
+                    <Tooltip Title="打开此插件的文件夹">
+                        <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OpenCurrentPluginFolder"/>
+                    </Tooltip>
+                </Flex>
+            }
+        </div>
+    </div>
+</div>
+
+<ErrorWindowUI @bind-Value="@exception"></ErrorWindowUI>
+
+@code {
+    string[] allPluginIds = [];
+    string? selectedPluginId;
+    PluginManifest currentManifest;
+    string[] selectedKeys = [];
+    bool isSyncing;
+    bool isReloading;
+    Exception? exception;
+
+    protected override void OnInitialized()
+    {
+        LoadPlugins();
+    }
+
+    void LoadPlugins()
+    {
+        var plugins = PluginContext.AllPluginManifests;
+        allPluginIds = plugins.Keys.OrderBy(id => id).ToArray();
+
+        if (selectedPluginId != null && plugins.TryGetValue(selectedPluginId, out var plugin))
+        {
+            currentManifest = plugin;
+        }
+        else if (allPluginIds.Length > 0)
+        {
+            selectedPluginId = allPluginIds[0];
+            currentManifest = plugins[selectedPluginId];
+            selectedKeys = [selectedPluginId];
+        }
+    }
+
+    void OnMenuClick(MenuItem item)
+    {
+        selectedPluginId = item.Key;
+        selectedKeys = [item.Key];
+
+        var plugins = PluginContext.AllPluginManifests;
+        if (plugins.TryGetValue(item.Key, out var manifest))
+        {
+            currentManifest = manifest;
+        }
+    }
+
+    bool IsPluginLoaded(string pluginId)
+    {
+        return PluginContext.CurrentPluginLoadContexts.ContainsKey(pluginId);
+    }
+
+    async Task SyncEnvironment()
+    {
+        isSyncing = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Run(() => PluginContext.SyncPluginEnvironment());
+            LoadPlugins();
+            _ = NotificationService.Success(new NotificationConfig { Message = "插件环境已同步" });
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+            StateHasChanged();
+        }
+        finally
+        {
+            isSyncing = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task ReloadSelectedPlugin()
+    {
+        if (selectedPluginId == null) return;
+
+        isReloading = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Run(() => PluginContext.ReloadPluginDll(selectedPluginId, true));
+            LoadPlugins();
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 {selectedPluginId} 已重载" });
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+            StateHasChanged();
+        }
+        finally
+        {
+            isReloading = false;
+            StateHasChanged();
+        }
+    }
+
+    void OpenPluginFolder()
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = PluginContext.PluginRootDirectory,
+            UseShellExecute = true
+        });
+    }
+
+    void OpenCurrentPluginFolder()
+    {
+        if (selectedPluginId == null) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = PluginContext.GetPluginDirectoryPath(selectedPluginId),
+            UseShellExecute = true
+        });
+    }
+}

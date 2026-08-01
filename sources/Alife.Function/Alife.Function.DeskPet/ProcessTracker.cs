@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Alife.Platform;
+namespace Alife.Foundation;
 
 /// <summary>
 /// 进程追踪器：利用 Windows Job Objects 确保子进程随父进程一同退出。
