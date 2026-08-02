@@ -1,0 +1,27 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.Speech": "",
+    "Alife.Function.AIModelUtility": ""
+  },
+  "Environments": {
+    "pip": {
+      "numba": "",
+      "Cython": "",
+      "librosa": "",
+      "matplotlib": "",
+      "numpy": "",
+      "phonemizer": "",
+      "scipy": "",
+      "tensorboard": "",
+      "torch": "",
+      "torchvision": "",
+      "Unidecode": "",
+      "ffmpeg": "",
+      "cn2an": "",
+      "gradio": "",
+      "pypinyin": "",
+      "jieba": ""
+    }
+  }
+}

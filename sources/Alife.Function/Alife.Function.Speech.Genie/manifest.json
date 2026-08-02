@@ -1,0 +1,13 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.Speech": "",
+    "Alife.Function.AIModelUtility": ""
+  },
+  "Environments": {
+    "pip": {
+      "genie-tts": "",
+      "huggingface_hub": ""
+    }
+  }
+}

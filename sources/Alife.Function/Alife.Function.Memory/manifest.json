@@ -1,0 +1,18 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": "",
+    "Alife.Function.AIModelUtility": "",
+    "Alife.Function.MessageFilter": ""
+  },
+  "Environments": {
+    "nuget": {
+      "DuckDB.NET.Data.Full": ">=1.5.3"
+    },
+    "pip": {
+      "transformers": "",
+      "torch": "",
+      "sentencepiece": ""
+    }
+  }
+}

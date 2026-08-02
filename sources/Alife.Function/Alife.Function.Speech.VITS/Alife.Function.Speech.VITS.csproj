@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
-    <ProjectReference Include="..\..\Alife.Function\Alife.Function.Speech\Alife.Function.Speech.csproj" />
     <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj" />
   </ItemGroup>
 

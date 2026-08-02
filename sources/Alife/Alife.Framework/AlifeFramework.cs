@@ -10,6 +10,7 @@ using Alife.PluginContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Framework;
+
 public static class AlifeFramework
 {
     public static void AddAlife(this IServiceCollection services)
@@ -112,44 +113,29 @@ public static class AlifeFramework
             //nuget环境变动时需要同步程序集环境
             nugetEnvironmentInstaller.PackagesUpdatedAsync += async () =>
             {
+                HashSet<string> defaultAssemblies = AssemblyLoadContext.Default.Assemblies
+                    .Select(assembly => assembly.GetName().Name)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Cast<string>().ToHashSet();
+
                 //重新设置编译环境
-                cSharpCompiler.SetBasicDllFiles(
-                    AssemblyLoadContext.Default.Assemblies
-                        .Select(assembly => assembly.Location)
-                        .Where(location => !string.IsNullOrEmpty(location))
-                        .Concat(nugetEnvironmentInstaller.ManagedDirectories
-                            .Select(directory => Directory.GetFiles(directory, "*.dll"))
-                            .SelectMany(strings => strings)
-                        ));
+                string[] compilingDlls = AssemblyLoadContext.Default.Assemblies
+                    .Select(assembly => assembly.Location)
+                    .Where(location => !string.IsNullOrEmpty(location))
+                    .Concat(nugetEnvironmentInstaller.CompilingDlls
+                        .Where(dll => AlifeUtility.IsValidDll(dll, out var name) && !defaultAssemblies.Contains(name)))
+                    .ToArray();
+                cSharpCompiler.SetBasicDllFiles(compilingDlls);
 
                 //重载nuget程序集环境
                 if (PluginLoadContext.RootPluginContext != null)
                     await PluginLoadContext.RootPluginContext.DisposeAsync();
                 PluginLoadContext rootPluginContext =
                     new("NuGetPackages", nugetEnvironmentInstaller.UnmanagedDirectories.Append(AppContext.BaseDirectory).ToArray());
-                HashSet<string> defaultAssemblies = AssemblyLoadContext.Default.Assemblies
-                    .Select(assembly => assembly.GetName().Name)
-                    .Where(name => !string.IsNullOrEmpty(name))
-                    .Cast<string>().ToHashSet();
-                foreach (string managedDirectory in nugetEnvironmentInstaller.ManagedDirectories)
-                {
-                    foreach (string file in Directory.GetFiles(managedDirectory, "*.dll"))
-                    {
-                        try
-                        {
-                            string? assemblyName = AssemblyName.GetAssemblyName(file).Name;
-                            if (assemblyName == null || defaultAssemblies.Contains(assemblyName))
-                                continue;
-
-                            rootPluginContext.LoadDll(file);
-                        }
-                        catch (Exception e)
-                        {
-                            AlifeLog.LogError(e);
-                        }
-                    }
-                }
-
+                IEnumerable<string> runtimeDllFiles = nugetEnvironmentInstaller.RuntimeDlls
+                    .Where(file => AlifeUtility.IsValidDll(file, out string name) && !defaultAssemblies.Contains(name));
+                foreach (string file in runtimeDllFiles)
+                    rootPluginContext.LoadDll(file);
                 PluginLoadContext.RootPluginContext = rootPluginContext;
             };
 

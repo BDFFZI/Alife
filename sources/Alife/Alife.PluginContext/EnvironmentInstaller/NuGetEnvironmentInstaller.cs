@@ -11,7 +11,8 @@ namespace Alife.PluginContext;
 public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnvironmentInstaller
 {
     public event Func<Task>? PackagesUpdatedAsync;
-    public HashSet<string> ManagedDirectories { get; private set; } = new();
+    public HashSet<string> CompilingDlls { get; private set; } = new();
+    public HashSet<string> RuntimeDlls { get; private set; } = new();
     public HashSet<string> UnmanagedDirectories { get; private set; } = new();
 
     public async Task InstallEnvironment(IEnumerable<KeyValuePair<string, string>> environment)
@@ -42,7 +43,8 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
         Directory.CreateDirectory(packagesResolverOutput);
 
         string refs = string.Join("\n",
-            resolver.GetDependencyLimit().Select(dep => {
+            resolver.GetDependencyLimit().Select(dep =>
+            {
                 string spec = FormatVersionSpec(dep.Min, dep.Max);
                 return $"    <PackageReference Include=\"{dep.Name}\" Version=\"{spec}\" />";
             }));
@@ -50,7 +52,8 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
         string csproj = $"""
                          <Project Sdk="Microsoft.NET.Sdk">
                            <PropertyGroup>
-                             <TargetFramework>net10.0</TargetFramework>
+                             <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+                             <UseWindowsForms>true</UseWindowsForms>
                            </PropertyGroup>
                            <ItemGroup>
                          {refs}
@@ -90,9 +93,9 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
 
         string rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
 
-        HashSet<string> managedDirs = new();
-        HashSet<string> nativeDirs = new();
-
+        HashSet<string> compilingDlls = new();
+        HashSet<string> runtimeDlls = new();
+        HashSet<string> unmanagedDirectories = new();
         if (doc.RootElement.TryGetProperty("targets", out var targets))
         {
             string tfm = targets.EnumerateObject().First().Name;
@@ -105,53 +108,55 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
                     string packageVersion = pkg.Name.Split('/')[1];
                     string pkgDir = Path.Combine(nugetCache, packageRoot, packageVersion);
 
-                    int managedCountBefore = managedDirs.Count;
-
                     if (pkg.Value.TryGetProperty("compile", out var compile))
                     {
                         foreach (var dll in compile.EnumerateObject())
                         {
                             string dllPath = Path.Combine(pkgDir, dll.Name);
-                            string? dir = Path.GetDirectoryName(dllPath);
-                            if (dir != null && Directory.Exists(dir))
-                                managedDirs.Add(dir);
+                            if (dllPath.EndsWith("_._"))
+                            {
+                                foreach (var file in Directory.GetFiles(Path.GetDirectoryName(dllPath)!, "*.dll"))
+                                    compilingDlls.Add(file);
+                            }
+                            else
+                            {
+                                compilingDlls.Add(dllPath);
+                            }
                         }
                     }
 
-                    if (managedDirs.Count == managedCountBefore)
+                    if (pkg.Value.TryGetProperty("runtime", out var runtime))
                     {
-                        string[] fallbackDirs = ["lib", "lib_manual"];
-                        List<string> candidates = [];
-                        foreach (string sub in fallbackDirs)
+                        foreach (var dll in runtime.EnumerateObject())
                         {
-                            string subDir = Path.Combine(pkgDir, sub);
-                            if (!Directory.Exists(subDir))
-                                continue;
-                            foreach (string dir in Directory.GetDirectories(subDir))
+                            string dllPath = Path.Combine(pkgDir, dll.Name);
+                            if (dllPath.EndsWith("_._"))
                             {
-                                if (Directory.GetFiles(dir, "*.dll").Length > 0)
-                                    candidates.Add(dir);
+                                foreach (var file in Directory.GetFiles(Path.GetDirectoryName(dllPath)!, "*.dll"))
+                                    runtimeDlls.Add(file);
                             }
-                        }
-                        if (candidates.Count > 0)
-                        {
-                            candidates.Sort();
-                            managedDirs.Add(candidates[^1]);
+                            else
+                            {
+                                runtimeDlls.Add(dllPath);
+                            }
                         }
                     }
 
                     string nativeDir = Path.Combine(pkgDir, "runtimes", rid, "native");
                     if (Directory.Exists(nativeDir))
-                        nativeDirs.Add(nativeDir);
+                        unmanagedDirectories.Add(nativeDir);
                 }
             }
         }
 
-        if (managedDirs.SetEquals(ManagedDirectories) && nativeDirs.SetEquals(UnmanagedDirectories))
+        if (compilingDlls.SetEquals(CompilingDlls) &&
+            runtimeDlls.SetEquals(RuntimeDlls) &&
+            unmanagedDirectories.SetEquals(UnmanagedDirectories))
             return false;
 
-        ManagedDirectories = managedDirs;
-        UnmanagedDirectories = nativeDirs;
+        CompilingDlls = compilingDlls;
+        RuntimeDlls = runtimeDlls;
+        UnmanagedDirectories = unmanagedDirectories;
         return true;
     }
 }

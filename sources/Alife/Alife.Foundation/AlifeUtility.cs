@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,7 +15,6 @@ public struct CommandResult
     public string StandardOutput { get; init; }
     public string StandardError { get; init; }
 }
-
 public static class AlifeUtility
 {
     /// <summary>
@@ -110,8 +110,7 @@ public static class AlifeUtility
 
     public static CommandResult Command(string fileName, string arguments)
     {
-        ProcessStartInfo psi = new()
-        {
+        ProcessStartInfo psi = new() {
             FileName = "cmd.exe",
             Arguments = $"/c chcp 65001 > nul && {fileName} {arguments}",
             CreateNoWindow = true,
@@ -141,13 +140,27 @@ public static class AlifeUtility
         process.BeginErrorReadLine();
         process.WaitForExit();
 
-        CommandResult commandResult = new()
-        {
+        CommandResult commandResult = new() {
             ExitCode = process.ExitCode,
             StandardOutput = stdoutBuilder.ToString().Trim(),
             StandardError = stderrBuilder.ToString().Trim(),
         };
 
         return commandResult;
+    }
+
+    public static bool IsValidDll(string path, out string name)
+    {
+        name = "";
+        try
+        {
+            AssemblyName assemblyName = AssemblyName.GetAssemblyName(path);
+            name = assemblyName.Name ?? "";
+            return string.IsNullOrEmpty(name) == false;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

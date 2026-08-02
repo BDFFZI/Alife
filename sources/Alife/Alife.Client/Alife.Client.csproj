@@ -2,10 +2,10 @@
 
     <PropertyGroup>
         <!-- 编码环境 -->
-        <Nullable>enable</Nullable>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <UseWindowsForms>true</UseWindowsForms>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>Alife</RootNamespace>
-        <UseWindowsForms>true</UseWindowsForms>
         <!-- 发布设置-->
         <ApplicationIcon>alife-icon.ico</ApplicationIcon>
         <ElectronIcon>alife-icon.ico</ElectronIcon>
@@ -17,6 +17,7 @@
     <ItemGroup>
         <PackageReference Include="ElectronNET.Core" Version="0.5.1"/>
         <PackageReference Include="ElectronNET.Core.AspNet" Version="0.5.1"/>
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     </ItemGroup>
 
     <ItemGroup>
@@ -24,9 +25,9 @@
         <ProjectReference Include="..\Alife.PluginMarket\Alife.PluginMarket.csproj"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <ProjectReference Include="..\..\Alife.Function\**\*.csproj"/>
-    </ItemGroup>
+<!--    <ItemGroup Condition="'$(Configuration)' == 'Debug'">-->
+<!--        <ProjectReference Include="..\..\Alife.Function\**\*.csproj"/>-->
+<!--    </ItemGroup>-->
 
     <ItemGroup>
         <Content Include="alife-icon.ico">

@@ -1,0 +1,12 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.Auditory": "",
+    "Alife.Function.AIModelUtility": ""
+  },
+  "Environments": {
+    "nuget": {
+      "org.k2fsa.sherpa.onnx": ""
+    }
+  }
+}

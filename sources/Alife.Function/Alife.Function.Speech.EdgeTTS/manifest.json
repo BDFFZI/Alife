@@ -1,0 +1,11 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.Speech": ""
+  },
+  "Environments": {
+    "pip": {
+      "edge-tts": ""
+    }
+  }
+}

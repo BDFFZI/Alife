@@ -1,0 +1,12 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": ""
+  },
+  "Environments": {
+    "nuget": {
+      "Microsoft.Web.WebView2": "==1.0.4078.44",
+      "Microsoft.Windows.SDK.NET.Ref": ""
+    }
+  }
+}

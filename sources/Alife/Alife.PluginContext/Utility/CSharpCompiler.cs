@@ -2,19 +2,18 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using Alife.Foundation;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp; 
 
 namespace Alife.PluginContext;
+
 public class CSharpCompiler
 {
-    public void SetBasicDllFiles(IEnumerable<string> baseDllFiles)
+    public void SetBasicDllFiles(IEnumerable<string> dllFiles)
     {
         baseDllReferences.Clear();
-        baseAddedDllNames.Clear();
-        AddAssemblies(baseDllReferences, baseAddedDllNames, baseDllFiles);
+        foreach (var file in dllFiles)
+            baseDllReferences.Add(MetadataReference.CreateFromFile(file));
     }
     public void Compile(string outputDll, string[] csFiles, string[] dllFiles)
     {
@@ -28,8 +27,8 @@ public class CSharpCompiler
 
         //统计dll元数据
         List<MetadataReference> dllReferences = new(baseDllReferences);
-        HashSet<string> addedDlls = new(baseAddedDllNames);
-        AddAssemblies(dllReferences, addedDlls, dllFiles);
+        foreach (var file in dllFiles)
+            dllReferences.Add(MetadataReference.CreateFromFile(file));
 
         //编译
         var compilation = CSharpCompilation.Create(
@@ -57,25 +56,4 @@ public class CSharpCompiler
     }
 
     readonly List<MetadataReference> baseDllReferences = new();
-    readonly HashSet<string> baseAddedDllNames = new();
-
-    static void AddAssemblies(List<MetadataReference> dllReferences, HashSet<string> addedDlls, IEnumerable<string> dllFiles)
-    {
-        //解析dll元数据
-        foreach (var file in dllFiles)
-        {
-            try
-            {
-                var name = AssemblyName.GetAssemblyName(file);
-                if (addedDlls.Contains(name.Name!))
-                    continue;
-                dllReferences.Add(MetadataReference.CreateFromFile(file));
-                addedDlls.Add(name.Name!);
-            }
-            catch (Exception e)
-            {
-                AlifeLog.LogError(e);
-            }
-        }
-    }
 }

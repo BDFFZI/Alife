@@ -4,19 +4,18 @@
 @inject IJSRuntime JsRuntime
 @implements IDisposable
 
-<Tooltip Title="运行日志" Placement="@Placement.Right">
-    <div class="log-floating-button" @onclick="@OpenModal">
-        <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
-        @if (errorBadge > 0)
-        {
-            <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
-        }
-        else if (warningBadge > 0)
-        {
-            <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
-        }
-    </div>
-</Tooltip>
+<div class="log-floating-button" @onclick="@OpenModal">
+    <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
+    @if (errorBadge > 0)
+    {
+        <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+    }
+    else if (warningBadge > 0)
+    {
+        <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+    }
+    <div class="log-new-indicator" @key="flashKey"></div>
+</div>
 
 <Modal @bind-Visible="visible"
        Title="运行日志"
@@ -115,7 +114,7 @@
 
     .log-fab-badge {
         position: absolute;
-        top: -4px;
+        bottom: -4px;
         right: -4px;
         min-width: 18px;
         height: 18px;
@@ -166,6 +165,26 @@
         word-break: break-all;
         white-space: pre-wrap;
     }
+
+    .log-new-indicator {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #52c41a;
+        animation: indicator-flash 0.3s forwards;
+    }
+
+    @@keyframes indicator-flash {
+        0% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+        }
+    }
 </style>
 
 @code {
@@ -212,6 +231,9 @@
     readonly List<string> errors = new();
     int maxErrorCount = 30;
     int errorBadge;
+
+    //新日志闪烁指示器
+    int flashKey;
 
     string activeKey = "log";
     bool visible;
@@ -272,13 +294,11 @@
 
     void OnLogUpdate()
     {
+        flashKey++;
         if (AutoScroll)
         {
-            _ = InvokeAsync(() =>
-            {
-                scrollPending = true;
-                StateHasChanged();
-            });
+            scrollPending = true;
+            StateHasChanged();
         }
     }
 
@@ -334,7 +354,7 @@
     {
         InvokeAsync(() =>
         {
-            warnings.Add(message);
+            warnings.Add(message + "\n---");
             Trim(warnings, maxWarningCount);
             if (visible == false || activeKey != "warning")
                 warningBadge++;
@@ -348,7 +368,7 @@
     {
         InvokeAsync(() =>
         {
-            errors.Add(message);
+            errors.Add(message + "\n---");
             Trim(errors, maxErrorCount);
             if (visible == false || activeKey != "error")
                 errorBadge++;

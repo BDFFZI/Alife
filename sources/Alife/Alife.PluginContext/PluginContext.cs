@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Newtonsoft.Json;
 
 namespace Alife.PluginContext;
+
 public struct PluginSyncReport
 {
     public string[] UnloadedPlugins { get; set; }
@@ -237,7 +237,7 @@ public class PluginContext(
         if (Directory.GetFiles(pluginDirectory, "*.cs", SearchOption.AllDirectories).Length > 0)
         {
             string pluginCompiledDllPath = GetPluginCompiledDllPath(pluginId);
-            if (HasValidDll(pluginCompiledDllPath) == false)
+            if (AlifeUtility.IsValidDll(pluginCompiledDllPath, out _) == false)
                 CompilePluginCode(pluginId);
             result.Add(pluginCompiledDllPath);
         }
@@ -246,26 +246,5 @@ public class PluginContext(
         result.AddRange(Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories));
 
         return result;
-
-        static bool HasValidDll(string path)
-        {
-            try
-            {
-                AssemblyName.GetAssemblyName(path);
-                return true;
-            }
-            catch (BadImageFormatException)
-            {
-                return false;
-            }
-            catch (FileNotFoundException)
-            {
-                return false;
-            }
-            catch (FileLoadException)
-            {
-                return false;
-            }
-        }
     }
 }

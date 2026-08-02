@@ -175,6 +175,11 @@ foreach ($dir in $functionDirs) {
             }
     }
 
+    $manifestFile = Join-Path $dir.FullName "manifest.json"
+    if (Test-Path -LiteralPath $manifestFile) {
+        Copy-Item -LiteralPath $manifestFile -Destination $target -Force
+    }
+
     Write-Host "  [done] $($dir.Name)" -ForegroundColor Green
 }
 

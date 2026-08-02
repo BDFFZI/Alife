@@ -1,0 +1,19 @@
+{
+  "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.Vision": "",
+    "Alife.Function.AIModelUtility": ""
+  },
+  "Environments": {
+    "pip": {
+      "torch": "",
+      "torchvision": "",
+      "transformers": "",
+      "bitsandbytes": "",
+      "accelerate": "",
+      "sentencepiece": "",
+      "tiktoken": "",
+      "Pillow": ""
+    }
+  }
+}

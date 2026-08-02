@@ -1,0 +1,9 @@
+{
+  "Version": "4.0.0",
+  "Environments": {
+    "nuget": {
+      "Microsoft.SemanticKernel": "==1.77.0",
+      "Microsoft.SemanticKernel.Connectors.OpenAI": "==1.77.0"
+    }
+  }
+}
