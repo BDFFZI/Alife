@@ -22,6 +22,7 @@ public class PluginSystem(
     {
         await pluginMarket.SyncOnlinePluginPackagesAsync();
     }
+
     /// <summary>
     /// 刷新本地插件。
     /// 安装卸载插件时会自动同步，因此默认情况下无需调用，只有手动修改插件清单等数据后，才会用到此函数来主动同步。
@@ -35,10 +36,12 @@ public class PluginSystem(
     {
         return pluginMarket.AllPluginPackages;
     }
+
     public IReadOnlyDictionary<string, PluginManifest> GetAllLocalPlugins()
     {
         return pluginContext.AllPluginManifests;
     }
+
     public List<PluginPackage> GetForceUpgradedPlugins()
     {
         return GetAllOnlinePlugins().Values.Where(NeedForceUpgrade).ToList();
@@ -63,10 +66,12 @@ public class PluginSystem(
     {
         return GetAllLocalPlugins().ContainsKey(pluginId);
     }
+
     public bool IsClientCompatible(string pluginVersion)
     {
         return DependencyResolver.GetMajorVersion(pluginVersion) <= DependencyResolver.GetMajorVersion(ClientVersion);
     }
+
     public bool HasUpdate(PluginPackage pluginPackage)
     {
         string? installedVersion = GetInstalledVersion(pluginPackage.Id);
@@ -77,7 +82,7 @@ public class PluginSystem(
         if (latestVersion == null || latestVersion == installedVersion)
             return false;
 
-        return true;
+        return DependencyResolver.CompareVersions(installedVersion, latestVersion) < 0;
     }
 
     public string? GetInstalledVersion(string pluginId)
@@ -86,6 +91,7 @@ public class PluginSystem(
             return pluginManifest.Version;
         return null;
     }
+
     public string? GetLatestVersion(PluginPackage pluginPackage)
     {
         return pluginPackage.Releases?.Keys
@@ -93,6 +99,7 @@ public class PluginSystem(
             .OrderByDescending(v => v, Comparer<string>.Create(DependencyResolver.CompareVersions))
             .FirstOrDefault();
     }
+
     public List<string> GetBeDependentPlugins(string pluginId)
     {
         return pluginMarket.ResolveBeDependentPlugins(pluginId);
@@ -109,12 +116,14 @@ public class PluginSystem(
             await pluginContext.ReloadPluginDll(pluginPackage.Id);
         }
     }
+
     public async Task UninstallPlugins(IEnumerable<PluginPackage> pluginPackages)
     {
         foreach (var plugin in pluginPackages)
             await pluginMarket.UninstallPlugins(plugin.Id);
         await pluginContext.SyncPluginEnvironment();
     }
+
     public async Task ReloadPlugin(string pluginId)
     {
         await pluginContext.ReloadPluginDll(pluginId, true);

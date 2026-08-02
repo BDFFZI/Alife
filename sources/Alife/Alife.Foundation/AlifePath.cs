@@ -3,7 +3,7 @@ using System.IO;
 
 namespace Alife.Foundation;
 
-public static class AlifePath
+public class AlifePath
 {
     public static string StorageFolderPath { get; private set; }
     public static string RuntimeFolderPath { get; private set; }

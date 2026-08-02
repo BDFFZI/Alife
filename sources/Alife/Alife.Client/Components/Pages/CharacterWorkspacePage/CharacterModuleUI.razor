@@ -1,0 +1,47 @@
+﻿@inject CharacterSystem CharacterSystem
+@implements IDisposable
+
+<div style="flex: 1; overflow: hidden;">
+    <ModuleManagementView
+        Character="@Character"
+        ChatActivity="@ChatActivity"
+        IsReadOnly="true"
+        ModuleFilter="@(id => enabledModules.Contains(id))"/>
+</div>
+
+@code{
+
+    [Parameter] public Character Character { get; set; } = null!;
+    [Parameter] public ChatActivity? ChatActivity { get; set; }
+
+    HashSet<string> enabledModules = new();
+
+    protected override void OnInitialized()
+    {
+        CharacterSystem.CharacterReloadedAsync += OnCharacterReloadedAsync;
+    }
+    public void Dispose()
+    {
+        CharacterSystem.CharacterReloadedAsync -= OnCharacterReloadedAsync;
+    }
+    protected override void OnParametersSet()
+    {
+        if (ChatActivity == null)
+        {
+            enabledModules = Character.Modules;
+        }
+        else
+        {
+            enabledModules = ChatActivity.Container.Instances
+                .Select(o => ModuleSystem.GetModuleID(o.GetType()))
+                .ToHashSet();
+        }
+    }
+    Task OnCharacterReloadedAsync(Character arg)
+    {
+        if (Character == arg)
+            InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+}

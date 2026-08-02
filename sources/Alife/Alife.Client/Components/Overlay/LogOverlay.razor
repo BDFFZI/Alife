@@ -14,7 +14,7 @@
     {
         <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
     }
-    <div class="log-new-indicator" @key="flashKey"></div>
+    <div class="log-new-indicator" @key="@flashKey"></div>
 </div>
 
 <Modal @bind-Visible="visible"
@@ -221,7 +221,6 @@
     readonly List<string> logLines = new();
     int maxLogLines = 3000;
 
-
     //警告捕获
     readonly List<string> warnings = new();
     int maxWarningCount = 30;
@@ -232,12 +231,10 @@
     int maxErrorCount = 30;
     int errorBadge;
 
-    //新日志闪烁指示器
-    int flashKey;
-
+    int flashKey;//新日志闪烁指示器
     string activeKey = "log";
     bool visible;
-
+    bool isUpdating;
 
     ElementReference container;
 
@@ -282,6 +279,8 @@
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        isUpdating = false;
+
         if (firstRender)
             await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
 
@@ -294,12 +293,14 @@
 
     void OnLogUpdate()
     {
+        if (isUpdating)
+            return;
+
+        isUpdating = true;
         flashKey++;
         if (AutoScroll)
-        {
             scrollPending = true;
-            StateHasChanged();
-        }
+        InvokeAsync(StateHasChanged);
     }
 
     class CapturingWriter(LogOverlay overlay, TextWriter inner) : TextWriter
@@ -342,18 +343,17 @@
             line.Clear();
             if (string.IsNullOrEmpty(msg)) return;
 
-            overlay.InvokeAsync(() =>
-            {
+            overlay.InvokeAsync(() => {
                 overlay.logLines.Add(msg);
                 Trim(overlay.logLines, overlay.maxLogLines);
                 overlay.OnLogUpdate();
             });
         }
     }
+
     void OnWarning(string message)
     {
-        InvokeAsync(() =>
-        {
+        InvokeAsync(() => {
             warnings.Add(message + "\n---");
             Trim(warnings, maxWarningCount);
             if (visible == false || activeKey != "warning")
@@ -366,8 +366,7 @@
     }
     void OnError(string message)
     {
-        InvokeAsync(() =>
-        {
+        InvokeAsync(() => {
             errors.Add(message + "\n---");
             Trim(errors, maxErrorCount);
             if (visible == false || activeKey != "error")
@@ -431,8 +430,6 @@
                 logLines.Clear();
                 break;
         }
-
-        StateHasChanged();
     }
 
     readonly struct AnsiSegment(string text, string color)
@@ -440,12 +437,13 @@
         public string Text { get; } = text;
         public string Color { get; } = color;
     }
+
     static readonly Dictionary<int, string> ColorMap = new() {
         [30] = "#000000", [31] = "#cd3131", [32] = "#0dbc79", [33] = "#e5e510",
         [34] = "#2472c8", [35] = "#bc3fbc", [36] = "#11a8cd", [37] = "#e5e5e5",
         [90] = "#666666", [91] = "#f14c4c", [92] = "#23d18b", [93] = "#f5f543",
         [94] = "#3b8eea", [95] = "#d670d6", [96] = "#29b8db", [97] = "#e5e5e5",
-    }; //识别日志颜色
+    };//识别日志颜色
     static List<AnsiSegment> ParseAnsi(string text)
     {
         List<AnsiSegment> segments = new();

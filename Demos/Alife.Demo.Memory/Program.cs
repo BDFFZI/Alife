@@ -23,7 +23,7 @@ await DemoSuite.Run(character,
             BatchSize = 6,
             MaxCompressionLevel = 3,
             Probability = 1,
-        });
+        }, character.StorageKey);
     },
     activity => {
         activity.ChatBot.ChatOver += () => {

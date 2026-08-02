@@ -13,6 +13,7 @@ public struct PluginSyncReport
     public string[] UnloadedPlugins { get; set; }
     public string[] ReloadedPlugins { get; set; }
 }
+
 /// <summary>
 /// 一个插件代表一个包含 cs、dll、版本、依赖信息 的文件夹。
 /// 插件系统负责安装这些插件依赖的环境，编译 cs 为 dll，以及将他们加载到程序中，从而可以被实际使用。
@@ -28,8 +29,9 @@ public class PluginContext(
     Dictionary<string, IEnvironmentInstaller> environmentInstallers,
     CSharpCompiler codeCompiler)
 {
-    public event Func<string, PluginLoadContext, Task>? PluginLoaded;
-    public event Func<string, PluginLoadContext, Task>? PluginUnloaded;
+    public event Func<string, PluginLoadContext, Task>? PluginLoadedAsync;
+    public event Func<string, PluginLoadContext, Task>? PluginUnloadedAsync;
+    public event Action<PluginSyncReport>? PluginEnvironmentSynced;
 
     public string PluginRootDirectory => pluginRootDirectory;
     public IReadOnlyDictionary<string, PluginLoadContext> CurrentPluginLoadContexts => currentPluginLoadContexts;
@@ -42,11 +44,15 @@ public class PluginContext(
     /// </summary>
     public async Task<PluginSyncReport> SyncPluginEnvironment()
     {
-        PluginSyncReport report = new PluginSyncReport();
+        PluginSyncReport report = new();
 
         SyncPluginManifests();
         await SyncEnvironment();
         await SyncPlugin();
+        
+        PluginEnvironmentSynced?.Invoke(report);
+
+        return report;
 
         void SyncPluginManifests()
         {
@@ -54,11 +60,7 @@ public class PluginContext(
             foreach (var pluginDirectory in Directory.GetDirectories(pluginRootDirectory))
             {
                 string pluginId = Path.GetFileName(pluginDirectory);
-                string pluginDependencyFile = GetPluginManifestPath(pluginId);
-                PluginManifest pluginManifest = File.Exists(pluginDependencyFile)
-                    ? JsonConvert.DeserializeObject<PluginManifest>(File.ReadAllText(pluginDependencyFile))
-                    : PluginManifestFallback(pluginId);
-                allPluginManifests[pluginId] = pluginManifest;
+                LoadPluginManifest(pluginId);
             }
         }
 
@@ -121,13 +123,10 @@ public class PluginContext(
                 }
             }
         }
-
-        return report;
     }
     public async Task ReloadPluginDll(string pluginId, bool recompile = false)
     {
-        if (!allPluginManifests.TryGetValue(pluginId, out PluginManifest pluginEnvironment))
-            throw new Exception("未找到插件信息，请确认插件存在并已同步环境。");
+        PluginManifest pluginManifest = LoadPluginManifest(pluginId);
 
         //卸载旧dll
         if (currentPluginLoadContexts.TryGetValue(pluginId, out PluginLoadContext? pluginLoadContext))
@@ -136,9 +135,9 @@ public class PluginContext(
             File.Delete(GetPluginCompiledDllPath(pluginId));
 
         //确保依赖插件环境存在
-        if (pluginEnvironment.Dependencies != null)
+        if (pluginManifest.Dependencies != null)
         {
-            foreach ((string dependentPluginId, string _) in pluginEnvironment.Dependencies)
+            foreach ((string dependentPluginId, string _) in pluginManifest.Dependencies)
             {
                 if (currentPluginLoadContexts.ContainsKey(dependentPluginId) == false)
                     await ReloadPluginDll(dependentPluginId);
@@ -150,14 +149,13 @@ public class PluginContext(
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
-        pluginLoadContext.Disposed += async () =>
-        {
+        pluginLoadContext.Disposed += async () => {
             currentPluginLoadContexts.Remove(pluginId);
-            if (PluginUnloaded != null)
+            if (PluginUnloadedAsync != null)
             {
                 try
                 {
-                    await Task.WhenAll(PluginUnloaded.GetInvocationList()
+                    await Task.WhenAll(PluginUnloadedAsync.GetInvocationList()
                         .Cast<Func<string, PluginLoadContext, Task>>()
                         .Select(func => func(pluginId, pluginLoadContext)));
                 }
@@ -169,11 +167,11 @@ public class PluginContext(
         };
 
         //触发插件重载事件
-        if (PluginLoaded != null)
+        if (PluginLoadedAsync != null)
         {
             try
             {
-                await Task.WhenAll(PluginLoaded.GetInvocationList()
+                await Task.WhenAll(PluginLoadedAsync.GetInvocationList()
                     .Cast<Func<string, PluginLoadContext, Task>>()
                     .Select(func => func(pluginId, pluginLoadContext)));
             }
@@ -192,7 +190,17 @@ public class PluginContext(
 
     string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
 
+    PluginManifest LoadPluginManifest(string pluginId)
+    {
+        string pluginManifestFile = GetPluginManifestPath(pluginId);
 
+        PluginManifest pluginManifest = File.Exists(pluginManifestFile)
+            ? JsonConvert.DeserializeObject<PluginManifest>(File.ReadAllText(pluginManifestFile))
+            : PluginManifestFallback(pluginId);
+        allPluginManifests[pluginId] = pluginManifest;
+
+        return pluginManifest;
+    }
     void CompilePluginCode(string pluginId)
     {
         string pluginDirectory = GetPluginDirectoryPath(pluginId);

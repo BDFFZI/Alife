@@ -95,28 +95,20 @@ else
 
         <!-- 角色工作区内容 -->
         <div @key="@Name" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff">
-            @if (character != null)
-            {
-                <div style="display: @(activeTab == "info" ? "block" : "none"); height: 100%;">
-                    <CharacterConfigUI @ref="characterConfigUI" Character="character" Activity="activity"/>
-                </div>
-                <div style="display: @(activeTab == "chat" ? "block" : "none"); height: 100%;">
-                    <ChatWindowUI CharacterName="@Name"/>
-                </div>
-                <div style="display: @(activeTab == "history" ? "block" : "none"); height: 100%;">
-                    <ChatHistoryUI Activity="@activity"></ChatHistoryUI>
-                </div>
-                <div
-                    style="display: @(activeTab == "modules" ? "flex" : "none"); height: 100%; flex-direction: column; overflow: hidden;">
-                    <div style="flex: 1; overflow: hidden;">
-                        <ModuleManagementView
-                            Character="@character"
-                            ChatActivity="@activity"
-                            IsReadOnly="true"
-                            ModuleFilter="@(id => characterConfigUI != null && characterConfigUI.ModuleIDs.Contains(id))"/>
-                    </div>
-                </div>
-            }
+
+            <div style="display: @(activeTab == "info" ? "block" : "none"); height: 100%;">
+                <CharacterConfigUI @ref="characterConfigUI" Character="character" Activity="activity"/>
+            </div>
+            <div style="display: @(activeTab == "chat" ? "block" : "none"); height: 100%;">
+                <ChatWindowUI CharacterName="@Name"/>
+            </div>
+            <div style="display: @(activeTab == "history" ? "block" : "none"); height: 100%;">
+                <ChatHistoryUI Activity="@activity"></ChatHistoryUI>
+            </div>
+            <div style="display: @(activeTab == "modules" ? "flex" : "none"); height: 100%; ">
+                <CharacterModuleUI Character="@character" ChatActivity="@activity"></CharacterModuleUI>
+            </div>
+
         </div>
     </div>
 }

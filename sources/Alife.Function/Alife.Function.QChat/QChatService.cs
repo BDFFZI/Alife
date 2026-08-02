@@ -273,7 +273,7 @@ public class QChatService(
     protected override Task OnAwake()
     {
         if (Configuration.OwnerId == 0 || Configuration.BotId == 0)
-            throw new Exception("你的QQ插件没有配置AI和主人的QQ号，请先去功能页配置！");
+            logger.LogError("你的QQ插件没有配置AI和主人的QQ号，这会影响功能的正常使用！");
 
         //加载基本环境
         oneBotClient = new OneBotClient(Configuration.Url, Configuration.Token);

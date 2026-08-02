@@ -16,5 +16,5 @@ await DemoSuite.Run(character, provider => {
         Token = "",
         OwnerId = 1330958515L,
         BotId = 3148702330L,
-    });
+    },character.StorageKey);
 });

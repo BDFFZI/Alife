@@ -1,5 +1,8 @@
 {
   "Version": "4.0.0",
+  "Dependencies": {
+    "Alife.Function.AIModelUtility": ""
+  },
   "Environments": {
     "nuget": {
       "Microsoft.Windows.SDK.NET.Ref": ""

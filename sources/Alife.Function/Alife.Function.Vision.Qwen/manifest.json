@@ -1,7 +1,6 @@
 {
   "Version": "4.0.0",
   "Dependencies": {
-    "Alife.Function.Vision": "",
     "Alife.Function.AIModelUtility": ""
   },
   "Environments": {

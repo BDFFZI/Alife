@@ -59,8 +59,8 @@ public class ModuleSystem
         moduleFolder = storageSystem.GetSetting("ModuleCategory", new StringFolder("全部模块"))!;
 
         //插件重载时触发模块重载
-        pluginContext.PluginLoaded += OnPluginLoaded;
-        pluginContext.PluginUnloaded += OnPluginUnloaded;
+        pluginContext.PluginLoadedAsync += OnPluginLoadedAsync;
+        pluginContext.PluginUnloadedAsync += OnPluginUnloadedAsync;
         //加载现有插件的模块
         foreach ((string pluginId, PluginLoadContext pluginLoadContext) in pluginContext.CurrentPluginLoadContexts)
             LoadPluginModule(pluginId, pluginLoadContext);
@@ -68,7 +68,7 @@ public class ModuleSystem
         LoadPluginModule(AssemblyLoadContext.Default.Name!, AssemblyLoadContext.Default);
     }
 
-    async Task OnPluginLoaded(string pluginId, PluginLoadContext pluginLoadContext)
+    async Task OnPluginLoadedAsync(string pluginId, PluginLoadContext pluginLoadContext)
     {
         LoadPluginModule(pluginId, pluginLoadContext);
 
@@ -88,7 +88,7 @@ public class ModuleSystem
             }
         }
     }
-    async Task OnPluginUnloaded(string pluginId, PluginLoadContext pluginLoadContext)
+    async Task OnPluginUnloadedAsync(string pluginId, PluginLoadContext pluginLoadContext)
     {
         List<Type> moduleTypes = pluginToModules[pluginId];
 

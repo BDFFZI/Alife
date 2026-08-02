@@ -19,5 +19,5 @@ await DemoSuite.Run(character, provider => {
                 Arguments = ["-y", "bing-cn-mcp-enhanced"]
             }
         ]
-    });
+    },character.StorageKey);
 });

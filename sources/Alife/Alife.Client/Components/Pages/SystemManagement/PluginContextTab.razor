@@ -1,6 +1,7 @@
 @using Alife.PluginContext
 @inject PluginContext PluginContext
 @inject INotificationService NotificationService
+@implements IDisposable
 
 <div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;">
     @* 标题栏 *@
@@ -130,7 +131,7 @@
                         重载此插件
                     </Button>
                     <Tooltip Title="打开此插件的文件夹">
-                        <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OpenCurrentPluginFolder"/>
+                        <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OpenCurrentPluginFolder"></Button>
                     </Tooltip>
                 </Flex>
             }
@@ -151,7 +152,22 @@
 
     protected override void OnInitialized()
     {
-        LoadPlugins();
+        PluginContext.PluginEnvironmentSynced += OnPluginEnvironmentSynced;
+        OnPluginEnvironmentSynced(default);
+    }
+
+    public void Dispose()
+    {
+        PluginContext.PluginEnvironmentSynced -= OnPluginEnvironmentSynced;
+    }
+
+    void OnPluginEnvironmentSynced(PluginSyncReport obj)
+    {
+        InvokeAsync(() =>
+        {
+            LoadPlugins();
+            StateHasChanged();
+        });
     }
 
     void LoadPlugins()
@@ -238,7 +254,8 @@
 
     void OpenPluginFolder()
     {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
             FileName = PluginContext.PluginRootDirectory,
             UseShellExecute = true
         });
@@ -247,9 +264,11 @@
     void OpenCurrentPluginFolder()
     {
         if (selectedPluginId == null) return;
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
             FileName = PluginContext.GetPluginDirectoryPath(selectedPluginId),
             UseShellExecute = true
         });
     }
+
 }

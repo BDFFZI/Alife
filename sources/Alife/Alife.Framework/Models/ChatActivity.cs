@@ -48,8 +48,7 @@ public class ChatActivity(
             {
                 //logger功能
                 container.RegisterBuilder(typeof(LoggerFactory), _ =>
-                    Task.FromResult<object>(LoggerFactory.Create(builder =>
-                    {
+                    Task.FromResult<object>(LoggerFactory.Create(builder => {
                         builder.SetMinimumLevel(LogLevel.Information);
                         builder.AddProvider(new AlifeLogProvider());
                     }))
@@ -107,8 +106,8 @@ public class ChatActivity(
             for (int index = 0; index < container.Instances.Count; index++)
             {
                 object instance = container.Instances[index];
-                progress?.Report(($"激活 {TypeUtility.GetReadableName(instance.GetType())} 模块", (float)index / enabledModuleTypes.Length));
-                await OnInstanceCreated(instance); //处理一下已创建物体
+                progress?.Report(($"激活 {TypeUtility.GetReadableName(instance.GetType())} 模块", (float)index / container.Instances.Count));
+                await OnInstanceCreated(instance);//处理一下已创建物体
             }
 
             container.InstanceCreated += OnInstanceCreated;
@@ -192,9 +191,7 @@ public class ChatActivity(
                     await behaviour.UpdateAsync(context);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) {}
         catch (Exception e)
         {
             Console.WriteLine(e);
