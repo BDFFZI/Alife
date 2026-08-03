@@ -25,7 +25,7 @@
                         }
                         else
                         {
-                            <Tag Color="@("red")">不推荐</Tag>
+                            <Tag Color="@("orange")">不推荐</Tag>
                         }
                     </div>
                     <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@mirror.Description</Text>
@@ -151,8 +151,7 @@
         else
         {
             foreach (var mirror in AvailableMirrors)
-                enabledMirrors[mirror.Id] = true;
-                // enabledMirrors[mirror.Id] = mirror.Recommended;
+                enabledMirrors[mirror.Id] = mirror.Recommended;
         }
 
         static bool IsMirrorConfigured(MirrorItem mirror)

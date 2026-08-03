@@ -15,7 +15,8 @@ public struct CommandResult
     public string StandardOutput { get; init; }
     public string StandardError { get; init; }
 }
-public static class AlifeUtility
+
+public class AlifeUtility
 {
     /// <summary>
     /// 通过 HttpClient 获取报文内容字符串
@@ -89,7 +90,7 @@ public static class AlifeUtility
             if (progress != null && readSoFar >= nextReport)
             {
                 progress(readSoFar, totalBytes);
-                nextReport = readSoFar + 10 * 1024 * 1024; // 每 10MB 报告一次
+                nextReport = readSoFar + 10 * 1024 * 1024;// 每 10MB 报告一次
             }
         }
 
@@ -126,13 +127,11 @@ public static class AlifeUtility
 
         StringBuilder stdoutBuilder = new();
         StringBuilder stderrBuilder = new();
-        process.OutputDataReceived += (_, e) =>
-        {
+        process.OutputDataReceived += (_, e) => {
             Console.WriteLine(e.Data);
             stdoutBuilder.AppendLine(e.Data);
         };
-        process.ErrorDataReceived += (_, e) =>
-        {
+        process.ErrorDataReceived += (_, e) => {
             Console.WriteLine(e.Data);
             stderrBuilder.AppendLine(e.Data);
         };

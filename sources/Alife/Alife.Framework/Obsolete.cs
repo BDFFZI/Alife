@@ -6,8 +6,23 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Framework;
 
-[Obsolete($"请改用 {nameof(ChatBehaviour)} 作为基类")]
-public abstract class InteractiveModule : ChatBehaviour
+[Obsolete("请改用 ChatBehaviour.OnUpdate")]
+public interface ITimeIterative
+{
+    public void OnUpdate(ref float time);
+    public float DeltaTime => 1;
+}
+
+[Obsolete("请改用 ChatBehaviour")]
+public interface ISystemEvent
+{
+    public Task AwakeAsync(AwakeContext context);
+    public Task StartAsync(Kernel kernel, ChatActivity chatActivity);
+    public Task DestroyAsync();
+}
+
+[Obsolete("请改用 ChatBehaviour")]
+public abstract class InteractiveModule : ChatBehaviour, ISystemEvent
 {
     protected ChatHistory ChatHistory { get; private set; } = null!;
     protected override async Task OnAwake()

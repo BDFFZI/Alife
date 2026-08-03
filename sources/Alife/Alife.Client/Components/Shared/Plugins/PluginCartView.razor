@@ -23,7 +23,7 @@
             {
                 bool isInstalled = PluginSystem.IsInstalled(item.Id);
                 bool hasUpdate = PluginSystem.HasUpdate(item);
-                string status = isInstalled ? (hasUpdate ? "待升级" : "已安装") : "待安装";
+                string status = isInstalled ? (hasUpdate ? "待升级" : "可重装") : "待安装";
                 string statusColor = isInstalled ? (hasUpdate ? "#faad14" : "#52c41a") : "#1890ff";
 
                 <div
@@ -87,7 +87,7 @@
     bool isOperating;
     Exception? operException;
 
-    int InstallableCount => CartItems.Count(p => !PluginSystem.IsInstalled(p.Id) || PluginSystem.HasUpdate(p));
+    int InstallableCount => CartItems.Count;
     int UninstallableCount => CartItems.Count(p => PluginSystem.IsInstalled(p.Id));
 
     async Task RemoveFromCart(PluginPackage item)
@@ -105,7 +105,6 @@
     async Task InstallSelected()
     {
         var toInstall = CartItems
-            .Where(p => !PluginSystem.IsInstalled(p.Id) || PluginSystem.HasUpdate(p))
             .Select(p => new { Plugin = p, Version = PluginSystem.GetLatestVersion(p) ?? "" })
             .Where(x => !string.IsNullOrEmpty(x.Version))
             .ToDictionary(x => x.Plugin, x => x.Version);

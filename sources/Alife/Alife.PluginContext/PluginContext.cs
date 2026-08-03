@@ -126,6 +126,9 @@ public class PluginContext(
     }
     public async Task ReloadPluginDll(string pluginId, bool recompile = false)
     {
+        if (Directory.Exists(GetPluginDirectoryPath(pluginId)) == false)
+            throw new Exception("插件不存在，请确保插件根文件夹中存在该插件目录。");
+        
         PluginManifest pluginManifest = LoadPluginManifest(pluginId);
 
         //卸载旧dll
