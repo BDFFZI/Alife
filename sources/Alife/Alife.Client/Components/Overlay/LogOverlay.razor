@@ -81,6 +81,7 @@
             var (list, color) = activeKey == "warning"
                 ? (warnings, "#e5c07b")
                 : (errors, "#f14c4c");
+
             @foreach (string line in list)
             {
                 <div class="log-line" style="color: @color;">@line</div>
@@ -204,6 +205,7 @@
         "var a=document.createElement('a');" +
         "a.href=u;a.download=fname;document.body.appendChild(a);a.click();" +
         "setTimeout(function(){URL.revokeObjectURL(u);a.remove();},200);};";
+
     bool AutoScroll
     {
         get;
@@ -215,6 +217,7 @@
                 scrollPending = true;
         }
     } = true;
+
     bool scrollPending;
 
     //日志捕获功
@@ -231,7 +234,7 @@
     int maxErrorCount = 30;
     int errorBadge;
 
-    int flashKey;//新日志闪烁指示器
+    int flashKey; //新日志闪烁指示器
     string activeKey = "log";
     bool visible;
     bool isUpdating;
@@ -300,6 +303,7 @@
         flashKey++;
         if (AutoScroll)
             scrollPending = true;
+
         InvokeAsync(StateHasChanged);
     }
 
@@ -354,12 +358,15 @@
     void OnWarning(string message)
     {
         InvokeAsync(() => {
+            _ = NotificationService.Warning(new NotificationConfig() {
+                Key = "logWarning",
+                Description = message
+            });
+
             warnings.Add(message + "\n---");
             Trim(warnings, maxWarningCount);
             if (visible == false || activeKey != "warning")
                 warningBadge++;
-
-            NotificationService.Warning(new NotificationConfig() { Description = message });
 
             OnLogUpdate();
         });
@@ -367,14 +374,15 @@
     void OnError(string message)
     {
         InvokeAsync(() => {
+            _ = NotificationService.Error(new NotificationConfig() {
+                Description = message,
+                Key = "logError"
+            });
+
             errors.Add(message + "\n---");
             Trim(errors, maxErrorCount);
             if (visible == false || activeKey != "error")
                 errorBadge++;
-
-            NotificationService.Error(new NotificationConfig() {
-                Description = message
-            });
 
             OnLogUpdate();
         });
@@ -408,9 +416,11 @@
             "error" => (errors, "error"),
             _ => (logLines, "log"),
         };
+
         StringBuilder sb = new();
         foreach (string line in list)
             sb.AppendLine(StripAnsi(line));
+
         await JsRuntime.InvokeVoidAsync("alifeDownloadText", sb.ToString(), $"alife-{name}-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
     }
 
@@ -439,11 +449,24 @@
     }
 
     static readonly Dictionary<int, string> ColorMap = new() {
-        [30] = "#000000", [31] = "#cd3131", [32] = "#0dbc79", [33] = "#e5e510",
-        [34] = "#2472c8", [35] = "#bc3fbc", [36] = "#11a8cd", [37] = "#e5e5e5",
-        [90] = "#666666", [91] = "#f14c4c", [92] = "#23d18b", [93] = "#f5f543",
-        [94] = "#3b8eea", [95] = "#d670d6", [96] = "#29b8db", [97] = "#e5e5e5",
-    };//识别日志颜色
+        [30] = "#000000",
+        [31] = "#cd3131",
+        [32] = "#0dbc79",
+        [33] = "#e5e510",
+        [34] = "#2472c8",
+        [35] = "#bc3fbc",
+        [36] = "#11a8cd",
+        [37] = "#e5e5e5",
+        [90] = "#666666",
+        [91] = "#f14c4c",
+        [92] = "#23d18b",
+        [93] = "#f5f543",
+        [94] = "#3b8eea",
+        [95] = "#d670d6",
+        [96] = "#29b8db",
+        [97] = "#e5e5e5",
+    }; //识别日志颜色
+
     static List<AnsiSegment> ParseAnsi(string text)
     {
         List<AnsiSegment> segments = new();
@@ -484,6 +507,7 @@
 
         if (sb.Length > 0)
             segments.Add(new AnsiSegment(sb.ToString(), currentColor));
+
         if (segments.Count == 0)
             segments.Add(new AnsiSegment(text, ""));
 

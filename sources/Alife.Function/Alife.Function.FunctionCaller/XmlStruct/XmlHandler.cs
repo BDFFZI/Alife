@@ -16,6 +16,9 @@ public class XmlHandler
     public string? Explanation { get; init; }
     public List<XmlFunction> Functions { get; init; } = new();
 
+    [Obsolete("热更环境不再支持 Instance")]
+    public object? Instance { get; set; }
+
     public string FunctionDocument()
     {
         StringBuilder sb = new();
@@ -23,6 +26,7 @@ public class XmlHandler
             sb.AppendLine(function.Document());
         return sb.ToString().Trim();
     }
+
     public string Document()
     {
         StringBuilder stringBuilder = new();
@@ -35,6 +39,7 @@ public class XmlHandler
             stringBuilder.AppendLine("## 使用说明");
             stringBuilder.AppendLine(Explanation);
         }
+
         return stringBuilder.ToString();
     }
 
@@ -42,6 +47,7 @@ public class XmlHandler
     {
         Name = name;
     }
+
     public XmlHandler(object instance, string? explanation = null)
     {
         Type handlerType = instance.GetType();
@@ -98,7 +104,8 @@ public class XmlHandler
                 if (parameterInfo.HasDefaultValue)
                     parameterTypeName += "[可选]";
 
-                normalParameters.Add(new XmlParameter() {
+                normalParameters.Add(new XmlParameter()
+                {
                     Name = parameterName,
                     Description = parameterDescription,
                     Type = parameterTypeName,
@@ -202,10 +209,12 @@ public class XmlHandler
             return Task.CompletedTask;
         }
 
-        return new XmlFunction {
+        return new XmlFunction
+        {
             Name = functionAttribute.Name ?? method.Name.ToLower(),
             Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
-            ContentName = contentName ?? (functionAttribute.Mode != FunctionMode.Content ? null : normalParameters.Any(parameter => parameter.IsXmlForm) ? "" : "Content"),
+            ContentName = contentName ?? (functionAttribute.Mode != FunctionMode.Content ? null :
+                normalParameters.Any(parameter => parameter.IsXmlForm) ? "" : "Content"),
             ContentDescription = contentDescription,
             Parameters = normalParameters,
             Order = functionAttribute.Order,

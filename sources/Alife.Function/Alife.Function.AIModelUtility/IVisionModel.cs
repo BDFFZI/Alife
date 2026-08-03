@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Alife.Function.Vision;
+namespace Alife.Function.AIModelUtility;
 
 /// <summary>
 /// 视觉理解分析器的抽象基类。支持多种具体的视觉模型后端（如本地大模型或在线API）。

@@ -1,6 +1,6 @@
 using System;
 
-namespace Alife.Function.Auditory;
+namespace Alife.Function.AIModelUtility;
 
 public interface IAuditoryModel
 {

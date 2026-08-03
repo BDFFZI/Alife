@@ -49,7 +49,7 @@ public class PluginContext(
         SyncPluginManifests();
         await SyncEnvironment();
         await SyncPlugin();
-        
+
         PluginEnvironmentSynced?.Invoke(report);
 
         return report;
@@ -124,11 +124,9 @@ public class PluginContext(
             }
         }
     }
+
     public async Task ReloadPluginDll(string pluginId, bool recompile = false)
     {
-        if (Directory.Exists(GetPluginDirectoryPath(pluginId)) == false)
-            throw new Exception("插件不存在，请确保插件根文件夹中存在该插件目录。");
-        
         PluginManifest pluginManifest = LoadPluginManifest(pluginId);
 
         //卸载旧dll
@@ -152,7 +150,8 @@ public class PluginContext(
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
-        pluginLoadContext.Disposed += async () => {
+        pluginLoadContext.Disposed += async () =>
+        {
             currentPluginLoadContexts.Remove(pluginId);
             if (PluginUnloadedAsync != null)
             {
@@ -184,17 +183,15 @@ public class PluginContext(
             }
         }
     }
+
     public string GetPluginManifestPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");
     public string GetPluginDirectoryPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId);
 
-
-    readonly Dictionary<string, PluginManifest> allPluginManifests = new();
-    readonly Dictionary<string, PluginLoadContext> currentPluginLoadContexts = new();
-
-    string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
-
-    PluginManifest LoadPluginManifest(string pluginId)
+    public PluginManifest LoadPluginManifest(string pluginId)
     {
+        if (Directory.Exists(GetPluginDirectoryPath(pluginId)) == false)
+            throw new Exception("插件不存在，请确保插件根文件夹中存在该插件目录。");
+
         string pluginManifestFile = GetPluginManifestPath(pluginId);
 
         PluginManifest pluginManifest = File.Exists(pluginManifestFile)
@@ -204,6 +201,12 @@ public class PluginContext(
 
         return pluginManifest;
     }
+
+    readonly Dictionary<string, PluginManifest> allPluginManifests = new();
+    readonly Dictionary<string, PluginLoadContext> currentPluginLoadContexts = new();
+
+    string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
+
     void CompilePluginCode(string pluginId)
     {
         string pluginDirectory = GetPluginDirectoryPath(pluginId);
@@ -217,10 +220,15 @@ public class PluginContext(
         if (codeFiles.Length == 0)
             throw new Exception("插件目录中不存在 cs 文件，请确认插件是否真的需要编译代码，且代码文件放在了插件目录中。");
 
-        List<string> dllFiles = Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories).ToList();
-        if (pluginManifest.Dependencies != null)
+        HashSet<string> dllFiles = Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories).ToHashSet();
+        DependencyResolver pluginDependencyResolver = new();
+        AddDependencies(pluginManifest);
+
+        void AddDependencies(PluginManifest pluginManifest)
         {
-            DependencyResolver pluginDependencyResolver = new();
+            if (pluginManifest.Dependencies == null)
+                return;
+
             pluginDependencyResolver.AddDependencies(pluginManifest.Dependencies);
 
             foreach (string dependencyPlugin in pluginManifest.Dependencies.Keys)
@@ -233,12 +241,15 @@ public class PluginContext(
                 if (!pluginDependencyResolver.IsSatisfiedVersion(dependencyPlugin, manifest.Version))
                     throw new Exception($"环境中的 {dependencyPlugin} 插件版本不满足于 {pluginId} 的要求，请更换插件版本，或调整版本号要求。");
 
-                dllFiles.AddRange(RequirePluginDll(dependencyPlugin));
+                foreach (var pluginDll in RequirePluginDll(dependencyPlugin))
+                    dllFiles.Add(pluginDll);
+                AddDependencies(manifest);
             }
         }
 
         codeCompiler.Compile(GetPluginCompiledDllPath(pluginId), codeFiles, dllFiles.ToArray());
     }
+
     List<string> RequirePluginDll(string pluginId)
     {
         List<string> result = new List<string>();

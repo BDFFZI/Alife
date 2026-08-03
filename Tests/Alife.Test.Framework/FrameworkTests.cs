@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
 namespace Alife.Test.Framework;
+
 [TestFixture]
 public class FrameworkTests
 {
@@ -24,9 +25,9 @@ public class FrameworkTests
         LogLocalPlugins(pluginSystem);
 
         TestContext.WriteLine("安装插件:");
-        await pluginSystem.InstallPlugins(new() {
-            { pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"], "1.0.0" },
-        });
+        await pluginSystem.InstallPlugins([
+            new KeyValuePair<PluginPackage, string>(pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"], "1.0.0")
+        ]);
 
         LogLocalPlugins(pluginSystem);
 

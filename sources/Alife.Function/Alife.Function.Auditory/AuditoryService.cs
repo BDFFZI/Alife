@@ -15,7 +15,7 @@ namespace Alife.Function.Auditory;
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(AuditoryServiceUI))]
 public class AuditoryService(
-    IAuditoryModel auditoryModel,
+    AIModelUtility.IAuditoryModel auditoryModel,
     IInteractor<AuditoryService> interactor) :
     ChatBehaviour,
     IConfigurable<AuditoryServiceConfig>

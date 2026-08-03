@@ -64,7 +64,9 @@
 
         try
         {
-            var pluginDict = toUpgrade.ToDictionary(x => x.PluginPackage, x => x.NewVersion);
+            var pluginDict = toUpgrade
+                .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.NewVersion))
+                .ToList();
             await Task.Run(() => PluginSystem.InstallPlugins(pluginDict));
             await MessageService.SuccessAsync($"已升级 {toUpgrade.Count} 个插件");
             foreach (var item in toUpgrade)
@@ -80,7 +82,9 @@
 
             try
             {
-                var rollbackDict = toUpgrade.ToDictionary(x => x.PluginPackage, x => x.OldVersion);
+                var rollbackDict = toUpgrade
+                    .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.OldVersion))
+                    .ToList();
                 await Task.Run(() => PluginSystem.InstallPlugins(rollbackDict));
                 await MessageService.WarningAsync($"已回滚 {toUpgrade.Count} 个插件");
                 await OnUpgradeComplete.InvokeAsync();
@@ -105,4 +109,5 @@
         public bool IsLocked { get; init; }
         public bool IsSelected { get; set; } = true;
     }
+
 }

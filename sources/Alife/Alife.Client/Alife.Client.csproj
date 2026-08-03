@@ -15,9 +15,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="ElectronNET.Core" Version="0.5.1"/>
-        <PackageReference Include="ElectronNET.Core.AspNet" Version="0.5.1"/>
-        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+        <PackageReference Include="ElectronNET.Core" Version="0.5.2" />
+        <PackageReference Include="ElectronNET.Core.AspNet" Version="0.5.2" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
     </ItemGroup>
 
     <ItemGroup>

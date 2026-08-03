@@ -7,8 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
+using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Speech;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.QChat;

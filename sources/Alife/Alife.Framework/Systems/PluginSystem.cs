@@ -105,11 +105,11 @@ public class PluginSystem(
         return pluginMarket.ResolveBeDependentPlugins(pluginId);
     }
 
-    public async Task InstallPlugins(Dictionary<PluginPackage, string> plugins)
+    public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
     {
         await pluginMarket.InstallPlugins(plugins);
         PluginSyncReport report = await pluginContext.SyncPluginEnvironment();
-        foreach (PluginPackage pluginPackage in plugins.Keys)
+        foreach ((PluginPackage pluginPackage, _) in plugins)
         {
             if (report.ReloadedPlugins.Contains(pluginPackage.Id))
                 continue;

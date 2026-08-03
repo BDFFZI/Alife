@@ -29,7 +29,7 @@ public record VisionServiceConfig
 public class VisionService(
     XmlFunctionCaller functionService,
     IInteractor<VisionService> interactor,
-    IVisionModel? visionModel = null) :
+    AIModelUtility.IVisionModel? visionModel = null) :
     ChatBehaviour,
     IConfigurable<VisionServiceConfig>
 {
@@ -45,7 +45,6 @@ public class VisionService(
         var windows = WindowCaptureHelper.EnumerateWindows()
             .Where(w => !string.IsNullOrWhiteSpace(w.Title))
             .ToList();
-
         interactor.Poke($"""
                          【可见窗口列表】
                          {string.Join("\n", windows.Select(info => $"hwnd: {info.Handle.ToInt64()} | 标题: {info.Title}"))}
@@ -83,7 +82,6 @@ public class VisionService(
         prompt += Configuration.AppendPrompt;
         if (hwnd == -1)
             prompt += $"（这是一张屏幕截图，当前焦点窗口为{GetActiveWindowTitle()}）" + Configuration.AppendPrompt;
-
         CancellationTokenSource cancellationTokenSource = new(30000);
         string deepVisionResult = visionModel != null
             ? $"{await visionModel.QueryAsync(
@@ -92,7 +90,6 @@ public class VisionService(
                 replyCharCount,
                 cancellationToken: cancellationTokenSource.Token)}"
             : "未开启";
-
         if (hwnd == -1)
         {
             interactor.Poke($"""
@@ -125,9 +122,7 @@ public class VisionService(
             await AlifeUtility.DownloadFileAsync(pathOrUrl, downloaded);
             pathOrUrl = downloaded;
         }
-
         prompt += Configuration.AppendPrompt;
-
         CancellationTokenSource cancellationTokenSource = new(30000);
         string deepVisionResult = visionModel != null
             ? await visionModel.QueryAsync(
@@ -136,12 +131,15 @@ public class VisionService(
                 replyLength,
                 cancellationToken: cancellationTokenSource.Token)
             : "未开启";
-
         interactor.Poke($"""
                          图片分析结果
                          文字识别：{await OcrAsync(pathOrUrl)}
                          深度视觉：{deepVisionResult}（内容不一定准确仅供参考）
                          """);
+    }
+    public async Task LookImage(string pathOrUrl, string prompt, int replyLength = 64)
+    {
+        await AnalyseImage(pathOrUrl, prompt, replyLength);
     }
 
     /// <summary>
@@ -167,7 +165,6 @@ public class VisionService(
                 : await WindowCaptureHelper.CaptureWindowAsync(new IntPtr(hwnd));
             bmp.Save(screenshotPath, System.Drawing.Imaging.ImageFormat.Png);
         }
-
         interactor.Poke($"""
                          截图已保存到：{screenshotPath}
                          """);
@@ -175,11 +172,12 @@ public class VisionService(
 
     protected override Task OnAwake()
     {
-        XmlHandler xmlHandler = new(this) {
-            Description = $"此服务让你拥有视觉感知能力，你可以通过<{nameof(QueryWindows)}>获取当前系统运行的窗口，然后传入到<{nameof(AnalyseWindowImage)}>中进行视觉分析。或则直接将图片链接或地址，传入到<{nameof(AnalyseImage)}>中分析"
+        XmlHandler xmlHandler = new(this)
+        {
+            Description =
+                $"此服务让你拥有视觉感知能力，你可以通过<{nameof(QueryWindows)}>获取当前系统运行的窗口，然后传入到<{nameof(AnalyseWindowImage)}>中进行视觉分析。或则直接将图片链接或地址，传入到<{nameof(AnalyseImage)}>中分析"
         };
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
-        
         return Task.CompletedTask;
     }
 
@@ -188,7 +186,6 @@ public class VisionService(
         const int NChars = 256;
         StringBuilder buff = new(NChars);
         IntPtr handle = GetForegroundWindow();
-
         if (GetWindowText(handle, buff, NChars) > 0)
         {
             return buff.ToString();
@@ -201,7 +198,6 @@ public class VisionService(
         {
             return string.Empty;
         }
-
         try
         {
             StorageFile file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(path));
@@ -209,25 +205,23 @@ public class VisionService(
             BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
 
             // 优化：进行 2 倍高质量缩放预处理，显著提升细小文字的识别率
-            BitmapTransform transform = new() {
+            BitmapTransform transform = new()
+            {
                 ScaledWidth = decoder.PixelWidth * 2,
                 ScaledHeight = decoder.PixelHeight * 2,
                 InterpolationMode = BitmapInterpolationMode.Cubic
             };
-
             using SoftwareBitmap bitmap = await decoder.GetSoftwareBitmapAsync(
                 decoder.BitmapPixelFormat,
                 BitmapAlphaMode.Premultiplied,
                 transform,
                 ExifOrientationMode.RespectExifOrientation,
                 ColorManagementMode.ColorManageToSRgb);
-
             OcrEngine engine = OcrEngine.TryCreateFromUserProfileLanguages();
             if (engine is null)
             {
                 return "OCR 引擎初始化失败";
             }
-
             OcrResult result = await engine.RecognizeAsync(bitmap);
             string text = string.Join("\n", result.Lines.Select(line => line.Text));
             // 优化：去除中文之间的冗余空格
@@ -238,6 +232,9 @@ public class VisionService(
             return $"OCR 识别出错: {ex.Message}";
         }
     }
-    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)] static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 }

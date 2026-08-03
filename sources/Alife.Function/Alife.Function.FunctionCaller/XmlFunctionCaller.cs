@@ -16,8 +16,7 @@ public class XmlFunctionCallerConfig
     [Description("触发子句分隔的字符标记。调整子句会对字幕、语音生成等流式输出的功能产生影响")]
     public List<string> Separators { get; set; } = ["，", "。", "！", "？", "......", "~", "…"];
 
-    [Description("触发子句分隔的最短文本长度（字符数）")]
-    public int MinBreakingLength { get; set; } = 23;
+    [Description("触发子句分隔的最短文本长度（字符数）")] public int MinBreakingLength { get; set; } = 23;
 }
 
 public enum DocumentMode
@@ -30,7 +29,7 @@ public enum DocumentMode
 [Module(
     "Xml函数执行器",
     "提供一种Xml函数调用框架，可以将注册其中的函数，暴露给AI，并指导其用Xml标签调用。",
-    launchOrder: -10000,//在活动开始之前，将收集到的函数调用信息注入
+    launchOrder: -10000, //在活动开始之前，将收集到的函数调用信息注入
     defaultCategory: "Alife 官方/功能底座")]
 public class XmlFunctionCaller(
     ILogger<XmlFunctionCaller> logger,
@@ -56,7 +55,6 @@ public class XmlFunctionCaller(
     public void RegisterHandler(XmlHandler handler, DocumentMode documentMode = DocumentMode.Explicit, CancellationToken cancellationToken = default)
     {
         handlerTable.Register(handler);
-
         switch (documentMode)
         {
             case DocumentMode.None:
@@ -73,9 +71,16 @@ public class XmlFunctionCaller(
             default:
                 throw new ArgumentOutOfRangeException(nameof(documentMode), documentMode, null);
         }
-
         if (cancellationToken != CancellationToken.None)
             cancellationToken.Register(() => UnregisterHandler(handler));
+    }
+    public void RegisterHandlerWithoutDocument(XmlHandler handler, CancellationToken cancellationToken = default)
+    {
+        RegisterHandler(handler, DocumentMode.None, cancellationToken);
+    }
+    public void RegisterHandler(object handler, CancellationToken cancellationToken = default)
+    {
+        RegisterHandler(new XmlHandler(handler), cancellationToken: cancellationToken);
     }
     public void UnregisterHandler(XmlHandler handler)
     {
@@ -184,14 +189,13 @@ public class XmlFunctionCaller(
         try
         {
             await executor.WaitToInactive(chatContext.CancellationToken);
-            executor.Flush();//清理缓冲区，内部可能带有残留数据
+            executor.Flush(); //清理缓冲区，内部可能带有残留数据
         }
         catch (OperationCanceledException)
         {
             //对话被打断，取消执行
             await executor.CancelAndClearAsync();
         }
-
         if (ChatCalled != null)
         {
             try
@@ -214,7 +218,6 @@ public class XmlFunctionCaller(
     void OnHandling(string name, XmlContext context)
     {
         ChatBot.ChatOccupiedReason = $"执行{name}函数中...";
-
         if (context.CallMode == CallMode.Opening || context.CallMode == CallMode.OneShot)
         {
             //实现当ai调用隐射函数时自动注入对应的隐式文档
@@ -226,11 +229,9 @@ public class XmlFunctionCaller(
                 {
                     chatHistoryBuffer.Clear();
                     chatHistoryBuffer.AddRange(ChatBot.ChatHistory);
-
                     foreach (XmlHandler xmlHandler in dependentImplicitHandlers)
                     {
                         string explicitDocumentTag = GetExplicitDocumentTag(xmlHandler.Name);
-
                         if (chatHistoryBuffer.All(content => !content.Content?.Contains(explicitDocumentTag) ?? false))
                             interactor.Poke(GetExplicitDocument(xmlHandler));
                     }
@@ -258,12 +259,15 @@ public class XmlFunctionCaller(
     }
     void AddImplicitTrigger(XmlHandler source)
     {
-        XmlHandler xmlHandler = new() {
+        XmlHandler xmlHandler = new()
+        {
             Name = source.Name + "_Trigger"
         };
-        xmlHandler.Functions.Add(new XmlFunction() {
+        xmlHandler.Functions.Add(new XmlFunction()
+        {
             Name = source.Name.ToLower(),
-            Invoker = (_, _) => {
+            Invoker = (_, _) =>
+            {
                 interactor.Poke(GetExplicitDocument(source));
                 return Task.CompletedTask;
             }

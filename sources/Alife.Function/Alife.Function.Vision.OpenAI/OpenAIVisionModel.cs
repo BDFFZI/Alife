@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
+using Alife.Function.AIModelUtility;
 
 namespace Alife.Function.Vision.OpenAI;
 

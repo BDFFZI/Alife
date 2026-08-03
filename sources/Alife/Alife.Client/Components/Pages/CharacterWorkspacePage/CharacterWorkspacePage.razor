@@ -57,7 +57,7 @@ else
                     </MenuItem>
                     <MenuItem Key="modules" OnClick="@(() => activeTab = "modules")">
                         <Icon Type="@IconType.Outline.Build"/>
-                        <span>功能管理</span>
+                        <span>功能检视</span>
                     </MenuItem>
                 </Menu>
             </div>
@@ -76,15 +76,15 @@ else
                 }
                 else
                 {
-                    var isCancelled = activity?.ChatBot?.ChatBreakTokenSource?.IsCancellationRequested == true;
+                    var isCancelled = activity.ChatBot.ChatBreakTokenSource.IsCancellationRequested;
                     <Button Danger Block Loading="@isStopping" Disabled="@isCancelled" OnClick="@(DeactivateCharacter)">
                         停止运行
                     </Button>
                     @if (isStopping && !isCancelled)
                     {
                         <Button Danger Block Style="margin-top: 8px;"
-                                OnClick="@(() => activity?.ChatBot?.ChatBreakTokenSource?.Cancel())">
-                            强制停止
+                                OnClick="@(() => activity.ChatBot.ChatBreakTokenSource.Cancel())">
+                            打断对话
                         </Button>
                     }
                 }

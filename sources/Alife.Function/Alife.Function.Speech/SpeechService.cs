@@ -16,7 +16,7 @@ namespace Alife.Function.Speech;
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public class SpeechService(
     XmlFunctionCaller functionService,
-    ISpeechModel speechModel,
+    AIModelUtility.ISpeechModel speechModel,
     ILogger<SpeechService> logger) :
     ChatBehaviour
 {
@@ -58,7 +58,7 @@ public class SpeechService(
 
     protected override Task OnAwake()
     {
-        XmlHandler xmlHandler = new();
+        XmlHandler xmlHandler = new(this);
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
         functionService.ChatCalled += OnChatCalled;
 

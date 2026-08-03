@@ -21,6 +21,7 @@ public interface IPluginInstaller
     /// <param name="pluginPackage"></param>
     /// <param name="version"></param>
     public Task InstallPlugin(PluginPackage pluginPackage, string version);
+
     public Task UninstallPlugin(string pluginId);
 }
 
@@ -39,62 +40,43 @@ public class PluginMarket
         allPluginPackages = (await pluginProvider.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
         SaveCache();
     }
-    public async Task InstallPlugins(Dictionary<PluginPackage, string> plugins)
+
+    public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
     {
-        //收集插件环境依赖
-
-        //收集完整的要装的插件
-        Dictionary<string, (PluginPackage plugin, string version)> installPlan = new();
         DependencyResolver dependencyResolver = new();
-        foreach (var (plugin, version) in plugins)
-            CollectDependencies(plugin, version);
-
-        //校验插件安装输入
-        foreach (var (pluginPackage, version) in plugins)
+        while (plugins.Count != 0)
         {
-            if (pluginPackage.Releases == null)
-                throw new Exception($"插件 {pluginPackage.Id} 并没有发布版本，无法安装，请确保插件信息填写正确。");
-            if (pluginPackage.Releases.ContainsKey(version) == false)
-                throw new Exception($"插件 {pluginPackage} 不存在版本 {version}，请检查版本号填写是否正确。");
-        }
-
-        void CollectDependencies(PluginPackage pluginPackage, string version)
-        {
-            if (installPlan.ContainsKey(pluginPackage.Id))
-                return;//插件已被解算，不需要重复解算
-
-            installPlan[pluginPackage.Id] = (pluginPackage, version);
-
-            //解算依赖的插件
-            var dependencies = pluginPackage.GetDependencies(version);
-            if (dependencies != null)
-            {
-                //添加依赖需求
-                dependencyResolver.AddDependencies(dependencies);
-
-                //确认有满足依赖的插件
-                foreach (var (dependentPluginId, _) in dependencies)
-                {
-                    if (allPluginPackages.TryGetValue(dependentPluginId, out PluginPackage? dependentPluginPackage) == false)
-                        throw new Exception($"{pluginPackage.Id} 依赖的插件 {dependentPluginId} 不存在，请确认依赖信息填写正确，或被依赖插件已上传市场并正确拉取。");
-
-                    IEnumerable<string>? versionList = dependentPluginPackage.Releases?.Keys;
-                    if (versionList == null)
-                        throw new Exception($"插件 {dependentPluginId} 并没有发布版本，无法安装，请确保插件信息填写正确。");
-
-                    string bestVersion = dependencyResolver.ResolveBestVersion(dependentPluginId, versionList);
-                    CollectDependencies(dependentPluginPackage, bestVersion);
-                }
-            }
-        }
-
-        //安装插件
-        foreach ((PluginPackage plugin, string version) in installPlan.Values)
-        {
+            (PluginPackage plugin, string version) = plugins[0];
+            //安装插件文件
             await pluginInstaller.InstallPlugin(plugin, version);
             PluginInstalled?.Invoke(plugin, version);
+            //检测依赖插件
+            PluginManifest manifest = pluginContext.LoadPluginManifest(plugin.Id);
+            if (manifest.Dependencies != null)
+            {
+                foreach ((string pluginId, string versionSpec) in manifest.Dependencies)
+                {
+                    dependencyResolver.AddDependency(pluginId, versionSpec);
+                    if (pluginContext.AllPluginManifests.TryGetValue(pluginId, out PluginManifest pluginManifest) &&
+                        dependencyResolver.IsSatisfiedVersion(pluginId, pluginManifest.Version))
+                        continue; //依赖已安装
+
+                    PluginPackage? pluginPackage = allPluginPackages.GetValueOrDefault(pluginId);
+                    if (pluginPackage == null)
+                        throw new Exception($"无法找到依赖插件 {pluginId} 的包信息，请确保已将其上传到没有发布版本，无法安装。");
+                    var releases = allPluginPackages[pluginId].Releases;
+                    if (releases == null)
+                        throw new Exception($"依赖的插件 {pluginId} 没有发布版本，无法安装。");
+
+                    string bestVersion = dependencyResolver.ResolveBestVersion(pluginId, releases.Select(pair => pair.Key));
+                    plugins.Add(new KeyValuePair<PluginPackage, string>(pluginPackage, bestVersion));
+                }
+            }
+
+            plugins.RemoveAt(0);
         }
     }
+
     public async Task UninstallPlugins(string pluginId)
     {
         List<string> dependencies = ResolveBeDependentPlugins(pluginId);
@@ -102,6 +84,7 @@ public class PluginMarket
             throw new Exception($"插件 {pluginId} 被 {string.Join(',', dependencies)} 插件所依赖，无法卸载，请先卸载这些依赖插件。");
         await pluginInstaller.UninstallPlugin(pluginId);
     }
+
     public List<string> ResolveBeDependentPlugins(string pluginId)
     {
         List<string> dependents = new();
@@ -153,6 +136,7 @@ public class PluginMarket
             Console.WriteLine(ex);
         }
     }
+
     void LoadCache()
     {
         try

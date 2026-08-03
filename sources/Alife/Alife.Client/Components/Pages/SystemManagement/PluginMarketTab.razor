@@ -364,10 +364,11 @@
             .ToArray();
 
         authorOptions = allPlugins
-            .Where(p => !string.IsNullOrEmpty(p.Author))
             .Select(p => p.Author)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(a => a)
+            .Where(p => !string.IsNullOrEmpty(p))
+            .GroupBy(author => author, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
             .ToArray();
 
         foreach (var key in selectedTags.Keys.Where(k => !allTags.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList())

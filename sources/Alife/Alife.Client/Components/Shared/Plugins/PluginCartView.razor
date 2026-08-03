@@ -105,9 +105,9 @@
     async Task InstallSelected()
     {
         var toInstall = CartItems
-            .Select(p => new { Plugin = p, Version = PluginSystem.GetLatestVersion(p) ?? "" })
-            .Where(x => !string.IsNullOrEmpty(x.Version))
-            .ToDictionary(x => x.Plugin, x => x.Version);
+            .Select(p => new KeyValuePair<PluginPackage, string>(p, PluginSystem.GetLatestVersion(p) ?? ""))
+            .Where(x => !string.IsNullOrEmpty(x.Value))
+            .ToList();
 
         if (toInstall.Count == 0) return;
 
@@ -158,4 +158,5 @@
         isOperating = false;
         StateHasChanged();
     }
+
 }

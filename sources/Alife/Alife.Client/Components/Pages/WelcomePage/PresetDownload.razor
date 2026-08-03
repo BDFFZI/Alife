@@ -80,7 +80,8 @@
     [Parameter] public EventCallback OnPrevStep { get; set; }
     [Parameter] public EventCallback OnNextStep { get; set; }
 
-    static readonly string[] RecommendedPluginIds = [
+    static readonly string[] RecommendedPluginIds =
+    [
         //行业标准
         "Alife.Function.FunctionCaller",
         "Alife.Function.Mcp",
@@ -158,9 +159,9 @@
     {
         var toInstall = availablePlugins
             .Where(p => selectedIds.Contains(p.Id))
-            .Select(p => new { Plugin = p, Version = PluginSystem.GetLatestVersion(p) ?? "" })
-            .Where(x => !string.IsNullOrEmpty(x.Version))
-            .ToDictionary(x => x.Plugin, x => x.Version);
+            .Select(p => new KeyValuePair<PluginPackage, string>(p, PluginSystem.GetLatestVersion(p) ?? ""))
+            .Where(x => !string.IsNullOrEmpty(x.Value))
+            .ToList();
 
         if (toInstall.Count == 0) return;
 
@@ -194,10 +195,12 @@
     {
         await OnPrevStep.InvokeAsync();
     }
+
     async Task OnNext()
     {
         await OnNextStep.InvokeAsync();
     }
+
 }
 
 <style>

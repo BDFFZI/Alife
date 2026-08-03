@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using SherpaOnnx;
 using Alife.Framework;
+using Alife.Function.AIModelUtility;
 
 namespace Alife.Function.Auditory.SenseVoice;
 
@@ -19,8 +20,8 @@ public class SenseVoiceAuditoryModel :
     {
         get
         {
-            string senseVoicePath = Path.Combine(AIModelUtility.ModelDownloader.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
-            string vadPath = Path.Combine(AIModelUtility.ModelDownloader.ModelScopeModelPath, VadId.Replace(".", "___"));
+            string senseVoicePath = Path.Combine(ModelDownloader.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
+            string vadPath = Path.Combine(ModelDownloader.ModelScopeModelPath, VadId.Replace(".", "___"));
             return File.Exists(Path.Combine(senseVoicePath, "model.int8.onnx"))
                    && File.Exists(Path.Combine(vadPath, "silero_vad.onnx"));
         }
@@ -66,8 +67,8 @@ public class SenseVoiceAuditoryModel :
 
     protected override Task OnAwake()
     {
-        string senseVoicePath = AIModelUtility.ModelDownloader.EnsureModelExisting(SenseVoiceId);
-        string vadModelPath = AIModelUtility.ModelDownloader.EnsureModelExisting(VadId, "silero_vad.onnx");
+        string senseVoicePath = ModelDownloader.EnsureModelExisting(SenseVoiceId);
+        string vadModelPath = ModelDownloader.EnsureModelExisting(VadId, "silero_vad.onnx");
 
         OfflineRecognizerConfig config = new();
         config.ModelConfig.SenseVoice.Model = Path.Combine(senseVoicePath, "model.int8.onnx");
