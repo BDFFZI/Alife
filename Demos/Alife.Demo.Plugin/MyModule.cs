@@ -37,6 +37,7 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
     {
         if (max == null)
             max = Configuration.DefaultMax; //配置在模块构造后立即注入，故系统事件期间都是不为空的
+
         if (max < 0)
             throw new Exception("最大值必须大于 0"); //可以正常抛出异常
 
@@ -59,7 +60,7 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
         };
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken); //传入取消 token 可以在模块销毁时自动取消注册，方便进行热重载
 
-        interactor.Prompt("..."); //利用 Prompt 功能额外添加一些自定义提示词
+        interactor.Prompt("..."); //可以利用 Prompt 功能额外添加一些自定义提示词，而且此功能添加的提示词是可以热更的
 
         return Task.CompletedTask;
     }

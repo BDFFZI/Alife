@@ -14,9 +14,10 @@ public interface IInteractor
     public void Poke(string message);
     public void Chat(string message);
     public Task ChatAsync(string message);
-    public Task ImplicitChatAsync(string message);
 }
+
 public interface IInteractor<T> : IInteractor;
+
 public class Interactor<T>(ChatBot target) : IInteractor<T>
 {
     public string GetPromptTag()
@@ -27,16 +28,23 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
     public Func<string, string> ChatTextFilter { get; set; } = text => $"消息来源:[{typeof(T).Name}]\n{text}";
     public void Prompt(string prompt)
     {
-        if (target.ChatHistory.Any(content => content.Content?.StartsWith(GetPromptTag()) ?? false))
+        string content = $"{GetPromptTag()}\n{prompt}";
+
+        ChatMessageContent? chatMessageContent = target.ChatHistory.FirstOrDefault(content => content.Content?.StartsWith(GetPromptTag()) ?? false);
+        if (chatMessageContent != null)
+        {
+            chatMessageContent.Content = content;
             return;
+        }
 
         (ChatMessageContent item, int index) = target.ChatHistory
             .Select((item, index) => (item, index))
             .FirstOrDefault(x => x.item.Role == AuthorRole.System);
+
         if (item == null)
-            target.ChatHistory.AddSystemMessage($"{GetPromptTag()}\n{prompt}");
+            target.ChatHistory.AddSystemMessage(content);
         else
-            target.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, $"{GetPromptTag()}\n{prompt}"));
+            target.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, content));
 
         target.UpdateHistoryEndIndex();
     }
@@ -55,9 +63,5 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
     public Task ChatAsync(string message)
     {
         return target.ChatAsync(ChatTextFilter(message));
-    }
-    public Task ImplicitChatAsync(string message)
-    {
-        return target.ImplicitChatAsync(ChatTextFilter(message));
     }
 }

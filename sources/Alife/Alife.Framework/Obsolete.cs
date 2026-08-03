@@ -124,9 +124,4 @@ public class InteractiveModule<T> : InteractiveModule
     {
         return ChatBot.ChatAsync(ChatTextFilter(message));
     }
-
-    protected Task ImplicitChatAsync(string message)
-    {
-        return ChatBot.ImplicitChatAsync(ChatTextFilter(message));
-    }
 }

@@ -229,12 +229,6 @@ public class ChatBot : IAsyncDisposable
         messageCache.Enqueue(message);
         lastAutoFlushTime = 0;//重新计时，防止后续还有Poke
     }
-    public async Task ImplicitChatAsync(string message)
-    {
-        await RequestChatAsync();
-        ChatHistory.AddUserMessage(message);
-        ReleaseChat();
-    }
 
     public void UpdateHistoryEndIndex()
     {

@@ -11,14 +11,19 @@
                           Disabled="@(Activity != null)">
                     开机自动激活
                 </Checkbox>
-                @if (Activity == null)
-                {
-                    <Button id="btn-save-character-settings"
-                            Type="@ButtonType.Primary"
-                            Icon="@IconType.Outline.Save"
-                            Loading="isSaving" OnClick="@(SaveSettings)">保存变更
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <Button Icon="@IconType.Outline.Reload"
+                            Loading="isLoading" OnClick="@(ReloadCharacter)">重载配置
                     </Button>
-                }
+                    @if (Activity == null)
+                    {
+                        <Button id="btn-save-character-settings"
+                                Type="@ButtonType.Primary"
+                                Icon="@IconType.Outline.Save"
+                                Loading="isSaving" OnClick="@(SaveSettings)">保存配置
+                        </Button>
+                    }
+                </div>
             </div>
 
             <Alert Message="提示" Description="角色活动时无法修改配置喵。" Type="@AlertType.Info"
@@ -68,12 +73,11 @@
 
 @code
 {
-    public HashSet<string> ModuleIDs => moduleIDs;
-
     [Parameter] public Character? Character { get; set; }
     [Parameter] public ChatActivity? Activity { get; set; }
 
     bool isSaving;
+    bool isLoading;
     bool autoActivate;
     HashSet<string> moduleIDs = new();
     DateTime birthday;
@@ -120,6 +124,29 @@
         finally
         {
             isSaving = false;
+            _ = InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task ReloadCharacter()
+    {
+        if (isLoading || Character == null) return;
+        isLoading = true;
+        try
+        {
+            await CharacterSystem.LoadCharacter(Character);
+            moduleIDs = Character.Modules.ToHashSet();
+            autoActivate = Character.AutoActivate;
+            birthday = Character.Birthday;
+            _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已重新加载！" });
+        }
+        catch (Exception ex)
+        {
+            _ = NotificationService.Error(new NotificationConfig { Message = $"重载失败：{ex.Message}" });
+        }
+        finally
+        {
+            isLoading = false;
             _ = InvokeAsync(StateHasChanged);
         }
     }

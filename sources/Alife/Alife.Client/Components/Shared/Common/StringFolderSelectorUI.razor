@@ -1,5 +1,5 @@
 <Tree TItem="object" DefaultExpandedKeys="@([Context.Name])" BlockNode
-      Checkable="true" OnCheck="OnCheck" DefaultCheckedKeys="@(IsChecking.ToArray())"
+      Checkable="true" OnCheck="OnCheck" CheckedKeys="@(IsChecking.ToArray())"
       Draggable="true" OnDrop="@(OnDrop)">
     <TitleTemplate>
         <Text>@(context.DataItem is StringFolder ? context.Title : ItemTitleFilter(context.Title))</Text>

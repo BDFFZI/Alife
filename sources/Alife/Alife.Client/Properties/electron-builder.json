@@ -6,7 +6,7 @@
     "!bin/**"
   ],
   "win": {
-    "icon": "alife-icon.ico",
+    "icon": "bin/alife-icon.ico",
     "requestedExecutionLevel": "requireAdministrator",
     "target": [
       {

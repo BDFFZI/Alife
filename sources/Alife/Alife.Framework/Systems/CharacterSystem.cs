@@ -72,19 +72,6 @@ public class CharacterSystem
             }
         }
     }
-    public void RefreshCharacters()
-    {
-        characters.Clear();
-        string[] folder = storageSystem.GetSubFolders("Character");
-        foreach (string name in folder)
-        {
-            Character? character = LoadCharacter(name);
-            if (character != null)
-                characters.Add(character);
-        }
-
-        CharacterListChanged?.Invoke();
-    }
 
     readonly StorageSystem storageSystem;
     readonly List<Character> characters;
