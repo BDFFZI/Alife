@@ -11,7 +11,7 @@
 !/Directory.Build.props
 !/LICENSE.md
 !/README.md
-!/Publish.ps1
+!/Publish
 
 obj/
 bin/
