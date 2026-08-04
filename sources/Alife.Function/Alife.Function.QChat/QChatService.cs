@@ -30,7 +30,7 @@ public record QChatConfig
     //群监听缓存
     public int PerBufferSize { get; set; } = 5;//激活前的一个持久群消息缓冲区，会在角色激活时同步发送
     public int MaxBufferMessages { get; set; } = -1;//最大群消息暂存数量，发生溢出时会立即推送，-1表示无限
-    public float FlushInterval { get; set; } = 15f;//推送倒计时，隔一段时间推送暂存的群消息
+    public float FlushInterval { get; set; } = 12f;//推送倒计时，隔一段时间推送暂存的群消息
     public bool DebounceEnabled { get; set; }//消息防抖，接收消息后重置推送倒计时，继续等待消息
     //群监听关闭
     public bool CloseGroupAfterReply { get; set; }//AI回复后立即关闭群消息监听

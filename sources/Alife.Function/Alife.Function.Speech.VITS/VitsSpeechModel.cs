@@ -137,7 +137,6 @@ public class VitsSpeechModel(
             await DownloadAndExtractAsync();
 
         pythonPipe = new("vits_speech", pythonCode);
-        pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", RuntimeFolder);
     }

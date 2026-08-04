@@ -108,7 +108,6 @@ public class QwenVisionModel(
         const string ModelId = "Qwen/Qwen2.5-VL-3B-Instruct";
         string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
         pythonPipe = new("qwen_vl", pythonCode);
-        pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath);
     }

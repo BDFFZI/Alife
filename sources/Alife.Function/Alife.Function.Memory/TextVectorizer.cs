@@ -27,7 +27,6 @@ public class TextVectorizer : IAsyncDisposable
     async Task InitAsync()
     {
         pythonPipe = new("text_embed", PythonCode);
-        pythonPipe.OnStderr += Console.WriteLine;
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath);
     }

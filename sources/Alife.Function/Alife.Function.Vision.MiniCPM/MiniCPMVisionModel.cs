@@ -101,7 +101,6 @@ public class MiniCPMVisionModel(
         string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
         string precision = Configuration.Precision;
         pythonPipe = new PythonPipeProcess("minicpm_v", pythonCode);
-        pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath, precision);
     }

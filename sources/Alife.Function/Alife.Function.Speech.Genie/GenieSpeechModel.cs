@@ -124,7 +124,6 @@ public class GenieSpeechModel(
         string charaName = Configuration.CharacterName;
         string language = Configuration.Language;
         pythonPipe = new("genie_speech", pythonCode);
-        pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", RuntimeFolder, charaName, language);
     }

@@ -14,8 +14,6 @@ public class PythonException(string message) : Exception(message);
 
 public sealed class PythonPipeProcess(string scriptName, string pythonCode, string? pythonExe = null) : IAsyncDisposable
 {
-    public event Action<string>? OnStderr;
-
     public async Task StartAsync(CancellationToken ct = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
@@ -36,38 +34,26 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
 
         process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.ErrorDataReceived += (_, e) => {
-            if (e.Data is not null)
-                OnStderr?.Invoke(e.Data);
+            if (string.IsNullOrEmpty(e.Data) == false)
+                AlifeLog.LogInformation(e.Data); //python用错误流输出普通log，也是醉了
+        };
+        process.OutputDataReceived += (_, e) => {
+            if (string.IsNullOrEmpty(e.Data) == false)
+                AlifeLog.LogInformation(e.Data);
         };
 
         process.Start();
-        process.BeginErrorReadLine();
 
+        process.BeginErrorReadLine();
         stdin = process.StandardInput;
         stdout = process.StandardOutput;
         callLock = new SemaphoreSlim(1, 1);
-    }
-
-    public async Task<JsonElement> InvokeAsync(string funcName, params object[] args)
-    {
-        EnsureStarted();
-        await callLock!.WaitAsync();
-        try
-        {
-            await WriteRequestAsync(funcName, args);
-            return await ReadResponseAsync();
-        }
-        finally
-        {
-            callLock.Release();
-        }
     }
     public async Task<T> InvokeAsync<T>(string funcName, params object[] args)
     {
         JsonElement result = await InvokeAsync(funcName, args);
         return result.Deserialize<T>(jsonOptions)!;
     }
-
     public async ValueTask DisposeAsync()
     {
         if (disposed) return;
@@ -80,24 +66,37 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
                 await stdin!.WriteLineAsync("""{"func":"__shutdown__","args":[]}""");
                 await stdin.FlushAsync();
 
-                if (!process.WaitForExit(3000))
+                if (process.WaitForExit(3000) == false)
                     process.Kill();
             }
             catch
             {
-                try { process.Kill(); }
-                catch {}
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(e);
+                }
             }
         }
 
         if (stdin != null)
             await stdin.DisposeAsync();
+
         stdout?.Dispose();
         process?.Dispose();
         callLock?.Dispose();
 
-        try { File.Delete(scriptPath); }
-        catch {}
+        try
+        {
+            File.Delete(scriptPath);
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     const string BoilerplateHeader = """
@@ -135,6 +134,7 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
 
     readonly string pythonExe = pythonExe ?? "python";
     readonly string scriptPath = Path.Combine(AlifePath.TempFolderPath, "python_pipe", $"{scriptName}.py");
+
     readonly JsonSerializerOptions jsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -146,6 +146,20 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
     SemaphoreSlim? callLock;
     bool disposed;
 
+    async Task<JsonElement> InvokeAsync(string funcName, params object[] args)
+    {
+        EnsureStarted();
+        await callLock!.WaitAsync();
+        try
+        {
+            await WriteRequestAsync(funcName, args);
+            return await ReadResponseAsync();
+        }
+        finally
+        {
+            callLock.Release();
+        }
+    }
     async Task WriteRequestAsync(string funcName, object[] args)
     {
         object payload = new { func = funcName, args };
@@ -164,28 +178,25 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
 
             if (string.IsNullOrWhiteSpace(line))
                 continue;
+
             if (line.AsSpan().TrimStart()[0] != '{')
-            {
-                OnStderr?.Invoke(line);
                 continue;
-            }
 
             JsonDocument doc = JsonDocument.Parse(line);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("ok", out JsonElement ok))
             {
-                if (ok.GetBoolean())
-                {
-                    if (root.TryGetProperty("result", out JsonElement result))
-                        return result.Clone();
-                    return default;
-                }
-                else
+                if (ok.GetBoolean() == false)
                 {
                     string error = root.TryGetProperty("error", out JsonElement err) ? err.GetString() ?? "" : "";
                     throw new PythonException(error);
                 }
+
+                if (root.TryGetProperty("result", out JsonElement result))
+                    return result.Clone();
+
+                return default;
             }
         }
     }
