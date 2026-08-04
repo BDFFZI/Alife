@@ -18,11 +18,11 @@
 
     protected override void OnInitialized()
     {
-        CharacterSystem.CharacterReloadedAsync += OnCharacterReloadedAsync;
+        CharacterSystem.CharacterChangedAsync += OnCharacterChangedAsync;
     }
     public void Dispose()
     {
-        CharacterSystem.CharacterReloadedAsync -= OnCharacterReloadedAsync;
+        CharacterSystem.CharacterChangedAsync -= OnCharacterChangedAsync;
     }
     protected override void OnParametersSet()
     {
@@ -37,7 +37,7 @@
                 .ToHashSet();
         }
     }
-    Task OnCharacterReloadedAsync(Character arg)
+    Task OnCharacterChangedAsync(Character arg)
     {
         if (Character == arg)
             InvokeAsync(StateHasChanged);

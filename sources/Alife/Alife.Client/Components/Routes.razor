@@ -1,16 +1,26 @@
 @using Alife.Components.Overlay
 @using Alife.Components.Services
 @using Alife.Foundation
+@using ElectronNET.API
 @inject IJSRuntime JsRuntime
 
 @if (isAppInitialized)
 {
-    <Router AppAssembly="typeof(App).Assembly">
-        <Found Context="routeData">
-            <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)"/>
-            <FocusOnNavigate RouteData="routeData" Selector="h1"/>
-        </Found>
-    </Router>
+    <ErrorBoundary>
+        <ChildContent>
+            <Router AppAssembly="typeof(App).Assembly">
+                <Found Context="routeData">
+                    <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)"/>
+                    <FocusOnNavigate RouteData="routeData" Selector="h1"/>
+                </Found>
+            </Router>
+        </ChildContent>
+        <ErrorContent Context="ex">
+            @{
+                <ErrorWindowUI Value="ex" Title="系统崩溃" ValueChanged="@(() => Electron.App.Exit())"/>
+            }
+        </ErrorContent>
+    </ErrorBoundary>
 }
 else
 {
@@ -44,20 +54,22 @@ else
 
                 PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
 
+#if !DEBUG
                 try
                 {
-                    launchingProgress = "正在查询客户端版本...";
-                    await InvokeAsync(StateHasChanged);
-                    await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
+                launchingProgress = "正在查询客户端版本...";
+                await InvokeAsync(StateHasChanged);
+                await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
 
-                    launchingProgress = "正在拉取在线插件...";
-                    await InvokeAsync(StateHasChanged);
-                    await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
+                launchingProgress = "正在拉取在线插件...";
+                await InvokeAsync(StateHasChanged);
+                await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
                 }
                 catch (Exception e)
                 {
-                    AlifeLog.LogError(e);
+                AlifeLog.LogError(e);
                 }
+#endif
 
                 launchingProgress = "正在加载本地插件...";
                 await InvokeAsync(StateHasChanged);

@@ -12,7 +12,7 @@ namespace Alife.Framework;
 public class CharacterSystem
 {
     public event Action? CharacterListChanged;
-    public event Func<Character, Task>? CharacterReloadedAsync;
+    public event Func<Character, Task>? CharacterChangedAsync;
 
     public List<Character> GetAllCharacters()
     {
@@ -29,7 +29,9 @@ public class CharacterSystem
         while (characters.Any(c => c.Name == uniqueName))
             uniqueName = $"{name}_{index++}";
 
-        Character character = new Character { Name = uniqueName };
+        Character character = new Character {
+            Name = uniqueName
+        };
         characters.Add(character);
         CharacterListChanged?.Invoke();
         return character;
@@ -48,21 +50,35 @@ public class CharacterSystem
         characters.Remove(character);
         CharacterListChanged?.Invoke();
     }
-    public void SaveCharacter(Character character)
+    public async Task SaveCharacter(Character character)
     {
         JObject jObject = JObject.FromObject(character);
         storageSystem.SetObject($"Character/{character.Name}/index", jObject);
+
+        if (CharacterChangedAsync != null)
+        {
+            try
+            {
+                await Task.WhenAll(CharacterChangedAsync.GetInvocationList()
+                    .Cast<Func<Character, Task>>()
+                    .Select(func => func(character)));
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        }
     }
     public async Task LoadCharacter(Character character)
     {
         string json = await File.ReadAllTextAsync(Path.Combine(AlifePath.StorageFolderPath, "Character", character.Name, "index.json"));
         JsonConvert.PopulateObject(json, character);
 
-        if (CharacterReloadedAsync != null)
+        if (CharacterChangedAsync != null)
         {
             try
             {
-                await Task.WhenAll(CharacterReloadedAsync.GetInvocationList()
+                await Task.WhenAll(CharacterChangedAsync.GetInvocationList()
                     .Cast<Func<Character, Task>>()
                     .Select(func => func(character)));
             }

@@ -129,7 +129,7 @@ public class ChatActivity(
 
         moduleSystem.ModulesLoadedAsync += OnModulesLoadedAsync;
         moduleSystem.ModulesUnloadedAsync += OnModulesUnloadedAsync;
-        characterSystem.CharacterReloadedAsync += OnCharacterReloadedAsync;
+        characterSystem.CharacterChangedAsync += OnCharacterChangedAsync;
     }
 
     public async Task Start(IProgress<(string, float)>? progress = null)
@@ -152,7 +152,7 @@ public class ChatActivity(
     {
         moduleSystem.ModulesLoadedAsync -= OnModulesLoadedAsync;
         moduleSystem.ModulesUnloadedAsync -= OnModulesUnloadedAsync;
-        characterSystem.CharacterReloadedAsync -= OnCharacterReloadedAsync;
+        characterSystem.CharacterChangedAsync -= OnCharacterChangedAsync;
 
         if (cancelTimerSource != null)
             await cancelTimerSource.CancelAsync();
@@ -217,7 +217,7 @@ public class ChatActivity(
         foreach (Type moduleType in enabledModuleTypes)
             await container.RequireInstance(moduleType);
     }
-    async Task OnCharacterReloadedAsync(Character reloadedCharacter)
+    async Task OnCharacterChangedAsync(Character reloadedCharacter)
     {
         if (reloadedCharacter != character)
             return;

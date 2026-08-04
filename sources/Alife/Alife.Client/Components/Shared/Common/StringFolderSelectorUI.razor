@@ -1,5 +1,5 @@
 <Tree TItem="object" DefaultExpandedKeys="@([Context.Name])" BlockNode
-      Checkable="true" OnCheck="OnCheck" CheckedKeys="@(IsChecking.ToArray())"
+      Checkable="true" OnCheck="OnCheck"
       Draggable="true" OnDrop="@(OnDrop)">
     <TitleTemplate>
         <Text>@(context.DataItem is StringFolder ? context.Title : ItemTitleFilter(context.Title))</Text>
@@ -27,17 +27,19 @@
             return @<TreeNode Title="@(context.Name)"
                               Key="@(context.Name)"
                               Expanded="true"
-                              DataItem="@((object)context)" 
+                              DataItem="@((object)context)"
                               Disabled="IsReadOnly">
-                @foreach (StringFolder folder in context.Folders)
-                {
-                    @(folderFragmentUI(folder))
-                }
-                @foreach (string item in context.Strings)
-                {
-                    <TreeNode Title="@(item)" Key="@(item)" DataItem="@((object)item)"/>
-                }
-            </TreeNode>;
+                       @foreach (StringFolder folder in context.Folders)
+                       {
+                           @(folderFragmentUI(folder))
+                       }
+                       @foreach (string item in context.Strings)
+                       {
+                           <TreeNode Title="@(item)" Key="@(item)"
+                                     Checked="@IsChecking.Contains(item)"
+                                     DataItem="@((object)item)"/>
+                       }
+                   </TreeNode>;
         };
     }
 
@@ -61,8 +63,6 @@
             sourceContainer.Strings.Remove(item);
             targetContainer.Strings.Add(item);
         }
-
-        StateHasChanged();
     }
 
     void OnCheck(TreeEventArgs<object> obj)

@@ -28,7 +28,6 @@ class Program
                       """;
 
         await using var pipe = new PythonPipeProcess("test_basic", code);
-        pipe.OnStderr += line => Console.WriteLine($"  [stderr] {line}");
         await pipe.StartAsync();
         Console.WriteLine("  进程已启动");
 

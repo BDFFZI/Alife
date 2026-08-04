@@ -13,6 +13,7 @@ public class SystemEventServiceConfig
 {
     public string? StartPrompt { get; set; } = "(所有系统状态，如功能开关、当前位置，定时器等已全部重置)";
     public string? DestroyPrompt { get; set; } = "(系统已逐步关闭，不要执行强功能指令，仅可尝试道别操作)";
+
     public string? UpdatePrompt { get; set; } =
         "(如果你手头还有事情，请继续。否则你可以自由活动，比如主动找主人玩，或看新闻学知识、发起新话题、偷窥主人屏幕、去Q群找人聊天玩耍，等各种你能想象到的事)";
 
@@ -26,7 +27,7 @@ public class SystemEventServiceConfig
     "主动事件",
     "让AI可以获取到各种系统事件的提醒。",
     defaultCategory: "Alife 官方/生活环境",
-    LaunchOrder = 100,//期望在末尾创建，以便获得栈顶事件顺序来发送启动关闭提醒
+    LaunchOrder = 100, //期望在末尾创建，以便获得栈顶事件顺序来发送启动关闭提醒
     EditorUI = typeof(SystemEventServiceUI))]
 public class SystemEventService(
     XmlFunctionCaller functionService,
@@ -35,10 +36,11 @@ public class SystemEventService(
     IConfigurable<SystemEventServiceConfig>
 {
     public SystemEventServiceConfig Configuration { get; set; } = null!;
+
     public (DateTime Time, string Name)[] ActiveTasks => [
         (timeTask[0].Item1, "自动报点"),
         (timeTask[1].Item1, "")
-    ];//暴露给UI的数据
+    ]; //暴露给UI的数据
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("让自己等待几秒再继续（通常仅用于主动追问或等待外部进程，因为内部工具通常支持回调，所以不需要使用）")]
@@ -58,7 +60,7 @@ public class SystemEventService(
         ActiveTasks[1].Name = remark;
         timeTask[1] = (time, () => {
             interactor.Poke($"AWake报点：{remark}");
-            timeTask[1] = (DateTime.MaxValue, () => {});//关闭定时提醒
+            timeTask[1] = (DateTime.MaxValue, () => { }); //关闭定时提醒
         });
 
         continuousTimerCount = 0;
@@ -67,7 +69,7 @@ public class SystemEventService(
         interactor.Poke($"已在 {time} 设置事件");
     }
 
-    readonly (DateTime, Action)[] timeTask = new (DateTime, Action)[2];//1为自动定时器，2为定时提醒
+    readonly (DateTime, Action)[] timeTask = new (DateTime, Action)[2]; //1为自动定时器，2为定时提醒
     int continuousTimerCount;
 
     protected override Task OnAwake()
@@ -87,7 +89,7 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
-    protected override async Task OnStart()
+    protected override Task OnStart()
     {
         //设置定时
         timeTask[1].Item1 = DateTime.MaxValue;
@@ -96,16 +98,18 @@ public class SystemEventService(
         //发送系统启动消息
         if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
         {
-            await ChatBot.ChatAsync("""
-                                    角色已激活：
-                                    这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
-                                    此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
-                                    """);
+            ChatBot.Chat("""
+                         角色已激活：
+                         这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
+                         此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
+                         """);
         }
         else
         {
-            await ChatBot.ChatAsync($"程序已重启。{Configuration.StartPrompt}");
+            ChatBot.Chat($"程序已重启。{Configuration.StartPrompt}");
         }
+
+        return Task.CompletedTask;
     }
     protected override Task OnUpdate()
     {
@@ -129,7 +133,7 @@ public class SystemEventService(
         if (message.Contains(ChatBot.PokeMessageTag) == false)
         {
             continuousTimerCount = 0;
-            NextTimer();//重置自动报点
+            NextTimer(); //重置自动报点
         }
     }
 
@@ -143,12 +147,13 @@ public class SystemEventService(
     }
     void NextTimer()
     {
-        int currentInterval = GetNextInterval(continuousTimerCount, Random.Shared.Next(-Configuration.UpdateRandomOffset, Configuration.UpdateRandomOffset));
+        int currentInterval = GetNextInterval(continuousTimerCount,
+            Random.Shared.Next(-Configuration.UpdateRandomOffset, Configuration.UpdateRandomOffset));
 
         timeTask[0].Item1 = DateTime.Now.AddSeconds(currentInterval);
         timeTask[0].Item2 = () => {
             if (functionService.IsIdle == false)
-                NextTimer();//发生碰撞，重新尝试
+                NextTimer(); //发生碰撞，重新尝试
             else
             {
                 StringBuilder stringBuilder = new();

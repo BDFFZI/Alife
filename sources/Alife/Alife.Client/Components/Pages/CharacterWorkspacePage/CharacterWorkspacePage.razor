@@ -181,7 +181,7 @@ else
         if (character == null || activity != null)
             return;
 
-        characterConfigUI?.SaveSettings();
+        characterConfigUI?.SaveCharacter();
         Task.Run(() => ChatActivitySystem.Activate(character));
     }
     void DeactivateCharacter()

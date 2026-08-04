@@ -4,101 +4,73 @@
 @inject INotificationService NotificationService
 
 <div style="padding: 24px; height: 100%; display: flex; flex-direction: column; overflow: hidden;">
-    @if (Character != null)
-    {
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
-                <Checkbox @bind-Value="autoActivate"
-                          Disabled="@(Activity != null)">
-                    开机自动激活
-                </Checkbox>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <Button Icon="@IconType.Outline.Reload"
-                            Loading="isLoading" OnClick="@(ReloadCharacter)">重载配置
-                    </Button>
-                    @if (Activity == null)
-                    {
-                        <Button id="btn-save-character-settings"
-                                Type="@ButtonType.Primary"
-                                Icon="@IconType.Outline.Save"
-                                Loading="isSaving" OnClick="@(SaveSettings)">保存配置
-                        </Button>
-                    }
-                </div>
-            </div>
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
+        <Checkbox @bind-Value="Character.AutoActivate"
+                  Disabled="@(Activity != null)">
+            开机自动激活
+        </Checkbox>
+        @if (Activity == null)
+        {
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <Button Icon="@IconType.Outline.Reload"
+                        Loading="isLoading" OnClick="@(LoadCharacter)">重载配置
+                </Button>
 
-            <Alert Message="提示" Description="角色活动时无法修改配置喵。" Type="@AlertType.Info"
-                   ShowIcon="true"
-                   Style="@($"margin-bottom: 16px; flex-shrink: 0; display: {(Activity != null ? "block" : "none")}")"/>
+                <Button Type="@ButtonType.Primary"
+                        Icon="@IconType.Outline.Save"
+                        Loading="isLoading" OnClick="@(SaveCharacter)">保存配置
+                </Button>
 
-            <div style="flex: 1; display: flex; gap: 24px; min-height: 0;">
-                <div style="flex: 3; display: flex; flex-direction: column; min-width: 0;">
-                    <Title Level="5" Style="flex-shrink: 0;">生日 (Birthday)</Title>
-                    <DatePicker @bind-Value="birthday"
-                                Disabled="@(Activity != null)"
-                                Format="yyyy-MM-dd HH:mm:ss"
-                                ShowTime="@true"
-                                Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
-
-                    <Title Level="5" Style="flex-shrink: 0;">简介 (Description)</Title>
-                    <Input @bind-Value="Character.Description"
-                           Disabled="@(Activity != null)"
-                           Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
-
-                    <Title Level="5" Style="flex-shrink: 0;">设定 (System Prompt)</Title>
-                    <TextArea @bind-Value="Character.Prompt"
-                              Disabled="@(Activity != null)"
-                              Style="border-radius: 8px; flex: 1; resize: none;"></TextArea>
-                </div>
-
-                <div style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
-                    <Title Level="5" Style="flex-shrink: 0;">功能 (Modules)</Title>
-                    <div
-                        style="flex: 1; overflow-y: auto; border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px; background: @(Activity != null ? "#fafafa" : "#fff")">
-                        <StringFolderSelectorUI
-                            Context="@(ModuleSystem.GetModuleFolder())"
-                            ItemTitleFilter="@(fullName => GetModuleName(fullName))"
-                            IsChecking="moduleIDs"
-                            IsReadOnly="@(Activity != null)"
-                            IsCheckingChanged="OnModuleCheckingChanged">
-                        </StringFolderSelectorUI>
-                    </div>
-                </div>
             </div>
         }
-    else
-    {
-        <Empty Description="@("角色为空！")"/>
-    }
+    </div>
+
+    <Alert Message="提示" Description="角色活动时无法修改配置喵。" Type="@AlertType.Info"
+           ShowIcon="true"
+           Style="@($"margin-bottom: 16px; flex-shrink: 0; display: {(Activity != null ? "block" : "none")}")"/>
+
+    <div style="flex: 1; display: flex; gap: 24px; min-height: 0;">
+        <div style="flex: 3; display: flex; flex-direction: column; min-width: 0;">
+            <Title Level="5" Style="flex-shrink: 0;">生日 (Birthday)</Title>
+            <DatePicker @bind-Value="Character.Birthday"
+                        Disabled="@(Activity != null)"
+                        Format="yyyy-MM-dd HH:mm:ss"
+                        ShowTime="@true"
+                        Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
+
+            <Title Level="5" Style="flex-shrink: 0;">简介 (Description)</Title>
+            <Input @bind-Value="Character.Description"
+                   Disabled="@(Activity != null)"
+                   Style="margin-bottom: 16px; border-radius: 8px; flex-shrink: 0;"/>
+
+            <Title Level="5" Style="flex-shrink: 0;">设定 (System Prompt)</Title>
+            <TextArea @bind-Value="Character.Prompt"
+                      Disabled="@(Activity != null)"
+                      Style="border-radius: 8px; flex: 1; resize: none;"></TextArea>
+        </div>
+
+        <div style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
+            <Title Level="5" Style="flex-shrink: 0;">功能 (Modules)</Title>
+            <div
+                style="flex: 1; overflow-y: auto; border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px; background: @(Activity != null ? "#fafafa" : "#fff")">
+                <StringFolderSelectorUI
+                    Context="@(ModuleSystem.GetModuleFolder())"
+                    ItemTitleFilter="@(GetModuleName)"
+                    IsChecking="Character.Modules"
+                    IsReadOnly="@(Activity != null)">
+                </StringFolderSelectorUI>
+            </div>
+        </div>
+    </div>
 </div>
 
 @code
 {
-    [Parameter] public Character? Character { get; set; }
+    [Parameter] public Character Character { get; set; } = null!;
     [Parameter] public ChatActivity? Activity { get; set; }
 
-    bool isSaving;
     bool isLoading;
-    bool autoActivate;
-    HashSet<string> moduleIDs = new();
-    DateTime birthday;
-
-    protected override void OnInitialized()
-    {
-        if (Character != null)
-        {
-            moduleIDs = Character.Modules.ToHashSet();
-            autoActivate = Character.AutoActivate;
-            birthday = Character.Birthday;
-        }
-    }
-
-    void OnModuleCheckingChanged(HashSet<string> ids)
-    {
-        if (Activity != null)
-            return;
-
-        moduleIDs = ids;
-    }
 
     string GetModuleName(string fullName)
     {
@@ -108,46 +80,25 @@
         return attr?.Name ?? type.Name;
     }
 
-    public void SaveSettings()
+    public async Task SaveCharacter()
     {
-        if (isSaving || Character == null || Activity != null) return;
-        isSaving = true;
-        try
-        {
-            Character.Modules = moduleIDs.ToHashSet();
-            Character.AutoActivate = autoActivate;
-            Character.Birthday = birthday;
-            CharacterSystem.SaveCharacter(Character);
-
-            _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });
-        }
-        finally
-        {
-            isSaving = false;
-            _ = InvokeAsync(StateHasChanged);
-        }
+        isLoading = true;
+        await CharacterSystem.SaveCharacter(Character);
+        _ = NotificationService.Success(new NotificationConfig {
+            Message = "角色配置已成功保存！"
+        });
+        isLoading = false;
+        StateHasChanged();
     }
 
-    async Task ReloadCharacter()
+    async Task LoadCharacter()
     {
-        if (isLoading || Character == null) return;
         isLoading = true;
-        try
-        {
-            await CharacterSystem.LoadCharacter(Character);
-            moduleIDs = Character.Modules.ToHashSet();
-            autoActivate = Character.AutoActivate;
-            birthday = Character.Birthday;
-            _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已重新加载！" });
-        }
-        catch (Exception ex)
-        {
-            _ = NotificationService.Error(new NotificationConfig { Message = $"重载失败：{ex.Message}" });
-        }
-        finally
-        {
-            isLoading = false;
-            _ = InvokeAsync(StateHasChanged);
-        }
+        await CharacterSystem.LoadCharacter(Character);
+        _ = NotificationService.Success(new NotificationConfig {
+            Message = "角色配置已重新加载！"
+        });
+        isLoading = false;
+        _ = InvokeAsync(StateHasChanged);
     }
 }
