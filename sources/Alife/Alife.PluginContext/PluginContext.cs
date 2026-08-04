@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Newtonsoft.Json;
@@ -150,8 +151,7 @@ public class PluginContext(
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
-        pluginLoadContext.Disposed += async () =>
-        {
+        pluginLoadContext.Disposed += async () => {
             currentPluginLoadContexts.Remove(pluginId);
             if (PluginUnloadedAsync != null)
             {
@@ -186,6 +186,17 @@ public class PluginContext(
 
     public string GetPluginManifestPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");
     public string GetPluginDirectoryPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId);
+
+    public string? GetTypeAttachedPlugin(Type type)
+    {
+        AssemblyLoadContext? assemblyLoadContext = AssemblyLoadContext.GetLoadContext(type.Assembly);
+        if (assemblyLoadContext == null)
+            return null;
+        string? pluginId = assemblyLoadContext.Name;
+        if (pluginId == null || currentPluginLoadContexts.ContainsKey(pluginId) == false)
+            return null;
+        return pluginId;
+    }
 
     public PluginManifest LoadPluginManifest(string pluginId)
     {

@@ -1,6 +1,11 @@
 @using System.Reflection
 @using Newtonsoft.Json
+@using Alife.PluginContext
 @inject ConfigurationSystem ConfigurationSystem
+@inject PluginContext PluginContext
+@inject INotificationService NotificationService
+
+<ErrorWindowUI Title="插件重载失败喵！" @bind-Value="@exception"></ErrorWindowUI>
 
 <div style="display: flex; flex-direction: column; height: 100%;">
     @* ═══ 页头：元数据（固定） ═══ *@
@@ -8,6 +13,21 @@
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Start">
             <div>
                 <Title Level="3" Style="margin: 0 0 4px 0;">@ModuleAttr.Name</Title>
+                <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: rgba(0,0,0,0.45);"/>
+                    @if (attachedPluginId == null)
+                    {
+                        <AntDesign.Text Type="@TextElementType.Secondary">内置插件</AntDesign.Text>
+                    }
+                    else
+                    {
+                        <AntDesign.Text>@attachedPluginId</AntDesign.Text>
+                        <Tooltip Title="重载此插件">
+                            <Button Type="@ButtonType.Text" Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload"
+                                    Loading="@isReloadingPlugin" OnClick="@ReloadPlugin"></Button>
+                        </Tooltip>
+                    }
+                </div>
                 <Text Type="@TextElementType.Secondary" Copyable>@ModuleType.FullName</Text>
             </div>
             @if (ModuleAttr.LaunchOrder != 0)
@@ -61,6 +81,9 @@
     object? Module { get; set; }
     object? configuration;
     bool isConfigurable;
+    string? attachedPluginId;
+    bool isReloadingPlugin;
+    Exception? exception;
 
     RenderFragment DefaultUI => __builder => {
         if (isConfigurable)
@@ -72,9 +95,32 @@
 
     protected override void OnParametersSet()
     {
+        attachedPluginId = PluginContext.GetTypeAttachedPlugin(ModuleType);
         Module = ChatActivity?.Container.Instances.FirstOrDefault(instance => instance.GetType() == ModuleType);
         isConfigurable = ConfigurationSystem.CanConfiguration(ModuleType);
         LoadConfiguration();
+    }
+
+    async Task ReloadPlugin()
+    {
+        if (attachedPluginId == null) return;
+
+        isReloadingPlugin = true;
+        StateHasChanged();
+        try
+        {
+            await Task.Run(() => PluginContext.ReloadPluginDll(attachedPluginId, true));
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 {attachedPluginId} 已重载" });
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+        }
+        finally
+        {
+            isReloadingPlugin = false;
+            StateHasChanged();
+        }
     }
 
     void LoadConfiguration()
