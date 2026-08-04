@@ -212,4 +212,4 @@ Alife 目前尚未建立文档，你可以尝试使用 Copilot、[DeepWiki](http
 
 ## 📄 许可证 (License)
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 许可协议。
+本项目采用 [GNU Affero General Public License v3.0](LICENSE) 许可协议。
