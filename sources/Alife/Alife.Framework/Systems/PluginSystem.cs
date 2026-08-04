@@ -105,16 +105,15 @@ public class PluginSystem(
         return pluginMarket.ResolveBeDependentPlugins(pluginId);
     }
 
-    public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
+    public async Task InstallPlugins(IEnumerable<KeyValuePair<PluginPackage, string>> plugins)
     {
-        await pluginMarket.InstallPlugins(plugins);
-        PluginSyncReport report = await pluginContext.SyncPluginEnvironment();
+        //卸载插件并删除其dll，以便在后同步插件环境时重新编译加载
         foreach ((PluginPackage pluginPackage, _) in plugins)
-        {
-            if (report.ReloadedPlugins.Contains(pluginPackage.Id))
-                continue;
-            await pluginContext.ReloadPluginDll(pluginPackage.Id);
-        }
+            await pluginContext.UnloadPluginDll(pluginPackage.Id);
+        //下载新的插件文件
+        await pluginMarket.InstallPlugins(plugins);
+        //重新加载
+        await pluginContext.SyncPluginEnvironment();
     }
 
     public async Task UninstallPlugins(IEnumerable<PluginPackage> pluginPackages)

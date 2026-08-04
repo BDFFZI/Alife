@@ -183,9 +183,16 @@ public class PluginContext(
             }
         }
     }
+    public async Task UnloadPluginDll(string pluginId)
+    {
+        if (currentPluginLoadContexts.TryGetValue(pluginId, out var value))
+            await value.DisposeAsync();
+        File.Delete(GetPluginCompiledDllPath(pluginId));
+    }
 
     public string GetPluginManifestPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");
     public string GetPluginDirectoryPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId);
+    public string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
 
     public string? GetTypeAttachedPlugin(Type type)
     {
@@ -197,6 +204,7 @@ public class PluginContext(
             return null;
         return pluginId;
     }
+
 
     public PluginManifest LoadPluginManifest(string pluginId)
     {
@@ -216,7 +224,6 @@ public class PluginContext(
     readonly Dictionary<string, PluginManifest> allPluginManifests = new();
     readonly Dictionary<string, PluginLoadContext> currentPluginLoadContexts = new();
 
-    string GetPluginCompiledDllPath(string pluginId) => Path.Combine(dllOutputDirectory, pluginId + ".dll");
 
     void CompilePluginCode(string pluginId)
     {

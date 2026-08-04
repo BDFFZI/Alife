@@ -41,12 +41,13 @@ public class PluginMarket
         SaveCache();
     }
 
-    public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
+    public async Task InstallPlugins(IEnumerable<KeyValuePair<PluginPackage, string>> plugins)
     {
         DependencyResolver dependencyResolver = new();
-        while (plugins.Count != 0)
+        List<KeyValuePair<PluginPackage, string>> pluginPlan = plugins.ToList();
+        while (pluginPlan.Count != 0)
         {
-            (PluginPackage plugin, string version) = plugins[0];
+            (PluginPackage plugin, string version) = pluginPlan[0];
             //安装插件文件
             await pluginInstaller.InstallPlugin(plugin, version);
             PluginInstalled?.Invoke(plugin, version);
@@ -69,11 +70,11 @@ public class PluginMarket
                         throw new Exception($"依赖的插件 {pluginId} 没有发布版本，无法安装。");
 
                     string bestVersion = dependencyResolver.ResolveBestVersion(pluginId, releases.Select(pair => pair.Key));
-                    plugins.Add(new KeyValuePair<PluginPackage, string>(pluginPackage, bestVersion));
+                    pluginPlan.Add(new KeyValuePair<PluginPackage, string>(pluginPackage, bestVersion));
                 }
             }
 
-            plugins.RemoveAt(0);
+            pluginPlan.RemoveAt(0);
         }
     }
 
