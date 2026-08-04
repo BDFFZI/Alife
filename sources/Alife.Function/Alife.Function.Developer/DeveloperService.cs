@@ -189,9 +189,8 @@ public class DeveloperService(
                                 XmlHandler xmlHandler = new(this) {
                                     Description = "此服务可以为你提供一个生成随机数的功能。",
                                 };
-                                functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken); //传入取消 token 可以在模块销毁时自动取消注册，方便进行热重载
-
-                                interactor.Prompt("..."); //利用 Prompt 功能额外添加一些自定义提示词
+                                functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken); //传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
+                                interactor.Prompt(xmlHandler.Document());//注入系统生成的函数调用提示词
 
                                 return Task.CompletedTask;
                             }
@@ -220,20 +219,24 @@ public class DeveloperService(
     public void ReadDemoPluginManifest()
     {
         interactor.Poke("""
+                        ```json
                         {
-                          "Version": "3.0.0", //你的插件版本
-                          "Dependencies": { //对其他插件的依赖（可选）
-                            "Alife.Function.FunctionCaller": "<=3.99.0" //可以设置版本要求，支持`>=`,`<=`,`==`,`留空`
+                          "Version": "x.x.x",//你的插件版本，首位应与客户端一致
+                          "Dependencies": {//对其他插件的依赖（可选）
+                            "Alife.Function.FunctionCaller": ""
                           },
                           "Environments": {//对运行环境的依赖（可选）
                             "nuget": {
-                              "Newtonsoft.Json": ">=13.0.3" //所有依赖都可以设置版本要求
+                              "Newtonsoft.Json": ""
                             },
                             "pip": {
-                              "requests": "" //留空表示不限版本，建议所有依赖默认都留空，以实现最大兼容
+                              "requests": ""
                             }
                           }
                         }
+                        ```
+                        所有插件或环境依赖都可以限制版本号，支持`>=`,`<=`,`==`,或者留空，留空表示不限制版本。
+                        比如：`"Newtonsoft.Json": ">=13.0.3"`，`"Alife.Function.FunctionCaller": "<=3.99.0`。不过为了最大兼容性，建议都留空，因为运行环境是全插件共享的。
                         """);
     }
 
@@ -243,17 +246,14 @@ public class DeveloperService(
         XmlHandler xmlHandler = new(this) {
             Description = "当你需要帮助用户解决当前软件问题或想进行插件开发时使用",
             Explanation = $$"""
-                            Alife是一款AIAgent，源码在`https://github.com/BDFFZI/Alife`，需要深入研究请下源码
+                            当前客户端版本：{{pluginSystem.ClientVersion}}
+                            Alife是一款AIAgent，源码在`https://github.com/BDFFZI/Alife`，请先下载源码，以便查看API和实现机制。
 
-                            框架结构
-                            Character：存储ai人设功能配置
-                            ChatBot：与llm实际通讯
-                            ChatActivity：创建会话活动，激活插件，连接llm
-                            Module：功能单位，可被热更加载
+                            插件市场
+                            当你开发完插件后，可以在`https://github.com/BDFFZI/Alife.PluginMarket`中分享你的插件。
+                            并且该仓库的 README 还有更详细的插件开发、分发指南，需要更专业的插件开发帮助时，请查阅它。
 
                             环境目录
-                            应用目录：{{AppContext.BaseDirectory}}
-                            环境目录：{{AlifePath.RuntimeFolderPath}}
                             存储目录：{{AlifePath.StorageFolderPath}}
                             角色目录：{存储目录}/Character/{{Character.Name}}
                             模块配置：{存储目录}/Configuration
@@ -276,9 +276,7 @@ public class DeveloperService(
                             2. 开发时不要互动，以最快速度专心执行开发任务
                             3. 不要听无关通知，专心开发直到需求完成
                             4. 不要使用Alife.Function作为插件id前缀，这是官方域名。个人插件建议使用自己的作者名开头
-
-                            插件市场
-                            当你开发完插件后，可以在`https://github.com/BDFFZI/Alife.PluginMarket`中分享你的插件
+                            5. 如果要存储持久数据，请通过构造函数引入StorageSystem，具体参考源码 
                             """
         };
         functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit);
