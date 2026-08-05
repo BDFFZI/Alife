@@ -80,24 +80,7 @@
             }
         </div>
 
-        <div class="path-item">
-            <div class="path-header">
-                <span class="path-label">HuggingFace 缓存路径</span>
-                <span class="path-status @(HasNonAscii(huggingfacePath) ? "error" : "ok")">
-                    @(HasNonAscii(huggingfacePath) ? "包含中文" : "正常")
-                </span>
-            </div>
-            <div class="path-value">@huggingfacePath</div>
-            @if (HasNonAscii(huggingfacePath))
-            {
-                <div class="path-edit">
-                    <Input @bind-Value="newHuggingfacePath" Placeholder="输入新的 HuggingFace 缓存路径" />
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveHuggingfacePath())">
-                        保存
-                    </Button>
-                </div>
-            }
-        </div>
+
     </div>
 
     <div class="step-actions">
@@ -119,12 +102,9 @@
     string runtimePath = "";
     string storagePath = "";
     string modelScopePath = "";
-    string huggingfacePath = "";
-
     string newRuntimePath = "";
     string newStoragePath = "";
     string newModelScopePath = "";
-    string newHuggingfacePath = "";
 
     bool hasNonAsciiPath = false;
 
@@ -145,17 +125,9 @@
                                  Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "modelscope", "hub");
         modelScopePath = modelScopeCache;
 
-        // HuggingFace 缓存路径：先检查进程环境变量，再检查用户环境变量，最后检查系统环境变量
-        string huggingfaceCache = Environment.GetEnvironmentVariable("HF_HOME", EnvironmentVariableTarget.Process) ??
-                                  Environment.GetEnvironmentVariable("HF_HOME", EnvironmentVariableTarget.User) ??
-                                  Environment.GetEnvironmentVariable("HF_HOME", EnvironmentVariableTarget.Machine) ??
-                                  Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "huggingface", "hub");
-        huggingfacePath = huggingfaceCache;
-
         newRuntimePath = runtimePath;
         newStoragePath = storagePath;
         newModelScopePath = modelScopePath;
-        newHuggingfacePath = huggingfacePath;
 
         CheckAllPaths();
     }
@@ -163,7 +135,7 @@
     void CheckAllPaths()
     {
         hasNonAsciiPath = HasNonAscii(runtimePath) || HasNonAscii(storagePath) ||
-                          HasNonAscii(modelScopePath) || HasNonAscii(huggingfacePath);
+                          HasNonAscii(modelScopePath);
     }
 
     bool HasNonAscii(string path)
@@ -200,19 +172,6 @@
             // 同时修改当前进程的环境变量，确保立即生效
             Environment.SetEnvironmentVariable("MODELSCOPE_CACHE", newModelScopePath, EnvironmentVariableTarget.Process);
             modelScopePath = newModelScopePath;
-            CheckAllPaths();
-        }
-    }
-
-    void SaveHuggingfacePath()
-    {
-        if (!HasNonAscii(newHuggingfacePath))
-        {
-            // 永久修改用户环境变量
-            Environment.SetEnvironmentVariable("HF_HOME", newHuggingfacePath, EnvironmentVariableTarget.User);
-            // 同时修改当前进程的环境变量，确保立即生效
-            Environment.SetEnvironmentVariable("HF_HOME", newHuggingfacePath, EnvironmentVariableTarget.Process);
-            huggingfacePath = newHuggingfacePath;
             CheckAllPaths();
         }
     }
