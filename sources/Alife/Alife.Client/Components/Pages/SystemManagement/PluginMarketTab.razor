@@ -26,7 +26,7 @@
                 <Button Type="@ButtonType.Link" Icon="@IconType.Outline.FolderOpen"
                         OnClick="@OpenPluginFolder"></Button>
             </Tooltip>
-            <PluginUpgradeButton OnUpgradeComplete="HandleUpgradeComplete"/>
+            <PluginUpgradeButton/>
             <Badge Count="@(cartItems.Count)">
                 <Button Type="@ButtonType.Primary" Shape="@ButtonShape.Round" Icon="@IconType.Outline.ShoppingCart"
                         OnClick="@(() => showCartModal = true)">
@@ -47,13 +47,11 @@
                           Style="flex: 1; min-width: 180px;"
                           AllowClear="true"
                           AllowFilter="true"
-                          OnSelectionChange="@((e) =>
-                                             {
+                          OnSelectionChange="@((e) => {
                                                  authorSearchText = e.Value?.ToString() ?? "";
                                                  FilterPlugins();
                                              })"
-                          OnInput="@(e =>
-                                   {
+                          OnInput="@(e => {
                                        authorSearchText = e.Value?.ToString() ?? "";
                                        FilterPlugins();
                                    })">
@@ -160,9 +158,10 @@
        Style="top: 40px;">
     @if (inspectingPlugin != null)
     {
-        <PluginDetailView PluginPackage="inspectingPlugin" IsInCart="@(cartItems.Any(p => p.Id == inspectingPlugin?.Id))"
-                          OnBack="@(() => inspectingPlugin = null)"
-                          OnToggleCart="@((val) => ToggleCart(inspectingPlugin!, val))"/>
+        <PluginDetailView PluginPackage="inspectingPlugin"
+                          IsInCart="@(cartItems.Any(p => p.Id == inspectingPlugin?.Id))"
+                          OnToggleCart="@((val) => ToggleCart(inspectingPlugin!, val))"
+                          OnBack="@(() => inspectingPlugin = null)"/>
     }
 </Modal>
 
@@ -173,7 +172,7 @@
        Footer="null"
        Width="480"
        Centered="true">
-    <PluginCartView @bind-CartItems="cartItems" OnOperationComplete="OnCartOperationComplete"/>
+    <PluginCartView @bind-CartItems="cartItems" OnOperationComplete="@(() => showCartModal = false)"/>
 </Modal>
 
 <style>
@@ -227,115 +226,18 @@
     protected override void OnInitialized()
     {
         UpdatePluginOptions();
+        PluginSystem.PluginSynced += OnPluginSynced;
     }
     public async ValueTask DisposeAsync()
     {
+        PluginSystem.PluginSynced -= OnPluginSynced;
         await JsRuntime.InvokeVoidAsync("unwatchPluginMarketResize");
         dotnetRef?.Dispose();
     }
 
-    class Dimensions
+    void OnPluginSynced()
     {
-        public int Width { get; init; }
-        public int Height { get; init; }
-    }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-            return;
-
-        const string JsHelpers =
-            "window.getPluginMarketDimensions = () => {" +
-            "    const container = document.getElementById('pluginMarketContainer');" +
-            "    if (!container) return { width: 0, height: 0 };" +
-            "    return { width: container.clientWidth, height: container.clientHeight };" +
-            "};" +
-            "window._pluginMarketResizeObserver = null;" +
-            "window.watchPluginMarketResize = (dotnetRef) => {" +
-            "    window.unwatchPluginMarketResize();" +
-            "    const container = document.getElementById('pluginMarketContainer');" +
-            "    if (!container) return;" +
-            "    let debounceTimer = null;" +
-            "    window._pluginMarketResizeObserver = new ResizeObserver((entries) => {" +
-            "        if (debounceTimer) clearTimeout(debounceTimer);" +
-            "        debounceTimer = setTimeout(() => {" +
-            "            const entry = entries[0];" +
-            "            if (entry) {" +
-            "                const { width, height } = entry.contentRect;" +
-            "                dotnetRef.invokeMethodAsync('OnContainerResized', Math.round(width), Math.round(height));" +
-            "            }" +
-            "        }, 100);" +
-            "    });" +
-            "    window._pluginMarketResizeObserver.observe(container);" +
-            "};" +
-            "window.unwatchPluginMarketResize = () => {" +
-            "    if (window._pluginMarketResizeObserver) {" +
-            "        window._pluginMarketResizeObserver.disconnect();" +
-            "        window._pluginMarketResizeObserver = null;" +
-            "    }" +
-            "};";
-        await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
-
-        dotnetRef = DotNetObjectReference.Create(this);
-        await JsRuntime.InvokeVoidAsync("watchPluginMarketResize", dotnetRef);
-
-        var dimensions = await JsRuntime.InvokeAsync<Dimensions>("getPluginMarketDimensions");
-        if (dimensions is { Width: > 0, Height: > 0 })
-            ApplyPageSize(dimensions.Width, dimensions.Height);
-    }
-    [JSInvokable]
-    public void OnContainerResized(int width, int height)
-    {
-        if (width > 0 && height > 0)
-            ApplyPageSize(width, height);
-    }
-    void ApplyPageSize(int containerWidth, int containerHeight)
-    {
-        int newPageSize = CalculatePageSize(containerWidth, containerHeight);
-        if (newPageSize != pageSize && newPageSize > 0)
-        {
-            pageSize = newPageSize;
-            int newTotalPages = (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
-            if (currentPage > newTotalPages && newTotalPages > 0)
-                currentPage = newTotalPages;
-            PagePlugins();
-            StateHasChanged();
-        }
-
-        int CalculatePageSize(int containerWidth, int containerHeight)
-        {
-            const int CardMinWidth = 220;
-            const int CardHeight = 100;
-            const int Gap = 12;
-            const int Padding = 24;
-
-            int columns = Math.Max(1, (containerWidth - Padding + Gap) / (CardMinWidth + Gap));
-            int rows = Math.Max(1, (containerHeight - Padding + Gap) / (CardHeight + Gap));
-
-            return columns * rows;
-        }
-    }
-
-
-    async Task FetchOnlinePlugin()
-    {
-        isFetching = true;
-        StateHasChanged();
-
-        try
-        {
-            await PluginSystem.SyncOnlinePlugins();
-            await PluginSystem.SyncLocalPlugins();
-            UpdatePluginOptions();
-        }
-        catch (Exception e)
-        {
-            operException = e;
-            StateHasChanged();
-        }
-
-        isFetching = false;
-        StateHasChanged();
+        UpdatePluginOptions();
     }
     void UpdatePluginOptions()
     {
@@ -418,16 +320,111 @@
             .Skip((currentPage - 1) * pageSize)
             .Take(pageSize)
             .ToArray();
+
+        InvokeAsync(StateHasChanged);
     }
 
-    void OnCartOperationComplete()
+    class Dimensions
     {
-        showCartModal = false;
-        UpdatePluginOptions();
+        public int Width { get; init; }
+        public int Height { get; init; }
     }
-    void HandleUpgradeComplete()
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        UpdatePluginOptions();
+        if (!firstRender)
+            return;
+
+        const string JsHelpers =
+            "window.getPluginMarketDimensions = () => {" +
+            "    const container = document.getElementById('pluginMarketContainer');" +
+            "    if (!container) return { width: 0, height: 0 };" +
+            "    return { width: container.clientWidth, height: container.clientHeight };" +
+            "};" +
+            "window._pluginMarketResizeObserver = null;" +
+            "window.watchPluginMarketResize = (dotnetRef) => {" +
+            "    window.unwatchPluginMarketResize();" +
+            "    const container = document.getElementById('pluginMarketContainer');" +
+            "    if (!container) return;" +
+            "    let debounceTimer = null;" +
+            "    window._pluginMarketResizeObserver = new ResizeObserver((entries) => {" +
+            "        if (debounceTimer) clearTimeout(debounceTimer);" +
+            "        debounceTimer = setTimeout(() => {" +
+            "            const entry = entries[0];" +
+            "            if (entry) {" +
+            "                const { width, height } = entry.contentRect;" +
+            "                dotnetRef.invokeMethodAsync('OnContainerResized', Math.round(width), Math.round(height));" +
+            "            }" +
+            "        }, 100);" +
+            "    });" +
+            "    window._pluginMarketResizeObserver.observe(container);" +
+            "};" +
+            "window.unwatchPluginMarketResize = () => {" +
+            "    if (window._pluginMarketResizeObserver) {" +
+            "        window._pluginMarketResizeObserver.disconnect();" +
+            "        window._pluginMarketResizeObserver = null;" +
+            "    }" +
+            "};";
+        await JsRuntime.InvokeVoidAsync("eval", JsHelpers);
+
+        dotnetRef = DotNetObjectReference.Create(this);
+        await JsRuntime.InvokeVoidAsync("watchPluginMarketResize", dotnetRef);
+
+        var dimensions = await JsRuntime.InvokeAsync<Dimensions>("getPluginMarketDimensions");
+        if (dimensions is { Width: > 0, Height: > 0 })
+            ApplyPageSize(dimensions.Width, dimensions.Height);
+    }
+    [JSInvokable]
+    public void OnContainerResized(int width, int height)
+    {
+        if (width > 0 && height > 0)
+            ApplyPageSize(width, height);
+    }
+    void ApplyPageSize(int containerWidth, int containerHeight)
+    {
+        int newPageSize = CalculatePageSize(containerWidth, containerHeight);
+        if (newPageSize != pageSize && newPageSize > 0)
+        {
+            pageSize = newPageSize;
+            int newTotalPages = (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
+            if (currentPage > newTotalPages && newTotalPages > 0)
+                currentPage = newTotalPages;
+            PagePlugins();
+            StateHasChanged();
+        }
+
+        int CalculatePageSize(int containerWidth, int containerHeight)
+        {
+            const int CardMinWidth = 220;
+            const int CardHeight = 100;
+            const int Gap = 12;
+            const int Padding = 24;
+
+            int columns = Math.Max(1, (containerWidth - Padding + Gap) / (CardMinWidth + Gap));
+            int rows = Math.Max(1, (containerHeight - Padding + Gap) / (CardHeight + Gap));
+
+            return columns * rows;
+        }
+    }
+    
+    async Task FetchOnlinePlugin()
+    {
+        isFetching = true;
+        StateHasChanged();
+
+        try
+        {
+            await PluginSystem.SyncOnlinePlugins();
+            await PluginSystem.SyncLocalPlugins();
+        }
+        catch (Exception e)
+        {
+            operException = e;
+            StateHasChanged();
+        }
+
+        isFetching = false;
+        StateHasChanged();
     }
 
     #region 页面功能回调

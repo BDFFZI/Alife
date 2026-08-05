@@ -453,7 +453,7 @@ public class QChatService(
         {
             string privateMessage = $"{formatted}\n{Configuration.AppendPrivateChatPrompt}";
             if (messageEvent.UserId == Configuration.OwnerId)
-                await ChatBot.ChatAsync(privateMessage);
+                await interactor.ChatAsync(privateMessage);
             else
                 interactor.Poke(privateMessage);
         }

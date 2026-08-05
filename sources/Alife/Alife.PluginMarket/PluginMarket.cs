@@ -34,11 +34,13 @@ public class PluginMarket
     public IReadOnlyDictionary<string, PluginPackage> AllPluginPackages => allPluginPackages;
     public string PluginPackagesCacheDirectory => pluginPackagesCacheDirectory;
     public event Action<PluginPackage, string>? PluginInstalled;
+    public event Action? PluginPackageSynced;
 
     public async Task SyncOnlinePluginPackagesAsync()
     {
         allPluginPackages = (await pluginProvider.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
         SaveCache();
+        PluginPackageSynced?.Invoke();
     }
 
     public async Task InstallPlugins(IEnumerable<KeyValuePair<PluginPackage, string>> plugins)

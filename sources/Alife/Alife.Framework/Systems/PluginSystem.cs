@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -7,10 +8,9 @@ using Alife.PluginContext;
 
 namespace Alife.Framework;
 
-public class PluginSystem(
-    PluginMarket.PluginMarket pluginMarket,
-    PluginContext.PluginContext pluginContext)
+public class PluginSystem
 {
+    public event Action? PluginSynced;
     public PluginMarket.PluginMarket PluginMarket => pluginMarket;
     public PluginContext.PluginContext PluginContext => pluginContext;
     public string ClientVersion { get; } = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
@@ -105,7 +105,7 @@ public class PluginSystem(
         return pluginMarket.ResolveBeDependentPlugins(pluginId);
     }
 
-    public async Task InstallPlugins(IEnumerable<KeyValuePair<PluginPackage, string>> plugins)
+    public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
     {
         //卸载插件并删除其dll，以便在后同步插件环境时重新编译加载
         foreach ((PluginPackage pluginPackage, _) in plugins)
@@ -126,5 +126,17 @@ public class PluginSystem(
     public async Task ReloadPlugin(string pluginId)
     {
         await pluginContext.ReloadPluginDll(pluginId, true);
+    }
+
+    readonly PluginMarket.PluginMarket pluginMarket;
+    readonly PluginContext.PluginContext pluginContext;
+
+    public PluginSystem(PluginMarket.PluginMarket pluginMarket,
+        PluginContext.PluginContext pluginContext)
+    {
+        this.pluginMarket = pluginMarket;
+        this.pluginContext = pluginContext;
+        pluginMarket.PluginPackageSynced += () => PluginSynced?.Invoke();
+        pluginContext.PluginEnvironmentSynced += _ => PluginSynced?.Invoke();
     }
 }

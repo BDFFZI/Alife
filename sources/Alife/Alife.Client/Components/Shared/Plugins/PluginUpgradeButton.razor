@@ -1,11 +1,12 @@
 @inject PluginSystem PluginSystem
 @inject StorageSystem StorageSystem
+@implements IDisposable
 
 @if (upgradableCount > 0)
 {
     <Badge Count="@(upgradableCount)" Size="@BadgeSize.Small">
         <Tooltip Title="一键升级所有插件">
-            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.ArrowUp" OnClick="@OpenUpgradeModal"
+            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.ArrowUp" OnClick="@(() => showUpgradeModal = true)"
                     Style="@($"color: {(upgradableCount > 0 ? "#52c41a" : "#d9d9d9")};")"
                     Class="@("upgrade-btn" + (showUpgradeModal || hideUpgradeAnimation ? " upgrade-paused" : ""))">
                 一键升级
@@ -14,8 +15,7 @@
     </Badge>
 
     <PluginUpgradeModal @bind-Visible="showUpgradeModal"
-                        UpgradeList="upgradeList"
-                        OnUpgradeComplete="HandleUpgradeComplete">
+                        UpgradeList="upgradeList">
         <HeaderContent>
             <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
                 一键升级不仅可以批量配置插件环境，还可以避免插件版本冲突，实现更快更安全的升级，<b style="color: #1890ff;">建议总是使用一键升级来升级插件</b>。
@@ -63,47 +63,35 @@
 </style>
 
 @code {
-    [Parameter] public EventCallback OnUpgradeComplete { get; set; }
+    List<PluginUpgradeModal.UpgradeItem> upgradeList = [];
+    int upgradableCount;
 
     bool showUpgradeModal;
     bool hideUpgradeAnimation;
-    int upgradableCount;
-    List<PluginUpgradeModal.UpgradeItem> upgradeList = [];
 
     protected override void OnInitialized()
     {
         hideUpgradeAnimation = StorageSystem.GetObject("Settings/PluginMarketViewConfig", new UpgradeAnimationConfig())?.HideUpgradeAnimation ?? false;
+        UpdateUpgradeList();
+        PluginSystem.PluginSynced += UpdateUpgradeList;
+    }
+    public void Dispose()
+    {
+        PluginSystem.PluginSynced -= UpdateUpgradeList;
     }
 
-    protected override void OnParametersSet()
+    void UpdateUpgradeList()
     {
-        upgradableCount = BuildUpgradeList().Count;
-    }
-
-    void OpenUpgradeModal()
-    {
-        upgradeList = BuildUpgradeList();
-        showUpgradeModal = true;
-    }
-
-    List<PluginUpgradeModal.UpgradeItem> BuildUpgradeList()
-    {
-        return PluginSystem.GetAllOnlinePlugins().Values
+        upgradeList = PluginSystem.GetAllOnlinePlugins().Values
             .Where(p => PluginSystem.HasUpdate(p))
-            .Select(p => new PluginUpgradeModal.UpgradeItem
-            {
+            .Select(p => new PluginUpgradeModal.UpgradeItem {
                 PluginPackage = p,
-                NewVersion = PluginSystem.GetLatestVersion(p) ?? "",
-                OldVersion = PluginSystem.GetInstalledVersion(p.Id) ?? ""
+                NewVersion = PluginSystem.GetLatestVersion(p)!,
+                OldVersion = PluginSystem.GetInstalledVersion(p.Id)!
             })
-            .Where(x => !string.IsNullOrEmpty(x.NewVersion) && !string.IsNullOrEmpty(x.OldVersion))
             .ToList();
-    }
-
-    async Task HandleUpgradeComplete()
-    {
-        StateHasChanged();
-        await OnUpgradeComplete.InvokeAsync();
+        upgradableCount = upgradeList.Count;
+        InvokeAsync(StateHasChanged);
     }
 
     void OnHideAnimationChanged(bool checkedValue)

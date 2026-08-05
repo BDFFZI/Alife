@@ -1,5 +1,6 @@
 @using Alife.PluginMarket
 @inject PluginSystem PluginSystem
+@implements IDisposable
 
 <div class="plugin-card" @onclick="HandleClick">
     <div class="plugin-card-header">
@@ -112,6 +113,19 @@
     [Parameter] public bool IsInCart { get; set; }
     [Parameter] public EventCallback<bool> OnToggleCart { get; set; }
     [Parameter] public EventCallback<PluginPackage> OnClick { get; set; }
+
+    protected override void OnInitialized()
+    {
+        PluginSystem.PluginSynced += OnPluginSynced;
+    }
+    public void Dispose()
+    {
+        PluginSystem.PluginSynced -= OnPluginSynced;
+    }
+    void OnPluginSynced()
+    {
+        InvokeAsync(StateHasChanged);
+    }
 
     async Task HandleClick()
     {

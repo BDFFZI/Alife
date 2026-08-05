@@ -460,7 +460,6 @@
 
         _ = UpdateStatusLoop();
     }
-
     protected override void OnParametersSet()
     {
         if (lastCharacterName != CharacterName)
@@ -483,6 +482,7 @@
             await JsRuntime.InvokeVoidAsync("setupChatScroll");
             dotNetRef = DotNetObjectReference.Create(this);
         }
+
         await JsRuntime.InvokeVoidAsync("setupSplitter");
         if (dotNetRef != null)
             await JsRuntime.InvokeVoidAsync("setupChatInputEnter", "chatInput", dotNetRef);
@@ -499,7 +499,9 @@
         ChatMessageService.ChatExceptionThrew -= OnChatExceptionThrew;
         ChatMessageService.ChatbotMapUpdated -= OnChatbotMapUpdated;
         dotNetRef?.Dispose();
+        dotNetRef = null;
     }
+
 
     async Task UpdateStatusLoop()
     {
@@ -573,7 +575,7 @@
         }
 
         ChatMessageService.SendMessage(CharacterName, rawInputText.Trim());
-        ChatMessageService.SetDraft(CharacterName, "");// 发送成功后清空草稿
+        ChatMessageService.SetDraft(CharacterName, ""); // 发送成功后清空草稿
         await InvokeAsync(StateHasChanged);
 
         await JsRuntime.InvokeVoidAsync("forceScrollBottom");

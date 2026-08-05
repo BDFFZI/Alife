@@ -23,11 +23,11 @@
                         <Tag>@mirror.Provider</Tag>
                         @if (mirror.Recommended)
                         {
-                            <Tag Color="@("green")">推荐</Tag>
+                            <Tag Color="@("green")">稳定</Tag>
                         }
                         else
                         {
-                            <Tag Color="@("orange")">不推荐</Tag>
+                            <Tag Color="@("orange")">不稳定</Tag>
                         }
                     </div>
                     <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@mirror.Description</Text>
@@ -46,24 +46,30 @@
                                 </div>
                             }
                             
-                            <RadioGroup @bind-Value="@selectedGithubMirror">
+                            <RadioGroup @bind-Value="@selectedGithubDomain">
                                 <div class="github-candidates">
                                     @foreach (var candidate in githubCandidates)
                                     {
-                                        <div class="candidate-item @(selectedGithubMirror == candidate.Url ? "selected" : "")">
-                                            <Radio Value="@candidate.Url">
+                                        <div class="candidate-item @(selectedGithubDomain == candidate.Domain ? "selected" : "")">
+                                            <Radio Value="@candidate.Domain">
                                                 <div class="candidate-content">
                                                     <span class="candidate-url">@candidate.Url</span>
-                                                    @if (candidate.Latency.HasValue)
+                                                    @if (candidate.IsTesting)
+                                                    {
+                                                        <span class="candidate-testing">
+                                                            <Spin/>
+                                                        </span>
+                                                    }
+                                                    else if (candidate.Latency.HasValue)
                                                     {
                                                         <span class="candidate-latency @(candidate.Latency < 500 ? "fast" : candidate.Latency < 1000 ? "medium" : "slow")">
                                                             @candidate.Latency ms
                                                         </span>
                                                     }
-                                                    @if (candidate.IsTesting)
+                                                    else if (!isSpeedTesting && speedTestedCount > 0)
                                                     {
-                                                        <span class="candidate-testing">
-                                                            <Spin/>
+                                                        <span class="candidate-latency slow">
+                                                            超时
                                                         </span>
                                                     }
                                                     @if (candidate.IsFastest)
@@ -111,16 +117,13 @@
                         }
                     }
                 </div>
-                @if (mirror.Id != "github")
-                {
-                    <Switch @bind-Value="@enabledMirrors[mirror.Id]"/>
-                }
+                <Switch @bind-Value="@enabledMirrors[mirror.Id]"/>
             </div>
         }
     </div>
 
     <Alert ShowIcon="true" Type="AlertType.Warning" Style="margin-top: 12px;"
-           Message="必须配置镜像或自备工具，如果失效，后续环境安装很可能失败！"></Alert>
+           Message="镜像不稳定，建议自备工具，或定期检查镜像，否则会影响软件使用！"></Alert>
     
     <div class="step-nav">
         <Button Size="@ButtonSize.Large" OnClick="@OnPrev">
@@ -149,17 +152,15 @@
     class GithubCandidate
     {
         public string Domain { get; }
-        public string Url { get; }
-        public string TestUrl { get; }
+        public string Url => $"https://{Domain}/https://github.com";
+        public string TestUrl => $"https://{Domain}/{GithubTestFile}";
         public long? Latency { get; set; }
         public bool IsTesting { get; set; }
         public bool IsFastest { get; set; }
 
-        public GithubCandidate(string domain, string url, string testUrl)
+        public GithubCandidate(string domain)
         {
             Domain = domain;
-            Url = url;
-            TestUrl = testUrl;
         }
     }
 
@@ -198,15 +199,19 @@
         ),
     ];
 
+    const string GithubTestFile = "https://raw.githubusercontent.com/BDFFZI/Alife/refs/heads/master/README.md";
+    
     readonly List<GithubCandidate> githubCandidates = [
-        new("gh-proxy.com", "https://gh-proxy.com/https://github.com", "https://gh-proxy.com/https://github.com/favicon.ico"),
-        new("gh-proxy.org", "https://gh-proxy.org/https://github.com", "https://gh-proxy.org/https://github.com/favicon.ico"),
-        new("hk.gh-proxy.org", "https://hk.gh-proxy.org/https://github.com", "https://hk.gh-proxy.org/https://github.com/favicon.ico"),
-        new("cdn.gh-proxy.org", "https://cdn.gh-proxy.org/https://github.com", "https://cdn.gh-proxy.org/https://github.com/favicon.ico"),
-        new("edgeone.gh-proxy.org", "https://edgeone.gh-proxy.org/https://github.com", "https://edgeone.gh-proxy.org/https://github.com/favicon.ico"),
+        new("gh-proxy.com"),
+        new("gh-proxy.org"),
+        new("v4.gh-proxy.org"),
+        new("v6.gh-proxy.org"),
+        new("hk.gh-proxy.org"),
+        new("cdn.gh-proxy.org"),
+        new("edgeone.gh-proxy.org"),
     ];
 
-    string selectedGithubMirror = "";
+    string selectedGithubDomain = "";
     bool isSpeedTesting = false;
     int speedTestedCount = 0;
     readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
@@ -223,52 +228,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        bool anyConfigured = AvailableMirrors.Any(IsMirrorConfigured);
-        if (anyConfigured)
-        {
-            foreach (var mirror in AvailableMirrors)
-            {
-                if (mirror.Id != "github")
-                    enabledMirrors[mirror.Id] = IsMirrorConfigured(mirror);
-            }
-        }
-        else
-        {
-            foreach (var mirror in AvailableMirrors)
-            {
-                if (mirror.Id != "github")
-                    enabledMirrors[mirror.Id] = mirror.Recommended;
-            }
-        }
+        foreach (var mirror in AvailableMirrors)
+            enabledMirrors[mirror.Id] = true;
 
         await StartSpeedTest();
-    }
-
-    bool IsMirrorConfigured(MirrorItem mirror)
-    {
-        if (mirror.Id == "github")
-        {
-            return AlifeMirror.MirrorUrlMap.ContainsKey("https://github.com");
-        }
-        
-        foreach (var kv in mirror.UrlMappings)
-        {
-            if (!AlifeMirror.MirrorUrlMap.TryGetValue(kv.Key, out var v) || v != kv.Value)
-                return false;
-        }
-        foreach (var kv in mirror.EnvironmentVariables)
-        {
-            if (!AlifeMirror.MirrorEnvironmentVariables.TryGetValue(kv.Key, out var v) || v != kv.Value)
-                return false;
-        }
-        return true;
     }
 
     async Task StartSpeedTest()
     {
         isSpeedTesting = true;
         speedTestedCount = 0;
-        selectedGithubMirror = "";
+        selectedGithubDomain = "";
         
         foreach (var candidate in githubCandidates)
         {
@@ -277,7 +247,7 @@
             candidate.IsFastest = false;
         }
         
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
 
         var tasks = githubCandidates.Select(TestCandidateAsync).ToList();
         await Task.WhenAll(tasks);
@@ -290,17 +260,17 @@
         if (fastest != null)
         {
             fastest.IsFastest = true;
-            selectedGithubMirror = fastest.Url;
+            selectedGithubDomain = fastest.Domain;
         }
 
         isSpeedTesting = false;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task TestCandidateAsync(GithubCandidate candidate)
     {
         candidate.IsTesting = true;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
 
         try
         {
@@ -321,7 +291,7 @@
         {
             candidate.IsTesting = false;
             speedTestedCount++;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -332,20 +302,23 @@
 
         foreach (var mirror in AvailableMirrors)
         {
-            if (mirror.Id == "github")
+            if (enabledMirrors.GetValueOrDefault(mirror.Id))
             {
-                if (!string.IsNullOrEmpty(selectedGithubMirror))
+                if (mirror.Id == "github")
                 {
-                    urlMap["https://github.com"] = selectedGithubMirror;
-                    urlMap["https://raw.githubusercontent.com"] = selectedGithubMirror.Replace("/https://github.com", "/https://raw.githubusercontent.com");
+                    if (!string.IsNullOrEmpty(selectedGithubDomain))
+                    {
+                        urlMap["https://github.com"] = $"https://{selectedGithubDomain}/https://github.com";
+                        urlMap["https://raw.githubusercontent.com"] = $"https://{selectedGithubDomain}/https://raw.githubusercontent.com";
+                    }
                 }
-            }
-            else if (enabledMirrors.GetValueOrDefault(mirror.Id))
-            {
-                foreach (var kv in mirror.UrlMappings)
-                    urlMap[kv.Key] = kv.Value;
-                foreach (var kv in mirror.EnvironmentVariables)
-                    envVars[kv.Key] = kv.Value;
+                else
+                {
+                    foreach (var kv in mirror.UrlMappings)
+                        urlMap[kv.Key] = kv.Value;
+                    foreach (var kv in mirror.EnvironmentVariables)
+                        envVars[kv.Key] = kv.Value;
+                }
             }
         }
 
