@@ -46,35 +46,36 @@
                                 </div>
                             }
                             
-                            <div class="github-candidates">
-                                @foreach (var candidate in githubCandidates)
-                                {
-                                    <div class="candidate-item @(selectedGithubMirror == candidate.Url ? "selected" : "")">
-                                        <Radio Value="@(selectedGithubMirror == candidate.Url)" 
-                                               onchange="@(() => SelectGithubMirror(candidate.Url))">
-                                            <div class="candidate-content">
-                                                <span class="candidate-url">@candidate.Url</span>
-                                                @if (candidate.Latency.HasValue)
-                                                {
-                                                    <span class="candidate-latency @(candidate.Latency < 500 ? "fast" : candidate.Latency < 1000 ? "medium" : "slow")">
-                                                        @candidate.Latency ms
-                                                    </span>
-                                                }
-                                                @if (candidate.IsTesting)
-                                                {
-                                                    <span class="candidate-testing">
-                                                        <Spin/>
-                                                    </span>
-                                                }
-                                                @if (candidate.IsFastest)
-                                                {
-                                                    <Tag Color="@("green")">最快</Tag>
-                                                }
-                                            </div>
-                                        </Radio>
-                                    </div>
-                                }
-                            </div>
+                            <RadioGroup @bind-Value="@selectedGithubMirror">
+                                <div class="github-candidates">
+                                    @foreach (var candidate in githubCandidates)
+                                    {
+                                        <div class="candidate-item @(selectedGithubMirror == candidate.Url ? "selected" : "")">
+                                            <Radio Value="@candidate.Url">
+                                                <div class="candidate-content">
+                                                    <span class="candidate-url">@candidate.Url</span>
+                                                    @if (candidate.Latency.HasValue)
+                                                    {
+                                                        <span class="candidate-latency @(candidate.Latency < 500 ? "fast" : candidate.Latency < 1000 ? "medium" : "slow")">
+                                                            @candidate.Latency ms
+                                                        </span>
+                                                    }
+                                                    @if (candidate.IsTesting)
+                                                    {
+                                                        <span class="candidate-testing">
+                                                            <Spin/>
+                                                        </span>
+                                                    }
+                                                    @if (candidate.IsFastest)
+                                                    {
+                                                        <Tag Color="@("green")">最快</Tag>
+                                                    }
+                                                </div>
+                                            </Radio>
+                                        </div>
+                                    }
+                                </div>
+                            </RadioGroup>
                             
                             <Button Size="@ButtonSize.Small" OnClick="@StartSpeedTest" Disabled="@isSpeedTesting">
                                 <Icon Type="@IconType.Outline.Thunderbolt"/>
@@ -110,7 +111,10 @@
                         }
                     }
                 </div>
-                <Switch @bind-Value="@enabledMirrors[mirror.Id]"/>
+                @if (mirror.Id != "github")
+                {
+                    <Switch @bind-Value="@enabledMirrors[mirror.Id]"/>
+                }
             </div>
         }
     </div>
@@ -142,11 +146,21 @@
         Dictionary<string, string> EnvironmentVariables
     );
 
-    record GithubCandidate(string Domain, string Url, string TestUrl)
+    class GithubCandidate
     {
+        public string Domain { get; }
+        public string Url { get; }
+        public string TestUrl { get; }
         public long? Latency { get; set; }
         public bool IsTesting { get; set; }
         public bool IsFastest { get; set; }
+
+        public GithubCandidate(string domain, string url, string testUrl)
+        {
+            Domain = domain;
+            Url = url;
+            TestUrl = testUrl;
+        }
     }
 
     static readonly List<MirrorItem> AvailableMirrors = [
@@ -213,12 +227,18 @@
         if (anyConfigured)
         {
             foreach (var mirror in AvailableMirrors)
-                enabledMirrors[mirror.Id] = IsMirrorConfigured(mirror);
+            {
+                if (mirror.Id != "github")
+                    enabledMirrors[mirror.Id] = IsMirrorConfigured(mirror);
+            }
         }
         else
         {
             foreach (var mirror in AvailableMirrors)
-                enabledMirrors[mirror.Id] = mirror.Recommended;
+            {
+                if (mirror.Id != "github")
+                    enabledMirrors[mirror.Id] = mirror.Recommended;
+            }
         }
 
         await StartSpeedTest();
@@ -305,12 +325,6 @@
         }
     }
 
-    void SelectGithubMirror(string url)
-    {
-        selectedGithubMirror = url;
-        StateHasChanged();
-    }
-
     void ApplyMirrors()
     {
         var urlMap = new Dictionary<string, string>();
@@ -318,20 +332,20 @@
 
         foreach (var mirror in AvailableMirrors)
         {
-            if (enabledMirrors.GetValueOrDefault(mirror.Id))
+            if (mirror.Id == "github")
             {
-                if (mirror.Id == "github" && !string.IsNullOrEmpty(selectedGithubMirror))
+                if (!string.IsNullOrEmpty(selectedGithubMirror))
                 {
                     urlMap["https://github.com"] = selectedGithubMirror;
                     urlMap["https://raw.githubusercontent.com"] = selectedGithubMirror.Replace("/https://github.com", "/https://raw.githubusercontent.com");
                 }
-                else
-                {
-                    foreach (var kv in mirror.UrlMappings)
-                        urlMap[kv.Key] = kv.Value;
-                    foreach (var kv in mirror.EnvironmentVariables)
-                        envVars[kv.Key] = kv.Value;
-                }
+            }
+            else if (enabledMirrors.GetValueOrDefault(mirror.Id))
+            {
+                foreach (var kv in mirror.UrlMappings)
+                    urlMap[kv.Key] = kv.Value;
+                foreach (var kv in mirror.EnvironmentVariables)
+                    envVars[kv.Key] = kv.Value;
             }
         }
 
