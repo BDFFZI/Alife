@@ -58,11 +58,8 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
         XmlHandler xmlHandler = new(this) {
             Description = "此服务可以为你提供一个生成随机数的功能。",
         };
-        functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);//传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
-
-        // 另一种不由FunctionCaller注入提示词，而是手动注入的方法，并且此方法插入的提示词也是可以热重载的（但重载提示词会破坏缓存）
-        // functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken);
-        // interactor.Prompt(xmlHandler.Document());
+        functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken);//传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
+        interactor.Prompt(xmlHandler.Document());//传入函数调用文档或自定义提示词（此方法注入的提示词也可重载，但重载时会破坏缓存）
 
         return Task.CompletedTask;
     }

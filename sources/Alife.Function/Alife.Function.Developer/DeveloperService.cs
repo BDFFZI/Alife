@@ -189,7 +189,8 @@ public class DeveloperService(
                                 XmlHandler xmlHandler = new(this) {
                                     Description = "此服务可以为你提供一个生成随机数的功能。",
                                 };
-                                functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);//传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
+                                functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken);//传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
+                                interactor.Prompt(xmlHandler.Document());//传入函数调用文档或自定义提示词（此方法注入的提示词也可重载，但重载时会破坏缓存）
 
                                 return Task.CompletedTask;
                             }
