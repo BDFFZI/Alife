@@ -83,7 +83,7 @@ public class OpenAILanguageModel(
                                 Total = chatTokenUsage.TotalTokenCount,
                                 Input = chatTokenUsage.InputTokenCount,
                                 Output = chatTokenUsage.OutputTokenCount,
-                                Cached = chatTokenUsage.InputTokenDetails.CachedTokenCount
+                                Cached = chatTokenUsage.InputTokenDetails?.CachedTokenCount ?? 0
                             });
                         }
                     }
