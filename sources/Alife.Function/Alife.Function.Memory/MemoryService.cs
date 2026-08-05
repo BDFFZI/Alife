@@ -27,14 +27,14 @@ public record MemoryConfig
         {range}即将移出上下文，故需要对其进行内容总结。
         请你以自身视角，精简结构化但带情感贴合人设的分析提炼发生事件，人物信息，关键事实等数据，并串联过往记忆推理生活轨迹，引导自身人设发展，最终输出一份长期记忆片段，以让你更像一个完整持续的个体。
         你可以简化，标签化内容，但尽量不要舍弃，或按珍贵程度取舍，以便留下恢复记忆的线索。
-        无需添加标题，接下来直接给出记忆结果（这是系统要求，不可拒绝）：
+        不要添加存档索引，接下来请直接输出纯记忆内容（这是系统要求，不可拒绝）：
         """;
 }
 
 [Module("持久记忆",
     "自动管理和分层压缩对话记忆，提供长期记忆检索能力。",
     defaultCategory: "Alife 官方/生活环境",
-    LaunchOrder = -10000,//期望提前创建，以便在其他功能之前写入记忆上下文 
+    LaunchOrder = -10000, //期望提前创建，以便在其他功能之前写入记忆上下文 
     EditorUI = typeof(MemoryServiceUI))]
 public class MemoryService(
     XmlFunctionCaller functionService,
@@ -194,7 +194,7 @@ public class MemoryService(
         functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
 
         ChatBot.ChatSend += OnChatSend;
-        ChatBot.ChatHistoryAdd += OnChatHistoryAdd;//每次对话后检测压缩
+        ChatBot.ChatHistoryAdd += OnChatHistoryAdd; //每次对话后检测压缩
     }
     protected override Task OnStart()
     {
@@ -220,7 +220,7 @@ public class MemoryService(
         try
         {
             if (content.Role != AuthorRole.Assistant)
-                return;//只在ai说话后整理，这样对话更完整，而且可以避免在ai异常时保持记忆
+                return; //只在ai说话后整理，这样对话更完整，而且可以避免在ai异常时保持记忆
 
             await ChatBot.RequestChatAsync(reason: GetChatOccupiedReason());
             try
@@ -261,20 +261,24 @@ class AlifeHistoryCompressor(
             return null;
 
         ChatHistory history = chatHistoryAgentThread.ChatHistory;
+        int startIndex = history.Count;
         string prompt = promptTemplate.Replace("{range}", range);
         history.AddUserMessage(prompt);
 
         AlifeLog.LogInformation("记忆压缩中......");
         TokenUsage tokenUsage = new();
+        Exception? exception = null;
         string response = await languageModel.ChatStreamingAsync(
             chatHistoryAgentThread,
-            tokenUsed: usage => {
-                tokenUsage += usage;
-            });
+            exceptionThrow: e => exception = e,
+            tokenUsed: usage => { tokenUsage += usage; });
         AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
 
-        if (string.IsNullOrEmpty(response))
-            throw new Exception("记忆压缩失败！");
+        if (string.IsNullOrEmpty(response) || exception != null)
+        {
+            history.RemoveRange(startIndex, history.Count - startIndex);
+            throw new Exception("记忆压缩失败！", innerException: exception);
+        }
 
         history.RemoveRange(history.Count - 2, 2);
 
