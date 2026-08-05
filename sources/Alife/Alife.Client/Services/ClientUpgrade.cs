@@ -6,7 +6,9 @@ using Newtonsoft.Json.Linq;
 using Process = System.Diagnostics.Process;
 
 namespace Alife.Components.Services;
+
 public record UpdateInfo(string Version, string? ReleaseNotes, string DownloadUrl);
+
 public class ClientUpgrade(PluginSystem pluginSystem)
 {
     public string CurrentVersion => pluginSystem.ClientVersion;
@@ -14,7 +16,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
     public async Task FetchNewVersion()
     {
         const string rawGitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
-        string response = await AlifeUtility.FetchStringAsync(rawGitHubApiUrl);
+        string response = await AlifeUtility.FetchStringAsync(rawGitHubApiUrl, TimeSpan.FromSeconds(7));
         JObject json = JObject.Parse(response);
 
         string? tagName = json["tag_name"]?.ToString();
@@ -45,8 +47,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
             Directory.Delete(tempDir, true);
 
         string zipPath = Path.Combine(tempDir, "Alife.zip");
-        await AlifeUtility.DownloadFileAsync(NewVersion.DownloadUrl, zipPath, (read, total) =>
-        {
+        await AlifeUtility.DownloadFileAsync(NewVersion.DownloadUrl, zipPath, (read, total) => {
             if (total > 0)
                 onProgress?.Invoke((int)(read * 100 / total));
         });
@@ -111,8 +112,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
               exit
               """);
 
-        Process.Start(new ProcessStartInfo
-        {
+        Process.Start(new ProcessStartInfo {
             FileName = "powershell.exe",
             Arguments = $"-ExecutionPolicy Bypass -File \"{psPath}\"",
             CreateNoWindow = false,

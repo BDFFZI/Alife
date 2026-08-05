@@ -18,7 +18,7 @@ public class ZipPluginProvider(string zipUrl) : IPluginProvider
         if (Directory.Exists(repoDir))
             Directory.Delete(repoDir, true);
 
-        await AlifeUtility.DownloadZipFileAsync(zipUrl, repoDir);
+        await AlifeUtility.DownloadZipFileAsync(zipUrl, repoDir, TimeSpan.FromSeconds(23));
     }
 
     PluginPackage[] LoadPlugins()

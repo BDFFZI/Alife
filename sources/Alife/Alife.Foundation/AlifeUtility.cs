@@ -60,21 +60,32 @@ public class AlifeUtility
         if (url.Contains("multimedia.nt.qq.com.cn") || url.Contains("qpic.cn"))
             request.Headers.Add("Referer", "https://q.qq.com/");
 
-        //设置超时
-        using var httpClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
-        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-
-        //获取总大小
-        long totalBytes = response.Content.Headers.ContentLength ?? -1;
-
         //创建目录
         string? dir = Path.GetDirectoryName(savePath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
+        //无进度回调时，不用流式下载，让 HttpClient.Timeout 正常生效
+        if (progress == null)
+        {
+            using var httpClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
+            using var response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+            await File.WriteAllBytesAsync(savePath, bytes);
+            return;
+        }
+
+        //设置超时
+        using var streamClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
+        using var streamResponse = await streamClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        streamResponse.EnsureSuccessStatusCode();
+
+        //获取总大小
+        long totalBytes = streamResponse.Content.Headers.ContentLength ?? -1;
+
         //下载文件并报告进度
-        await using var contentStream = await response.Content.ReadAsStreamAsync();
+        await using var contentStream = await streamResponse.Content.ReadAsStreamAsync();
         await using var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None);
 
         byte[] buffer = new byte[81920];
@@ -87,7 +98,7 @@ public class AlifeUtility
             await fileStream.WriteAsync(buffer, 0, bytesRead);
             readSoFar += bytesRead;
 
-            if (progress != null && readSoFar >= nextReport)
+            if (readSoFar >= nextReport)
             {
                 progress(readSoFar, totalBytes);
                 nextReport = readSoFar + 10 * 1024 * 1024;// 每 10MB 报告一次
@@ -95,15 +106,15 @@ public class AlifeUtility
         }
 
         //最终进度报告
-        progress?.Invoke(readSoFar, totalBytes);
+        progress.Invoke(readSoFar, totalBytes);
     }
-    public static async Task DownloadZipFileAsync(string url, string rootPath)
+    public static async Task DownloadZipFileAsync(string url, string rootPath, TimeSpan? timeout = null)
     {
         if (Directory.Exists(rootPath) == false)
             Directory.CreateDirectory(rootPath);
 
         string zipPath = Path.Combine(rootPath, "temp.zip");
-        await DownloadFileAsync(url, zipPath);
+        await DownloadFileAsync(url, zipPath, timeout: timeout);
 
         await ZipFile.ExtractToDirectoryAsync(zipPath, rootPath, overwriteFiles: true);
         File.Delete(zipPath);
