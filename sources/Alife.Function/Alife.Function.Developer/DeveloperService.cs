@@ -201,7 +201,7 @@ public class DeveloperService(
                             }
                             protected override async Task OnStart()
                             {
-                                await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
+                                string aiMessage = await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
                             }
                             protected override Task OnUpdate()
                             {

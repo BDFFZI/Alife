@@ -1,3 +1,4 @@
+@using Alife.Foundation
 @using Microsoft.SemanticKernel
 @implements IDisposable
 
@@ -16,64 +17,58 @@
         </Space>
     </Flex>
 
-    @if (Activity != null)
-    {
-        var historyList = GetFilteredHistory().Select((item, idx) => (Item: item, Index: idx + 1)).ToList();
-        <AntList DataSource="@historyList" TItem="(ChatMessageContent Item, int Index)">
-            <ListItem>
-                <ChildContent>
-                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-                        <div
-                            style="font-size: 13px; color: rgba(0,0,0,0.45); font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
+    <AntList DataSource="@(GetFilteredHistory().Select((item, idx) => (Item: item, Index: idx + 1)).ToList())"
+             TItem="(ChatMessageContent Item, int Index)">
+        <ListItem>
+            <ChildContent>
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <div
+                        style="font-size: 13px; color: rgba(0,0,0,0.45); font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
                                 <span
                                     style="color: rgba(0,0,0,0.25); font-size: 12px; min-width: 32px;">#@context.Index</span>
-                                <Tag Color="@(GetRoleColor(context.Item.Role.ToString()))"
-                                     Style="margin: 0;">@context.Item.Role</Tag>
-                                @if (!string.IsNullOrWhiteSpace(context.Item.AuthorName))
-                                {
-                                    <span>@@@context.Item.AuthorName</span>
-                                }
-                            </div>
-                            <Space Size="@("small")">
-                                <SpaceItem>
-                                    <Button Type="@ButtonType.Text" Icon="@IconType.Outline.Edit"
-                                            Size="@ButtonSize.Small"
-                                            Disabled="@(Activity?.ChatBot.IsChatting ?? false)"
-                                            OnClick="@(() => StartEditMessage(context.Item))"/>
-                                </SpaceItem>
-                                <SpaceItem>
-                                    <Popconfirm Title="确定要删除这条消息吗？"
-                                                OnConfirm="@(() => DeleteMessage(context.Item))"
-                                                OkText="@("确定")"
-                                                CancelText="@("取消")">
-                                        <Button Type="@ButtonType.Text" Danger Icon="@IconType.Outline.Delete"
-                                                Size="@ButtonSize.Small"
-                                                Disabled="@(Activity?.ChatBot.IsChatting ?? false)"/>
-                                    </Popconfirm>
-                                </SpaceItem>
-                            </Space>
-                        </div>
-                        <Paragraph
-                            Style="@($"margin: 0; white-space: pre-wrap; padding: 12px; border-radius: 4px; border: 1px solid #f0f0f0; {(IsKeyMemory(context.Item) ? "background: #fffbe6; border-color: #ffe58f;" : "background: #f9f9f9;")}")">
-                            @if (IsKeyMemory(context.Item))
+                            <Tag Color="@(GetRoleColor(context.Item.Role.ToString()))"
+                                 Style="margin: 0;">@context.Item.Role</Tag>
+                            @if (!string.IsNullOrWhiteSpace(context.Item.AuthorName))
                             {
-                                <Flex Justify="FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
-                                      Style="margin-bottom: 8px;">
-                                    <Tag Color="@("gold")" Style="margin: 0;">记忆存档</Tag>
-                                </Flex>
+                                <span>@@@context.Item.AuthorName</span>
                             }
-                            @context.Item.Content
-                        </Paragraph>
+                        </div>
+                        <Space Size="@("small")">
+                            <SpaceItem>
+                                <Button Type="@ButtonType.Text" Icon="@IconType.Outline.Edit"
+                                        Size="@ButtonSize.Small"
+                                        Disabled="@(ChatActivity.ChatBot.IsChatHistoryOccupied)"
+                                        OnClick="@(() => StartEditMessage(context.Item))"></Button>
+                            </SpaceItem>
+                            <SpaceItem>
+                                <Popconfirm Title="确定要删除这条消息吗？"
+                                            OnConfirm="@(() => DeleteMessage(context.Item))"
+                                            OkText="@("确定")"
+                                            CancelText="@("取消")">
+                                    <Button Type="@ButtonType.Text" Danger Icon="@IconType.Outline.Delete"
+                                            Size="@ButtonSize.Small"
+                                            Disabled="@(ChatActivity.ChatBot.IsChatHistoryOccupied)"></Button>
+                                </Popconfirm>
+                            </SpaceItem>
+                        </Space>
                     </div>
-                </ChildContent>
-            </ListItem>
-        </AntList>
-    }
-    else
-    {
-        <Empty Description="@("启动角色后即可查看当前的对话历史记录喵！")"/>
-    }
+                    <Paragraph
+                        Style="@($"margin: 0; white-space: pre-wrap; padding: 12px; border-radius: 4px; border: 1px solid #f0f0f0; {(IsKeyMemory(context.Item) ? "background: #fffbe6; border-color: #ffe58f;" : "background: #f9f9f9;")}")">
+                        @if (IsKeyMemory(context.Item))
+                        {
+                            <Flex Justify="FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
+                                  Style="margin-bottom: 8px;">
+                                <Tag Color="@("gold")" Style="margin: 0;">记忆存档</Tag>
+                            </Flex>
+                        }
+                        @context.Item.Content
+                    </Paragraph>
+                </div>
+            </ChildContent>
+        </ListItem>
+    </AntList>
+
 </div>
 
 <Modal Title="编辑消息"
@@ -86,7 +81,7 @@
 </Modal>
 
 @code {
-    [Parameter] public ChatActivity? Activity { get; set; }
+    [Parameter] public ChatActivity ChatActivity { get; set; } = null!;
 
     string historyRoleFilter = "All";
     bool editVisible;
@@ -94,51 +89,31 @@
     ChatMessageContent? editingMessage;
     readonly List<ChatMessageContent> chatHistoryMirror = new();
 
-    protected override void OnParametersSet()
+    protected override void OnInitialized()
     {
-        base.OnParametersSet();
-        if (Activity?.ChatBot != null)
-        {
-            Activity.ChatBot.ChatRequesting -= UpdateState;
-            Activity.ChatBot.ChatRequesting += UpdateState;
-            Activity.ChatBot.ChatReleased -= UpdateState;
-            Activity.ChatBot.ChatReleased += UpdateState;
-        }
-        TryUpdateMirror();
+        ChatActivity.ChatBot.ChatHistoryEditing += OnChatHistoryEditing;
+        ChatActivity.ChatBot.ChatHistoryEdited += OnChatHistoryEdited;
+        OnChatHistoryEdited();
     }
     public void Dispose()
     {
-        if (Activity?.ChatBot != null)
-        {
-            Activity.ChatBot.ChatRequesting -= UpdateState;
-            Activity.ChatBot.ChatReleased -= UpdateState;
-        }
+        ChatActivity.ChatBot.ChatHistoryEditing -= OnChatHistoryEditing;
+        ChatActivity.ChatBot.ChatHistoryEdited -= OnChatHistoryEdited;
     }
 
-    void UpdateState()
+    void OnChatHistoryEditing()
     {
-        TryUpdateMirror();
         InvokeAsync(StateHasChanged);
     }
-    void TryUpdateMirror()
+    void OnChatHistoryEdited()
     {
-        if (Activity is { ChatBot.IsChatting: false })
-        {
-            chatHistoryMirror.Clear();
-            chatHistoryMirror.AddRange(Activity.ChatBot.ChatHistory);
-        }
-    }
+        if (ChatActivity.ChatBot.IsChatHistoryOccupied)
+            return;
 
-    void OnConfirmEdit()
-    {
-        if (editingMessage != null)
-        {
-            editingMessage.Content = editingContent;
-            editVisible = false;
-            StateHasChanged();
-        }
+        chatHistoryMirror.Clear();
+        chatHistoryMirror.AddRange(ChatActivity.ChatBot.ChatHistory);
+        InvokeAsync(StateHasChanged);
     }
-
 
     string GetRoleColor(string role)
     {
@@ -155,10 +130,8 @@
         if (string.IsNullOrEmpty(content.Content)) return false;
         return content.Content.StartsWith("[记忆存档");
     }
-
     IEnumerable<ChatMessageContent> GetFilteredHistory()
     {
-        if (Activity == null) return [];
         var history = chatHistoryMirror.AsEnumerable();
 
         return historyRoleFilter switch {
@@ -168,19 +141,36 @@
             _ => history
         };
     }
+
     void DeleteMessage(ChatMessageContent content)
     {
-        if (Activity == null || Activity.ChatBot.IsChatting) return;
-        Activity.ChatBot.ChatHistory.Remove(content);
-        TryUpdateMirror();
-        StateHasChanged();
+        ChatActivity.ChatBot.EditChatHistory(thread => {
+            thread.ChatHistory.Remove(content);
+        }, "删除上下文");
     }
-    void StartEditMessage(ChatMessageContent content)
+    async void StartEditMessage(ChatMessageContent content)
     {
-        if (Activity == null || Activity.ChatBot.IsChatting) return;
-        editingMessage = content;
-        editingContent = content.Content ?? "";
-        editVisible = true;
+        try
+        {
+            editingMessage = content;
+            editingContent = content.Content ?? "";
+            editVisible = true;
+            await ChatActivity.ChatBot.EditChatHistoryAsync(async _ => {
+                while (editVisible)
+                    await Task.Delay(100);
+            }, "编辑上下文");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
+    void OnConfirmEdit()
+    {
+        if (editingMessage == null)
+            return;
 
+        editingMessage.Content = editingContent;
+        editVisible = false;
+    }
 }

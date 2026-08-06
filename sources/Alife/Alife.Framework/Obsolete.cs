@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
@@ -24,7 +25,7 @@ public interface ISystemEvent
 [Obsolete("请改用 ChatBehaviour")]
 public abstract class InteractiveModule : ChatBehaviour, ISystemEvent
 {
-    protected ChatHistory ChatHistory { get; private set; } = null!;
+    protected IReadOnlyList<ChatMessageContent> ChatHistory { get; private set; } = null!;
     protected override async Task OnAwake()
     {
         await AwakeAsync(new AwakeContext() {
@@ -83,7 +84,9 @@ public abstract class InteractiveModule : ChatBehaviour, ISystemEvent
                 startTime = DateTime.Now - TimeSpan.FromSeconds(seconds);
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -101,8 +104,9 @@ public class InteractiveModule<T> : InteractiveModule
 
     protected void Prompt(string prompt)
     {
-        ChatHistory.AddSystemMessage($"[{typeof(T).Name}]说明:\n{prompt}");
-        ChatBot.UpdateHistoryEndIndex();
+        ChatBot.EditChatHistory(thread => {
+            thread.ChatHistory.AddSystemMessage($"[{typeof(T).Name}]说明:\n{prompt}");
+        }, "注入提示词");
     }
 
     protected void Throw(string error)

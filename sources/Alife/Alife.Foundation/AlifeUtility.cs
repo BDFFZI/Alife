@@ -101,7 +101,7 @@ public class AlifeUtility
             if (readSoFar >= nextReport)
             {
                 progress(readSoFar, totalBytes);
-                nextReport = readSoFar + 10 * 1024 * 1024;// 每 10MB 报告一次
+                nextReport = readSoFar + 10 * 1024 * 1024; // 每 10MB 报告一次
             }
         }
 
@@ -171,6 +171,28 @@ public class AlifeUtility
         catch
         {
             return false;
+        }
+    }
+    public static void SafeInvoke(Action action)
+    {
+        try
+        {
+            action.Invoke();
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
+    }
+    public static async Task SafeInvokeAsync(Func<Task> task)
+    {
+        try
+        {
+            await task();
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
         }
     }
 }

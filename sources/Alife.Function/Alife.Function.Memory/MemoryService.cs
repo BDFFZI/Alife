@@ -147,15 +147,22 @@ public class MemoryService(
             return;
         }
 
-        memoryManager.RemoveMemory(ChatBot.ChatHistory, target);
-        ChatBot.UpdateHistoryEndIndex();
+        ChatBot.EditChatHistory(thread => {
+            memoryManager.RemoveMemory(thread.ChatHistory, target);
+        }, "删除永久记忆");
+
         interactor.Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
     }
 
     public async Task<string> InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)
     {
-        string name = await memoryManager.InsertMemory(ChatBot.ChatHistory, level, summary, content, startTime, endTime);
-        ChatBot.UpdateHistoryEndIndex();
+        string? name = null;
+        await ChatBot.EditChatHistoryAsync(async thread => {
+            name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime);
+        }, "插入永久记忆");
+        if (name == null)
+            throw new Exception("永久记忆插入失败。");
+
         return name;
     }
 
@@ -199,8 +206,9 @@ public class MemoryService(
     protected override Task OnStart()
     {
         //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
-        memoryManager.LoadHistory(ChatBot.ChatHistory);
-        ChatBot.UpdateHistoryEndIndex();
+        ChatBot.EditChatHistory(thread => {
+            memoryManager.LoadHistory(thread.ChatHistory);
+        }, "装载记忆");
         return Task.CompletedTask;
     }
 
@@ -222,22 +230,10 @@ public class MemoryService(
             if (content.Role != AuthorRole.Assistant)
                 return; //只在ai说话后整理，这样对话更完整，而且可以避免在ai异常时保持记忆
 
-            await ChatBot.RequestChatAsync(reason: GetChatOccupiedReason());
-            try
-            {
-                memoryManager.SaveHistory(ChatBot.ChatHistory);
-                if (await memoryManager.Filter(ChatBot.ChatHistoryAgentThread))
-                    ChatBot.UpdateHistoryEndIndex();
-            }
-            finally
-            {
-                ChatBot.ReleaseChat();
-            }
-
-            string GetChatOccupiedReason()
-            {
-                return "存储记忆中...";
-            }
+            await ChatBot.EditChatHistoryAsync(async thread => {
+                memoryManager.SaveHistory(thread.ChatHistory);
+                await memoryManager.Filter(thread);
+            }, "存储记忆");
         }
         catch (Exception e)
         {
@@ -271,7 +267,9 @@ class AlifeHistoryCompressor(
         string response = await languageModel.ChatStreamingAsync(
             chatHistoryAgentThread,
             exceptionThrow: e => exception = e,
-            tokenUsed: usage => { tokenUsage += usage; });
+            tokenUsed: usage => {
+                tokenUsage += usage;
+            });
         AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
 
         if (string.IsNullOrEmpty(response) || exception != null)

@@ -167,7 +167,7 @@ public class DeskPetService(
     }
     protected override Task OnUpdate()
     {
-        bool currentStatus = ChatBot.IsChatting;
+        bool currentStatus = ChatBot.IsChatOccupied;
         if (currentStatus != lastStatus)
         {
             lastStatus = currentStatus;

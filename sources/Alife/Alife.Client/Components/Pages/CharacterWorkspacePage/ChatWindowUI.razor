@@ -27,7 +27,8 @@
     </Flex>
 
     <!-- 消息区域 -->
-    <div style="flex: 1 1 auto; overflow-y: auto; padding: 24px; min-height: 100px;" id="messageArea">
+    <div style="flex: 1 1 auto; overflow-y: auto; padding: 24px; min-height: 100px;"
+         id="messageArea">
         @if (messages != null)
         {
             @if (messages.Count == 0)
@@ -84,7 +85,7 @@
     </div>
 
     <!-- 输入区域 -->
-    @if (ChatMessageService.GetChatBot(CharacterName) != null)
+    @if (ChatActivity != null)
     {
         <div id="chatSplitter" class="chat-splitter"></div>
         <div class="chat-input-container">
@@ -96,14 +97,14 @@
                               Placeholder="@("输入消息... (Enter 发送，Shift+Enter 换行，Ctrl+V 粘贴文本或文件)")"
                               @bind-Value="inputText"
                               BindOnInput="true"
-                              Rows="3"/>
+                              Rows="3"></TextArea>
 
                     @if (isWorking)
                     {
                         <div class="input-busy-tag">
                             <Icon Type="@IconType.Outline.Loading" Style="font-size: 14px; color: #1890ff;"/>
                             <span
-                                style="color: #1890ff; font-size: 12px; font-weight: 500;">@(CharacterName)@(string.IsNullOrEmpty(occupiedReasonText) ? "工作中..." : occupiedReasonText)</span>
+                                style="color: #1890ff; font-size: 12px; font-weight: 500;">@(string.IsNullOrEmpty(occupiedReasonText) ? "对话占用中" : occupiedReasonText)</span>
                         </div>
                     }
                 </div>
@@ -434,15 +435,16 @@
     };
 </script>
 @using Alife.Components.Services
+@using Alife.Foundation
 
 @code {
-    [Parameter] public string CharacterName { get; set; } = "";
+    [Parameter] public Character Character { get; set; } = null!;
+    [Parameter] public ChatActivity? ChatActivity { get; set; }
 
     string inputText = "";
     bool isWorking;
     List<ChatMessage>? messages;
-    string lastCharacterName = "";
-    string occupiedReasonText = "";
+    string? occupiedReasonText = "";
     Exception? chatException;
     bool isDisposed;
     int inputVersion;
@@ -452,28 +454,40 @@
     {
         base.OnInitialized();
 
-        messages = ChatMessageService.GetMessages(CharacterName);
+        messages = ChatMessageService.GetMessages(Character.Name);
         ChatMessageService.MessageChanged += OnMessageChanged;
         ChatMessageService.UserMessageSent += OnUserMessageSent;
         ChatMessageService.ChatExceptionThrew += OnChatExceptionThrew;
         ChatMessageService.ChatbotMapUpdated += OnChatbotMapUpdated;
 
-        _ = UpdateStatusLoop();
-    }
-    protected override void OnParametersSet()
-    {
-        if (lastCharacterName != CharacterName)
+        StartUpdateLoop();
+
+        async void StartUpdateLoop()
         {
-            // 保存旧角色的草稿
-            if (!string.IsNullOrEmpty(lastCharacterName))
-                ChatMessageService.SetDraft(lastCharacterName, inputText);
-
-            // 加载新角色的草稿
-            inputText = ChatMessageService.GetDraft(CharacterName);
-            lastCharacterName = CharacterName;
+            try
+            {
+                while (!isDisposed)
+                {
+                    if (ChatActivity != null)
+                    {
+                        ChatBot chatBot = ChatActivity.ChatBot;
+                        bool working = chatBot.IsChatOccupied || chatBot.IsChatHistoryOccupied || chatBot.ResourceOccupiedReason.Content.Count != 0;
+                        string occupiedReason = string.Join(" | ", chatBot.ResourceOccupiedReason.Content.Select(marker => marker.Reason));
+                        if (working != isWorking || occupiedReasonText != occupiedReason)
+                        {
+                            isWorking = working;
+                            occupiedReasonText = occupiedReason;
+                            await InvokeAsync(StateHasChanged);
+                        }
+                    }
+                    await Task.Delay(100);
+                }
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
         }
-
-        messages = ChatMessageService.GetMessages(CharacterName);
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -491,9 +505,7 @@
     public void Dispose()
     {
         isDisposed = true;
-        if (!string.IsNullOrEmpty(CharacterName))
-            ChatMessageService.SetDraft(CharacterName, inputText);
-
+        ChatMessageService.SetDraft(Character.Name, inputText);
         ChatMessageService.MessageChanged -= OnMessageChanged;
         ChatMessageService.UserMessageSent -= OnUserMessageSent;
         ChatMessageService.ChatExceptionThrew -= OnChatExceptionThrew;
@@ -503,27 +515,6 @@
     }
 
 
-    async Task UpdateStatusLoop()
-    {
-        while (!isDisposed)
-        {
-            ChatBot? chatBot = ChatMessageService.GetChatBot(CharacterName);
-            if (chatBot != null)
-            {
-                bool chatting = chatBot.IsChatting;
-                string newReason = chatBot.ChatOccupiedReason ?? "";
-
-                if (chatting != isWorking || newReason != occupiedReasonText)
-                {
-                    isWorking = chatting;
-                    occupiedReasonText = newReason;
-                    await InvokeAsync(StateHasChanged);
-                }
-            }
-            await Task.Delay(200);
-        }
-    }
-
     [JSInvokable]
     public Task OnNativeEnterAsync(string rawInputText)
     {
@@ -531,17 +522,17 @@
     }
     void OnMessageChanged(string name)
     {
-        if (name == CharacterName)
+        if (name == Character.Name)
             InvokeAsync(StateHasChanged);
     }
     void OnUserMessageSent(string name)
     {
-        if (name == CharacterName)
+        if (name == Character.Name)
             InvokeAsync(StateHasChanged);
     }
     void OnChatExceptionThrew(string name, Exception exception)
     {
-        if (name == CharacterName)
+        if (name == Character.Name)
         {
             chatException = exception;
             InvokeAsync(StateHasChanged);
@@ -554,7 +545,7 @@
 
     void OnClear()
     {
-        ChatMessageService.ClearMessages(CharacterName);
+        ChatMessageService.ClearMessages(Character.Name);
 
         StateHasChanged();
     }
@@ -574,8 +565,8 @@
             return;
         }
 
-        ChatMessageService.SendMessage(CharacterName, rawInputText.Trim());
-        ChatMessageService.SetDraft(CharacterName, ""); // 发送成功后清空草稿
+        ChatMessageService.SendMessage(Character.Name, rawInputText.Trim());
+        ChatMessageService.SetDraft(Character.Name, ""); // 发送成功后清空草稿
         await InvokeAsync(StateHasChanged);
 
         await JsRuntime.InvokeVoidAsync("forceScrollBottom");

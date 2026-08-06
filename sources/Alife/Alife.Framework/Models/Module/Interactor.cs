@@ -13,7 +13,7 @@ public interface IInteractor
     public void Throw(string error);
     public void Poke(string message);
     public void Chat(string message);
-    public Task ChatAsync(string message);
+    public Task<string> ChatAsync(string message);
 }
 
 public interface IInteractor<T> : IInteractor;
@@ -41,12 +41,12 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
             .Select((item, index) => (item, index))
             .FirstOrDefault(x => x.item.Role == AuthorRole.System);
 
-        if (item == null)
-            target.ChatHistory.AddSystemMessage(content);
-        else
-            target.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, content));
-
-        target.UpdateHistoryEndIndex();
+        target.EditChatHistory(thread => {
+            if (item == null)
+                thread.ChatHistory.AddSystemMessage(content);
+            else
+                thread.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, content));
+        }, "注入提示词");
     }
     public void Throw(string error)
     {
@@ -60,7 +60,7 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
     {
         target.Chat(ChatTextFilter(message));
     }
-    public Task ChatAsync(string message)
+    public Task<string> ChatAsync(string message)
     {
         return target.ChatAsync(ChatTextFilter(message));
     }

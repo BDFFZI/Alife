@@ -16,7 +16,8 @@ public class XmlFunctionCallerConfig
     [Description("触发子句分隔的字符标记。调整子句会对字幕、语音生成等流式输出的功能产生影响")]
     public List<string> Separators { get; set; } = ["，", "。", "！", "？", "......", "~", "…"];
 
-    [Description("触发子句分隔的最短文本长度（字符数）")] public int MinBreakingLength { get; set; } = 23;
+    [Description("触发子句分隔的最短文本长度（字符数）")]
+    public int MinBreakingLength { get; set; } = 23;
 }
 
 public enum DocumentMode
@@ -105,6 +106,7 @@ public class XmlFunctionCaller(
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
     readonly List<ChatMessageContent> chatHistoryBuffer = new();
+    OccupationMarker? occupationMarker;
 
     protected override Task OnStart()
     {
@@ -128,6 +130,7 @@ public class XmlFunctionCaller(
         executor.Handling += OnHandling;
 
         //AI输入回调
+        ChatBot.ChatSent += OnChatSent;
         ChatBot.ChatReceived += OnChatReceived;
         ChatBot.ChatFinishedAsync += OnChatFinishedAsync;
 
@@ -174,12 +177,17 @@ public class XmlFunctionCaller(
         );
         return Task.CompletedTask;
     }
+
     protected override async Task OnDestroy()
     {
         await executor.CancelAndClearAsync();
         await executor.DisposeAsync();
     }
 
+    void OnChatSent(string obj)
+    {
+        occupationMarker = ChatBot.ResourceOccupiedReason.Rent("函数执行");
+    }
     void OnChatReceived(string obj)
     {
         executor.Feed(obj);
@@ -196,6 +204,9 @@ public class XmlFunctionCaller(
             //对话被打断，取消执行
             await executor.CancelAndClearAsync();
         }
+
+        ChatBot.ResourceOccupiedReason.Return(occupationMarker!);
+
         if (ChatCalled != null)
         {
             try
@@ -210,6 +221,7 @@ public class XmlFunctionCaller(
             }
         }
     }
+
     void OnError(string tag, Exception exception)
     {
         interactor.Poke($"执行{tag}标签出错：{exception.Message}");
@@ -217,7 +229,7 @@ public class XmlFunctionCaller(
     }
     void OnHandling(string name, XmlContext context)
     {
-        ChatBot.ChatOccupiedReason = $"执行{name}函数中...";
+        occupationMarker!.Reason = $"执行{name}函数";
         if (context.CallMode == CallMode.Opening || context.CallMode == CallMode.OneShot)
         {
             //实现当ai调用隐射函数时自动注入对应的隐式文档
@@ -259,15 +271,12 @@ public class XmlFunctionCaller(
     }
     void AddImplicitTrigger(XmlHandler source)
     {
-        XmlHandler xmlHandler = new()
-        {
+        XmlHandler xmlHandler = new() {
             Name = source.Name + "_Trigger"
         };
-        xmlHandler.Functions.Add(new XmlFunction()
-        {
+        xmlHandler.Functions.Add(new XmlFunction() {
             Name = source.Name.ToLower(),
-            Invoker = (_, _) =>
-            {
+            Invoker = (_, _) => {
                 interactor.Poke(GetExplicitDocument(source));
                 return Task.CompletedTask;
             }

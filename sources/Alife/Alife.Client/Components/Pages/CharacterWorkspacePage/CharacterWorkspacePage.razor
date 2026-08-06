@@ -94,20 +94,31 @@ else
         </div>
 
         <!-- 角色工作区内容 -->
-        <div @key="@Name" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff">
+        <div @key="@Name"
+             style="flex: 1; display: flex; flex-direction: column;justify-content: center; overflow: hidden; background: #fff">
 
-            <div style="display: @(activeTab == "info" ? "block" : "none"); height: 100%;">
-                <CharacterConfigUI @ref="characterConfigUI" Character="character" Activity="activity"/>
-            </div>
-            <div style="display: @(activeTab == "chat" ? "block" : "none"); height: 100%;">
-                <ChatWindowUI CharacterName="@Name"/>
-            </div>
-            <div style="display: @(activeTab == "history" ? "block" : "none"); height: 100%;">
-                <ChatHistoryUI Activity="@activity"></ChatHistoryUI>
-            </div>
-            <div style="display: @(activeTab == "modules" ? "flex" : "none"); height: 100%; ">
-                <CharacterModuleUI Character="@character" ChatActivity="@activity"></CharacterModuleUI>
-            </div>
+            @switch (activeTab)
+            {
+                case "info":
+                    <CharacterConfigUI @ref="characterConfigUI" Character="character" Activity="activity"/>
+                    break;
+                case "chat":
+                    <ChatWindowUI Character="@character" ChatActivity="@activity"/>
+                    break;
+                case "history":
+                    @if (activity != null)
+                    {
+                        <ChatHistoryUI ChatActivity="@activity"></ChatHistoryUI>
+                    }
+                    else
+                    {
+                        <Empty Description="@("启动角色后才可查看对话上下文喵！")"/>
+                    }
+                    break;
+                case "modules":
+                    <CharacterModuleUI Character="@character" ChatActivity="@activity"></CharacterModuleUI>
+                    break;
+            }
 
         </div>
     </div>

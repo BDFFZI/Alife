@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
-using ChatMessageContent=Microsoft.SemanticKernel.ChatMessageContent;
+using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 namespace Alife.Framework;
 
@@ -22,43 +22,61 @@ public class ChatBot : IAsyncDisposable
 {
     public const string PokeMessageTag = "[来自系统的杂项消息推送]";
 
-    public event Func<string, string>? PokeSend;//Poke消息过滤
-    public event Func<string, string>? ChatSend;//消息过滤
+    public event Func<string, string>? PokeSend; //Poke消息过滤
+    public event Func<string, string>? ChatSend; //消息过滤
 
-    public event Action? ChatRequesting;//对话被请求（信号量首次被锁住）
-    public event Action? ChatReleased;//对话已释放（信号量完全解锁）
+    public event Action<string>? ChatSent; //消息发送后
+    public event Action<string>? ChatReceived; //接收到消息
+    public event Action<string>? ReasoningReceived; //接收到思考消息
+    public event Action? ChatOver; //接收结束
 
-    public event Action<string>? ChatSent;//消息发送后
-    public event Action<string>? ChatReceived;//接收到消息
-    public event Action<string>? ReasoningReceived;//接收到思考消息
-    public event Action? ChatOver;//接收结束
+    public event Action<ChatMessageContent>? ChatHistoryAdd; //对话产生的消息块（如果手动插入且不更新结束索引，则也将记录）
+    public event Action<Exception>? ChatExceptionThrow; //对话中出现的异常
+    public event Action<TokenUsage>? TokenUsed; //对话产生的Token消耗
 
-    public event Action<ChatMessageContent>? ChatHistoryAdd;//对话产生的消息块（如果手动插入且不更新结束索引，则也将记录）
-    public event Action<Exception>? ChatExceptionThrow;//对话中出现的异常
-    public event Action<TokenUsage>? TokenUsed;//对话产生的Token消耗
+    public event Action<ChatContext>? ChatFinished; //对话结束
+    public event Func<ChatContext, Task>? ChatFinishedAsync; //对话结束(异步)
 
-    public event Action<ChatContext>? ChatFinished;//对话结束
-    public event Func<ChatContext, Task>? ChatFinishedAsync;//对话结束(异步)
+    public event Action? ChatHistoryEditing; //对话被请求（信号量首次被锁住）
+    public event Action? ChatHistoryEdited; //对话已释放（信号量完全解锁）
 
-    public ChatHistoryAgentThread ChatHistoryAgentThread => chatHistoryAgentThread;
-    public ChatHistory ChatHistory => chatHistoryAgentThread.ChatHistory;
-    public bool IsChatting => chatRequestCount != 0;
-    public string? ChatOccupiedReason { get; set; }//当前llm被占用的利用描述
+    public bool IsChatOccupied => chatSemaphore.CurrentCount == 0;
+    public bool IsChatHistoryOccupied => chatHistorySemaphore.CurrentCount == 0;
+    public OccupationNotepad ResourceOccupiedReason { get; set; } = new();
+    public IReadOnlyList<ChatMessageContent> ChatHistory => chatHistoryAgentThread.ChatHistory;
     public CancellationTokenSource ChatBreakTokenSource => chatBreakSource;
 
-    public async Task RequestChatAsync(CancellationToken cancellationToken = default, string? reason = null)
+    public async Task EditChatHistoryAsync(Func<ChatHistoryAgentThread, Task> action, string reason)
     {
-        if (Interlocked.Increment(ref chatRequestCount) == 1)
-            ChatRequesting?.Invoke();
-        await chatSemaphore.WaitAsync(cancellationToken);
-        ChatOccupiedReason = reason;
+        await chatHistorySemaphore.WaitAsync();
+        AlifeUtility.SafeInvoke(() => ChatHistoryEditing?.Invoke());
+        try
+        {
+            using (ResourceOccupiedReason.Rent(reason))
+                await action(chatHistoryAgentThread);
+            lastContentIndex = ChatHistory.Count;
+        }
+        finally
+        {
+            chatHistorySemaphore.Release();
+            AlifeUtility.SafeInvoke(() => ChatHistoryEdited?.Invoke());
+        }
     }
-    public void ReleaseChat()
+    public void EditChatHistory(Action<ChatHistoryAgentThread> action, string reason)
     {
-        ChatOccupiedReason = null;
-        chatSemaphore.Release();
-        if (Interlocked.Decrement(ref chatRequestCount) == 0)
-            ChatReleased?.Invoke();
+        chatHistorySemaphore.Wait();
+        AlifeUtility.SafeInvoke(() => ChatHistoryEditing?.Invoke());
+        try
+        {
+            using (ResourceOccupiedReason.Rent(reason))
+                action(chatHistoryAgentThread);
+            lastContentIndex = ChatHistory.Count;
+        }
+        finally
+        {
+            chatHistorySemaphore.Release();
+            AlifeUtility.SafeInvoke(() => ChatHistoryEdited?.Invoke());
+        }
     }
 
     public async Task<string> ChatAsync(string message)
@@ -67,148 +85,176 @@ public class ChatBot : IAsyncDisposable
 
         lock (this)
         {
-            if (IsChatting)//打断上一次的聊天
-                chatBreakSource.Cancel();
+            chatBreakSource.Cancel(); //打断上一次的聊天
             chatBreakSource = new CancellationTokenSource();
             cancellationToken = chatBreakSource.Token;
         }
 
-        await RequestChatAsync(cancellationToken);
+        await chatSemaphore.WaitAsync(cancellationToken);
         try
         {
-            if (ChatSend != null)
+            using (ResourceOccupiedReason.Rent("发送消息"))
             {
-                foreach (Func<string, string> func in ChatSend.GetInvocationList().Cast<Func<string, string>>())
+                //预处理用户消息
+                if (ChatSend != null)
+                {
+                    foreach (Func<string, string> func in ChatSend.GetInvocationList().Cast<Func<string, string>>())
+                    {
+                        try
+                        {
+                            message = func(message);
+                        }
+                        catch (Exception ex)
+                        {
+                            AlifeLog.LogError(ex);
+                        }
+                    }
+                }
+                message = message.Trim();
+
+                //装载用户消息
+                await EditChatHistoryAsync(thread => {
+                    thread.ChatHistory.AddUserMessage(message);
+                    ChaseChatHistory();
+                    return Task.CompletedTask;
+                }, "装载用户消息");
+
+                //触发发送事件
+                try
+                {
+                    ChatSent?.Invoke(message);
+                }
+                catch (Exception ex)
+                {
+                    AlifeLog.LogError(ex);
+                }
+            }
+
+            Exception? error = null;
+            TokenUsage tokenUsage = new();
+            string aiMessage = "";
+            //装载AI消息
+            await EditChatHistoryAsync(async thread => {
+                aiMessage = await languageModel.ChatStreamingAsync(
+                    thread,
+                    text => {
+                        try
+                        {
+                            ChatReceived?.Invoke(text);
+                        }
+                        catch (Exception e)
+                        {
+                            AlifeLog.LogError(e);
+                        }
+                    },
+                    think => {
+                        try
+                        {
+                            ReasoningReceived?.Invoke(think);
+                        }
+                        catch (Exception e)
+                        {
+                            AlifeLog.LogError(e);
+                        }
+                    },
+                    usage => {
+                        tokenUsage += usage;
+                    },
+                    exception => {
+                        if (exception is not OperationCanceledException)
+                            error = exception;
+                    },
+                    cancellationToken
+                );
+                ChaseChatHistory();
+            }, "接收回复");
+
+            using (ResourceOccupiedReason.Rent("分析对话"))
+            {
+                //对话通讯结束
+                try
+                {
+                    ChatOver?.Invoke();
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(e);
+                }
+
+                if (error != null)
                 {
                     try
                     {
-                        message = func(message);
+                        ChatExceptionThrow?.Invoke(error);
                     }
                     catch (Exception ex)
                     {
                         AlifeLog.LogError(ex);
                     }
                 }
-            }
-
-            message = message.Trim();
-            chatHistoryAgentThread.ChatHistory.AddUserMessage(message);
-
-            //触发用户消息块增加
-            ChaseChatHistory();
-            try
-            {
-                ChatSent?.Invoke(message);
-            }
-            catch (Exception ex)
-            {
-                AlifeLog.LogError(ex);
-            }
-
-            //进行实际对话
-            Exception? error = null;
-            TokenUsage tokenUsage = new();
-            string aiMessage = await languageModel.ChatStreamingAsync(
-                chatHistoryAgentThread,
-                text => {
-                    try
-                    {
-                        ChatReceived?.Invoke(text);
-                    }
-                    catch (Exception e)
-                    {
-                        AlifeLog.LogError(e);
-                    }
-                },
-                think => {
-                    try
-                    {
-                        ReasoningReceived?.Invoke(think);
-                    }
-                    catch (Exception e)
-                    {
-                        AlifeLog.LogError(e);
-                    }
-                },
-                usage => {
-                    tokenUsage += usage;
-                },
-                exception => {
-                    if (exception is not OperationCanceledException)
-                        error = exception;
-                },
-                cancellationToken
-            );
-
-            //触发ai消息块增加
-            ChaseChatHistory();
-            try
-            {
-                ChatOver?.Invoke();
-            }
-            catch (Exception e)
-            {
-                AlifeLog.LogError(e);
-            }
-
-            if (error != null)
-            {
                 try
                 {
-                    ChatExceptionThrow?.Invoke(error);
-                }
-                catch (Exception ex)
-                {
-                    AlifeLog.LogError(ex);
-                }
-            }
-            try
-            {
-                AlifeLog.LogInformation("[ChatBot] " + tokenUsage);
-                TokenUsed?.Invoke(tokenUsage);
-            }
-            catch (Exception ex)
-            {
-                AlifeLog.LogError(ex);
-            }
-
-            //对话完全结束
-            {
-                ChatContext chatContext = new() {
-                    UserMessage = message,
-                    AIMessage = aiMessage,
-                    CancellationToken = cancellationToken
-                };
-
-                try
-                {
-                    ChatFinished?.Invoke(chatContext);
+                    AlifeLog.LogInformation("[ChatBot] " + tokenUsage);
+                    TokenUsed?.Invoke(tokenUsage);
                 }
                 catch (Exception ex)
                 {
                     AlifeLog.LogError(ex);
                 }
 
-                if (ChatFinishedAsync != null)
+                //对话完全结束
                 {
+                    ChatContext chatContext = new() {
+                        UserMessage = message,
+                        AIMessage = aiMessage,
+                        CancellationToken = cancellationToken
+                    };
+
                     try
                     {
-                        await Task.WhenAll(ChatFinishedAsync.GetInvocationList()
-                            .Cast<Func<ChatContext, Task>>()
-                            .Select(func => func(chatContext)));
+                        ChatFinished?.Invoke(chatContext);
                     }
-                    catch (Exception e)
+                    catch (Exception ex)
                     {
-                        AlifeLog.LogError(e);
+                        AlifeLog.LogError(ex);
                     }
-                }
 
-                return aiMessage;
+                    if (ChatFinishedAsync != null)
+                    {
+                        try
+                        {
+                            await Task.WhenAll(ChatFinishedAsync.GetInvocationList()
+                                .Cast<Func<ChatContext, Task>>()
+                                .Select(func => func(chatContext)));
+                        }
+                        catch (Exception e)
+                        {
+                            AlifeLog.LogError(e);
+                        }
+                    }
+
+                    return aiMessage;
+                }
             }
         }
         finally
         {
-            ReleaseChat();
+            chatSemaphore.Release();
+        }
+
+        void ChaseChatHistory()
+        {
+            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
+            {
+                try
+                {
+                    ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(e);
+                }
+            }
         }
     }
     public async void Chat(string content)
@@ -217,9 +263,10 @@ public class ChatBot : IAsyncDisposable
         {
             await ChatAsync(content);
         }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            AlifeLog.LogError(e);
         }
     }
     public void Poke(string message)
@@ -227,22 +274,19 @@ public class ChatBot : IAsyncDisposable
         while (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
         messageCache.Enqueue(message);
-        lastAutoFlushTime = 0;//重新计时，防止后续还有Poke
+        lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
     }
 
-    public void UpdateHistoryEndIndex()
-    {
-        lastContentIndex = ChatHistory.Count;
-    }
 
     readonly ILanguageModel languageModel;
+    //上下文
     readonly ChatHistoryAgentThread chatHistoryAgentThread = new();
+    readonly SemaphoreSlim chatHistorySemaphore = new(1, 1);
+    int lastContentIndex;
+    //对话
     readonly ConcurrentQueue<string> messageCache = new();
     readonly SemaphoreSlim chatSemaphore = new(1, 1);
     CancellationTokenSource chatBreakSource = new();
-    int chatRequestCount;
-    int lastContentIndex;
-
     //计时器
     readonly CancellationTokenSource cancelTimerSource = new();
     int currentTime;
@@ -263,39 +307,31 @@ public class ChatBot : IAsyncDisposable
         cancelTimerSource.Dispose();
     }
 
-    async Task TryFlushMessageCache(CancellationToken cancellationToken = default)
+    void TryFlushMessageCache()
     {
         if (messageCache.Count == 0)
             return;
-        if (IsChatting)
+        if (IsChatOccupied)
             return;
 
-        await RequestChatAsync(cancellationToken);
-        try
-        {
-            //组合消息
-            StringBuilder stringBuilder = new();
-            foreach (string message in messageCache.Distinct())
-                stringBuilder.AppendLine(message);
-            string poke = stringBuilder.ToString().Trim();
-            messageCache.Clear();
+        //组合消息
+        StringBuilder stringBuilder = new();
+        foreach (string message in messageCache.Distinct())
+            stringBuilder.AppendLine(message);
+        string poke = stringBuilder.ToString().Trim();
+        messageCache.Clear();
 
-            if (PokeSend != null)
+        if (PokeSend != null)
+        {
+            foreach (Delegate @delegate in PokeSend.GetInvocationList())
             {
-                foreach (Delegate @delegate in PokeSend.GetInvocationList())
-                {
-                    Func<string, string> pokeSend = (Func<string, string>)@delegate;
-                    poke = pokeSend.Invoke(poke);
-                }
+                Func<string, string> pokeSend = (Func<string, string>)@delegate;
+                poke = pokeSend.Invoke(poke);
             }
+        }
 
-            //发送消息
-            Chat($"{PokeMessageTag}\n{poke}");
-        }
-        finally
-        {
-            ReleaseChat();
-        }
+        //发送消息
+        Chat($"{PokeMessageTag}\n{poke}");
     }
     async void StartTimer(int expectedDeltaTime, CancellationToken cancellationToken = default)
     {
@@ -307,29 +343,15 @@ public class ChatBot : IAsyncDisposable
                 currentTime += expectedDeltaTime;
                 if (currentTime - lastAutoFlushTime > 2)
                 {
-                    await TryFlushMessageCache(cancellationToken);
+                    TryFlushMessageCache();
                     lastAutoFlushTime = currentTime;
                 }
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);
-        }
-    }
-    void ChaseChatHistory()
-    {
-        for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
-        {
-            try
-            {
-                ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
-            }
-            catch (Exception e)
-            {
-                AlifeLog.LogError(e);
-            }
         }
     }
 }

@@ -53,13 +53,13 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
     {
         if (Configuration.DefaultMax < 0)
             logger.LogWarning("默认最大值不能小于0，否则将无法产生随机数。");
-        
+
         //将模块注册为xml处理器，以支持文档化和xml调用
         XmlHandler xmlHandler = new(this) {
             Description = "此服务可以为你提供一个生成随机数的功能。",
         };
-        functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken);//传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
-        interactor.Prompt(xmlHandler.Document());//注入函数调用文档或自定义提示词（此方法注入的提示词也可重载，但重载时会破坏缓存）
+        functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken); //传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
+        interactor.Prompt(xmlHandler.Document()); //注入函数调用文档或自定义提示词（此方法注入的提示词也可重载，但重载时会破坏缓存）
 
         return Task.CompletedTask;
     }
@@ -70,7 +70,7 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
     }
     protected override async Task OnStart()
     {
-        await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
+        string aiMessage = await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
     }
     protected override Task OnUpdate()
     {

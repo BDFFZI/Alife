@@ -72,19 +72,20 @@ public class ChatActivity(
             container.RegisterBuilder(typeof(ChatBot));
             ChatBot = (ChatBot)await container.RequireInstance(typeof(ChatBot));
             //填充人设
-            ChatBot.ChatHistory.AddSystemMessage(
-                $"""
-                 这是你的人物信息：
-                 - 名称：{character.Name}
-                 - 生日：{character.Birthday}
-                 - 简介：{character.Description}
-                 - 设定：
-                 {character.Prompt}
+            ChatBot.EditChatHistory(thread => {
+                thread.ChatHistory.AddSystemMessage(
+                    $"""
+                     这是你的人物信息：
+                     - 名称：{character.Name}
+                     - 生日：{character.Birthday}
+                     - 简介：{character.Description}
+                     - 设定：
+                     {character.Prompt}
 
-                 这是你的私人文件夹：
-                 {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
-                 """);
-            ChatBot.UpdateHistoryEndIndex();
+                     这是你的私人文件夹：
+                     {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
+                     """);
+            }, "注入初始人设");
 
             //创建用户显式启用的模块
             for (int index = 0; index < enabledModuleTypes.Length; index++)
@@ -107,7 +108,7 @@ public class ChatActivity(
             {
                 object instance = container.Instances[index];
                 progress?.Report(($"激活 {TypeUtility.GetReadableName(instance.GetType())} 模块", (float)index / container.Instances.Count));
-                await OnInstanceCreated(instance);//处理一下已创建物体
+                await OnInstanceCreated(instance); //处理一下已创建物体
             }
 
             container.InstanceCreated += OnInstanceCreated;
@@ -191,7 +192,9 @@ public class ChatActivity(
                     await behaviour.UpdateAsync(context);
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Console.WriteLine(e);
