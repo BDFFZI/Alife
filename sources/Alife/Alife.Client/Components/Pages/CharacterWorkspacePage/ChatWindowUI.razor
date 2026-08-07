@@ -471,8 +471,14 @@
                     if (ChatActivity != null)
                     {
                         ChatBot chatBot = ChatActivity.ChatBot;
-                        bool working = chatBot.IsChatOccupied || chatBot.IsChatHistoryOccupied || chatBot.ResourceOccupiedReason.Content.Count != 0;
-                        string occupiedReason = string.Join(" | ", chatBot.ResourceOccupiedReason.Content.Select(marker => marker.Reason));
+
+                        bool working = isWorking;
+                        string? occupiedReason = occupiedReasonText;
+                        chatBot.ResourceOccupiedReason.Query(list => {
+                            working = chatBot.IsChatOccupied || chatBot.IsChatHistoryOccupied || list.Count != 0;
+                            occupiedReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                        });
+
                         if (working != isWorking || occupiedReasonText != occupiedReason)
                         {
                             isWorking = working;
@@ -480,7 +486,7 @@
                             await InvokeAsync(StateHasChanged);
                         }
                     }
-                    await Task.Delay(100);
+                    await Task.Delay(200);
                 }
             }
             catch (Exception e)
