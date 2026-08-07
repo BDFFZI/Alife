@@ -38,14 +38,14 @@ public class SkillService(
         string? skillDir = FindSkillDirectory(name);
         if (skillDir == null)
         {
-            ChatBot.Poke($"[{nameof(StudySkill)}] skill \"{name}\" 不存在");
+            interactor.Poke($"[{nameof(StudySkill)}] skill \"{name}\" 不存在");
             return;
         }
 
         string skillDocPath = Path.Combine(skillDir, "SKILL.md");
         if (File.Exists(skillDocPath) == false)
         {
-            ChatBot.Poke($"[{nameof(StudySkill)}] skill文件不存在");
+            interactor.Poke($"[{nameof(StudySkill)}] skill文件不存在");
             return;
         }
 

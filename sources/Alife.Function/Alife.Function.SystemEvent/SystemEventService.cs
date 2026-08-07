@@ -98,15 +98,15 @@ public class SystemEventService(
         //发送系统启动消息
         if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
         {
-            ChatBot.Chat("""
-                         角色已激活：
-                         这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
-                         此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
-                         """);
+            interactor.Chat("""
+                            角色已激活：
+                            这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
+                            此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
+                            """);
         }
         else
         {
-            ChatBot.Chat($"程序已重启。{Configuration.StartPrompt}");
+            interactor.Chat($"程序已重启。{Configuration.StartPrompt}");
         }
 
         return Task.CompletedTask;
@@ -125,7 +125,7 @@ public class SystemEventService(
     }
     protected override async Task OnDestroy()
     {
-        await ChatBot.ChatAsync($"程序关闭中。{Configuration.DestroyPrompt}");
+        await interactor.ChatAsync($"程序关闭中。{Configuration.DestroyPrompt}");
     }
 
     void OnChatSent(string message)

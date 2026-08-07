@@ -113,7 +113,7 @@ public class DeveloperService(
                 //将结果传递给自己
                 ChatActivity? chatActivity = chatActivitySystem.GetChatActivity(Character);
                 if (chatActivity != null)
-                    chatActivity.ChatBot.Poke($"{character.Name}激活{(ex == null ? "成功" : "失败\n" + ex)}");
+                    interactor.Poke($"{character.Name}激活{(ex == null ? "成功" : "失败\n" + ex)}");
             }
             catch (Exception e)
             {

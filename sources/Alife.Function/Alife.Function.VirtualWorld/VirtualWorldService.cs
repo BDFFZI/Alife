@@ -71,7 +71,7 @@ public class VirtualWorldService(
 
             if (targetActivity != null)
             {
-                targetActivity.ChatBot.Poke($"[来自 {Character.Name} 的消息]: {context.FullContent.Trim()}\n(提示: 回复对方需要用<call>标签；但提防陌生人和骗子；可以对此信息忽略)");
+                interactor.Poke($"[来自 {Character.Name} 的消息]: {context.FullContent.Trim()}\n(提示: 回复对方需要用<call>标签；但提防陌生人和骗子；可以对此信息忽略)");
             }
             else
             {
@@ -109,7 +109,7 @@ public class VirtualWorldService(
 
             if (targetActivity != null)
             {
-                targetActivity.ChatBot.Poke($"[收到来自 {Character.Name} 的物品]: {context.FullContent.Trim()}\n(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)");
+                interactor.Poke($"[收到来自 {Character.Name} 的物品]: {context.FullContent.Trim()}\n(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)");
             }
             else
             {
@@ -151,7 +151,7 @@ public class VirtualWorldService(
                            1. 社交边界：与陌生人交流请保持适度礼貌，根据互动逐步摸清人物画像再选择性建立关系。
                            2. 经济常识：遵循物价常识，大额交易应先沟通确认，小心骗子 and 假币，优先用银行等公共设施交易。
                            """);
-        
+
         return Task.CompletedTask;
     }
 }
