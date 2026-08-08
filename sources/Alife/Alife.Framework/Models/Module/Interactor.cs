@@ -10,7 +10,6 @@ public interface IInteractor
 {
     public Func<string, string> ChatTextFilter { get; set; }
     public void Prompt(string prompt);
-    public void Throw(string error);
     public void Poke(string message);
     public void Chat(string message);
     public Task<string> ChatAsync(string message);
@@ -47,10 +46,6 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
             else
                 thread.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, content));
         }, "注入提示词");
-    }
-    public void Throw(string error)
-    {
-        throw new Exception($"[{typeof(T).Name}] 发生错误\n{error}");
     }
     public void Poke(string message)
     {

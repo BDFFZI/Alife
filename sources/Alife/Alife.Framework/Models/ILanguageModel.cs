@@ -34,3 +34,8 @@ public interface ILanguageModel
         CancellationToken cancellationToken = default
     );
 }
+
+public interface IThinkingAbility
+{
+    public OccupationNotepad ThinkingRequest { get; }
+}

@@ -15,6 +15,24 @@ public class OccupationMarker(OccupationNotepad occupationNotepad, string reason
 
 public class OccupationNotepad
 {
+    public bool IsOccupied
+    {
+        get
+        {
+            lock (content)
+            {
+                return content.Count != 0;
+            }
+        }
+    }
+
+    public void Query(Action<IReadOnlyList<OccupationMarker>> action)
+    {
+        lock (content)
+        {
+            action(content);
+        }
+    }
     public OccupationMarker Rent(string reason)
     {
         OccupationMarker occupationMarker = new(this, reason);
@@ -31,14 +49,6 @@ public class OccupationNotepad
         lock (content)
         {
             content.Remove(occupation);
-        }
-    }
-
-    public void Query(Action<IReadOnlyList<OccupationMarker>> action)
-    {
-        lock (content)
-        {
-            action(content);
         }
     }
 

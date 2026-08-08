@@ -45,6 +45,7 @@ public class ChatBot : IAsyncDisposable
     public OccupationNotepad ResourceOccupiedReason { get; set; } = new();
     public IReadOnlyList<ChatMessageContent> ChatHistory => chatHistoryAgentThread.ChatHistory;
     public CancellationTokenSource ChatBreakTokenSource => chatBreakSource;
+    public ILanguageModel LanguageModel => languageModel;
 
     public async Task EditChatHistoryAsync(Func<ChatHistoryAgentThread, Task> action, string reason)
     {

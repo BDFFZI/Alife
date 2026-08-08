@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,10 +29,10 @@ public class ProcessService(
     [XmlFunction(FunctionMode.OneShot)]
     public void KillProcess(string name)
     {
-        if (impl.KillProcess(name))
-            interactor.Poke($"进程已杀死: {name}");
-        else
-            interactor.Throw($"进程不存在: {name}");
+        if (impl.KillProcess(name) == false)
+            throw new Exception($"进程不存在: {name}");
+
+        interactor.Poke($"进程已杀死: {name}");
     }
 
     [XmlFunction(FunctionMode.Content)]
@@ -110,7 +111,7 @@ public class ProcessService(
     protected override Task OnDestroy()
     {
         impl.KillAll();
-        
+
         return Task.CompletedTask;
     }
 

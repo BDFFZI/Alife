@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,17 +38,12 @@ public class FileService(
         FileReadResult result = await impl.ReadAsync(path, startLine, lineCount, cancellationToken);
 
         if (result.Error != null)
-        {
-            interactor.Throw(result.Error);
-        }
-        else if (result.TempFilePath != null)
-        {
+            throw new Exception(result.Error);
+
+        if (result.TempFilePath != null)
             interactor.Poke($"内容过大，已写入临时文件: {result.TempFilePath}");
-        }
         else
-        {
             interactor.Poke(result.Content!);
-        }
     }
 
     [XmlFunction(FunctionMode.Content)]
@@ -61,10 +57,7 @@ public class FileService(
         if (context.CallMode == CallMode.Closing)
         {
             if (string.IsNullOrEmpty(oldString) || string.IsNullOrEmpty(newString))
-            {
-                interactor.Throw("未提供 oldString 或 newString 标签内容");
-                return;
-            }
+                throw new Exception("未提供 oldString 或 newString 标签内容");
 
             await impl.EditAsync(filePath, oldString, newString, replaceAll);
             interactor.Poke("文件已更新");

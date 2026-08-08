@@ -14,7 +14,7 @@ using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI.Chat;
-using ChatMessageContent=Microsoft.SemanticKernel.ChatMessageContent;
+using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 namespace Alife.Function.Language.OpenAI;
 
@@ -29,9 +29,11 @@ public class OpenAILanguageModel(
     ILogger<OpenAILanguageModel> logger) :
     ChatBehaviour,
     ILanguageModel,
-    IConfigurable<OpenAILanguageModelConfig>
+    IConfigurable<OpenAILanguageModelConfig>,
+    IThinkingAbility
 {
     public OpenAILanguageModelConfig Configuration { get; set; } = null!;
+    public OccupationNotepad ThinkingRequest { get; } = new();
 
     public async Task<string> ChatStreamingAsync(
         ChatHistoryAgentThread chatHistoryAgentThread,
@@ -41,11 +43,15 @@ public class OpenAILanguageModel(
         Action<Exception>? exceptionThrow = null,
         CancellationToken cancellationToken = default)
     {
-        StringBuilder nonThinkingContent = new();//用于存储不含思考过程的最终回复
+        StringBuilder nonThinkingContent = new(); //用于存储不含思考过程的最终回复
+        ChatCompletionAgent agent = Configuration.defaultThinking || ThinkingRequest.IsOccupied
+            ? chatCompletionAgent
+            : chatCompletionAgentNotThinking;
 
         try
         {
-            await foreach (AgentResponseItem<StreamingChatMessageContent> chatMessage in chatCompletionAgent.InvokeStreamingAsync(chatHistoryAgentThread, cancellationToken: cancellationToken))
+            await foreach (AgentResponseItem<StreamingChatMessageContent> chatMessage in agent.InvokeStreamingAsync(
+                               chatHistoryAgentThread, cancellationToken: cancellationToken))
             {
                 string? content = chatMessage.Message.Content;
                 if (content != null)
@@ -106,6 +112,7 @@ public class OpenAILanguageModel(
 
 
     ChatCompletionAgent chatCompletionAgent = null!;
+    ChatCompletionAgent chatCompletionAgentNotThinking = null!;
 
     [Experimental("SKEXP0010")]
     protected override Task OnAwake()
@@ -123,11 +130,16 @@ public class OpenAILanguageModel(
 
         chatCompletionAgent = new() {
             Kernel = kernelService,
-            Arguments = new KernelArguments(ProvidePromptExecutionSettings()),
+            Arguments = new KernelArguments(ProvidePromptExecutionSettings(true)),
+        };
+        chatCompletionAgentNotThinking = new() {
+            Kernel = kernelService,
+            Arguments = new KernelArguments(ProvidePromptExecutionSettings(false)),
         };
 
         return Task.CompletedTask;
     }
+
 
     void RegisterChatCompletion(IKernelBuilder kernelBuilder)
     {
@@ -137,7 +149,9 @@ public class OpenAILanguageModel(
         // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
         SocketsHttpHandler handler = new() {
             SslOptions = new System.Net.Security.SslClientAuthenticationOptions {
-                RemoteCertificateValidationCallback = delegate { return true; }
+                RemoteCertificateValidationCallback = delegate {
+                    return true;
+                }
             },
             PooledConnectionLifetime = TimeSpan.FromMinutes(5)
         };
@@ -176,20 +190,29 @@ public class OpenAILanguageModel(
             httpClient: httpClient
         );
     }
+
     [Experimental("SKEXP0010")]
-    PromptExecutionSettings ProvidePromptExecutionSettings()
+    PromptExecutionSettings ProvidePromptExecutionSettings(bool thinking)
     {
         OpenAIPromptExecutionSettings settings = new();
 
-        if (string.IsNullOrEmpty(Configuration.reasoningEffort) == false)
-            settings.ReasoningEffort = Configuration.reasoningEffort;
+        if (thinking)
+        {
+            if (string.IsNullOrEmpty(Configuration.reasoningEffort) == false)
+                settings.ReasoningEffort = Configuration.reasoningEffort;
+        }
+        else
+        {
+            settings.ReasoningEffort = null;
+        }
 
         settings.ExtraBody = new Dictionary<string, object?>();
         if (!string.IsNullOrWhiteSpace(Configuration.extraBody))
         {
             try
             {
-                var bodyDict = JsonSerializer.Deserialize<Dictionary<string, object>>(Configuration.extraBody);
+                var bodyDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    thinking ? Configuration.extraBody : Configuration.extraBodyNotThinking);
                 if (bodyDict != null)
                 {
                     foreach (var kvp in bodyDict)

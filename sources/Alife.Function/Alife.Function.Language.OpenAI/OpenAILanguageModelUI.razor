@@ -1,17 +1,62 @@
 @using System.Net.Http
 @using AntDesign
 @using Newtonsoft.Json.Linq
+@using Alife.Framework
 @inherits Alife.Framework.ModuleUIBase<OpenAILanguageModel, OpenAILanguageModelConfig>
+@implements IDisposable
 @inject IMessageService MessageService
 
-<div style="background: #fff; padding: 20px; border-radius: 8px;">
+<div style="background: #fff; padding: 20px; border-radius: 8px; overflow: hidden;">
+    @* ───── 运行时状态 ───── *@
+    @if (Module != null)
+    {
+        <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px;">
+            <Title Level="4" Style="margin: 0;">思考请求状态</Title>
+            <AntDesign.Text Type="TextElementType.Secondary">
+                @(Module.ThinkingRequest.IsOccupied ? "有功能请求思考" : "无思考请求")
+            </AntDesign.Text>
+        </Flex>
+
+        @if (Module.ThinkingRequest.IsOccupied)
+        {
+            <Card Size="CardSize.Small" Style="border-radius: 8px; margin-bottom: 16px; max-width: 100%;">
+                <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 8px;">
+                    <Space Align="SpaceAlign.Center">
+                        <SpaceItem>
+                            <AntDesign.Text Strong Style="font-size: 16px;">思考请求已接收</AntDesign.Text>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Tag Color="TagColor.Green">请求中</Tag>
+                        </SpaceItem>
+                    </Space>
+                </Flex>
+                <div style="margin-top: 8px;">
+                    <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        请求原因:
+                    </AntDesign.Text>
+                    <div
+                        style="max-height: 100px; overflow-y: auto; background: #f6f8fa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px dashed #d9d9d9; margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">
+                        @if (thinkingMarkers != null)
+                        {
+                            @foreach (var marker in thinkingMarkers)
+                            {
+                                <div style="color: #52c41a; margin-bottom: 2px;">@marker.Reason</div>
+                            }
+                        }
+                    </div>
+                </div>
+            </Card>
+        }
+
+        <Divider></Divider>
+    }
+
     <Title Level="4" Style="margin-bottom: 24px;">对话服务配置（OpenAI标准）</Title>
     <Form TModel="OpenAILanguageModelConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
+        @* ───── LLM接入配置 ───── *@
+        <Divider>LLM接入配置</Divider>
         <FormItem Label="Endpoint">
             <Input @bind-Value="@Configuration.endpoint" placeholder="例如: https://api.deepseek.com/v1"/>
-        </FormItem>
-        <FormItem Label="API Key">
-            <InputPassword @bind-Value="@Configuration.apiKey"/>
         </FormItem>
         <FormItem Label="Model ID">
             <div style="display: flex; gap: 8px;">
@@ -23,17 +68,48 @@
                 </Button>
             </div>
         </FormItem>
+        <FormItem Label="API Key">
+            <InputPassword @bind-Value="@Configuration.apiKey"/>
+        </FormItem>
+
+        @* ───── 思考模式参数 ───── *@
+        <Divider>思考模式参数</Divider>
         <FormItem Label="思考强度 (Reasoning Effort)">
             <Input @bind-Value="@Configuration.reasoningEffort" placeholder="例如: low,medium,high"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                不一定有效，具体参考服务提供商的文档。
+            </AntDesign.Text>
         </FormItem>
-        <Divider>高级配置 (可选)</Divider>
+        <FormItem Label="思考模式请求体 (JSON 格式)">
+            <TextArea @bind-Value="@Configuration.extraBody" Rows="3"
+                      Placeholder='{"thinking": {"type": "enabled"}}'></TextArea>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                思考模式下附加的请求体参数。
+            </AntDesign.Text>
+        </FormItem>
+
+        @* ───── 非思考模式参数 ───── *@
+        <Divider>非思考模式参数</Divider>
+        <FormItem Label="非思考模式请求体 (JSON 格式)">
+            <TextArea @bind-Value="@Configuration.extraBodyNotThinking" Rows="3"
+                      Placeholder='{"thinking": {"type": "disabled"}}'></TextArea>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                非思考模式下附加的请求体参数。
+            </AntDesign.Text>
+        </FormItem>
+
+        @* ───── 高级配置 ───── *@
+        <Divider>高级配置</Divider>
+        <FormItem Label="默认启用思考">
+            <Switch @bind-Value="@Configuration.defaultThinking"/>
+            <br/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                开启后默认使用思考模式，关闭则默认使用非思考模式。
+            </AntDesign.Text>
+        </FormItem>
         <FormItem Label="自定义请求头 (JSON 格式)">
             <TextArea @bind-Value="@Configuration.extraHeaders" Rows="3"
                       Placeholder='{"Authorization": "Bearer XXX", "X-Custom-Header": "value"}'></TextArea>
-        </FormItem>
-        <FormItem Label="自定义请求体附加字段 (JSON 格式)">
-            <TextArea @bind-Value="@Configuration.extraBody" Rows="3"
-                      Placeholder='{"image_detail": "high", "top_p": 0.9}'></TextArea>
         </FormItem>
     </Form>
 
@@ -56,8 +132,31 @@
 
     @code {
         List<string> availableModels = new();
+        List<OccupationMarker>? thinkingMarkers = new();
         bool isLoadingModels;
         bool isModelModalVisible;
+        System.Timers.Timer? refreshTimer;
+
+        protected override void OnInitialized()
+        {
+            refreshTimer = new System.Timers.Timer(200);
+            refreshTimer.Elapsed += (_, _) => {
+                if (Module != null)
+                {
+                    Module.ThinkingRequest.Query(markers => {
+                        thinkingMarkers = markers.ToList();
+                    });
+                }
+                InvokeAsync(StateHasChanged);
+            };
+            refreshTimer.Start();
+        }
+
+        public void Dispose()
+        {
+            refreshTimer?.Stop();
+            refreshTimer?.Dispose();
+        }
 
         async Task FetchModels()
         {

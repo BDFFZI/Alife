@@ -11,7 +11,7 @@ namespace Alife.Function.FunctionCaller;
 
 public class XmlHandler
 {
-    public string Name { get; init; }
+    public string Name { get; }
     public string? Description { get; init; }
     public string? Explanation { get; init; }
     public List<XmlFunction> Functions { get; init; } = new();
@@ -26,7 +26,6 @@ public class XmlHandler
             sb.AppendLine(function.Document());
         return sb.ToString().Trim();
     }
-
     public string Document()
     {
         StringBuilder stringBuilder = new();
@@ -43,17 +42,15 @@ public class XmlHandler
         return stringBuilder.ToString();
     }
 
-    public XmlHandler(string name = "")
+    public XmlHandler(string name)
     {
         Name = name;
     }
-
-    public XmlHandler(object instance, string? explanation = null)
+    public XmlHandler(object instance)
     {
         Type handlerType = instance.GetType();
         Name = handlerType.Name;
         Description = handlerType.GetCustomAttribute<DescriptionAttribute>()?.Description;
-        Explanation = explanation;
 
         foreach (MethodInfo method in handlerType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
         {
@@ -104,8 +101,7 @@ public class XmlHandler
                 if (parameterInfo.HasDefaultValue)
                     parameterTypeName += "[可选]";
 
-                normalParameters.Add(new XmlParameter()
-                {
+                normalParameters.Add(new XmlParameter() {
                     Name = parameterName,
                     Description = parameterDescription,
                     Type = parameterTypeName,
@@ -209,8 +205,7 @@ public class XmlHandler
             return Task.CompletedTask;
         }
 
-        return new XmlFunction
-        {
+        return new XmlFunction {
             Name = functionAttribute.Name ?? method.Name.ToLower(),
             Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
             ContentName = contentName ?? (functionAttribute.Mode != FunctionMode.Content ? null :

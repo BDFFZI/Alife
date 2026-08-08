@@ -36,7 +36,7 @@ public class SpeechService(
                         if (IsSpeaking)
                             await playAudioTask;
                     }
-                    catch (OperationCanceledException) {}
+                    catch (OperationCanceledException) { }
                     break;
                 case CallMode.Closing:
                     break;
@@ -50,7 +50,7 @@ public class SpeechService(
                 }
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException) { }
     }
 
     Task<string?> audioSynthesizingTask = Task.FromResult<string?>(null);
@@ -60,14 +60,17 @@ public class SpeechService(
     {
         XmlHandler xmlHandler = new(this);
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
-        functionService.ChatCalled += OnChatCalled;
+        functionService.ChatCalledAsync += OnChatCalledAsync;
 
         return Task.CompletedTask;
     }
 
-    async Task OnChatCalled()
+    async Task OnChatCalledAsync()
     {
-        await playAudioTask;
+        using (ChatBot.ResourceOccupiedReason.Rent("等待语音结束"))
+        {
+            await playAudioTask;
+        }
     }
 
     async Task QueueSpeakAsync(string text, CancellationToken cancellationToken = default)
@@ -83,7 +86,7 @@ public class SpeechService(
             }
             catch (OperationCanceledException)
             {
-                return;// 语音被打断，那么后续语音显然也不用播放了
+                return; // 语音被打断，那么后续语音显然也不用播放了
             }
         }
 
@@ -91,7 +94,7 @@ public class SpeechService(
         string? audioFile = null;
         try
         {
-            audioFile = await audioSynthesizingTask;// 等待合成任务完成
+            audioFile = await audioSynthesizingTask; // 等待合成任务完成
         }
         catch (Exception e)
         {
@@ -99,7 +102,7 @@ public class SpeechService(
         }
 
         if (audioFile == null)
-            return;// 没有可朗读的文本
+            return; // 没有可朗读的文本
 
         playAudioTask = PlayAudioAsync(audioFile, cancellationToken);
     }
@@ -107,8 +110,8 @@ public class SpeechService(
     {
         TaskCompletionSource tcs = new();
 
-        await using AudioFileReader reader = new(filePath);//音频读取
-        SpeechSilenceTrimmer silenceTrimmer = new(reader);//音频预处理
+        await using AudioFileReader reader = new(filePath); //音频读取
+        SpeechSilenceTrimmer silenceTrimmer = new(reader); //音频预处理
         using WaveOutEvent speaker = new();
         speaker.Init(silenceTrimmer);
         speaker.PlaybackStopped += OnPlaybackStopped;
@@ -116,7 +119,7 @@ public class SpeechService(
 
         // ReSharper disable once AccessToDisposedClosure
         await using CancellationTokenRegistration registration = cancellationToken.Register(() => speaker.Stop());
-        await tcs.Task;//等待播放完毕
+        await tcs.Task; //等待播放完毕
 
         void OnPlaybackStopped(object? _, StoppedEventArgs e)
         {

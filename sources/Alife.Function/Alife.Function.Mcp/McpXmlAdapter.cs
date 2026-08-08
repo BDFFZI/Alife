@@ -34,8 +34,7 @@ public static class McpXmlAdapter
             functions.Add(function);
         }
 
-        XmlHandler handler = new() {
-            Name = config.Name,
+        XmlHandler handler = new(config.Name) {
             Description = config.Description,
             Functions = functions
         };
@@ -68,9 +67,9 @@ public static class McpXmlAdapter
             CallToolResult result = await client.CallToolAsync(tool.Name, arguments, cancellationToken: cancellationToken);
 
             string resultText = string.Join("\n",
-            result.Content
-                .Where(block => block is TextContentBlock)
-                .Select(block => ((TextContentBlock)block).Text));
+                result.Content
+                    .Where(block => block is TextContentBlock)
+                    .Select(block => ((TextContentBlock)block).Text));
 
             if (result.IsError == true)
                 throw new Exception(resultText);
@@ -91,8 +90,14 @@ public static class McpXmlAdapter
         // 数组类型（integer[]、string[] 等）
         if (jsonType.EndsWith("[]"))
         {
-            try { return JsonSerializer.Deserialize<object>(value); }
-            catch { return value; }
+            try
+            {
+                return JsonSerializer.Deserialize<object>(value);
+            }
+            catch
+            {
+                return value;
+            }
         }
 
         switch (jsonType)
@@ -105,8 +110,14 @@ public static class McpXmlAdapter
                 return bool.TryParse(value, out bool b) ? b : value;
             case "object":
             case "array":
-                try { return JsonSerializer.Deserialize<object>(value); }
-                catch { return value; }
+                try
+                {
+                    return JsonSerializer.Deserialize<object>(value);
+                }
+                catch
+                {
+                    return value;
+                }
             default:
                 return value;
         }
