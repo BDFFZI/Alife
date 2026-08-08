@@ -62,7 +62,7 @@ else
 
                 launchingProgress = "正在拉取在线插件...";
                 await InvokeAsync(StateHasChanged);
-                await pluginSystem.SyncOnlinePlugins(); //老版本插件依赖云端包信息来确定编译环境
+                await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境
                 }
                 catch (Exception e)
                 {
