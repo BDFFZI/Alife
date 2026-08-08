@@ -36,7 +36,7 @@ public class AuditoryService(
             var settings = new AudioGraphSettings(AudioRenderCategory.Speech) {
                 EncodingProperties = AudioEncodingProperties.CreatePcm(16000, 1, 32)
             };
-            settings.EncodingProperties.Subtype = MediaEncodingSubtypes.Float;// 输出 32位 Float，Sherpa 和 Silero 直接可用
+            settings.EncodingProperties.Subtype = MediaEncodingSubtypes.Float; // 输出 32位 Float，Sherpa 和 Silero 直接可用
             var result = await AudioGraph.CreateAsync(settings);
             if (result.Status != AudioGraphCreationStatus.Success)
                 throw new Exception($"AudioGraph 创建失败: {result.Status}");
@@ -83,13 +83,7 @@ public class AuditoryService(
 
     protected override async Task OnStart()
     {
-        interactor.ChatTextFilter = text =>
-            $"""
-             消息来源:[{nameof(AuditoryService)}]
-             {text}
-             (语音识别结果，容易误识别)
-             (建议用语音功能回复)
-             """;
+        interactor.ChatTextFilter = text => $"{text}(消息为语音识别结果，错误率较高；建议也用语音功能回复)";
         auditoryModel.Recognized += OnRecognized;
         await StartRecordingAsync();
     }
@@ -118,7 +112,7 @@ public class AuditoryService(
         // 这里通过 CsWinRT 暴露的 NativeObject 获取原生 IUnknown 指针，再通过 QueryInterface 和函数指针调用
         // ReSharper disable once SuspiciousTypeConversion.Global
         IntPtr unk = ((WinRT.IWinRTObject)reference).NativeObject.ThisPtr;
-        Guid iid = new Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D");// IMemoryBufferByteAccess
+        Guid iid = new Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D"); // IMemoryBufferByteAccess
         if (Marshal.QueryInterface(unk, in iid, out IntPtr ptr) != 0)
         {
             Console.WriteLine("查询音频缓存区COM对象失败！");
@@ -140,7 +134,7 @@ public class AuditoryService(
             {
                 float[] samples = new float[sampleCount];
 
-                if (IsListening)// 按住时发送真实音频
+                if (IsListening) // 按住时发送真实音频
                 {
                     fixed (float* dest = samples)
                         Buffer.MemoryCopy(dataInBytes, dest, capacityInBytes, capacityInBytes);
@@ -183,7 +177,8 @@ public class AuditoryService(
             }
         }
     }
-    void OnUnrecoverableErrorOccurred(AudioGraph audioGraph, AudioGraphUnrecoverableErrorOccurredEventArgs audioGraphUnrecoverableErrorOccurredEventArgs)
+    void OnUnrecoverableErrorOccurred(AudioGraph audioGraph,
+        AudioGraphUnrecoverableErrorOccurredEventArgs audioGraphUnrecoverableErrorOccurredEventArgs)
     {
         StopRecording();
     }

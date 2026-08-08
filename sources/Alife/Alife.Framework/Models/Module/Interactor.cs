@@ -17,14 +17,21 @@ public interface IInteractor
 
 public interface IInteractor<T> : IInteractor;
 
-public class Interactor<T>(ChatBot target) : IInteractor<T>
+public partial class Interactor<T>
 {
-    public string GetPromptTag()
+    public static string GetPromptTag()
     {
         return $"[功能说明({typeof(T).Name})]";
     }
+    public static string GetMessageTag()
+    {
+        return $"[消息来源({typeof(T).Name})]";
+    }
+}
 
-    public Func<string, string> ChatTextFilter { get; set; } = text => $"消息来源:[{typeof(T).Name}]\n{text}";
+public partial class Interactor<T>(ChatBot target) : IInteractor<T>
+{
+    public Func<string, string> ChatTextFilter { get; set; } = text => text;
     public void Prompt(string prompt)
     {
         string content = $"{GetPromptTag()}\n{prompt}";
@@ -49,14 +56,14 @@ public class Interactor<T>(ChatBot target) : IInteractor<T>
     }
     public void Poke(string message)
     {
-        target.Poke(ChatTextFilter(message));
+        target.Poke(ChatTextFilter(GetMessageTag() + message));
     }
     public void Chat(string message)
     {
-        target.Chat(ChatTextFilter(message));
+        target.Chat(ChatTextFilter(GetMessageTag() + message));
     }
     public Task<string> ChatAsync(string message)
     {
-        return target.ChatAsync(ChatTextFilter(message));
+        return target.ChatAsync(ChatTextFilter(GetMessageTag() + message));
     }
 }

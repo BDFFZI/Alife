@@ -17,24 +17,25 @@ public record QChatConfig
 {
     public string Url { get; set; } = "ws://127.0.0.1:3001";
     public string Token { get; set; } = "";
-    public int AutoReconnectSeconds { get; set; } = 60;//自动尝试重连的间隔（秒）
+    public int AutoReconnectSeconds { get; set; } = 60; //自动尝试重连的间隔（秒）
     public long BotId { get; set; }
     public long OwnerId { get; set; }
-    public string AppendDocumentPrompt { get; set; } = "注意！如果回复QQ消息，必须保持极简的文本（0-20字）来保证自然感。同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请使用CQ码功能指定回复人。";
-    public string AppendPrivateChatPrompt { get; set; } = "(回复请保持1-20字)";//收到私聊消息时附加给ai的提示词
-    public string AppendGroupChatPrompt { get; set; } = "(回复请保持1-20字。注意分清群聊场合，不要随便插话，避免刷屏)";//收到群聊消息时附加给ai的提示词
+    public string AppendDocumentPrompt { get; set; } =
+        "注意！如果回复QQ消息，必须保持极简的文本（0-20字）来保证自然感。同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请使用CQ码功能指定回复人。";
+    public string AppendPrivateChatPrompt { get; set; } = "(回复请保持1-20字)"; //收到私聊消息时附加给ai的提示词
+    public string AppendGroupChatPrompt { get; set; } = "(回复请保持1-20字。注意分清群聊场合，不要随便插话，避免刷屏)"; //收到群聊消息时附加给ai的提示词
     //群监听唤醒
-    public string IgnoredGroup { get; set; } = "";//完全屏蔽消息的群，不会收到这些群的任何信息
-    public string WakingWords { get; set; } = "";//原始群消息中触发开启群消息监听的唤醒词，以逗号分隔
-    public float ProactiveChatProbability { get; set; }//收到原始群消息时自动激活群消息监听的概率
+    public string IgnoredGroup { get; set; } = ""; //完全屏蔽消息的群，不会收到这些群的任何信息
+    public string WakingWords { get; set; } = ""; //原始群消息中触发开启群消息监听的唤醒词，以逗号分隔
+    public float ProactiveChatProbability { get; set; } //收到原始群消息时自动激活群消息监听的概率
     //群监听缓存
-    public int PerBufferSize { get; set; } = 5;//激活前的一个持久群消息缓冲区，会在角色激活时同步发送
-    public int MaxBufferMessages { get; set; } = -1;//最大群消息暂存数量，发生溢出时会立即推送，-1表示无限
-    public float FlushInterval { get; set; } = 12f;//推送倒计时，隔一段时间推送暂存的群消息
-    public bool DebounceEnabled { get; set; }//消息防抖，接收消息后重置推送倒计时，继续等待消息
+    public int PerBufferSize { get; set; } = 5; //激活前的一个持久群消息缓冲区，会在角色激活时同步发送
+    public int MaxBufferMessages { get; set; } = -1; //最大群消息暂存数量，发生溢出时会立即推送，-1表示无限
+    public float FlushInterval { get; set; } = 12f; //推送倒计时，隔一段时间推送暂存的群消息
+    public bool DebounceEnabled { get; set; } //消息防抖，接收消息后重置推送倒计时，继续等待消息
     //群监听关闭
-    public bool CloseGroupAfterReply { get; set; }//AI回复后立即关闭群消息监听
-    public float AutoCloseMinutes { get; set; } = 4f;//长时间不触发唤醒条件时，自动关闭群消息监听的时间
+    public bool CloseGroupAfterReply { get; set; } //AI回复后立即关闭群消息监听
+    public float AutoCloseMinutes { get; set; } = 4f; //长时间不触发唤醒条件时，自动关闭群消息监听的时间
     //自动重连
 }
 
@@ -48,6 +49,18 @@ public class GroupState
     public Queue<string> PreMessageBuffer { get; set; } = [];
 }
 
+public partial class QChatService
+{
+    public static string GetGroupMessageTag(GroupState group)
+    {
+        return $"[Q群消息({group.Tag})]";
+    }
+    public static bool HasGroupMessageTag(string message)
+    {
+        return message.Contains("[Q群消息(");
+    }
+}
+
 [Module("QQ聊天",
     """
     连接 OneBot v11 WebSocket 服务器，实现 QQ 消息收发及文件传输。
@@ -57,7 +70,7 @@ public class GroupState
     """,
     defaultCategory: "Alife 官方/交互方式",
     editorUI: typeof(QChatServiceUI))]
-public class QChatService(
+public partial class QChatService(
     XmlFunctionCaller functionService,
     ILogger<QChatService> logger,
     IInteractor<QChatService> interactor,
@@ -77,6 +90,7 @@ public class QChatService(
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
     }
+
     public bool IsConnected => oneBotClient is { IsConnected: true };
     public IReadOnlyDictionary<long, GroupState> GroupStates => groupStates;
 
@@ -269,9 +283,13 @@ public class QChatService(
     OneBotClient oneBotClient = null!;
     readonly Dictionary<long, GroupState> groupStates = new();
     DateTime lastReconnectAttemptTime = DateTime.MinValue;
+    IThinkingAbility? thinkingAbility;
+    OccupationMarker? thinkingOccupationMarker;
 
     protected override Task OnAwake()
     {
+        thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
+
         if (Configuration.OwnerId == 0 || Configuration.BotId == 0)
             logger.LogError("你的QQ插件没有配置AI和主人的QQ号，这会影响功能的正常使用！");
 
@@ -337,6 +355,9 @@ public class QChatService(
                             你的表情库存储路径在 {{emoteBase}}，你也可以在其中存储自己的表情。直接存储在根目录将作为独立表情，存储到子文件夹，则作为分类。具体请参考其中已有的表情文件。
                             """);
 
+        ChatBot.ChatSent += OnChatSent;
+        ChatBot.ChatOver += OnChatOver;
+
         return Task.CompletedTask;
     }
     protected override async Task OnStart()
@@ -400,7 +421,21 @@ public class QChatService(
     }
     protected override async Task OnDestroy()
     {
+        ChatBot.ChatSent -= OnChatSent;
+        ChatBot.ChatOver -= OnChatOver;
+
         await oneBotClient.DisposeAsync();
+    }
+
+    void OnChatSent(string message)
+    {
+        if (thinkingAbility != null && HasGroupMessageTag(message))
+            thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent("处理Q群消息");
+    }
+    void OnChatOver()
+    {
+        if (thinkingAbility != null && thinkingOccupationMarker != null)
+            thinkingAbility.ThinkingRequest.Return(thinkingOccupationMarker);
     }
 
     async void OnEventReceived(OneBotBaseEvent oneBotEvent)
@@ -449,7 +484,7 @@ public class QChatService(
 
     async Task HandleFormattedMessage(OneBotBasicMessageEvent messageEvent, string formatted, bool isAwakening)
     {
-        if (messageEvent.MessageType == OneBotMessageType.Private)//私聊消息
+        if (messageEvent.MessageType == OneBotMessageType.Private) //私聊消息
         {
             string privateMessage = $"{formatted}\n{Configuration.AppendPrivateChatPrompt}";
             if (messageEvent.UserId == Configuration.OwnerId)
@@ -457,7 +492,7 @@ public class QChatService(
             else
                 interactor.Poke(privateMessage);
         }
-        else//群聊消息
+        else //群聊消息
         {
             GroupState state = GetGroupInfo(messageEvent.GroupId);
             state.Tag = messageEvent.GetGroupTag();
@@ -465,16 +500,16 @@ public class QChatService(
             if (isAwakening && state.IsEnabled == false)
                 QGroup(messageEvent.GroupId, true);
 
-            if (state.IsEnabled)//群聊已激活时（直接接收）
+            if (state.IsEnabled) //群聊已激活时（直接接收）
             {
                 BufferGroupMessage(state, formatted);
             }
-            else if (Random.Shared.NextSingle() < Configuration.ProactiveChatProbability)//群聊未激活时（概率接收）
+            else if (Random.Shared.NextSingle() < Configuration.ProactiveChatProbability) //群聊未激活时（概率接收）
             {
                 BufferGroupMessage(state, formatted);
                 state.LastFlushedTime = DateTime.Now;
             }
-            else//未通过发送检测，但缓存消息，作为未来发送时的上下文
+            else //未通过发送检测，但缓存消息，作为未来发送时的上下文
             {
                 state.PreMessageBuffer.Enqueue(formatted);
                 if (state.PreMessageBuffer.Count > Configuration.PerBufferSize)
@@ -506,7 +541,7 @@ public class QChatService(
 
         string cachedMessage =
             $"""
-             > 以下是群 {state.Tag} 的消息{preCachedMessage}
+             > {GetGroupMessageTag(state)} {preCachedMessage}
              {string.Join("\n", state.MessageBuffer)}
              <
              {Configuration.AppendGroupChatPrompt}
@@ -514,10 +549,17 @@ public class QChatService(
 
         state.MessageBuffer.Clear();
         interactor.Poke(cachedMessage);
+
+        if (Configuration.CloseGroupAfterReply)
+            QGroup(state, false);
     }
     public void QGroup(long groupId, bool enabled)
     {
         GroupState state = GetGroupInfo(groupId);
+        QGroup(state, enabled);
+    }
+    void QGroup(GroupState state, bool enabled)
+    {
         state.IsEnabled = enabled;
         if (enabled)
         {

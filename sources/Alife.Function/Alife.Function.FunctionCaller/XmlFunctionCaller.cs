@@ -37,6 +37,10 @@ public partial class XmlFunctionCaller
     {
         return $"[使用文档({handler.Name})]";
     }
+    public static bool HasDocumentTag(string message)
+    {
+        return message.Contains("[使用文档(");
+    }
 }
 
 [Module(
@@ -115,7 +119,7 @@ public partial class XmlFunctionCaller(
     //自动思考功能
     IThinkingAbility? thinkingAbility;
     OccupationMarker? thinkingOccupationMarker;
-    string? needThinking;
+    readonly List<string> thinkingReasons = new();
 
     protected override Task OnStart()
     {
@@ -197,7 +201,7 @@ public partial class XmlFunctionCaller(
     void OnChatSent(string obj)
     {
         chatOccupationMarker = ChatBot.ResourceOccupiedReason.Rent("函数执行");
-        needThinking = null;
+        thinkingReasons.Clear();
     }
     void OnChatReceived(string obj)
     {
@@ -205,10 +209,10 @@ public partial class XmlFunctionCaller(
     }
     void OnHandling(string name, XmlContext context)
     {
+        chatOccupationMarker!.Reason = $"执行{name}函数";
+
         if (context.CallMode != CallMode.Opening && context.CallMode != CallMode.OneShot)
             return;
-
-        chatOccupationMarker!.Reason = $"执行{name}函数";
 
         //实现当ai调用隐射函数时自动注入对应的隐式文档
         IReadOnlyList<XmlHandler>? handlers = handlerTable.GetHandlersOfFunction(name);
@@ -226,7 +230,7 @@ public partial class XmlFunctionCaller(
                     if (hasDocumentTag == false)
                     {
                         interactor.Poke(GetExplicitDocument(handler));
-                        needThinking = "重新激活隐式功能"; //即将使用隐式功能，需要思考
+                        thinkingReasons.Add("重新激活隐式功能");
                     }
                 }
             }
@@ -236,7 +240,7 @@ public partial class XmlFunctionCaller(
     {
         interactor.Poke($"执行{tag}标签出错：{exception.Message}");
         logger.LogInformation(exception, $"执行{tag}标签出错");
-        needThinking = "需要处理函数异常"; //执行功能出错，需要思考
+        thinkingReasons.Add("需要处理函数异常");
     }
     async Task OnChatFinishedAsync(ChatContext chatContext)
     {
@@ -270,25 +274,20 @@ public partial class XmlFunctionCaller(
             }
         }
 
-        foreach (XmlHandler handler in implicitHandlers)
-        {
-            string documentTag = GetDocumentTag(handler);
-            bool hasDocumentTag = ChatBot.ChatHistory
-                .Where(content => content.Role == AuthorRole.User)
-                .Any(content => content.Content?.Contains(documentTag) ?? false);
-            if (hasDocumentTag)
-                needThinking = "隐式功能激活中"; //正常使用隐式功能，启动思考
-        }
+        if (ChatBot.ChatHistory
+            .Where(content => content.Role == AuthorRole.User)
+            .Any(content => content.Content != null && HasDocumentTag(content.Content)))
+            thinkingReasons.Add("隐式功能激活中");
 
         //使用自动思考功能
         if (Configuration.AutoThinking && thinkingAbility != null)
         {
-            if (needThinking != null)
+            if (thinkingReasons.Count != 0)
             {
                 if (thinkingOccupationMarker == null)
-                    thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent(needThinking);
+                    thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent(string.Join(" | ", thinkingReasons));
                 else
-                    thinkingOccupationMarker.Reason = needThinking;
+                    thinkingOccupationMarker.Reason = string.Join(" | ", thinkingReasons);
             }
             else if (thinkingOccupationMarker != null)
             {
@@ -297,7 +296,6 @@ public partial class XmlFunctionCaller(
             }
         }
     }
-
 
     string GetExplicitDocument(XmlHandler handler)
     {
@@ -322,7 +320,7 @@ public partial class XmlFunctionCaller(
             Name = source.Name.ToLower(),
             Invoker = (_, _) => {
                 interactor.Poke(GetExplicitDocument(source));
-                needThinking = "即将使用隐式功能";
+                thinkingReasons.Add("即将使用隐式功能");
                 return Task.CompletedTask;
             }
         });

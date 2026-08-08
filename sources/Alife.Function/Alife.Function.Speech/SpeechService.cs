@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
@@ -109,6 +110,9 @@ public class SpeechService(
     async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
     {
         TaskCompletionSource tcs = new();
+
+        if (File.Exists(filePath) == false)
+            Console.WriteLine(filePath);
 
         await using AudioFileReader reader = new(filePath); //音频读取
         SpeechSilenceTrimmer silenceTrimmer = new(reader); //音频预处理

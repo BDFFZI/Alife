@@ -54,6 +54,12 @@
                                                         Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
                                                     思考过程
                                                 </summary>
+                                                @if (!string.IsNullOrEmpty(message.ThinkingReason))
+                                                {
+                                                    <div class="chat-reasoning-reason">
+                                                        思考原因：@message.ThinkingReason
+                                                    </div>
+                                                }
                                                 <div class="chat-reasoning-content">
                                                     @message.Reasoning
                                                 </div>
@@ -270,6 +276,18 @@
         white-space: pre-wrap;
         font-style: italic;
     }
+
+    .chat-reasoning-reason {
+        color: #1890ff;
+        background: rgba(24, 144, 255, 0.06);
+        border: 1px solid rgba(24, 144, 255, 0.2);
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+    }
 </style>
 
 <script type="text/javascript">
@@ -436,6 +454,7 @@
 </script>
 @using Alife.Components.Services
 @using Alife.Foundation
+@using Alife.Framework
 
 @code {
     [Parameter] public Character Character { get; set; } = null!;

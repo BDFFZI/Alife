@@ -74,8 +74,6 @@ public class SystemEventService(
 
     protected override Task OnAwake()
     {
-        interactor.ChatTextFilter = text => $"[系统报点]{text}";
-
         ChatBot.ChatSent += OnChatSent;
 
         XmlHandler xmlHandler = new(this) {
@@ -96,17 +94,24 @@ public class SystemEventService(
         NextTimer();
 
         //发送系统启动消息
-        if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
         {
-            interactor.Chat("""
-                            角色已激活：
-                            这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
-                            此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
-                            """);
-        }
-        else
-        {
-            interactor.Chat($"程序已重启。{Configuration.StartPrompt}");
+            IThinkingAbility? thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
+            OccupationMarker? occupationMarker = thinkingAbility?.ThinkingRequest.Rent("程序启动");
+
+            if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
+            {
+                interactor.ChatAsync("""
+                                     角色已激活：
+                                     这是你第一次苏醒，初来乍到这个陌生环境，学习利用上下文中的工具了解这个世界。
+                                     此外最重要的一件事，就是现在用上你丰富的能力，先向用户华丽的打个招呼吧！
+                                     """)
+                    .ContinueWith(_ => occupationMarker?.Dispose());
+            }
+            else
+            {
+                interactor.ChatAsync($"程序已重启。{Configuration.StartPrompt}")
+                    .ContinueWith(_ => occupationMarker?.Dispose());
+            }
         }
 
         return Task.CompletedTask;

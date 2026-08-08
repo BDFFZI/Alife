@@ -4,6 +4,7 @@ using Alife.Function.Memory;
 using Alife.Function.MessageFilter;
 using Alife.Foundation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 Console.WriteLine("导入:" + typeof(MessageFilterService));
@@ -32,7 +33,7 @@ await DemoSuite.Run(character,
     }
 );
 
-static void PrintHistoryStructure(ChatHistory history)
+static void PrintHistoryStructure(IReadOnlyList<ChatMessageContent> history)
 {
     lock (DemeLog.ConsoleLock)
     {
@@ -62,7 +63,9 @@ static void PrintHistoryStructure(ChatHistory history)
                 Console.Write($"[{msg.Role.ToString().ToUpper(),-12}] ");
             }
 
-            string preview = msg.Content?.Length > 60 ? msg.Content.Substring(0, 57).Replace("\n", " ") + "..." : msg.Content?.Replace("\n", " ") ?? "";
+            string preview = msg.Content?.Length > 60
+                ? msg.Content.Substring(0, 57).Replace("\n", " ") + "..."
+                : msg.Content?.Replace("\n", " ") ?? "";
             Console.WriteLine(preview);
         }
         Console.WriteLine("----------------------------------------------------------------------\n");

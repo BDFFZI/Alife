@@ -13,6 +13,7 @@ public class ChatMessage
 {
     public string? Content { get; set; }
     public string? Reasoning { get; set; }
+    public string? ThinkingReason { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
     public bool IsReasoning { get; set; }
@@ -126,7 +127,15 @@ public class ChatMessageService
             lock (messages)
             {
                 messages.Add(new ChatMessage { Content = message, IsUser = true });
-                messages.Add(new ChatMessage { IsUser = false, IsInputting = true });
+                string? thinkingReason = null;
+                if (activity.ChatBot.LanguageModel is IThinkingAbility thinkingAbility)
+                {
+                    thinkingAbility.ThinkingRequest.Query(list => {
+                        if (list.Count > 0)
+                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                    });
+                }
+                messages.Add(new ChatMessage { IsUser = false, IsInputting = true, ThinkingReason = thinkingReason });
                 TrimMessages(name);
             }
 

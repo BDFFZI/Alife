@@ -236,11 +236,11 @@
                 群聊接收期间，若AI长期不参与，则超过此时间后将自动关闭群聊接收。
             </AntDesign.Text>
         </FormItem>
-        <FormItem Label="回复后立即停用">
+        <FormItem Label="通讯后立即停用">
             <Switch @bind-Value="@Configuration.CloseGroupAfterReply"/>
             <br/>
             <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                AI回复群消息后立即关闭当前群消息接收。
+                AI接收或发送群消息后立即关闭当前群消息接收。
             </AntDesign.Text>
         </FormItem>
 
