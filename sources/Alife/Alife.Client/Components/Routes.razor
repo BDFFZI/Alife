@@ -1,6 +1,5 @@
 @using Alife.Components.Overlay
 @using Alife.Components.Services
-@using Alife.Foundation
 @using ElectronNET.API
 @inject IJSRuntime JsRuntime
 
@@ -49,7 +48,7 @@ else
                 launchingProgress = "正在初始化软件环境...";
                 await InvokeAsync(StateHasChanged);
                 ClientEnvironment.SyncEnvironment(); //客户端提供的基础运行环境
-                Program.ServiceProvider.InitAlife(); //初始化 Alife 功能
+                await Program.ServiceProvider.InitAlife(); //初始化 Alife 功能
                 Program.ServiceProvider.GetRequiredService<ChatMessageService>(); //客户端对话统计
 
                 PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
@@ -67,7 +66,7 @@ else
                 }
                 catch (Exception e)
                 {
-                AlifeLog.LogError(e);
+                Foundation.AlifeLog.LogError(e);
                 }
 #endif
 

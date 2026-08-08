@@ -33,39 +33,24 @@
         </Actions>
     </PopupNotification>
 }
-else if (showForceUpgrade)
+else if (showPluginUpgrade)
 {
-    <PluginUpgradeModal @bind-Visible="showForceUpgrade"
-                        UpgradeList="forceUpgradeList"
-                        OnUpgradeComplete="@(() => showForceUpgrade = false)">
+    <PluginUpgradeModal @bind-Visible="showPluginUpgrade"
+                        UpgradeList="pluginUpgradeList"
+                        OnUpgradeComplete="@(() => showPluginUpgrade = false)">
         <HeaderContent>
-            <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
-                <b style="color: #ff4d4f;">检测到存在非兼容插件，必须升级才能正常使用。</b>
-            </div>
+            @if (hasForceUpgrade)
+            {
+                <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
+                    <b style="color: #ff4d4f;">检测到存在非兼容插件，必须升级才能正常使用。</b>
+                </div>
+            }
+            else
+            {
+                <Paragraph>检测到可升级插件，建议升级（当插件报错时，通常都可以通过升级或重装来解决，或者也可以尝试让 AI 解决）</Paragraph>
+            }
         </HeaderContent>
     </PluginUpgradeModal>
-}
-else if (showPluginUpdate)
-{
-    <PopupNotification Title="@($"发现 {upgradablePlugins.Length} 个插件可升级")"
-                       Icon="@IconType.Outline.Bell">
-        <Body>
-        @string.Join("、", upgradablePlugins.Take(3).Select(p => p.Name))
-        @if (upgradablePlugins.Length > 3)
-        {
-            @($" 等{upgradablePlugins.Length}个插件")
-        }
-        </Body>
-        <Actions>
-            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small"
-                    OnClick="@GoToPluginMarket">
-                前往升级
-            </Button>
-            <Button Size="@ButtonSize.Small" OnClick="@(() => showPluginUpdate = false)">
-                忽略
-            </Button>
-        </Actions>
-    </PopupNotification>
 }
 
 @code {
@@ -73,21 +58,17 @@ else if (showPluginUpdate)
     //应用更新
     bool showAppUpdate;
     bool isMajorUpdate;
-    //插件强制更新
-    bool showForceUpgrade;
-    readonly List<PluginUpgradeModal.UpgradeItem> forceUpgradeList = [];
-    //插件普通更新
-    bool showPluginUpdate;
-    PluginPackage[] upgradablePlugins = [];
+    //插件更新（合并强制和普通）
+    bool showPluginUpgrade;
+    bool hasForceUpgrade;
+    readonly List<PluginUpgradeModal.UpgradeItem> pluginUpgradeList = [];
     bool isDownloading;
     int downloadProgress;
 
     protected override void OnInitialized()
     {
         CheckClientUpgrade();
-        CheckPluginForceUpgrade();
-        if (!showForceUpgrade)
-            CheckPluginUpdates();
+        CheckPluginUpdates();
 
         void CheckClientUpgrade()
         {
@@ -97,13 +78,13 @@ else if (showPluginUpdate)
                 isMajorUpdate = DependencyResolver.GetMajorVersion(ClientUpgrade.NewVersion.Version) > DependencyResolver.GetMajorVersion(PluginSystem.ClientVersion);
             }
         }
-        void CheckPluginForceUpgrade()
+        void CheckPluginUpdates()
         {
             var forcePlugins = PluginSystem.GetForceUpgradedPlugins();
-            if (forcePlugins.Count == 0) return;
-
             var forceIds = new HashSet<string>(forcePlugins.Select(p => p.Id));
+            hasForceUpgrade = forcePlugins.Count > 0;
 
+            // 添加强制更新插件
             foreach (var plugin in forcePlugins)
             {
                 string? oldVersion = PluginSystem.GetInstalledVersion(plugin.Id);
@@ -111,8 +92,7 @@ else if (showPluginUpdate)
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
-                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem
-                {
+                pluginUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
                     PluginPackage = plugin,
                     OldVersion = oldVersion,
                     NewVersion = newVersion,
@@ -121,6 +101,7 @@ else if (showPluginUpdate)
                 });
             }
 
+            // 添加普通更新插件
             var allPlugins = PluginSystem.GetAllOnlinePlugins().Values;
             foreach (var plugin in allPlugins.Where(p => !forceIds.Contains(p.Id) && PluginSystem.HasUpdate(p)))
             {
@@ -129,29 +110,16 @@ else if (showPluginUpdate)
                 if (string.IsNullOrEmpty(oldVersion) || string.IsNullOrEmpty(newVersion))
                     continue;
 
-                forceUpgradeList.Add(new PluginUpgradeModal.UpgradeItem
-                {
+                pluginUpgradeList.Add(new PluginUpgradeModal.UpgradeItem {
                     PluginPackage = plugin,
                     OldVersion = oldVersion,
                     NewVersion = newVersion
                 });
             }
 
-            if (forceUpgradeList.Count > 0)
+            if (pluginUpgradeList.Count > 0)
             {
-                showForceUpgrade = true;
-            }
-        }
-        void CheckPluginUpdates()
-        {
-            var allPlugins = PluginSystem.GetAllOnlinePlugins().Values;
-            upgradablePlugins = allPlugins
-                .Where(p => PluginSystem.HasUpdate(p))
-                .ToArray();
-
-            if (upgradablePlugins.Length > 0)
-            {
-                showPluginUpdate = true;
+                showPluginUpgrade = true;
             }
         }
     }
@@ -163,8 +131,7 @@ else if (showPluginUpdate)
 
         try
         {
-            await ClientUpgrade.ApplyNewVersion(progress =>
-            {
+            await ClientUpgrade.ApplyNewVersion(progress => {
                 downloadProgress = progress;
                 InvokeAsync(StateHasChanged);
             });
@@ -176,12 +143,5 @@ else if (showPluginUpdate)
             Console.WriteLine($"更新失败: {ex.Message}");
             await InvokeAsync(StateHasChanged);
         }
-    }
-
-    void GoToPluginMarket()
-    {
-        showPluginUpdate = false;
-        NavigationHub.RequestTab("plugin");
-        Navigation.NavigateTo("/system");
     }
 }

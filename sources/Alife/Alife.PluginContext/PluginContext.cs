@@ -125,7 +125,6 @@ public class PluginContext(
             }
         }
     }
-
     public async Task ReloadPluginDll(string pluginId, bool recompile = false)
     {
         PluginManifest pluginManifest = LoadPluginManifest(pluginId);
@@ -183,11 +182,19 @@ public class PluginContext(
             }
         }
     }
-    public async Task UnloadPluginDll(string pluginId)
+
+    public async Task ClearPluginDll(string pluginId)
     {
         if (currentPluginLoadContexts.TryGetValue(pluginId, out var value))
             await value.DisposeAsync();
         File.Delete(GetPluginCompiledDllPath(pluginId));
+    }
+    public async Task ClearAllPluginDll()
+    {
+        foreach (var pluginLoadContext in currentPluginLoadContexts.Values.ToArray())
+            await pluginLoadContext.DisposeAsync();
+        Directory.Delete(dllOutputDirectory, true);
+        Directory.CreateDirectory(dllOutputDirectory);
     }
 
     public string GetPluginManifestPath(string pluginId) => Path.Combine(pluginRootDirectory, pluginId, "manifest.json");

@@ -109,7 +109,7 @@ public class PluginSystem
     {
         //卸载插件并删除其dll，以便在后同步插件环境时重新编译加载
         foreach ((PluginPackage pluginPackage, _) in plugins)
-            await pluginContext.UnloadPluginDll(pluginPackage.Id);
+            await pluginContext.ClearPluginDll(pluginPackage.Id);
         //下载新的插件文件
         await pluginMarket.InstallPlugins(plugins);
         //重新加载
