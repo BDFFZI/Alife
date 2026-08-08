@@ -12,7 +12,7 @@ public interface IInteractor
     public void Prompt(string prompt);
     public void Poke(string message);
     public void Chat(string message);
-    public Task<string> ChatAsync(string message);
+    public Task<ChatResult> ChatAsync(string message);
 }
 
 public interface IInteractor<T> : IInteractor;
@@ -62,7 +62,7 @@ public partial class Interactor<T>(ChatBot target) : IInteractor<T>
     {
         target.Chat(ChatTextFilter(GetMessageTag() + message));
     }
-    public Task<string> ChatAsync(string message)
+    public Task<ChatResult> ChatAsync(string message)
     {
         return target.ChatAsync(ChatTextFilter(GetMessageTag() + message));
     }

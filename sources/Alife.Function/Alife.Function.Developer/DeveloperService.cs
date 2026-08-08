@@ -65,7 +65,7 @@ public class DeveloperService(
     [Description("当新增移动删除插件或修改了插件清单文件时调用，否则不需要。此功能主要用于同步nuget之类的插件环境依赖")]
     public async Task ReloadPluginEnvironment()
     {
-        await pluginSystem.SyncLocalPlugins();
+        await pluginSystem.SyncLocalPluginEnvironment();
         interactor.Poke("插件环境同步成功");
     }
     [XmlFunction(FunctionMode.OneShot)]

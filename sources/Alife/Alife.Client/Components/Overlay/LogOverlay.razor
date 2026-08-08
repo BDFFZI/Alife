@@ -270,16 +270,18 @@
 
     protected override void OnInitialized()
     {
-        Console.SetOut(new CapturingWriter(this, Console.Out));
-        Console.SetError(new CapturingWriter(this, Console.Error));
         AlifeLog.WarningLogged += OnWarning;
         AlifeLog.ErrorLogged += OnError;
+        AlifeLog.Logging += OnLogging;
     }
+
     public void Dispose()
     {
         AlifeLog.WarningLogged -= OnWarning;
         AlifeLog.ErrorLogged -= OnError;
+        AlifeLog.Logging -= OnLogging;
     }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         isUpdating = false;
@@ -306,55 +308,6 @@
 
         InvokeAsync(StateHasChanged);
     }
-
-    class CapturingWriter(LogOverlay overlay, TextWriter inner) : TextWriter
-    {
-        public override Encoding Encoding => inner.Encoding;
-
-        public override void Write(char value)
-        {
-            inner.Write(value);
-            if (value == '\n') FlushLine();
-            else line.Append(value);
-        }
-
-        public override void Write(string? value)
-        {
-            if (value == null) return;
-            inner.Write(value);
-            foreach (char c in value)
-            {
-                if (c == '\n') FlushLine();
-                else line.Append(c);
-            }
-        }
-
-        public override void WriteLine(string? value)
-        {
-            inner.WriteLine(value);
-            if (value != null) line.Append(value);
-            FlushLine();
-        }
-
-        public override void WriteLine() => FlushLine();
-
-        readonly StringBuilder line = new();
-
-        void FlushLine()
-        {
-            if (line.Length == 0) return;
-            string msg = line.ToString();
-            line.Clear();
-            if (string.IsNullOrEmpty(msg)) return;
-
-            overlay.InvokeAsync(() => {
-                overlay.logLines.Add(msg);
-                Trim(overlay.logLines, overlay.maxLogLines);
-                overlay.OnLogUpdate();
-            });
-        }
-    }
-
     void OnWarning(string message)
     {
         InvokeAsync(() => {
@@ -387,7 +340,14 @@
             OnLogUpdate();
         });
     }
-
+    void OnLogging(string line)
+    {
+        InvokeAsync(() => {
+            logLines.Add(line);
+            Trim(logLines, maxLogLines);
+            OnLogUpdate();
+        });
+    }
 
     void OpenModal()
     {

@@ -18,6 +18,13 @@ public struct ChatContext
     public CancellationToken CancellationToken { get; init; }
 }
 
+public struct ChatResult
+{
+    public string AIThinking { get; init; }
+    public string AIMessage { get; init; }
+    public Exception? Exception { get; init; }
+}
+
 public class ChatBot : IAsyncDisposable
 {
     public const string PokeMessageTag = "[来自系统的杂项消息推送]";
@@ -80,7 +87,7 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
-    public async Task<string> ChatAsync(string message)
+    public async Task<ChatResult> ChatAsync(string message)
     {
         CancellationToken cancellationToken;
 
@@ -134,6 +141,7 @@ public class ChatBot : IAsyncDisposable
             Exception? error = null;
             TokenUsage tokenUsage = new();
             string aiMessage = "";
+            StringBuilder aiThinking = new();
             //装载AI消息
             await EditChatHistoryAsync(async thread => {
                 aiMessage = await languageModel.ChatStreamingAsync(
@@ -151,6 +159,7 @@ public class ChatBot : IAsyncDisposable
                     think => {
                         try
                         {
+                            aiThinking.Append(think);
                             ReasoningReceived?.Invoke(think);
                         }
                         catch (Exception e)
@@ -208,7 +217,7 @@ public class ChatBot : IAsyncDisposable
                     ChatContext chatContext = new() {
                         UserMessage = message,
                         AIMessage = aiMessage,
-                        CancellationToken = cancellationToken
+                        CancellationToken = cancellationToken,
                     };
 
                     try
@@ -234,7 +243,11 @@ public class ChatBot : IAsyncDisposable
                         }
                     }
 
-                    return aiMessage;
+                    return new ChatResult {
+                        AIMessage = aiMessage,
+                        AIThinking = aiThinking.ToString(),
+                        Exception = error
+                    };
                 }
             }
         }

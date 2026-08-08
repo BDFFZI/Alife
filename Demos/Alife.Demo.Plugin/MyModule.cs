@@ -70,7 +70,7 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
     }
     protected override async Task OnStart()
     {
-        string aiMessage = await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
+        ChatResult result = await interactor.ChatAsync("你好啊！"); //OnStart发生在同期模块都Awake之后，此时系统已完全创建，可以与ai进行正常交互了。
     }
     protected override Task OnUpdate()
     {

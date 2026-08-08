@@ -100,6 +100,9 @@ public static class AlifeFramework
     }
     public static async Task InitAlife(this IServiceProvider provider)
     {
+        //日志拦截功能
+        AlifeLog.SetupConsoleCapture();
+
         //网络镜像功能
         AlifeMirror.SetupEnvironment();
 
@@ -167,5 +170,8 @@ public static class AlifeFramework
             await pluginSystem.PluginContext.ClearAllPluginDll();
             AlifeConfig.SetString("ClientVersion", pluginSystem.ClientVersion);
         }
+
+        //激活 MCP 服务，使外部程序可以通过 MCP 调用 Alife 系统能力
+        await AlifeMcp.StartAsync(provider);
     }
 }

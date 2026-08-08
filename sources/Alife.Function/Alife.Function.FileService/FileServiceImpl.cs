@@ -34,8 +34,17 @@ public class FileServiceImpl
 
         string[] lines = await File.ReadAllLinesAsync(path, cancellationToken);
 
-        int startLine = offset.HasValue ? Math.Max(0, offset.Value - 1) : 0;
+        int startLine = offset.HasValue ? offset.Value : 0;
         int readLimit = limit ?? DefaultReadLimit;
+
+        if (startLine < 0)
+        {
+            startLine = Math.Max(0, lines.Length + startLine);
+        }
+        else
+        {
+            startLine = Math.Max(0, startLine - 1);
+        }
 
         if (startLine >= lines.Length)
             return FileReadResult.FromError("起始行号超出文件范围");

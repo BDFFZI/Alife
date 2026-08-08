@@ -63,7 +63,7 @@
             StateHasChanged();
             await StartActivation();
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             AlifeLog.LogError(e);
@@ -95,7 +95,7 @@
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex);
+                    AlifeLog.LogError(ex);
                 }
             }
             charactersToActivate.Clear();

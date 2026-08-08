@@ -18,7 +18,7 @@ public class FrameworkTests
         provider.InitAlife();
 
         PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
-        await pluginSystem.SyncOnlinePlugins();
+        await pluginSystem.SyncOnlinePluginPackages();
 
         LogOnlinePlugins(pluginSystem);
 

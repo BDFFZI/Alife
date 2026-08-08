@@ -414,8 +414,8 @@
 
         try
         {
-            await PluginSystem.SyncOnlinePlugins();
-            await PluginSystem.SyncLocalPlugins();
+            await PluginSystem.SyncOnlinePluginPackages();
+            await PluginSystem.SyncLocalPluginEnvironment();
         }
         catch (Exception e)
         {

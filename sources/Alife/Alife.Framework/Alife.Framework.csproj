@@ -5,6 +5,7 @@
     <PackageReference Include="AntDesign" Version="1.6.2" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup>

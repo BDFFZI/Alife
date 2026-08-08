@@ -31,7 +31,7 @@ public class FileService(
     [Description("读取目录内容（不含子目录）或文件内容（返回格式为`行号: 内容`）")]
     public async Task Read(
         [Description("目录或文件路径")] string path,
-        int? startLine = null,
+        [Description("支持用负数表示倒数第几行")] int? startLine = null,
         int? lineCount = null,
         CancellationToken cancellationToken = default)
     {

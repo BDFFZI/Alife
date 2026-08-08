@@ -72,7 +72,7 @@ else
 
                 launchingProgress = "正在加载本地插件...";
                 await InvokeAsync(StateHasChanged);
-                await pluginSystem.SyncLocalPlugins();
+                await pluginSystem.SyncLocalPluginEnvironment();
             });
         }
         catch (Exception ex)
