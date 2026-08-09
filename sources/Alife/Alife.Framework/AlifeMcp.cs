@@ -78,8 +78,8 @@ public class AlifeMcpTools(
     ModuleSystem moduleSystem)
 {
     [McpServerTool]
-    [Description("了解 Alife 中的基本框架结构，打好开发基础。")]
-    public string ReadMe()
+    [Description("（必读）了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
+    public string ReadAlifeFrameworkGuide()
     {
         return $$"""
                  # Alife 框架介绍
@@ -156,7 +156,7 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
+    [Description("（必读）了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
     public string ReadDebugMonitoringGuide()
     {
         return $$"""
@@ -188,7 +188,7 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("了解如何制作插件，来为 Alife 扩展功能。")]
+    [Description("（必读）了解如何使用或制作插件，来为角色添加功能。")]
     public string ReadPluginDevelopmentGuide()
     {
         return $$"""
@@ -291,8 +291,8 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("了解如何将做好的插件分享出去，以及探索插件市场。")]
-    public string ReadPluginPublishGuide()
+    [Description("了解如何分发插件，以及从市场中探索已有的插件。")]
+    public string ReadPluginMarketGuide()
     {
         return $$"""
                  # Alife 插件贡献指南
@@ -393,9 +393,13 @@ public class AlifeMcpTools(
             return $"删除角色失败\n{e}";
         }
     }
+    /// <summary>
+    /// 对应图形界面 `{任意角色}/角色设定/重载配置` 按钮
+    /// </summary>
+    /// <param name="characterName"></param>
+    /// <returns></returns>
     [McpServerTool]
-    [Description("重新加载角色配置" +
-                 "（对应图形界面 `{任意角色}/角色设定/重载配置` 按钮）")]
+    [Description("重新加载角色配置")]
     public async Task<string> ReloadCharacter(string characterName)
     {
         Character? character = FindCharacter(characterName);
@@ -486,7 +490,7 @@ public class AlifeMcpTools(
         return string.Join("\n", pluginSystem.GetAllLocalPlugins().Select(pair => pair.Key));
     }
     [McpServerTool]
-    [Description("列出系统中所有已成功识别的模块。")]
+    [Description("列出系统中所有已成功识别的模块(类名:名称)。")]
     public string ListModulesInSystem()
     {
         return string.Join("\n",
@@ -504,17 +508,26 @@ public class AlifeMcpTools(
         return string.Join("\n", character.Modules
             .Select(module => $"{module}:{(moduleSystem.GetModule(module) != null ? "有效" : "模块不存在")}"));
     }
+
+    /// <summary>
+    /// 对应图形界面 `系统管理/插件环境/同步环境` 按钮
+    /// </summary>
+    /// <returns></returns>
     [McpServerTool]
-    [Description("当新增移动删除插件或修改了插件清单文件时调用，否则不需要。此功能主要用于同步插件清单，以及其中nuget之类的的环境依赖。" +
-                 "（对应图形界面 `系统管理/插件环境/同步环境` 按钮）")]
+    [Description("当新增移动删除插件或修改了插件清单文件时调用，否则不需要。此功能主要用于同步插件清单，以及其中nuget之类的的环境依赖。")]
     public async Task<string> ReloadPluginEnvironment()
     {
         await pluginSystem.SyncLocalPluginEnvironment();
         return "插件环境同步成功";
     }
+
+    /// <summary>
+    /// 对应图形界面 `系统管理/插件环境/{任意插件}/重载此插件` 按钮
+    /// </summary>
+    /// <param name="pluginId"></param>
+    /// <returns></returns>
     [McpServerTool]
-    [Description("重新编译加载插件。当插件代码变动后需要调用来生效。" +
-                 "(对应图形界面 `系统管理/插件环境/{任意插件}/重载此插件` 按钮)")]
+    [Description("重新编译加载插件。当插件代码变动后需要调用来生效。")]
     public async Task<string> ReloadPlugin([Description("插件id，即插件目录名")] string pluginId)
     {
         await pluginSystem.ReloadPlugin(pluginId);
