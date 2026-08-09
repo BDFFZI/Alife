@@ -8,7 +8,7 @@ using ModelContextProtocol.Client;
 namespace Alife.Function.Developer;
 
 [Module("开发者模式",
-    "桥接 Alife 内置 MCP 服务，向 AI 暴露项目和系统信息，并提供工具使其可以自制插件和活动管理。",
+    "桥接 Alife 内置 MCP 服务，向 AI 完全暴露项目信息和软件控制能力，借此轻松实现自制插件、角色管理、错误处理等需求。",
     defaultCategory: "Alife 官方/生活环境")]
 public class DeveloperService(
     XmlFunctionCaller functionCaller,
