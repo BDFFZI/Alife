@@ -30,9 +30,28 @@ public class EdgeSpeechModel :
         if (File.Exists(outputPath))
             return outputPath;
 
+        // 使用 Python 脚本调用 edge_tts，避免 aiohttp 的 DNS 问题
+        string scriptPath = Path.Combine(AlifePath.TempFolderPath, "edge_tts_script.py");
+        string escapedText = text.Replace("\"", "\\\"");
+        string escapedOutput = outputPath.Replace("\\", "\\\\");
+        string scriptContent = $@"
+import asyncio
+import aiohttp
+from aiohttp.resolver import ThreadedResolver
+from edge_tts import Communicate
+
+async def main():
+    connector = aiohttp.TCPConnector(resolver=ThreadedResolver())
+    communicate = Communicate('{escapedText}', '{Configuration.VoiceTone}', connector=connector)
+    await communicate.save('{escapedOutput}')
+
+asyncio.run(main())
+";
+        await File.WriteAllTextAsync(scriptPath, scriptContent, cancellationToken);
+
         ProcessStartInfo psi = new() {
             FileName = "python",
-            Arguments = $"-m edge_tts --text \"{fileSafeText}\" --voice {Configuration.VoiceTone} --write-media \"{outputPath}\"",
+            Arguments = $"\"{scriptPath}\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -68,6 +87,8 @@ public class EdgeSpeechModel :
         {
             if (process.HasExited == false)
                 process.Kill();
+            if (File.Exists(scriptPath))
+                File.Delete(scriptPath);
         }
     }
 
