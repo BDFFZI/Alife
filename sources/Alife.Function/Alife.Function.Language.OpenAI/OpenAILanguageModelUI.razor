@@ -58,6 +58,9 @@
         <FormItem Label="Endpoint">
             <Input @bind-Value="@Configuration.endpoint" placeholder="例如: https://api.deepseek.com/v1"/>
         </FormItem>
+        <FormItem Label="API Key">
+            <InputPassword @bind-Value="@Configuration.apiKey"/>
+        </FormItem>
         <FormItem Label="Model ID">
             <div style="display: flex; gap: 8px;">
                 <Input @bind-Value="@Configuration.modelId" Placeholder="例如: deepseek-chat" Style="flex: 1;"/>
@@ -67,9 +70,6 @@
                         OnClick="@FetchModels">探测模型
                 </Button>
             </div>
-        </FormItem>
-        <FormItem Label="API Key">
-            <InputPassword @bind-Value="@Configuration.apiKey"/>
         </FormItem>
 
         @* ───── 思考模式参数 ───── *@

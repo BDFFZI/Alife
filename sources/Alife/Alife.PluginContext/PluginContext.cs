@@ -61,7 +61,14 @@ public class PluginContext(
             foreach (var pluginDirectory in Directory.GetDirectories(pluginRootDirectory))
             {
                 string pluginId = Path.GetFileName(pluginDirectory);
-                LoadPluginManifest(pluginId);
+                try
+                {
+                    LoadPluginManifest(pluginId);
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(new Exception($"加载 {pluginId} 插件清单失败。", e));
+                }
             }
         }
 
@@ -120,7 +127,7 @@ public class PluginContext(
                 }
                 catch (Exception e)
                 {
-                    AlifeLog.LogError(e);
+                    AlifeLog.LogError(new Exception($"加载 {pluginId} 插件失败。", e));
                 }
             }
         }

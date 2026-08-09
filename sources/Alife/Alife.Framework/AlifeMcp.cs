@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using Newtonsoft.Json;
 
 namespace Alife.Framework;
 
@@ -22,12 +21,9 @@ namespace Alife.Framework;
 /// </summary>
 public static class AlifeMcp
 {
-    static WebApplication? app;
+    public static int Port { get; set; } = 18765;
+    public static Uri Endpoint => new($"http://127.0.0.1:{Port}/mcp");
 
-    /// <summary>
-    /// 启动 MCP 服务。监听 127.0.0.1 上的本地端口，外部程序可连接 <c>http://127.0.0.1:{port}/mcp</c>。
-    /// 端口可通过 AlifeConfig 的 <c>McpPort</c> 键配置，默认 18765。
-    /// </summary>
     public static async Task StartAsync(IServiceProvider provider)
     {
         if (app != null)
@@ -35,8 +31,6 @@ public static class AlifeMcp
 
         try
         {
-            int port = AlifeConfig.GetInt("McpPort", 18765);
-
             WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
             builder.Services.AddSingleton(provider.GetRequiredService<CharacterSystem>());
             builder.Services.AddSingleton(provider.GetRequiredService<ChatActivitySystem>());
@@ -52,21 +46,36 @@ public static class AlifeMcp
                     Description = "Alife 是一款 AIAgent 软件，而此 MCP 可绕过图形化界面，通过 AI 友好的方式控制它，从而便于开发工作。",
                     WebsiteUrl = "https://github.com/BDFFZI/Alife"
                 };
+                options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) => {
+                    try
+                    {
+                        return await next(request, cancellationToken);
+                    }
+                    catch (Exception e) when (e is not OperationCanceledException && e is not ModelContextProtocol.McpProtocolException)
+                    {
+                        return new CallToolResult {
+                            IsError = true,
+                            Content = [new TextContentBlock { Text = e.ToString() }],
+                        };
+                    }
+                });
             }).WithTools<AlifeMcpTools>().WithHttpTransport();
 
             WebApplication webApp = builder.Build();
             webApp.MapMcp("/mcp");
-            webApp.Urls.Add($"http://127.0.0.1:{port}");
+            webApp.Urls.Add($"http://127.0.0.1:{Port}");
             await webApp.StartAsync();
 
             app = webApp;
-            AlifeLog.LogInformation($"Alife MCP 服务已启动: http://127.0.0.1:{port}/mcp");
+            AlifeLog.LogInformation($"Alife MCP 服务已启动: {Endpoint}");
         }
         catch (Exception e)
         {
             AlifeLog.LogWarning($"Alife MCP 服务启动失败: {e.Message}");
         }
     }
+
+    static WebApplication? app;
 }
 
 /// <summary>
@@ -80,6 +89,8 @@ public class AlifeMcpTools(
     ModuleSystem moduleSystem,
     ConfigurationSystem configurationSystem)
 {
+    #region 文档指南
+
     [McpServerTool]
     [Description("使用 alife-mcp 请先阅读此文档")]
     public string ReadMe()
@@ -94,8 +105,6 @@ public class AlifeMcpTools(
                  如果涉及到与其他插件的互操作性，你还应该阅读：{{nameof(ReadPluginMarketGuide)}}
                  """;
     }
-
-
     [McpServerTool]
     [Description("了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
     public string ReadAlifeFrameworkGuide()
@@ -157,7 +166,6 @@ public class AlifeMcpTools(
 
                  ### 提供目录
 
-                 - 插件目录（插件源码目录）：{存储目录}/Plugins
                  - 角色目录（对于每个角色的配置、记忆、个人文件等）：{存储目录}/Character
                  - 模块配置目录（当模块使用配置功能时，配置的存储目录）：{存储目录}/Configuration
                  - 特定于角色的模块配置目录（优先级比全局高）：{角色目录}/Configuration
@@ -369,6 +377,8 @@ public class AlifeMcpTools(
                  """;
     }
 
+    #endregion
+
     #region 角色管理
 
     [McpServerTool]
@@ -523,18 +533,14 @@ public class AlifeMcpTools(
         if (module == null)
             return $"模块 {moduleId} 不存在";
 
-        Type? configType = configurationSystem.GetConfigurationType(module);
-        if (configType == null)
-            return $"模块 {moduleId} 不支持配置";
-
         if (string.IsNullOrEmpty(characterName))
-            return JsonConvert.SerializeObject(configurationSystem.GetConfiguration(module), Formatting.Indented);
+            return configurationSystem.GetConfigurationJson(module);
 
         Character? character = FindCharacter(characterName);
         if (character == null)
             return $"角色 {characterName} 不存在";
 
-        return JsonConvert.SerializeObject(configurationSystem.GetConfiguration(module, character.StorageKey), Formatting.Indented);
+        return configurationSystem.GetConfigurationJson(module, character.StorageKey);
     }
     [McpServerTool]
     [Description("设置全局或角色模块配置")]
@@ -544,23 +550,15 @@ public class AlifeMcpTools(
         if (module == null)
             return $"模块 {moduleId} 不存在";
 
-        Type? configType = configurationSystem.GetConfigurationType(module);
-        if (configType == null)
-            return $"模块 {moduleId} 不支持配置";
-
-        object? configObject = JsonConvert.DeserializeObject(configJson, configType);
-        if (configObject == null)
-            return "配置 json 解析失败";
-
         if (string.IsNullOrEmpty(characterName))
-            configurationSystem.SetConfiguration(module, configObject);
+            configurationSystem.SetConfigurationJson(module, configJson);
         else
         {
             Character? character = FindCharacter(characterName);
             if (character == null)
                 return $"角色 {characterName} 不存在";
 
-            configurationSystem.SetConfiguration(module, configObject, character.StorageKey);
+            configurationSystem.SetConfigurationJson(module, configJson, character.StorageKey);
         }
 
         return "配置修改成功（如果模块被激活中的角色使用，则需要重载插件来使配置生效）";

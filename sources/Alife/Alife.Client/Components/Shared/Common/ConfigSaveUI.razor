@@ -1,6 +1,6 @@
 @namespace Alife.Components
-@using Alife.Framework
-@using System.IO
+@using System.Diagnostics
+@using Alife.Foundation
 @inject ConfigurationSystem ConfigurationSystem
 @inject IMessageService MessageService
 
@@ -12,7 +12,7 @@
                 <SpaceItem>
                     <Tooltip Title="@("打开配置文件所在目录")">
                         <Button Icon="@IconType.Outline.FolderOpen"
-                                OnClick="@OpenConfigFolder"/>
+                                OnClick="@OpenConfigFolder"></Button>
                     </Tooltip>
                 </SpaceItem>
             }
@@ -21,14 +21,14 @@
                     <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Global">应用到全局</Button>
                 </Popconfirm>
             </SpaceItem>
-            @if (!string.IsNullOrEmpty(CharacterName))
+            @if (Character != null)
             {
                 <SpaceItem>
-                    <Button Icon="@IconType.Outline.User" OnClick="SaveToCharacter">应用到角色</Button>
+                    <Button Icon="@IconType.Outline.User" OnClick="@SaveToCharacter">应用到角色</Button>
                 </SpaceItem>
                 <SpaceItem>
                     <Popconfirm Title="确认删除角色独立配置吗？删除后将回退至全局配置。"
-                                OnConfirm="DeleteCharacterConfig"
+                                OnConfirm="@DeleteCharacterConfig"
                                 Disabled="@(!hasCharacterConfig)">
                         <Button Danger Icon="@IconType.Outline.Delete" Disabled="@(!hasCharacterConfig)">取消角色配置
                         </Button>
@@ -40,106 +40,80 @@
 </div>
 
 @code {
+    [Parameter] public Type ConfigurableModuleType { get; set; } = null!;
+    [Parameter] public object Configuration { get; set; } = null!;
+    [Parameter] public EventCallback<object> OnConfigurationChanged { get; set; }
+    [Parameter] public Character? Character { get; set; }
 
-    /// <summary>
-    /// 模块类型
-    /// </summary>
-    [Parameter]
-    public Type? ModuleType { get; set; }
-
-    /// <summary>
-    /// 当前正在编辑的配置实例
-    /// </summary>
-    [Parameter]
-    public object? Configuration { get; set; }
-
-    /// <summary>
-    /// 当前角色名称（为空则不显示角色相关选项）
-    /// </summary>
-    [Parameter]
-    public string? CharacterName { get; set; }
-
-    /// <summary>
-    /// 当配置被删除并回退到全局时触发，参数为新的配置对象
-    /// </summary>
-    [Parameter]
-    public EventCallback<object> OnConfigurationChanged { get; set; }
-
-    bool hasCharacterConfig;
     string? configFilePath;
+    bool hasCharacterConfig;
 
     protected override void OnParametersSet()
     {
         UpdateStatus();
-        UpdateConfigFilePath();
-    }
-
-    void UpdateConfigFilePath()
-    {
-        if (ModuleType == null)
-        {
-            configFilePath = null;
-            return;
-        }
-
-        string root = !string.IsNullOrEmpty(CharacterName) ? Path.Combine("Character", CharacterName) : "";
-        configFilePath = ConfigurationSystem.GetConfigurationFilePath(ModuleType, root);
     }
 
     void UpdateStatus()
     {
-        if (ModuleType != null && !string.IsNullOrEmpty(CharacterName))
-        {
-            hasCharacterConfig = ConfigurationSystem.HasConfiguration(ModuleType, Path.Combine("Character", CharacterName));
-        }
-        else
-        {
-            hasCharacterConfig = false;
-        }
+        configFilePath = ConfigurationSystem.GetConfigurationFilePath(ConfigurableModuleType, Character?.StorageKey ?? "");
+        hasCharacterConfig = Character != null && ConfigurationSystem.HasConfiguration(ConfigurableModuleType, Character.StorageKey);
     }
 
     void SaveToGlobal()
     {
-        if (ModuleType == null || Configuration == null) return;
-        ConfigurationSystem.SetConfiguration(ModuleType, Configuration);
+        ConfigurationSystem.SetConfiguration(ConfigurableModuleType, Configuration);
         MessageService.Success("全局配置保存成功喵！");
         OnConfigurationChanged.InvokeAsync(Configuration);
     }
 
-    void SaveToCharacter()
+    async void SaveToCharacter()
     {
-        if (ModuleType == null || Configuration == null || string.IsNullOrEmpty(CharacterName)) return;
-        ConfigurationSystem.SetConfiguration(ModuleType, Configuration, Path.Combine("Character", CharacterName));
-        UpdateStatus();
-        MessageService.Success($"角色 [{CharacterName}] 的独立配置保存成功喵！");
-        OnConfigurationChanged.InvokeAsync(Configuration);
+        try
+        {
+            if (Character == null)
+                return;
+
+            ConfigurationSystem.SetConfiguration(ConfigurableModuleType, Configuration, Character.StorageKey);
+            UpdateStatus();
+
+            await OnConfigurationChanged.InvokeAsync(Configuration);
+            await MessageService.SuccessAsync($"角色 [{Character.Name}] 的独立配置保存成功喵！");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
-    async Task DeleteCharacterConfig()
+    async void DeleteCharacterConfig()
     {
-        if (ModuleType == null || string.IsNullOrEmpty(CharacterName)) return;
-        ConfigurationSystem.DeleteConfiguration(ModuleType, Path.Combine("Character", CharacterName));
-        UpdateStatus();
-
-        // 重新获取全局配置并通知刷新
-        var globalConfig = ConfigurationSystem.GetConfiguration(ModuleType);
-        if (globalConfig != null)
+        try
         {
-            await OnConfigurationChanged.InvokeAsync(globalConfig);
-        }
+            if (Character == null)
+                return;
 
-        MessageService.Success($"角色 [{CharacterName}] 的独立配置已删除，已回退至全局配置喵！");
+            ConfigurationSystem.DeleteConfiguration(ConfigurableModuleType, Character.StorageKey);
+            UpdateStatus();
+
+            // 重新获取全局配置并通知刷新
+            var globalConfig = ConfigurationSystem.GetConfiguration(ConfigurableModuleType);
+            await OnConfigurationChanged.InvokeAsync(globalConfig);
+            await MessageService.SuccessAsync($"角色 [{Character.Name}] 的独立配置已删除，已回退至全局配置喵！");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     void OpenConfigFolder()
     {
-        if (string.IsNullOrEmpty(configFilePath)) return;
-
-        string dirPath = Path.GetDirectoryName(configFilePath)!;
+        if (string.IsNullOrEmpty(configFilePath))
+            return;
 
         try
         {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{configFilePath}\"");
+            Process.Start("explorer.exe", $"/select,\"{configFilePath}\"");
         }
         catch (Exception ex)
         {

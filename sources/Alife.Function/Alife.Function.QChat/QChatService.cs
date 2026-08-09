@@ -354,6 +354,7 @@ public partial class QChatService(
                             {{emoteInfo}}
                             你的表情库存储路径在 {{emoteBase}}，你也可以在其中存储自己的表情。直接存储在根目录将作为独立表情，存储到子文件夹，则作为分类。具体请参考其中已有的表情文件。
                             """);
+        functionService.AddPlainAreas(nameof(QChat));
 
         ChatBot.ChatSent += OnChatSent;
         ChatBot.ChatOver += OnChatOver;

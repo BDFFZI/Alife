@@ -1,25 +1,31 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
+using Newtonsoft.Json;
 
 namespace Alife.Function.Mcp;
 
 public class McpServerItem
 {
+    [JsonIgnore]
+    public bool IsUrlServer { get => string.IsNullOrWhiteSpace(Endpoint) == false; }
+
     public bool Enabled { get; set; } = true;
     public string Name { get; set; } = "Unnamed MCP Server";
     public string Description { get; set; } = "";
     public string Command { get; set; } = "";
     public string[] Arguments { get; set; } = [];
+    public string Endpoint { get; set; } = "";
     public bool IsImplicit { get; set; } = true;
 }
 
 public class McpServerConfig
 {
-    public List<McpServerItem> Servers { get; set; } = new();
+    public List<McpServerItem> Servers { get; init; } = [];
 }
 
 [Module("MCP服务",
@@ -43,10 +49,14 @@ public class McpService(
         {
             if (server.Enabled == false) continue;
 
-            (McpClient client, XmlHandler handler) = await McpXmlAdapter.CreateAsync(
-                server,
-                (name, result) => interactor.Poke($"{server.Name}.{name} 执行完成\n{result}"),
-                loggerFactory
+            McpClient client = server.IsUrlServer
+                ? await McpXmlAdapter.ConnectHttpAsync(server.Name, new Uri(server.Endpoint), loggerFactory)
+                : await McpXmlAdapter.ConnectStdioAsync(server.Name, server.Command, server.Arguments, loggerFactory);
+            XmlHandler handler = await McpXmlAdapter.McpClientToXmlHandler(
+                client,
+                server.Name,
+                server.Description,
+                (name, result) => interactor.Poke($"{server.Name}.{name} 执行完成\n{result}")
             );
 
             mcpClients.Add(client);

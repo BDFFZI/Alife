@@ -1,5 +1,4 @@
 @using System.Reflection
-@using Newtonsoft.Json
 @using Alife.PluginContext
 @inject ConfigurationSystem ConfigurationSystem
 @inject PluginContext PluginContext
@@ -12,7 +11,7 @@
     <div style="flex-shrink: 0; background: #fafafa; padding: 24px; border-radius: 8px; border: 1px solid #f0f0f0;">
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Start">
             <div>
-                <Title Level="3" Style="margin: 0 0 4px 0;">@ModuleAttr.Name</Title>
+                <Title Level="3" Style="margin: 0 0 4px 0;">@moduleAttribute.Name</Title>
                 <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                     <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: rgba(0,0,0,0.45);"/>
                     @if (attachedPluginId == null)
@@ -30,19 +29,19 @@
                 </div>
                 <Text Type="@TextElementType.Secondary" Copyable>@ModuleType.FullName</Text>
             </div>
-            @if (ModuleAttr.LaunchOrder != 0)
+            @if (moduleAttribute.LaunchOrder != 0)
             {
-                <Tag Color="@("blue")">启动顺序: @ModuleAttr.LaunchOrder</Tag>
+                <Tag Color="@("blue")">启动顺序: @moduleAttribute.LaunchOrder</Tag>
             }
         </Flex>
 
         <Paragraph Style="margin-top: 16px; color: rgba(0,0,0,0.65); white-space: pre-wrap">
-            @ModuleAttr.Description
+            @moduleAttribute.Description
         </Paragraph>
 
-        @if (!string.IsNullOrEmpty(ModuleAttr.Url))
+        @if (!string.IsNullOrEmpty(moduleAttribute.Url))
         {
-            <a href="@ModuleAttr.Url" target="_blank">
+            <a href="@moduleAttribute.Url" target="_blank">
                 <Icon Type="link"/>
                 项目文档</a>
         }
@@ -50,9 +49,9 @@
 
     @* ═══ 中部：自定义 UI（可滚动） ═══ *@
     <div style="flex: 1; overflow-y: auto; padding: 16px 0;">
-        @if (ModuleAttr.EditorUI != null && typeof(IComponent).IsAssignableFrom(ModuleAttr.EditorUI))
+        @if (moduleAttribute.EditorUI != null && typeof(IComponent).IsAssignableFrom(moduleAttribute.EditorUI))
         {
-            <DynamicComponent Type="ModuleAttr.EditorUI" Parameters="@(GetParameters())"/>
+            <DynamicComponent Type="moduleAttribute.EditorUI" Parameters="@(GetParameters()!)"/>
         }
         else
         {
@@ -61,13 +60,13 @@
     </div>
 
     @* ═══ 页尾：配置保存（固定） ═══ *@
-    @if (isConfigurable)
+    @if (configuration != null)
     {
         <div style="flex-shrink: 0; padding: 16px 0; border-top: 1px solid #f0f0f0;">
-            <ConfigSaveUI ModuleType="@ModuleType"
+            <ConfigSaveUI ConfigurableModuleType="@ModuleType"
                           Configuration="@configuration"
-                          CharacterName="@Character?.Name"
-                          OnConfigurationChanged="@OnConfigSaved"/>
+                          OnConfigurationChanged="@ConfigurationChanged"
+                          Character="@Character"/>
         </div>
     }
 </div>
@@ -77,33 +76,34 @@
     [Parameter] public ChatActivity? ChatActivity { get; set; }
     [Parameter] public Character? Character { get; set; }
 
-    ModuleAttribute ModuleAttr => ModuleType.GetCustomAttribute<ModuleAttribute>()!;
-    object? Module { get; set; }
+    ModuleAttribute moduleAttribute = null!;
+    object? module;
     object? configuration;
-    bool isConfigurable;
     string? attachedPluginId;
     bool isReloadingPlugin;
     Exception? exception;
 
     RenderFragment DefaultUI => __builder => {
-        if (isConfigurable)
+        if (configuration != null)
         {
             <AutoFormUI Configuration="@configuration"
-                        ConfigurationChanged="@(OnConfigSaved)"/>
+                        ConfigurationChanged="@(ConfigurationChanged)"/>
         }
     };
 
     protected override void OnParametersSet()
     {
+        moduleAttribute = ModuleType.GetCustomAttribute<ModuleAttribute>()!;
+        module = ChatActivity?.Container.Instances.FirstOrDefault(instance => instance.GetType() == ModuleType);
+        if (ConfigurationSystem.CanConfiguration(ModuleType))
+            configuration = ConfigurationSystem.GetConfiguration(ModuleType, Character?.StorageKey ?? "");
         attachedPluginId = PluginContext.GetTypeAttachedPlugin(ModuleType);
-        Module = ChatActivity?.Container.Instances.FirstOrDefault(instance => instance.GetType() == ModuleType);
-        isConfigurable = ConfigurationSystem.CanConfiguration(ModuleType);
-        LoadConfiguration();
     }
 
     async Task ReloadPlugin()
     {
-        if (attachedPluginId == null) return;
+        if (attachedPluginId == null)
+            return;
 
         isReloadingPlugin = true;
         StateHasChanged();
@@ -123,40 +123,15 @@
         }
     }
 
-    void LoadConfiguration()
+    void ConfigurationChanged(object newConfig)
     {
-        if (isConfigurable == false)
-        {
-            configuration = null;
-            return;
-        }
+        configuration = newConfig;
 
-        // 从 ConfigurationSystem 加载并深拷贝，避免编辑直接影响运行时
-        object? raw = ConfigurationSystem.GetConfiguration(ModuleType, Character?.StorageKey ?? "");
-        if (raw != null)
+        if (module != null)
         {
-            string json = JsonConvert.SerializeObject(raw);
-            configuration = JsonConvert.DeserializeObject(json, raw.GetType(),
-                new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
-        }
-        else
-        {
-            Type? configType = ConfigurationSystem.GetConfigurationType(ModuleType);
-            if (configType != null)
-                configuration = Activator.CreateInstance(configType);
-        }
-    }
-
-    void OnConfigSaved(object? newConfig)
-    {
-        configuration = newConfig ?? configuration;
-
-        // 运行时自动回写到 Module
-        if (Module != null)
-        {
-            PropertyInfo? prop = Module.GetType().GetProperty("Configuration");
-            if (prop != null && prop.CanWrite)
-                prop.SetValue(Module, newConfig);
+            // 运行时自动回写到 Module
+            IConfigurable moduleConfig = (IConfigurable)module;
+            moduleConfig.Configuration = newConfig;
         }
 
         StateHasChanged();
@@ -167,7 +142,7 @@
         return new Dictionary<string, object?> {
             { "Character", Character },
             { "ChatActivity", ChatActivity },
-            { "Module", Module },
+            { "Module", module },
             { "Configuration", configuration! },
             { "DefaultUI", DefaultUI },
         };

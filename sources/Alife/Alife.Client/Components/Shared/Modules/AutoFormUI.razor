@@ -1,6 +1,6 @@
+@using System.Collections
 @using System.Reflection
 @using Newtonsoft.Json
-@using AntDesign
 
 <div style="position: relative;">
     @* ═══ 右上角模式切换 ═══ *@
@@ -33,7 +33,8 @@
                                 <div>@GetLabel(prop)</div>
                                 @if (GetDescription(prop) is { } desc)
                                 {
-                                    <div style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
+                                    <div
+                                        style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
                                 }
                             </div>
                         </LabelTemplate>
@@ -74,7 +75,7 @@
 </div>
 
 @code {
-    [Parameter] public object? Configuration { get; set; }
+    [Parameter] public object Configuration { get; set; } = null!;
     [Parameter] public EventCallback<object> ConfigurationChanged { get; set; }
 
     string viewMode = "form";
@@ -82,7 +83,7 @@
     string jsonError = "";
     bool isJsonDirty;
 
-    List<PropertyInfo> properties = new();
+    readonly List<PropertyInfo> properties = new();
 
     protected override void OnParametersSet()
     {
@@ -93,7 +94,6 @@
     void RefreshProperties()
     {
         properties.Clear();
-        if (Configuration == null) return;
 
         var type = Configuration.GetType();
 
@@ -106,16 +106,12 @@
 
     void SyncToJson()
     {
-        if (Configuration != null)
-        {
-            jsonText = JsonConvert.SerializeObject(Configuration, Formatting.Indented);
-            jsonError = "";
-        }
+        jsonText = JsonConvert.SerializeObject(Configuration, Formatting.Indented);
+        jsonError = "";
     }
 
     void SyncFromJson()
     {
-        if (Configuration == null) return;
         try
         {
             var obj = JsonConvert.DeserializeObject(jsonText, Configuration.GetType());
@@ -141,32 +137,20 @@
 
     void SetValue(PropertyInfo prop, object? value)
     {
-        if (Configuration == null) return;
-        try
-        {
-            prop.SetValue(Configuration, value);
-            NotifyChanged();
-        }
-        catch {}
+        prop.SetValue(Configuration, value);
+        NotifyChanged();
     }
 
     void SetNestedValue(object parent, PropertyInfo prop, object? value)
     {
-        try
-        {
-            prop.SetValue(parent, value);
-            NotifyChanged();
-        }
-        catch {}
+        prop.SetValue(parent, value);
+        NotifyChanged();
     }
 
     void NotifyChanged()
     {
-        if (Configuration != null)
-        {
-            SyncToJson();
-            ConfigurationChanged.InvokeAsync(Configuration);
-        }
+        SyncToJson();
+        ConfigurationChanged.InvokeAsync(Configuration);
     }
 
     string GetLabel(PropertyInfo prop)
@@ -229,10 +213,10 @@
         }
     }
 
-    System.Collections.IList? GetOrCreateList(PropertyInfo prop)
+    IList GetOrCreateList(PropertyInfo prop)
     {
-        var value = prop.GetValue(Configuration) as System.Collections.IList;
-        if (value == null && Configuration != null)
+        var value = prop.GetValue(Configuration) as IList;
+        if (value == null)
         {
             if (prop.PropertyType.IsArray)
             {
@@ -240,7 +224,7 @@
             }
             else
             {
-                value = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(prop.PropertyType.GetGenericArguments()[0]))!;
+                value = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(prop.PropertyType.GetGenericArguments()[0]))!;
             }
             prop.SetValue(Configuration, value);
         }
@@ -250,7 +234,6 @@
     void AddListItem(PropertyInfo prop, Type elementType)
     {
         var list = GetOrCreateList(prop);
-        if (list == null) return;
 
         object? newItem = IsSimpleType(elementType)
             ? (elementType == typeof(string) ? "" : Activator.CreateInstance(elementType))
@@ -262,15 +245,14 @@
 
     void RemoveListItem(PropertyInfo prop, int index)
     {
-        var list = prop.GetValue(Configuration) as System.Collections.IList;
-        if (list != null && index >= 0 && index < list.Count)
+        if (prop.GetValue(Configuration) is IList list && index >= 0 && index < list.Count)
         {
             list.RemoveAt(index);
             NotifyChanged();
         }
     }
 
-    void RemoveNestedListItem(System.Collections.IList? list, object item)
+    void RemoveNestedListItem(IList? list, object item)
     {
         if (list != null)
         {
@@ -291,32 +273,32 @@
         if (underlyingType == typeof(bool))
         {
             <Switch Checked="@((bool)(value ?? false))"
-                    CheckedChanged="@((bool v) => SetValue(prop, v))"/>
+                    CheckedChanged="@(v => SetValue(prop, v))"/>
         }
         else if (underlyingType == typeof(int))
         {
             <AntDesign.InputNumber TValue="int"
                                    Value="@((int)(value ?? 0))"
-                                   ValueChanged="@((int v) => SetValue(prop, v))"/>
+                                   ValueChanged="@(v => SetValue(prop, v))"/>
         }
         else if (underlyingType == typeof(long))
         {
             <AntDesign.InputNumber TValue="long"
                                    Value="@((long)(value ?? 0))"
-                                   ValueChanged="@((long v) => SetValue(prop, v))"/>
+                                   ValueChanged="@(v => SetValue(prop, v))"/>
         }
         else if (underlyingType == typeof(float))
         {
             <AntDesign.InputNumber TValue="float"
                                    Value="@((float)(value ?? 0f))"
-                                   ValueChanged="@((float v) => SetValue(prop, v))"
+                                   ValueChanged="@(v => SetValue(prop, v))"
                                    Step="0.1f"/>
         }
         else if (underlyingType == typeof(double))
         {
             <AntDesign.InputNumber TValue="double"
                                    Value="@((double)(value ?? 0d))"
-                                   ValueChanged="@((double v) => SetValue(prop, v))"
+                                   ValueChanged="@(v => SetValue(prop, v))"
                                    Step="0.1"/>
         }
         else if (underlyingType == typeof(string))
@@ -325,8 +307,8 @@
             if (str.Length > 100 || str.Contains('\n'))
             {
                 <TextArea Value="@str"
-                          ValueChanged="@((string v) => SetValue(prop, v))"
-                          AutoSize="true" MinRows="3"/>
+                          ValueChanged="@(v => SetValue(prop, v))"
+                          AutoSize="true" MinRows="3"></TextArea>
             }
             else
             {
@@ -355,7 +337,7 @@
 
 @code {
     RenderFragment RenderCollectionField(PropertyInfo prop, object? value, Type elementType) => __builder => {
-        var list = value as System.Collections.IList;
+        var list = value as IList;
         var isSimpleType = IsSimpleType(elementType);
 
         <div style="border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px;">
@@ -380,7 +362,7 @@
                             {
                                 <AntDesign.InputNumber TValue="int"
                                                        Value="@((int)(list[index] ?? 0))"
-                                                       ValueChanged="@((int v) => {
+                                                       ValueChanged="@(v => {
                                                                          list[index] = v;
                                                                          NotifyChanged();
                                                                      })"
@@ -390,7 +372,7 @@
                             {
                                 <AntDesign.InputNumber TValue="float"
                                                        Value="@((float)(list[index] ?? 0f))"
-                                                       ValueChanged="@((float v) => {
+                                                       ValueChanged="@(v => {
                                                                          list[index] = v;
                                                                          NotifyChanged();
                                                                      })"
@@ -399,11 +381,11 @@
                             else
                             {
                                 <Input Value="@(list[index]?.ToString() ?? "")"
-                                       Style="flex: 1;" Disabled="true"/>
+                                       Style="flex: 1;" Disabled/>
                             }
                             <Button Danger Size="@ButtonSize.Small"
                                     Icon="@IconType.Outline.Delete"
-                                    OnClick="@(() => RemoveListItem(prop, index))"/>
+                                    OnClick="@(() => RemoveListItem(prop, index))"></Button>
                         </div>
                     }
                 }
@@ -480,7 +462,8 @@
                                 <div>@GetLabel(subProp)</div>
                                 @if (GetDescription(subProp) is { } desc)
                                 {
-                                    <div style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
+                                    <div
+                                        style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
                                 }
                             </div>
                         </LabelTemplate>
@@ -501,32 +484,32 @@
         if (underlyingType == typeof(bool))
         {
             <Switch Checked="@((bool)(value ?? false))"
-                    CheckedChanged="@((bool v) => SetNestedValue(parent, prop, v))"/>
+                    CheckedChanged="@(v => SetNestedValue(parent, prop, v))"/>
         }
         else if (underlyingType == typeof(int))
         {
             <AntDesign.InputNumber TValue="int"
                                    Value="@((int)(value ?? 0))"
-                                   ValueChanged="@((int v) => SetNestedValue(parent, prop, v))"/>
+                                   ValueChanged="@(v => SetNestedValue(parent, prop, v))"/>
         }
         else if (underlyingType == typeof(long))
         {
             <AntDesign.InputNumber TValue="long"
                                    Value="@((long)(value ?? 0))"
-                                   ValueChanged="@((long v) => SetNestedValue(parent, prop, v))"/>
+                                   ValueChanged="@(v => SetNestedValue(parent, prop, v))"/>
         }
         else if (underlyingType == typeof(float))
         {
             <AntDesign.InputNumber TValue="float"
                                    Value="@((float)(value ?? 0f))"
-                                   ValueChanged="@((float v) => SetNestedValue(parent, prop, v))"
+                                   ValueChanged="@(v => SetNestedValue(parent, prop, v))"
                                    Step="0.1f"/>
         }
         else if (underlyingType == typeof(double))
         {
             <AntDesign.InputNumber TValue="double"
                                    Value="@((double)(value ?? 0d))"
-                                   ValueChanged="@((double v) => SetNestedValue(parent, prop, v))"
+                                   ValueChanged="@(v => SetNestedValue(parent, prop, v))"
                                    Step="0.1"/>
         }
         else if (underlyingType == typeof(string))
@@ -535,8 +518,8 @@
             if (str.Length > 100 || str.Contains('\n'))
             {
                 <TextArea Value="@str"
-                          ValueChanged="@((string v) => SetNestedValue(parent, prop, v))"
-                          AutoSize="true" MinRows="3"/>
+                          ValueChanged="@(v => SetNestedValue(parent, prop, v))"
+                          AutoSize="true" MinRows="3"></TextArea>
             }
             else
             {

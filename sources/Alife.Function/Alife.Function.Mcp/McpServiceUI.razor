@@ -10,7 +10,12 @@
 
     <Table TItem="McpServerItem" DataSource="@Configuration.Servers" Bordered Size="@TableSize.Small">
         <PropertyColumn Property="c=>c.Name" Title="名称"></PropertyColumn>
-        <PropertyColumn Property="c=>c.Command" Title="命令"></PropertyColumn>
+        <PropertyColumn Property="c=>c.IsUrlServer" Title="类型">
+            @(context.IsUrlServer ? "URL 服务" : "本地命令")
+        </PropertyColumn>
+        <PropertyColumn Property="c=>c.Endpoint" Title="命令/地址">
+            @(context.IsUrlServer ? context.Endpoint : context.Command)
+        </PropertyColumn>
         <PropertyColumn Property="c=>c.Description" Title="描述"></PropertyColumn>
         <PropertyColumn Property="c=>c.IsImplicit" Title="渐进加载">
             <Switch @bind-Value="context.IsImplicit"/>
@@ -32,8 +37,8 @@
 
     <Drawer Title="@("服务器配置")"
             Visible="isEditingServer"
-            Width="400"
-            OnClose="() => isEditingServer = false">
+            Width="420"
+            OnClose="CloseEditor">
         @if (editingServer != null)
         {
             <Form TModel="McpServerItem" Model="@editingServer" Layout="@FormLayout.Vertical">
@@ -43,16 +48,36 @@
                 <FormItem Label="描述">
                     <Input @bind-Value="editingServer.Description"/>
                 </FormItem>
-                <FormItem Label="可执行文件 (Command)">
-                    <Input @bind-Value="editingServer.Command"/>
+                <FormItem Label="连接方式">
+                    <Segmented TValue="string"
+                               Value="@(isUrlType ? "url" : "local")"
+                               ValueChanged="@OnTypeChanged"
+                               Block>
+                        <SegmentedItem Value="@("local")" Label="本地命令"/>
+                        <SegmentedItem Value="@("url")" Label="URL 服务"/>
+                    </Segmented>
                 </FormItem>
-                <FormItem Label="参数 (每个参数一行)">
-                    <TextArea Value="@string.Join('\n', editingServer.Arguments)"
-                              ValueChanged="@(val => editingServer.Arguments = val.Split('\n', StringSplitOptions.RemoveEmptyEntries))"
-                              Rows="4"></TextArea>
-                </FormItem>
+
+                @if (isUrlType)
+                {
+                    <FormItem Label="服务器地址 (URL)">
+                        <Input @bind-Value="editingServer.Endpoint" Placeholder="如 http://127.0.0.1:18765/mcp"/>
+                    </FormItem>
+                }
+                else
+                {
+                    <FormItem Label="可执行文件 (Command)">
+                        <Input @bind-Value="editingServer.Command"/>
+                    </FormItem>
+                    <FormItem Label="参数 (每个参数一行)">
+                        <TextArea Value="@string.Join('\n', editingServer.Arguments)"
+                                  ValueChanged="@(val => editingServer.Arguments = val.Split('\n', StringSplitOptions.RemoveEmptyEntries))"
+                                  Rows="4"></TextArea>
+                    </FormItem>
+                }
+
                 <FormItem>
-                    <Button Type="@ButtonType.Primary" OnClick="OnConfirm" Block>保存服务器配置</Button>
+                    <Button Type="@ButtonType.Primary" OnClick="CloseEditor" Block>完成</Button>
                 </FormItem>
             </Form>
         }
@@ -63,17 +88,20 @@
 
     McpServerItem? editingServer;
     bool isEditingServer;
+    bool isUrlType;
 
     void AddServer()
     {
         editingServer = new McpServerItem();
         Configuration.Servers.Add(editingServer);
+        isUrlType = false;
         isEditingServer = true;
     }
 
     void EditServer(McpServerItem server)
     {
         editingServer = server;
+        isUrlType = server.IsUrlServer;
         isEditingServer = true;
     }
 
@@ -82,7 +110,20 @@
         Configuration.Servers.Remove(server);
     }
 
-    void OnConfirm()
+    void OnTypeChanged(string value)
+    {
+        if (editingServer == null)
+            return;
+
+        isUrlType = value == "url";
+        //切换连接方式时清空另一种方式填写的配置，避免歧义
+        if (isUrlType)
+            editingServer.Command = "";
+        else
+            editingServer.Endpoint = "";
+    }
+
+    void CloseEditor()
     {
         isEditingServer = false;
     }

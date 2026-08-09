@@ -20,8 +20,8 @@ namespace Alife.Function.Language.OpenAI;
 
 [Module(
     "OpenAI语言模型",
-    "接入与OpenAI协议兼容的文本模型，实现最基本的文本对话功能。",
-    defaultCategory: "Alife 官方/模型接入/文本模型",
+    "接入与OpenAI协议兼容的语言模型，实现最基本的文本对话功能。",
+    defaultCategory: "Alife 官方/模型接入/语言模型",
     editorUI: typeof(OpenAILanguageModelUI)
 )]
 public class OpenAILanguageModel(
@@ -144,7 +144,7 @@ public class OpenAILanguageModel(
     void RegisterChatCompletion(IKernelBuilder kernelBuilder)
     {
         if (string.IsNullOrWhiteSpace(Configuration.apiKey))
-            throw new Exception("文本模型的key为空，请检查你的“OpenAI语言模型”插件配置是否正确。");
+            throw new Exception("语言模型的key为空，请检查你的“OpenAI语言模型”插件配置是否正确。");
 
         // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
         SocketsHttpHandler handler = new() {

@@ -11,38 +11,79 @@ using ModelContextProtocol.Protocol;
 
 namespace Alife.Function.Mcp;
 
+/// <summary>
+/// 业务无关的 MCP 适配器：负责建立 MCP 客户端连接，并把任意 MCP 服务器提供的工具转换为
+/// <see cref="XmlHandler"/>，使 AI 可以通过 Xml 函数调用方式使用它们。
+/// 支持 stdio（本地命令）与 HTTP（流式传输）两种连接方式。
+/// </summary>
 public static class McpXmlAdapter
 {
-    public static async Task<(McpClient Client, XmlHandler Handler)> CreateAsync(
-        McpServerItem config,
-        Action<string, string>? resultCallback = null,
+    /// <summary>
+    /// 通过 stdio（本地命令）连接 MCP 服务器。
+    /// </summary>
+    public static async Task<McpClient> ConnectStdioAsync(
+        string name,
+        string command,
+        string[]? arguments = null,
         ILoggerFactory? loggerFactory = null)
     {
-        StdioClientTransport clientTransport = new(new StdioClientTransportOptions {
-            Name = config.Name,
-            Command = config.Command,
-            Arguments = config.Arguments
-        });
+        StdioClientTransportOptions options = new() {
+            Name = name,
+            Command = command,
+            Arguments = arguments ?? []
+        };
 
-        McpClient client = await McpClient.CreateAsync(clientTransport, loggerFactory: loggerFactory);
+        return await McpClient.CreateAsync(new StdioClientTransport(options), loggerFactory: loggerFactory);
+    }
+
+    /// <summary>
+    /// 通过 HTTP（流式传输）连接 MCP 服务器。
+    /// </summary>
+    public static async Task<McpClient> ConnectHttpAsync(
+        string name,
+        Uri endpoint,
+        ILoggerFactory? loggerFactory = null)
+    {
+        HttpClientTransportOptions options = new() {
+            Name = name,
+            Endpoint = endpoint
+        };
+
+        return await McpClient.CreateAsync(new HttpClientTransport(options), loggerFactory: loggerFactory);
+    }
+
+    /// <summary>
+    /// 将已连接的 MCP 客户端中的工具转换为 XmlHandler，供 AI 通过 Xml 函数调用。
+    /// </summary>
+    /// <param name="client">已连接的 MCP 客户端。</param>
+    /// <param name="name">XmlHandler 的名称。</param>
+    /// <param name="description">XmlHandler 的描述。</param>
+    /// <param name="resultCallback">函数执行完成后的回调（参数为小写工具名与结果文本）。</param>
+    /// <param name="explanation">附加给 AI 的详细说明。</param>
+    public static async Task<XmlHandler> McpClientToXmlHandler(
+        McpClient client,
+        string name,
+        string? description = null,
+        Action<string, string>? resultCallback = null,
+        string? explanation = null)
+    {
         IList<McpClientTool> tools = await client.ListToolsAsync();
 
         List<XmlFunction> functions = new();
         foreach (McpClientTool tool in tools)
         {
-            XmlFunction function = BuildFunction(tool, client, resultCallback);
+            XmlFunction function = McpClientToolToXmlFunction(tool, client, resultCallback);
             functions.Add(function);
         }
 
-        XmlHandler handler = new(config.Name) {
-            Description = config.Description,
-            Functions = functions
+        return new XmlHandler(name) {
+            Description = description,
+            Explanation = explanation,
+            Functions = functions,
         };
-
-        return (client, handler);
     }
 
-    static XmlFunction BuildFunction(McpClientTool tool, McpClient client, Action<string, string>? resultCallback)
+    static XmlFunction McpClientToolToXmlFunction(McpClientTool tool, McpClient client, Action<string, string>? resultCallback)
     {
         string name = tool.Name.ToLower();
         string description = tool.Description;
@@ -178,16 +219,19 @@ public static class McpXmlAdapter
         if (schema.TryGetProperty("enum", out JsonElement enumElement))
             return "enum" + enumElement;
 
-        // 2. 直接 type（含 array 处理 items）
+        // 2. 直接 type（含 array 处理 items），兼容 type 为数组（如 ["string","null"]）的写法
         if (schema.TryGetProperty("type", out JsonElement typeElem))
         {
-            string type = typeElem.GetString() ?? "string";
-            if (type == "array" && schema.TryGetProperty("items", out JsonElement items))
+            string? type = GetTypeString(typeElem);
+            if (type != null)
             {
-                string itemType = ResolveType(items);
-                return itemType + "[]";
+                if (type == "array" && schema.TryGetProperty("items", out JsonElement items))
+                {
+                    string itemType = ResolveType(items);
+                    return itemType + "[]";
+                }
+                return type;
             }
-            return type;
         }
 
         // 3. anyOf 联合类型 — 过滤 null，取第一个非 null 类型
@@ -213,8 +257,36 @@ public static class McpXmlAdapter
         return "string";
     }
 
+    static string? GetTypeString(JsonElement typeElem)
+    {
+        if (typeElem.ValueKind == JsonValueKind.String)
+            return typeElem.GetString();
+
+        // 数组写法，如 ["string","null"]，取第一个非 null 类型
+        if (typeElem.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in typeElem.EnumerateArray())
+            {
+                string? type = item.GetString();
+                if (type != null && type != "null")
+                    return type;
+            }
+        }
+        return null;
+    }
+
     static bool IsNullableType(JsonElement schema)
     {
+        // type 为数组（如 ["string","null"]）时包含 null
+        if (schema.TryGetProperty("type", out JsonElement typeElem) && typeElem.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in typeElem.EnumerateArray())
+            {
+                if (item.GetString() == "null")
+                    return true;
+            }
+        }
+
         // anyOf/oneOf 中包含 null 类型
         if (schema.TryGetProperty("anyOf", out JsonElement anyOf) && anyOf.ValueKind == JsonValueKind.Array)
         {

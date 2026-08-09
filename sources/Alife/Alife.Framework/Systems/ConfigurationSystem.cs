@@ -9,17 +9,14 @@ namespace Alife.Framework;
 
 public class ConfigurationSystem(StorageSystem storageSystem)
 {
-    public bool CanConfiguration(Type target)
-    {
-        return GetConfigurationType(target) != null;
-    }
     public Type? GetConfigurationType(Type target)
     {
         if (configurationTypes.TryGetValue(target, out Type? configurationType))
             return configurationType;
 
         Type[] interfaces = target.GetInterfaces();
-        Type? targetInterface = interfaces.FirstOrDefault(value => value.IsGenericType && value.GetGenericTypeDefinition() == typeof(IConfigurable<>));
+        Type? targetInterface =
+            interfaces.FirstOrDefault(value => value.IsGenericType && value.GetGenericTypeDefinition() == typeof(IConfigurable<>));
         if (targetInterface == null)
             return null;
 
@@ -27,16 +24,37 @@ public class ConfigurationSystem(StorageSystem storageSystem)
         configurationTypes[target] = configurationType;
         return configurationType;
     }
-    public object? GetConfiguration(Type target, string root = "")
+    public bool CanConfiguration(Type target)
+    {
+        return GetConfigurationType(target) != null;
+    }
+    public bool HasConfiguration(Type target, string root = "")
+    {
+        string path = Path.Combine(root, "Configuration", target.FullName!);
+        return storageSystem.GetObject<JObject>(path) != null;
+    }
+
+
+    public object GetConfiguration(Type target, string root = "")
     {
         Type? configurationType = GetConfigurationType(target);
         if (configurationType == null)
-            return null;
+            throw new Exception($"{target} 不支持配置功能。");
 
         JObject? configuration = storageSystem.GetObject<JObject>(Path.Combine(root, "Configuration", target.FullName!)) ??
                                  storageSystem.GetObject<JObject>(Path.Combine("Configuration", target.FullName!));
-        if (configuration != null) return configuration.ToObject(configurationType, replaceSerializer);
-        return Activator.CreateInstance(configurationType, null);
+        if (configuration != null)
+        {
+            object? jsonResult = configuration.ToObject(configurationType, replaceSerializer);
+            return jsonResult ?? throw new Exception($"{target} 无法被json反序列化。");
+        }
+
+        object? constructionResult = Activator.CreateInstance(configurationType, null);
+        return constructionResult ?? throw new Exception($"{target} 无法被构造函数构造。");
+    }
+    public string GetConfigurationJson(Type target, string root = "")
+    {
+        return JsonConvert.SerializeObject(GetConfiguration(target, root), Formatting.Indented);
     }
 
     public void SetConfiguration(Type target, object configuration, string root = "")
@@ -49,15 +67,26 @@ public class ConfigurationSystem(StorageSystem storageSystem)
 
         storageSystem.SetObject(Path.Combine(root, "Configuration", target.FullName!), configuration);
     }
+    public void SetConfigurationJson(Type target, string configurationJson, string root = "")
+    {
+        Type? configurationType = GetConfigurationType(target);
+        if (configurationType == null)
+            throw new Exception("目标不支持配置功能！");
+
+        object? configObject = JsonConvert.DeserializeObject(configurationJson, configurationType, new JsonSerializerSettings {
+            ObjectCreationHandling = ObjectCreationHandling.Replace
+        });
+        if (configObject == null)
+            throw new Exception("反序列化失败，无法创建对象。");
+
+        SetConfiguration(target, configObject, root);
+    }
+
     public void DeleteConfiguration(Type target, string root = "")
     {
         storageSystem.DeleteObject(Path.Combine(root, "Configuration", target.FullName!));
     }
-    public bool HasConfiguration(Type target, string root = "")
-    {
-        string path = Path.Combine(root, "Configuration", target.FullName!);
-        return storageSystem.GetObject<JObject>(path) != null;
-    }
+
     public string? GetConfigurationFilePath(Type target, string root = "")
     {
         if (GetConfigurationType(target) == null)

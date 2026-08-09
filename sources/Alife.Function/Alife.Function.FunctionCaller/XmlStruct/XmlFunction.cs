@@ -31,7 +31,7 @@ public class XmlFunction : IComparable<XmlFunction>
     public string? ContentName { get; init; }
     public string? ContentDescription { get; init; }
     public List<XmlParameter> Parameters { get; init; } = new();
-    public required Func<XmlContext, CancellationToken, Task> Invoker { get; init; }
+    public required Func<XmlContext, CancellationToken, Task> Invoker { get; set; }
 
     public string Document()
     {
