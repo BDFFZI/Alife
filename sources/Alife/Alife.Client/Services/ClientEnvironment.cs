@@ -32,12 +32,15 @@ public static class ClientEnvironment
         //检查python
         {
             string? pythonDir = FindPythonDir();
-            IsPythonReady = pythonDir != null;
             if (pythonDir != null)
             {
                 string path = Environment.GetEnvironmentVariable("PATH") ?? "";
-                if (path.Contains(pythonDir) == false)
-                    Environment.SetEnvironmentVariable("PATH", $"{pythonDir}{Path.PathSeparator}{path}");
+                Environment.SetEnvironmentVariable("PATH", $"{pythonDir}{Path.PathSeparator}{path}");
+                IsPythonReady = true;
+            }
+            else
+            {
+                IsPythonReady = false;
             }
 
             static string? FindPythonDir()
@@ -53,6 +56,8 @@ public static class ClientEnvironment
                 {
                     foreach (var path in paths.Split(";"))
                     {
+                        if (path.Contains("WindowsApps"))
+                            continue; //避开微软的假python
                         if (File.Exists(Path.Combine(path, "python.exe")))
                             return path;
                     }
