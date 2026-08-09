@@ -84,6 +84,8 @@ public partial class XmlFunctionCaller(
         }
         if (cancellationToken != CancellationToken.None)
             cancellationToken.Register(() => UnregisterHandler(handler));
+
+        UpdatePrompt();
     }
     public void RegisterHandlerWithoutDocument(XmlHandler handler, CancellationToken cancellationToken = default)
     {
@@ -98,21 +100,24 @@ public partial class XmlFunctionCaller(
         handlerTable.Unregister(handler);
         explicitHandlers.Remove(handler);
         implicitHandlers.Remove(handler);
+
+        UpdatePrompt();
     }
     /// <summary>
     /// 标记指定的xml标签内容均为生文本，不要参与xml解析，这意味着ai不需要考虑这些xml标签内容的通配问题。
     /// xml函数中被标记为[XmlForm]的参数会自动注册为plainArea
     /// </summary>
     /// <param name="plainAreas"></param>
-    public void AddPlainAreas(params string[] plainAreas)
+    public void AddPlainAreas(params IEnumerable<string> plainAreas)
     {
-        this.plainAreas.AddRange(plainAreas);
+        foreach (var plainArea in plainAreas)
+            this.plainAreas.Add(plainArea.ToLower());
     }
 
     readonly XmlHandlerTable handlerTable = new();
     readonly List<XmlHandler> explicitHandlers = new();
     readonly List<XmlHandler> implicitHandlers = new();
-    readonly List<string> plainAreas = new();
+    readonly HashSet<string> plainAreas = new();
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
     OccupationMarker? chatOccupationMarker;
@@ -121,6 +126,11 @@ public partial class XmlFunctionCaller(
     OccupationMarker? thinkingOccupationMarker;
     readonly List<string> thinkingReasons = new();
 
+    protected override Task OnAwake()
+    {
+        UpdatePrompt(); //提前注入一个提示词块
+        return Task.CompletedTask;
+    }
     protected override Task OnStart()
     {
         thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
@@ -129,11 +139,11 @@ public partial class XmlFunctionCaller(
         IEnumerable<XmlParameter> parameters = handlerTable.GetAllHandlers()
             .SelectMany(handler => handler.Functions
                 .SelectMany(function => function.Parameters));
-        plainAreas.AddRange(parameters.Where(parameter => parameter.IsXmlForm)
+        AddPlainAreas(parameters.Where(parameter => parameter.IsXmlForm)
             .Select(parameter => parameter.Name));
 
         //创建xml解析执行器等
-        parser = new XmlStreamParser(plainAreas.Distinct());
+        parser = new XmlStreamParser(plainAreas);
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
@@ -149,47 +159,6 @@ public partial class XmlFunctionCaller(
         ChatBot.ChatReceived += OnChatReceived;
         ChatBot.ChatFinishedAsync += OnChatFinishedAsync;
 
-        //注入函数文档
-        interactor.Prompt(
-            $"""
-             默认情况下你仅支持输出普通文本，但由于各种插件功能的存在，使得你还拥有通过输出特定的xml标签执行功能调用的能力。
-
-             ## 使用提示
-             1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
-             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条。
-             3. 很多xml函数拥有调用后返回结果的功能，因此你可以通过多轮对话解决事情（如先调用一下获取手册，然后等到收到结果后，再决定下一步的操作）
-
-             ## 使用示例
-             当你的函数足够丰富后，你可以尝试用如下的方式使用他们，这是官方最佳示例（注意，示例中的函数不一定存在）：
-             ```
-             (可选，未被标签包裹的文字，用户看不到，所以可以在此实现空消息、自言自语、思考等动作)
-             <speak> <!-- 默认采用语音方式对外输出，并在文本中穿插表情动作，来实现动态的交互效果 -->
-             主人你看我画的好不好看，<expression option="开心" />今天特意给你画的噢！<motion option="摆摆手"/>
-             看你每天那么累，给你打打气。
-             </speak>
-             <python> <!-- 因为python执行需要时间，在结尾调用比较合适。 -->
-             show('cheer.png')
-             <python>
-             ```   
-
-             ## 原始字符串区域
-             被如下标签包括的内容可以不用转义，他们会自动保持原始格式
-             {string.Join(',', parser.PlainAreas)}
-
-             ## 当前可用功能
-
-             {string.Join("\n", explicitHandlers.Select(GetExplicitDocument))}
-             """ + (implicitHandlers.Count == 0
-                ? ""
-                : $"""
-                   ## 隐式功能
-                   有些功能是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐式服务的文档非常简单，直接输出xml来调用如下标签即可：
-
-                   {string.Join("\n", implicitHandlers.Select(GetImplicitDocument))}
-
-                   上面这些标签都是开启隐式服务的入口，你要根据实际情况，积极的去调用他们，有很多你需要的功能可能就藏在其中。
-                   """)
-        );
         return Task.CompletedTask;
     }
     protected override async Task OnDestroy()
@@ -325,5 +294,49 @@ public partial class XmlFunctionCaller(
             }
         });
         handlerTable.Register(xmlHandler);
+    }
+    void UpdatePrompt()
+    {
+        //注入函数文档
+        interactor.Prompt(
+            $"""
+             默认情况下你仅支持输出普通文本，但由于各种插件功能的存在，使得你还拥有通过输出特定的xml标签执行功能调用的能力。
+
+             ## 使用提示
+             1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
+             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条。
+             3. 很多xml函数拥有调用后返回结果的功能，因此你可以通过多轮对话解决事情（如先调用一下获取手册，然后等到收到结果后，再决定下一步的操作）
+
+             ## 使用示例
+             当你的函数足够丰富后，你可以尝试用如下的方式使用他们，这是官方最佳示例（注意，示例中的函数不一定存在）：
+             ```
+             (可选，未被标签包裹的文字，用户看不到，所以可以在此实现空消息、自言自语、思考等动作)
+             <speak> <!-- 默认采用语音方式对外输出，并在文本中穿插表情动作，来实现动态的交互效果 -->
+             主人你看我画的好不好看，<expression option="开心" />今天特意给你画的噢！<motion option="摆摆手"/>
+             看你每天那么累，给你打打气。
+             </speak>
+             <python> <!-- 因为python执行需要时间，在结尾调用比较合适。 -->
+             show('cheer.png')
+             <python>
+             ```   
+
+             ## 原始字符串区域
+             被如下标签包括的内容可以不用转义，他们会自动保持原始格式
+             {string.Join(',', plainAreas)}
+
+             ## 当前可用功能
+
+             {string.Join("\n", explicitHandlers.Select(GetExplicitDocument))}
+             """ + (implicitHandlers.Count == 0
+                ? ""
+                : $"""
+                   ## 隐式功能
+                   有些功能是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐式服务的文档非常简单，直接输出xml来调用如下标签即可：
+
+                   {string.Join("\n", implicitHandlers.Select(GetImplicitDocument))}
+
+                   上面这些标签都是开启隐式服务的入口，你要根据实际情况，积极的去调用他们，有很多你需要的功能可能就藏在其中。
+                   """)
+        );
     }
 }

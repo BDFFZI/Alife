@@ -53,9 +53,9 @@ public class ChatActivity(
                         builder.AddProvider(new AlifeLogProvider());
                     }))
                 );
-                container.RegisterBuilder(typeof(Logger<>), isSingleton: false);
+                container.RegisterBuilder(typeof(Logger<>));
                 //interactor功能
-                container.RegisterBuilder(typeof(Interactor<>), isSingleton: false);
+                container.RegisterBuilder(typeof(Interactor<>));
             }
             //添加用户模块（先插入优先级高）
             foreach (Type moduleType in enabledModuleTypes)
@@ -192,9 +192,7 @@ public class ChatActivity(
                     await behaviour.UpdateAsync(context);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -205,7 +203,16 @@ public class ChatActivity(
     {
         foreach (Type moduleType in moduleTypes)
             container.UnRegisterBuilder(moduleType);
-        object[] invalidModules = container.Instances.Where(instance => moduleTypes.Contains(instance.GetType())).ToArray();
+        
+        object[] invalidModules = container.Instances.Where(instance => {
+            Type moduleType = instance.GetType();
+            if (moduleTypes.Contains(moduleType))
+                return true;
+            if (moduleType.IsGenericType && moduleType.GenericTypeArguments.Any(moduleTypes.Contains))
+                return true;
+            return false;
+        }).ToArray();
+        
         foreach (object instance in invalidModules)
             container.RemoveInstance(instance);
 

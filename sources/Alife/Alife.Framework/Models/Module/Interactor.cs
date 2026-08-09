@@ -29,30 +29,30 @@ public partial class Interactor<T>
     }
 }
 
-public partial class Interactor<T>(ChatBot target) : IInteractor<T>
+public partial class Interactor<T>(ChatBot target) : IInteractor<T>, IDisposable
 {
     public Func<string, string> ChatTextFilter { get; set; } = text => text;
     public void Prompt(string prompt)
     {
-        string content = $"{GetPromptTag()}\n{prompt}";
-
-        ChatMessageContent? chatMessageContent = target.ChatHistory.FirstOrDefault(content => content.Content?.StartsWith(GetPromptTag()) ?? false);
-        if (chatMessageContent != null)
+        if (promptContent == null)
         {
-            chatMessageContent.Content = content;
-            return;
+            //尝试获取老提示词注入点
+            promptContent = target.ChatHistory.FirstOrDefault(content => content.Content?.StartsWith(GetPromptTag()) ?? false);
+            if (promptContent == null)
+            {
+                //需要创建新的
+                (ChatMessageContent item, int index) = target.ChatHistory
+                    .Select((item, index) => (item, index))
+                    .LastOrDefault(x => x.item.Role == AuthorRole.System);
+                promptContent = new ChatMessageContent(AuthorRole.System, "");
+                target.EditChatHistory(thread => {
+                    thread.ChatHistory.Insert(item == null ? 0 : index + 1, promptContent);
+                }, "注入提示词");
+            }
         }
 
-        (ChatMessageContent item, int index) = target.ChatHistory
-            .Select((item, index) => (item, index))
-            .FirstOrDefault(x => x.item.Role == AuthorRole.System);
-
-        target.EditChatHistory(thread => {
-            if (item == null)
-                thread.ChatHistory.AddSystemMessage(content);
-            else
-                thread.ChatHistory.Insert(index + 1, new ChatMessageContent(AuthorRole.System, content));
-        }, "注入提示词");
+        string content = $"{GetPromptTag()}\n{prompt}";
+        promptContent.Content = content;
     }
     public void Poke(string message)
     {
@@ -65,5 +65,13 @@ public partial class Interactor<T>(ChatBot target) : IInteractor<T>
     public Task<ChatResult> ChatAsync(string message)
     {
         return target.ChatAsync(ChatTextFilter(GetMessageTag() + message));
+    }
+
+    ChatMessageContent? promptContent;
+
+    public void Dispose()
+    {
+        if (promptContent != null)
+            target.EditChatHistory(thread => thread.ChatHistory.Remove(promptContent), "卸载提示词");
     }
 }
