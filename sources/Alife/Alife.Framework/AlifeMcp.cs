@@ -91,13 +91,32 @@ public class AlifeMcpTools(
 
                  为了便于深入了解、排错、查API，请先下载源码，然后再对照阅读。
 
+                 ## 项目结构
+
+                 ## Alife.Foundation
+
+                 提供 Alife 的基础必要功能实现环境。
+
+                 ### 提供功能
+
+                 - AlifePath：存储着Alife中使用的路径环境。
+                 - AlifeMirror：Alife中实现镜像的协议类。
+                 - AlifeUtility：对一些常用功能，比如镜像下载的封装。
+                 - AlifeLog：自定义ILogger，同时提供静态调用途径。在此流过的Log会被前端特殊显示。
+                 - AlifeConfig：一个固定路径的配置存储（不建议使用，为了便于用户管理，优先使用`StorageSystem`）。
+
+                 ### 提供路径
+
+                 - 应用目录（客户端本身的安装目录）：`AlifePath.AppFolderPath` > {{AlifePath.AppFolderPath}}
+                 - 存储目录（存储角色数据、插件配置等）：`AlifePath.StorageFolderPath` > {{AlifePath.StorageFolderPath}}
+                 - 环境目录（存储python等运行时环境）：`AlifePath.RuntimeFolderPath` > {{AlifePath.RuntimeFolderPath}}
+                 - 缓存目录（存储运行期间产生的临时文件，每次启动时清空）：`AlifePath.TempFolderPath` > {{AlifePath.TempFolderPath}}
+
                  ## Alife.Framework（内核）
 
-                 实现最基本的llm运行框架并提供模块作为可插拔的功能单元，能以此开发出定制化的 AIAgent。
+                 实现AI活动所需的基本框架，允许使用者通过模块机制、事件、管理系统来扩展控制框架功能。
 
                  ### 基本对象
-
-                 实现AI活动所需的各种部件，可以通过模块事件或查询相应的管理系统来获取
 
                  - Character：存储ai人设功能配置的数据类。该对象全局保持，即使重载角色也不影响，可充当长期唯一索引。
                  - ChatBot：协调与llm通讯的类，提供通讯函数、事件、上下文等，是与llm交流的海关。不过该类本身不实现通讯，而是通过接口从插件中获取语言模型。
@@ -117,41 +136,59 @@ public class AlifeMcpTools(
                  - PluginSystem：管理插件的安装编译加载
                  - ModuleSystem：从插件程序集中提取模块信息
 
-                 ### 环境目录
+                 ### 提供目录
 
-                 项目中的特殊目录一般由下构成。这些目录存放着各种配置信息，是开发过程中用来从外部修改软件数据的最佳途径。
-
-                 - 应用目录（客户端本身的安装目录）：`AppContext.BaseDirectory` > {{AppContext.BaseDirectory}}
-                 - 存储目录（存储角色数据、插件配置等）：`AlifePath.StorageFolderPath` > {{AlifePath.StorageFolderPath}}
-                 - 运行时目录（存储python等运行时环境）：`AlifePath.RuntimeFolderPath` > {{AlifePath.RuntimeFolderPath}}
                  - 插件目录（插件源码目录）：{存储目录}/Plugins
                  - 角色目录（对于每个角色的配置、记忆、个人文件等）：{存储目录}/Character
                  - 模块配置目录（当模块使用配置功能时，配置的存储目录）：{存储目录}/Configuration
                  - 特定于角色的模块配置目录（优先级比全局高）：{角色目录}/Configuration
 
+                 提示：这些目录通常存放着各种配置信息，是开发过程中用来从外部修改软件数据的最佳途径。
+
                  ## Alife.Client（外壳）
 
-                 是 Alife.Framework 的前端应用，用于图形化操控框架中的各种系统，额外还接入了环境检测，新手引导等辅助功能。
-
-                 ## Alife.Foundation
-
-                 存储一些基础关键的工具类：
-
-                 - AlifePath：存储着Alife中使用的路径环境。
-                 - AlifeMirror：Alife中实现镜像的协议类。
-                 - AlifeUtility：对一些常用功能，比如镜像下载的封装。
-                 - AlifeLog：自定义ILogger，同时提供静态调用途径。在此流过的Log会被前端特殊显示。
-                 - AlifeConfig：一个固定路径的配置存储（不建议使用，为了便于用户管理，优先使用`StorageSystem`）。
+                 是内核的官方前端封装，用于图形化操控框架中的各种系统，额外还接入了环境检测，新手引导等辅助功能。
 
                  ## Alife.PluginContext/Alife.PluginMarket
 
                  一套与业务无关的插件框架实现，两者分别负责实现插件的编译加载和下载安装。
-                 （建议直接使用 PluginSystem 代替，因为其封装了两者并使其协同工作，从而避免了手动管理的复杂性）
+                 （实际使用中应直接用 PluginSystem 代替，因为其封装了两者并使其协同工作，否则你要处理复杂的手动管理）
                  """;
     }
-
     [McpServerTool]
-    [Description("了解如何通过插件为 Alife 注入自定义功能。")]
+    [Description("了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
+    public string ReadDebugMonitoringGuide()
+    {
+        return $$"""
+                 # Alife 诊断指南
+
+                 Alife 有两种运行数据：
+
+                 ## 软件日志
+
+                 涉及程序运行上的流程和错误，是给用户看的。
+
+                 日志功能由 {{nameof(AlifeLog)}} 管理，其会将每条日志都输出在一个日志文件中：
+                 `AlifeLog.LogFilePath` > {{AlifeLog.LogFilePath}}
+
+                 通常事件中触发的程序报错是不会抛出的，而是写入到日志，因此部分函数调用完需要查看日志文件来验证是否完全没问题。
+                 日志消息有2种类型是需要特别关注的：`[Warning]`和`[Error]`，检查是否包含这两种标签，就可以找出程序中的问题。
+
+                 ## 角色上下文
+
+                 涉及 AI 交互调用功能时的反馈记录，是给 AI 看的。
+
+                 角色上下文的实质就是 llm 的上下文，其包含完整的工具提示词、记忆、聊天记录，可通过 {{nameof(ReadCharacterContext)}} 查看。
+
+                 当 AI 调用的工具出错，报错将反馈到上下文中，或者即使不出错，AI 也不一定按期望工作。
+                 因为相比传统程序，llm 本身就充满了不确定性，所以就需要经常观察上下文，然后追踪 AI 的行为，并以此优化提示词或工具调用方式。
+
+                 此类问题，有很多都是 AI 犯蠢导致的，所以不一定是程序问题，而且也修不好（例如所用模型智商太低导致的硬伤）。
+                 因此不需要总是修复所有错误，只要确保可以纠正 llm，并使他大部分时候都是可以正常运作的，那就算没问题了。
+                 """;
+    }
+    [McpServerTool]
+    [Description("了解如何制作插件，来为 Alife 扩展功能。")]
     public string ReadPluginDevelopmentGuide()
     {
         return $$"""
@@ -253,6 +290,8 @@ public class AlifeMcpTools(
                  - Alife.Function.Memory：其通过ChatBot事件和llm对话申请机制实现了对llm交互的拦截处理，并通过直接读写对话上下文来实现记忆压缩，同时还实现了关键字检测后向AI发送额外提示词的功能。
                  """;
     }
+    [McpServerTool]
+    [Description("了解如何将做好的插件分享出去，以及探索插件市场。")]
     public string ReadPluginPublishGuide()
     {
         return $$"""

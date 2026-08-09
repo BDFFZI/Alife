@@ -15,8 +15,8 @@ public class ClientUpgrade(PluginSystem pluginSystem)
     public UpdateInfo? NewVersion { get; private set; }
     public async Task FetchNewVersion()
     {
-        const string rawGitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
-        string response = await AlifeUtility.FetchStringAsync(rawGitHubApiUrl, TimeSpan.FromSeconds(7));
+        const string RawGitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
+        string response = await AlifeUtility.FetchStringAsync(RawGitHubApiUrl, TimeSpan.FromSeconds(7));
         JObject json = JObject.Parse(response);
 
         string? tagName = json["tag_name"]?.ToString();
@@ -53,17 +53,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
         });
 
         string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule!.FileName);
-        string realLaunchPath = AppContext.BaseDirectory;
-        string? parentDirectory = Path.GetDirectoryName(realLaunchPath);
-        while (parentDirectory != null)
-        {
-            if (File.Exists(Path.Combine(parentDirectory, exeName)))
-                realLaunchPath = parentDirectory;
-            parentDirectory = Path.GetDirectoryName(parentDirectory);
-        }
-
-        string startDirectory = realLaunchPath;
-        string exePath = Path.Combine(startDirectory, exeName);
+        string exePath = Path.Combine(AlifePath.AppFolderPath, exeName);
         string psPath = Path.Combine(tempDir, "update.ps1");
         await File.WriteAllTextAsync(psPath,
             $$"""
@@ -78,7 +68,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
               }
 
               Write-Host 'ZipPath:    {{zipPath}}'
-              Write-Host 'CurrentDir: {{startDirectory}}'
+              Write-Host 'CurrentDir: {{AlifePath.AppFolderPath}}'
               Write-Host ''
               if (-not (Test-Path '{{zipPath}}')) {
                   Write-Host 'ERROR: ZIP not found!' -ForegroundColor Red
@@ -101,7 +91,7 @@ public class ClientUpgrade(PluginSystem pluginSystem)
               }
 
               Write-Host 'Copying new files (overwrite)...' -ForegroundColor Yellow
-              Copy-Item -Path "$extractTemp\*" -Destination '{{startDirectory}}' -Recurse -Force
+              Copy-Item -Path "$extractTemp\*" -Destination '{{AlifePath.AppFolderPath}}' -Recurse -Force
               Remove-Item $extractTemp -Recurse -Force -ErrorAction SilentlyContinue
 
               Write-Host ''
