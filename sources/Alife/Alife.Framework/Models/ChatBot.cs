@@ -87,13 +87,14 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
-    public async Task<ChatResult> ChatAsync(string message)
+    public async Task<ChatResult> ChatAsync(string message, bool breakLast = true)
     {
         CancellationToken cancellationToken;
 
         lock (this)
         {
-            chatBreakSource.Cancel(); //打断上一次的聊天
+            if (breakLast)
+                chatBreakSource.Cancel(); //打断上一次的聊天
             chatBreakSource = new CancellationTokenSource();
             cancellationToken = chatBreakSource.Token;
         }

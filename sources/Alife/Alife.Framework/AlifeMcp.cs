@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Newtonsoft.Json;
 
 namespace Alife.Framework;
 
@@ -41,6 +42,7 @@ public static class AlifeMcp
             builder.Services.AddSingleton(provider.GetRequiredService<ChatActivitySystem>());
             builder.Services.AddSingleton(provider.GetRequiredService<PluginSystem>());
             builder.Services.AddSingleton(provider.GetRequiredService<ModuleSystem>());
+            builder.Services.AddSingleton(provider.GetRequiredService<ConfigurationSystem>());
             builder.Services.AddSingleton<AlifeMcpTools>();
             builder.Services.AddMcpServer(options => {
                 options.ServerInfo = new Implementation {
@@ -75,10 +77,27 @@ public class AlifeMcpTools(
     CharacterSystem characterSystem,
     ChatActivitySystem chatActivitySystem,
     PluginSystem pluginSystem,
-    ModuleSystem moduleSystem)
+    ModuleSystem moduleSystem,
+    ConfigurationSystem configurationSystem)
 {
     [McpServerTool]
-    [Description("（必读）了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
+    [Description("使用 alife-mcp 请先阅读此文档")]
+    public string ReadMe()
+    {
+        return $$"""
+                 请挨个调用如下函数，阅读这些文档，来了解工具使用，避免盲目使用：
+
+                 - {{nameof(ReadAlifeFrameworkGuide)}}：了解alife基本结构。
+                 - {{nameof(ReadDebugDiagnosticGuide)}}：了解通过log和上下文捕获alife中的异常。
+                 - {{nameof(ReadFunctionDevelopmentGuide)}}：了解如何管理角色并为他们启用功能。
+
+                 如果涉及到与其他插件的互操作性，你还应该阅读：{{nameof(ReadPluginMarketGuide)}}
+                 """;
+    }
+
+
+    [McpServerTool]
+    [Description("了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
     public string ReadAlifeFrameworkGuide()
     {
         return $$"""
@@ -156,8 +175,8 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("（必读）了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
-    public string ReadDebugMonitoringGuide()
+    [Description("了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
+    public string ReadDebugDiagnosticGuide()
     {
         return $$"""
                  # Alife 诊断指南
@@ -188,8 +207,8 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("（必读）了解如何使用或制作插件，来为角色添加功能。")]
-    public string ReadPluginDevelopmentGuide()
+    [Description("了解如何为角色装配功能，以及通过开发插件，实现功能扩展。")]
+    public string ReadFunctionDevelopmentGuide()
     {
         return $$"""
                  # Alife 插件开发指南
@@ -261,13 +280,13 @@ public class AlifeMcpTools(
                  2. 在新增的插件目录中创建一个`manifest.json`，按照上文的清单要求或参考其他插件填写内容，该文件表示插件清单。
                  3. 使用 {{nameof(ReloadPluginEnvironment)}} 加载插件清单，借此系统将处理插件依赖关系，并安装清单中的环境要求。
                  4. 在插件文件夹增加 cs 文件，参考上文 `功能实现` 中的示例插件项目，编写你的功能代码。
-                 5. 如果模块用到配置功能，还可编辑`{模块配置目录}/{模块类名}.json`来创建模块加载后要使用的配置数据。
+                 5. 如果模块用到配置功能，还可通过 {{nameof(SetModuleConfig)}} 功能进行配置设置（可以先 {{nameof(GetModuleConfig)}} 然后参考着修改）。
                  6. 通过 {{nameof(ReloadPlugin)}} 编译加载插件，如果异常可以修改 cs 后再次尝试加载，如果要修改依赖则回到步骤 2。
-                 7. 加载成功后，编辑角色配置文件(`{角色目录}/index.json`)，将新增模块类名(`Type.FullName`)填入到`Modules`数组中。
-                 8. 用 {{nameof(ReloadCharacter)}} 重载角色配置，并用 {{nameof(ListModulesInCharacter)}} 验证模块启用
+                 7. 加载成功后，编辑角色配置文件(`{角色目录}/index.json`)，将新增模块id(类名`Type.FullName`)填入到`Modules`数组中。
+                 8. 用 {{nameof(ReloadCharacterConfig)}} 重载角色配置，并用 {{nameof(ListModulesInCharacter)}} 验证模块启用
 
-                 插件支持热重载（包括角色活动时），因此完成上述步骤后，模块功能即可生效，可立即与被启用的角色进行交互性测试（如果此角色处于激活状态的话）。
-                 不过热重载不一定完整，例如部分提示词可能陈旧，因此可能需要对 AI 进行话术引导，或者重新激活角色来实现完全重置（重激活耗时较长，建议仅用于需要或最终测试时使用）。
+                 按官方示例实现的插件支持完全的热重载，包括角色活动时重载功能和提示词，因此完成上述步骤后，模块功能即可生效，可立即与被启用的角色进行交互性测试。
+                 （但具体而言，热重载受插件实现影响（例如没有做好回收工作，导致事件订阅重复）。所以如果出现问题可以尝试重新激活角色，但此过程耗时较长，不建议日常使用）
 
                  ## 注意事项
 
@@ -346,11 +365,20 @@ public class AlifeMcpTools(
 
                  - 由于插件市场是一个git仓库，所以为了上传插件，你可以尝试安装一个github-mcp或者任何类似的方式，帮助用户上传插件。
                  - 插件市场仓库对于新增或同一提交人的修改，可以直接通过pr，便于你快速分发。
-                 - 当你将插件上传市场后，可以调用 {{nameof(ListMarketPlugins)}} 并重新拉取，然后尝试 {{nameof(InstallPlugins)}} 来验证上传成功。
+                 - 当你将插件上传市场后，可以调用 {{nameof(RePullPluginMarket)}} 拉取，然后尝试 {{nameof(InstallPlugins)}} 来验证上传成功。
                  """;
     }
 
     #region 角色管理
+
+    [McpServerTool]
+    [Description("列出系统中所有的角色及其激活状态。")]
+    public string ListCharactersInSystem()
+    {
+        return string.Join("\n",
+            characterSystem.GetAllCharacters().Select(character =>
+                $"{character.Name}:{(chatActivitySystem.IsActivated(character) ? "活跃中" : "未激活")}"));
+    }
 
     [McpServerTool]
     [Description("创建新角色（如果重名会自动加后缀）。")]
@@ -364,7 +392,7 @@ public class AlifeMcpTools(
             return $"""
                     角色 {character.Name} 创建成功
                     配置文件地址：{configPath}
-                    请编辑配置文件后调用 {nameof(ReloadCharacter)} 来实现角色参数配置
+                    请编辑配置文件后调用 {nameof(ReloadCharacterConfig)} 来实现角色参数配置
                     """;
         }
         catch (Exception e)
@@ -393,14 +421,25 @@ public class AlifeMcpTools(
             return $"删除角色失败\n{e}";
         }
     }
+
+    [McpServerTool]
+    [Description("获取角色配置文件所在的位置。（可编辑此文件然后重载，来实现角色配置修改）")]
+    public string GetCharacterConfigPath(string characterName)
+    {
+        Character? character = FindCharacter(characterName);
+        if (character == null)
+            return $"角色不存在：{characterName}";
+
+        return Path.Combine(AlifePath.StorageFolderPath, character.StorageKey, "index.json");
+    }
     /// <summary>
     /// 对应图形界面 `{任意角色}/角色设定/重载配置` 按钮
     /// </summary>
     /// <param name="characterName"></param>
     /// <returns></returns>
     [McpServerTool]
-    [Description("重新加载角色配置")]
-    public async Task<string> ReloadCharacter(string characterName)
+    [Description("从磁盘中重新加载角色配置")]
+    public async Task<string> ReloadCharacterConfig(string characterName)
     {
         Character? character = FindCharacter(characterName);
         if (character == null)
@@ -416,14 +455,6 @@ public class AlifeMcpTools(
             return $"角色 {character.Name} 重载失败\n{e}";
         }
     }
-    [McpServerTool]
-    [Description("列出系统中所有的角色及其激活状态。")]
-    public string ListCharactersInSystem()
-    {
-        return string.Join("\n",
-            characterSystem.GetAllCharacters().Select(character =>
-                $"{character.Name}:{(chatActivitySystem.IsActivated(character) ? "活跃中" : "未激活")}"));
-    }
 
     #endregion
 
@@ -437,15 +468,17 @@ public class AlifeMcpTools(
         if (character == null)
             return $"角色不存在：{characterName}";
 
+        if (chatActivitySystem.IsActivated(character))
+            return "角色已激活，如需重启请先关闭！";
+
         try
         {
             int logLineBefore = AlifeLog.LogLineCount;
             await chatActivitySystem.Activate(character);
             return $"""
                     {character.Name} 激活成功
-                    日志文件：{AlifeLog.LogFilePath}
+                    注意：模块激活事件中的异常不会报错，请验证日志中的 Warning/Error 信息。
                     激活时的日志起始行为：{logLineBefore}
-                    提示：模块激活事件中的异常不会报错，请验证日志中的 Warning/Error 信息。
                     """;
         }
         catch (Exception e)
@@ -468,9 +501,8 @@ public class AlifeMcpTools(
             await chatActivitySystem.Deactivate(character);
             return $"""
                     {character.Name} 已关闭
-                    日志文件：{AlifeLog.LogFilePath}
+                    注意：模块关闭事件中的异常不会报错，请验证日志中的 Warning/Error 信息。
                     关闭前的日志起始行为：{logLineBefore}
-                    提示：模块关闭事件中的异常不会报错，请验证日志中的 Warning/Error 信息。
                     """;
         }
         catch (Exception e)
@@ -484,13 +516,64 @@ public class AlifeMcpTools(
     #region 插件功能管理
 
     [McpServerTool]
-    [Description("列出系统中所有已成功加载的插件。")]
+    [Description("获取全局或角色模块配置")]
+    public string GetModuleConfig(string moduleId, [Description("为空则获取全局配置")] string? characterName = null)
+    {
+        Type? module = moduleSystem.GetModule(moduleId);
+        if (module == null)
+            return $"模块 {moduleId} 不存在";
+
+        Type? configType = configurationSystem.GetConfigurationType(module);
+        if (configType == null)
+            return $"模块 {moduleId} 不支持配置";
+
+        if (string.IsNullOrEmpty(characterName))
+            return JsonConvert.SerializeObject(configurationSystem.GetConfiguration(module), Formatting.Indented);
+
+        Character? character = FindCharacter(characterName);
+        if (character == null)
+            return $"角色 {characterName} 不存在";
+
+        return JsonConvert.SerializeObject(configurationSystem.GetConfiguration(module, character.StorageKey), Formatting.Indented);
+    }
+    [McpServerTool]
+    [Description("设置全局或角色模块配置")]
+    public string SetModuleConfig(string moduleId, string configJson, [Description("为空则设置全局配置")] string? characterName = null)
+    {
+        Type? module = moduleSystem.GetModule(moduleId);
+        if (module == null)
+            return $"模块 {moduleId} 不存在";
+
+        Type? configType = configurationSystem.GetConfigurationType(module);
+        if (configType == null)
+            return $"模块 {moduleId} 不支持配置";
+
+        object? configObject = JsonConvert.DeserializeObject(configJson, configType);
+        if (configObject == null)
+            return "配置 json 解析失败";
+
+        if (string.IsNullOrEmpty(characterName))
+            configurationSystem.SetConfiguration(module, configObject);
+        else
+        {
+            Character? character = FindCharacter(characterName);
+            if (character == null)
+                return $"角色 {characterName} 不存在";
+
+            configurationSystem.SetConfiguration(module, configObject, character.StorageKey);
+        }
+
+        return "配置修改成功（如果模块被激活中的角色使用，则需要重载插件来使配置生效）";
+    }
+
+    [McpServerTool]
+    [Description("列出系统中所有已成功加载的插件。（未安装或加载失败，将不会出现在此列表）")]
     public string ListPluginsInSystem()
     {
         return string.Join("\n", pluginSystem.GetAllLocalPlugins().Select(pair => pair.Key));
     }
     [McpServerTool]
-    [Description("列出系统中所有已成功识别的模块(类名:名称)。")]
+    [Description("列出系统中所有已成功识别的模块。（返回格式为“类名:名称”）")]
     public string ListModulesInSystem()
     {
         return string.Join("\n",
@@ -498,7 +581,7 @@ public class AlifeMcpTools(
                 $"{ModuleSystem.GetModuleID(type)}:{ModuleSystem.GetModuleAttribute(type)!.Name}"));
     }
     [McpServerTool]
-    [Description("列出指定角色中勾选启用的模块。")]
+    [Description("列出指定角色中勾选启用的模块以及有效状态。（如果你修改了角色配置文件，记得先重载）")]
     public string ListModulesInCharacter(string characterName)
     {
         Character? character = FindCharacter(characterName);
@@ -514,7 +597,7 @@ public class AlifeMcpTools(
     /// </summary>
     /// <returns></returns>
     [McpServerTool]
-    [Description("当新增移动删除插件或修改了插件清单文件时调用，否则不需要。此功能主要用于同步插件清单，以及其中nuget之类的的环境依赖。")]
+    [Description("安装插件清单（如nuget,pip环境）并尝试加载所有插件。（默认不要用，仅当你手动新增移动删除插件或修改了插件清单文件时调用）")]
     public async Task<string> ReloadPluginEnvironment()
     {
         await pluginSystem.SyncLocalPluginEnvironment();
@@ -527,7 +610,7 @@ public class AlifeMcpTools(
     /// <param name="pluginId"></param>
     /// <returns></returns>
     [McpServerTool]
-    [Description("重新编译加载插件。当插件代码变动后需要调用来生效。")]
+    [Description("重新编译加载插件。（默认不要用，仅当你手动修改了插件代码，才需要重载插件）")]
     public async Task<string> ReloadPlugin([Description("插件id，即插件目录名")] string pluginId)
     {
         await pluginSystem.ReloadPlugin(pluginId);
@@ -539,51 +622,24 @@ public class AlifeMcpTools(
     #region 插件市场管理
 
     [McpServerTool]
-    [Description("列出插件市场中的所有插件。")]
-    public async Task<string> ListMarketPlugins([Description("是否重新拉取云端数据（否则会使用本地缓存）")] bool rePull = false)
+    [Description("从网络上重新拉取插件市场。（默认不要用，因为应用启动时会自动拉取，除非你更新了插件市场）")]
+    public async Task RePullPluginMarket()
     {
-        try
-        {
-            if (rePull)
-                await pluginSystem.SyncOnlinePluginPackages();
-
-            var plugins = pluginSystem.GetAllOnlinePlugins();
-            return string.Join("\n", plugins.Values.Select(p => {
-                string installedVersion = pluginSystem.GetInstalledVersion(p.Id) ?? "未安装";
-                return $"{p.Id} | {p.Name} | 安装版本: {installedVersion}";
-            }));
-        }
-        catch (Exception e)
-        {
-            return $"获取插件市场失败\n{e}";
-        }
-    }
-    [McpServerTool]
-    [Description("获取指定插件的包描述文件内容，内含依赖、发布文件、简介等信息。")]
-    public string ReadPluginPackage(string pluginId)
-    {
-        try
-        {
-            var plugins = pluginSystem.GetAllOnlinePlugins();
-            if (!plugins.TryGetValue(pluginId, out _))
-                return $"插件不存在：{pluginId}";
-
-            string cacheFilePath = Path.Combine(
-                pluginSystem.PluginMarket.PluginPackagesCacheDirectory,
-                $"{pluginId}.json");
-
-            return File.Exists(cacheFilePath)
-                ? File.ReadAllText(cacheFilePath)
-                : "缓存文件不存在，请先调用 ListMarketPlugins(rePull: true) 拉取数据";
-        }
-        catch (Exception e)
-        {
-            return $"获取插件详情失败\n{e}";
-        }
+        await pluginSystem.SyncOnlinePluginPackages();
     }
 
     [McpServerTool]
-    [Description("批量安装插件，格式：插件ID:版本，多个用逗号分隔。版本留空则安装最新版。")]
+    [Description("列出插件市场中存在的插件。")]
+    public string ListPluginsInMarket()
+    {
+        return $$"""
+                 插件市场包清单存储目录：{{pluginSystem.PluginMarket.PluginPackagesCacheDirectory}}
+                 请检索此目录来查看插件市场中存在的插件以及相关介绍。
+                 """;
+    }
+
+    [McpServerTool]
+    [Description("批量安装插件，格式：插件ID:版本，多个用逗号分隔。版本留空则安装最新版。（使用后会自动刷新环境并加载插件；允许一次性安装所有有依赖关系的插件）")]
     public async Task<string> InstallPlugins([Description("安装列表，如 \"Plugin1:1.0.0,Plugin2:\"")] string plugins)
     {
         try
@@ -633,7 +689,7 @@ public class AlifeMcpTools(
     }
 
     [McpServerTool]
-    [Description("批量卸载插件，多个插件ID用逗号分隔。")]
+    [Description("批量卸载插件，多个插件ID用逗号分隔。（使用后会自动刷新环境并卸载插件）")]
     public async Task<string> UninstallPlugins([Description("卸载列表，如 \"Plugin1,Plugin2\"")] string pluginIds)
     {
         try
@@ -686,7 +742,7 @@ public class AlifeMcpTools(
 
         try
         {
-            ChatResult result = await activity.ChatBot.ChatAsync(message);
+            ChatResult result = await activity.ChatBot.ChatAsync(message, false);
 
             StringBuilder sb = new();
             if (!string.IsNullOrEmpty(result.AIThinking))

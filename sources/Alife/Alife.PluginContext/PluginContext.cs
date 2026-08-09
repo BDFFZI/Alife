@@ -216,7 +216,7 @@ public class PluginContext(
     public PluginManifest LoadPluginManifest(string pluginId)
     {
         if (Directory.Exists(GetPluginDirectoryPath(pluginId)) == false)
-            throw new Exception("插件不存在，请确保插件根文件夹中存在该插件目录。");
+            throw new Exception($"插件 {pluginId} 不存在，请确保插件根文件夹中存在该插件目录。");
 
         string pluginManifestFile = GetPluginManifestPath(pluginId);
 
