@@ -40,7 +40,7 @@ public class MemoryService(
     XmlFunctionCaller functionService,
     ILanguageModel languageModel,
     MessageFilterService messageFilterService,
-    IInteractor<MemoryService> interactor) :
+    Interactor<MemoryService> interactor) :
     ChatBehaviour,
     IConfigurable<MemoryConfig>
 {

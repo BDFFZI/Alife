@@ -24,7 +24,7 @@ public class MyModuleConfig
 public class MyModule( //Module 可以通过依赖注入来获取其他系统、工具、插件对象，具体可见 ChatActivitySystem 的创建过程
     XmlFunctionCaller functionCaller, //XmlFunctionCaller 是一个常用的插件模块，借此可以轻松实现函数调用，是非常常用的基础模块
     ILogger<MyModule> logger, //可以申请专用的 logger，这不仅是一种规范，而且 logger 中记录的警告、报错将会实际的通过 UI 通知用户
-    IInteractor<MyModule> interactor //当需要和 ai 交互时，使用专用的交换器，他可以自动格式化发给ai的文本，而且可以处理插件重载时的提示词注入问题
+    Interactor<MyModule> interactor //当需要和 ai 交互时，使用专用的交换器，他可以自动格式化发给ai的文本，而且可以处理插件重载时的提示词注入问题
 ) :
     ChatBehaviour, //一个常用的特殊模块基类，使用该基类后，获取到 ChatActivity 上下文，以及其生命周期事件
     IConfigurable<MyModuleConfig> //通过实现 IConfigurable 接入配置功能

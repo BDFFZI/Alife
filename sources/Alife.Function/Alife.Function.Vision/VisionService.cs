@@ -28,7 +28,7 @@ public record VisionServiceConfig
     EditorUI = typeof(VisionServiceUI))]
 public class VisionService(
     XmlFunctionCaller functionService,
-    IInteractor<VisionService> interactor,
+    Interactor<VisionService> interactor,
     AIModelUtility.IVisionModel? visionModel = null) :
     ChatBehaviour,
     IConfigurable<VisionServiceConfig>

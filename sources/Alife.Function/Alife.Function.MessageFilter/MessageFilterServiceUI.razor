@@ -1,9 +1,51 @@
 @namespace Alife.Function.MessageFilter
 @inherits Alife.Framework.ModuleUIBase<MessageFilterService, MessageFilterData>
 @using AntDesign
+@using static Alife.Function.MessageFilter.MessageFilterData
+@implements IDisposable
 
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
+        @* ───── 运行时状态 ───── *@
+        @if (Module != null)
+        {
+            <div>
+                <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px;">
+                    <Title Level="4" Style="margin: 0;">当前生效的回复规则</Title>
+                    <AntDesign.Text Type="TextElementType.Secondary">
+                        共 @Module.MessageReplyRules.Count 条规则
+                    </AntDesign.Text>
+                </Flex>
+
+                @if (Module.MessageReplyRules.Count == 0)
+                {
+                    <div style="padding: 16px; background: #fff; border-radius: 8px; border: 1px dashed #d9d9d9;">
+                        <AntDesign.Text Type="TextElementType.Secondary">暂无生效中的规则</AntDesign.Text>
+                    </div>
+                }
+                else
+                {
+                    <div style="max-height: 300px; overflow-y: auto; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0;">
+                        @foreach (var rule in Module.MessageReplyRules)
+                        {
+                            <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
+                                <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center">
+                                    <Space Align="SpaceAlign.Center">
+                                        <SpaceItem>
+                                            <Tag Color="TagColor.Blue">@rule.Name</Tag>
+                                        </SpaceItem>
+                                    </Space>
+                                </Flex>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <Divider />
+        }
+
+        @* ───── 配置部分 ───── *@
         <div>
             <Title Level="4" Style="margin-bottom: 16px;">消息滤网配置</Title>
             <Text Type="TextElementType.Secondary">统一管理所有消息的附加提示词和格式化模板。</Text>
@@ -96,16 +138,31 @@
 </div>
 
 @code {
+    System.Timers.Timer? refreshTimer;
+
+    protected override void OnInitialized()
+    {
+        refreshTimer = new System.Timers.Timer(1000);
+        refreshTimer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+
     void AddRule()
     {
-        var list = new List<MessageReplyRule>(Configuration.MessageReplyRules) { new MessageReplyRule() };
+        var list = new List<RegexMessageReplyRule>(Configuration.MessageReplyRules) { new RegexMessageReplyRule() };
         Configuration.MessageReplyRules = list;
     }
 
-    void RemoveRule(MessageReplyRule rule)
+    void RemoveRule(RegexMessageReplyRule rule)
     {
-        var list = new List<MessageReplyRule>(Configuration.MessageReplyRules);
+        var list = new List<RegexMessageReplyRule>(Configuration.MessageReplyRules);
         list.Remove(rule);
         Configuration.MessageReplyRules = list;
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
     }
 }

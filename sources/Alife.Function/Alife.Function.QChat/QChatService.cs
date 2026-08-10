@@ -9,6 +9,7 @@ using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
+using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.QChat;
@@ -72,8 +73,9 @@ public partial class QChatService
     editorUI: typeof(QChatServiceUI))]
 public partial class QChatService(
     XmlFunctionCaller functionService,
+    MessageFilterService messageFilterService,
     ILogger<QChatService> logger,
-    IInteractor<QChatService> interactor,
+    Interactor<QChatService> interactor,
     ISpeechModel? speechModel = null) :
     ChatBehaviour,
     IConfigurable<QChatConfig>
@@ -290,6 +292,9 @@ public partial class QChatService(
         if (Configuration.OwnerId == 0 || Configuration.BotId == 0)
             logger.LogError("你的QQ插件没有配置AI和主人的QQ号，这会影响功能的正常使用！");
 
+        ChatBot.ChatSent += OnChatSent;
+        ChatBot.ChatOver += OnChatOver;
+
         //加载基本环境
         oneBotClient = new OneBotClient(Configuration.Url, Configuration.Token);
 
@@ -353,8 +358,14 @@ public partial class QChatService(
                             """);
         functionService.AddPlainAreas(nameof(QChat));
 
-        ChatBot.ChatSent += OnChatSent;
-        ChatBot.ChatOver += OnChatOver;
+        // 注入掉标签检测
+        messageFilterService.RegisterReplyRule(new MessageReplyRule {
+            Name = nameof(QChatService),
+            InputMatching = input => input.Contains(Interactor<QChatService>.GetMessageTag()),
+            OutputMatching = output => output.Contains(nameof(QChat), StringComparison.OrdinalIgnoreCase) ||
+                                       output.Contains(nameof(QImage), StringComparison.OrdinalIgnoreCase),
+            DeviationHandling = () => interactor.Poke($"{nameof(QChatService)}消息必须用{nameof(QChat)}标签回复。如果不想发送消息，也请发送空标签。")
+        });
 
         return Task.CompletedTask;
     }

@@ -3,9 +3,23 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Framework;
+
+// 我脑抽了，就是因为 ILogger 的存在，我就想对称的搞一个 IInteractor，但实际上完全没有用。
+// 因为这玩意没用扩展需求，而且也没法扩展。因为接口无法实现，最终还得走类，扩展了也没了意义。
+[Obsolete($"请直接使用{nameof(Interactor<>)}代替")]
+public interface IInteractor
+{
+    public Func<string, string> ChatTextFilter { get; set; }
+    public void Prompt(string prompt);
+    public void Poke(string message);
+    public void Chat(string message);
+    public Task<ChatResult> ChatAsync(string message);
+}
+
+[Obsolete($"请直接使用{nameof(Interactor<>)}代替")]
+public interface IInteractor<T> : IInteractor;
 
 [Obsolete("请改用 ChatBehaviour.OnUpdate")]
 public interface ITimeIterative
@@ -84,9 +98,7 @@ public abstract class InteractiveModule : ChatBehaviour, ISystemEvent
                 startTime = DateTime.Now - TimeSpan.FromSeconds(seconds);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

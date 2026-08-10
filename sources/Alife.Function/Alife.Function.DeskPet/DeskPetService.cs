@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
+using Alife.Function.MessageFilter;
 
 namespace Alife.Function.DeskPet;
 
@@ -21,7 +22,8 @@ namespace Alife.Function.DeskPet;
     EditorUI = typeof(DeskPetServiceUI))]
 public class DeskPetService(
     XmlFunctionCaller functionService,
-    IInteractor<DeskPetService> interactor) :
+    Interactor<DeskPetService> interactor,
+    MessageFilterService messageFilterService) :
     ChatBehaviour,
     IConfigurable<DeskPetServiceConfig>
 {
@@ -40,7 +42,8 @@ public class DeskPetService(
                     try
                     {
                         if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
-                            await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()), cancellationToken);
+                            await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()),
+                                cancellationToken);
                     }
                     finally
                     {
@@ -57,14 +60,15 @@ public class DeskPetService(
                         break;
 
                     if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
-                        await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()), cancellationToken);
+                        await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()),
+                            cancellationToken);
                     client.ShowBubble(content);
-                    lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() + content.Length * 150;
+                    lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() + content.Length * Configuration.BubbleDurationPerCharMs;
                     break;
                 }
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException) { }
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -126,7 +130,7 @@ public class DeskPetService(
         //启动桌宠客户端
         {
             string clientPath = Path.Combine(AlifePath.RuntimeFolderPath, "Alife.DeskPet.Client");
-            if (!Directory.Exists(clientPath))
+            if (File.Exists(Path.Combine(clientPath, "Alife.DeskPet.Client.exe")) == false)
             {
                 const string ZipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
                 await AlifeUtility.DownloadZipFileAsync(ZipUrl, clientPath);
@@ -139,25 +143,30 @@ public class DeskPetService(
         }
 
         //注册提示词
-        {
-            string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
-            if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
-            string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
-            if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
+        string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
+        if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
+        string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
+        if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
+        XmlHandler xmlHandler = new(this) {
+            Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
+            Explanation = $"""
+                           ## 支持选项
+                           - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
+                           - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
 
-            XmlHandler xmlHandler = new(this) {
-                Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
-                Explanation = $"""
-                               ## 支持选项
-                               - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
-                               - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
+                           ## 其他信息
+                           - 当前屏幕分辨率：{GetResolution()}
+                           """
+        };
+        functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
 
-                               ## 其他信息
-                               - 当前屏幕分辨率：{GetResolution()}
-                               """
-            };
-            functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
-        }
+        //注册消息回复规则
+        messageFilterService.RegisterReplyRule(new MessageReplyRule {
+            Name = nameof(DeskPetService),
+            InputMatching = input => input.Contains(Interactor<DeskPetService>.GetMessageTag()),
+            OutputMatching = output => output.Contains(nameof(Speak), StringComparison.OrdinalIgnoreCase),
+            DeviationHandling = () => interactor.Poke($"{nameof(DeskPetService)}消息必须用{nameof(Speak)}标签回复。如果不想发送消息，也请发送空标签。")
+        });
     }
     protected override async Task OnStart()
     {

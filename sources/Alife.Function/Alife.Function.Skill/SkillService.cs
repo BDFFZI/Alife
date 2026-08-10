@@ -26,7 +26,7 @@ public class SkillInfo
     EditorUI = typeof(SkillServiceUI))]
 public class SkillService(
     XmlFunctionCaller functionService,
-    IInteractor<SkillService> interactor) :
+    Interactor<SkillService> interactor) :
     ChatBehaviour,
     IConfigurable<SkillConfig>
 {

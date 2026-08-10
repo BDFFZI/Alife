@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Windows.Media.Capture;
 using Windows.Media.MediaProperties;
 using Windows.Media.Render;
 using Alife.Framework;
+using Alife.Function.MessageFilter;
 
 namespace Alife.Function.Auditory;
 
@@ -16,7 +18,8 @@ namespace Alife.Function.Auditory;
     EditorUI = typeof(AuditoryServiceUI))]
 public class AuditoryService(
     AIModelUtility.IAuditoryModel auditoryModel,
-    IInteractor<AuditoryService> interactor) :
+    Interactor<AuditoryService> interactor,
+    MessageFilterService messageFilterService) :
     ChatBehaviour,
     IConfigurable<AuditoryServiceConfig>
 {
@@ -84,9 +87,19 @@ public class AuditoryService(
     protected override async Task OnStart()
     {
         interactor.ChatTextFilter = text => $"{text}(消息为语音识别结果，错误率较高；建议也用语音功能回复)";
+
+        messageFilterService.RegisterReplyRule(new MessageReplyRule {
+            Name = nameof(AuditoryService),
+            InputMatching = input => input.Contains(Interactor<AuditoryService>.GetMessageTag()),
+            OutputMatching = output => Configuration.OutputTags.Any(tag => output.Contains(tag, StringComparison.OrdinalIgnoreCase)),
+            DeviationHandling = () => interactor.Poke($"{nameof(AuditoryService)}消息必须用{string.Join("或", Configuration.OutputTags)}标签回复。如果不想发送消息，也请发送空标签。")
+        });
+
+        //开始语言识别
         auditoryModel.Recognized += OnRecognized;
         await StartRecordingAsync();
     }
+
     protected override Task OnDestroy()
     {
         auditoryModel.Recognized -= OnRecognized;

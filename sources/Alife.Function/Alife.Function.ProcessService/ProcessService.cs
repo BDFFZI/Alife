@@ -12,7 +12,7 @@ namespace Alife.Function.ProcessService;
     defaultCategory: "Alife 官方/实用工具")]
 public class ProcessService(
     XmlFunctionCaller functionCaller,
-    IInteractor<ProcessService> interactor) :
+    Interactor<ProcessService> interactor) :
     ChatBehaviour
 {
     [XmlFunction(FunctionMode.OneShot)]

@@ -31,7 +31,7 @@ public class SystemEventServiceConfig
     EditorUI = typeof(SystemEventServiceUI))]
 public class SystemEventService(
     XmlFunctionCaller functionService,
-    IInteractor<SystemEventService> interactor) :
+    Interactor<SystemEventService> interactor) :
     ChatBehaviour,
     IConfigurable<SystemEventServiceConfig>
 {

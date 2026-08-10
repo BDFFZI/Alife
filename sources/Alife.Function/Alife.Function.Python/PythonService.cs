@@ -16,7 +16,7 @@ namespace Alife.Function.Python;
     defaultCategory: "Alife 官方/实用工具")]
 public partial class PythonService(
     XmlFunctionCaller functionCaller,
-    IInteractor<PythonService> interactor) :
+    Interactor<PythonService> interactor) :
     ChatBehaviour
 {
     [XmlFunction(FunctionMode.Content)]

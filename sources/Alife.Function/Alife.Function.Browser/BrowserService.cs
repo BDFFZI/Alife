@@ -17,7 +17,7 @@ public class BrowserConfig
     defaultCategory: "Alife 官方/实用工具")]
 public class BrowserService(
     XmlFunctionCaller functionService,
-    IInteractor<BrowserService> interactor) :
+    Interactor<BrowserService> interactor) :
     ChatBehaviour,
     IConfigurable<BrowserConfig>
 {

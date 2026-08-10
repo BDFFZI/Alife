@@ -13,7 +13,7 @@ namespace Alife.Function.FileService;
     defaultCategory: "Alife 官方/实用工具")]
 public class FileService(
     XmlFunctionCaller functionCaller,
-    IInteractor<FileService> interactor) :
+    Interactor<FileService> interactor) :
     ChatBehaviour
 {
     [XmlFunction(FunctionMode.Content)]

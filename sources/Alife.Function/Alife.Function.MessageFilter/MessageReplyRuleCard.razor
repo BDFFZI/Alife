@@ -1,5 +1,6 @@
 @namespace Alife.Function.MessageFilter
 @using AntDesign
+@using static Alife.Function.MessageFilter.MessageFilterData
 
 <div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e8e8e8; margin-bottom: 12px;">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px;">
@@ -29,7 +30,7 @@
 </div>
 
 @code {
-    [Parameter] public MessageReplyRule Rule { get; set; } = null!;
+    [Parameter] public RegexMessageReplyRule Rule { get; set; } = null!;
     [Parameter] public int Index { get; set; }
-    [Parameter] public EventCallback<MessageReplyRule> OnRemove { get; set; }
+    [Parameter] public EventCallback<RegexMessageReplyRule> OnRemove { get; set; }
 }

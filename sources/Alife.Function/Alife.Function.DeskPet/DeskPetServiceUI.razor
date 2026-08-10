@@ -17,6 +17,12 @@
                     从 <code>wwwroot/model/</code> 目录加载。留空或 "Mao" 为默认角色。
                 </Text>
             </FormItem>
+            <FormItem Label="气泡时长 (ms/字)">
+                <InputNumber @bind-Value="@Configuration.BubbleDurationPerCharMs" Min="0" Max="5000" Placeholder="200"/>
+                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                    每个字符显示的毫秒数，气泡最短显示时间为 字数 × 此值。
+                </Text>
+            </FormItem>
         </Form>
         
         <Button Type="ButtonType.Default" Icon="folder-open" OnClick="OpenModelFolder">

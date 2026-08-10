@@ -13,7 +13,7 @@ namespace Alife.Function.Developer;
 public class DeveloperService(
     XmlFunctionCaller functionCaller,
     ILoggerFactory loggerFactory,
-    IInteractor<DeveloperService> interactor) :
+    Interactor<DeveloperService> interactor) :
     ChatBehaviour
 {
     McpClient? mcpClient;

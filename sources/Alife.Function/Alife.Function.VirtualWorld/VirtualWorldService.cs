@@ -40,7 +40,7 @@ public class VirtualWorldService(
     XmlFunctionCaller functionService,
     CharacterSystem characterSystem,
     ChatActivitySystem chatActivitySystem,
-    IInteractor<VirtualWorldService> interactor) :
+    Interactor<VirtualWorldService> interactor) :
     ChatBehaviour,
     IConfigurable<VirtualWorldConfig>
 {

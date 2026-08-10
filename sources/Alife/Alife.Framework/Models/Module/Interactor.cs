@@ -6,17 +6,6 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Framework;
 
-public interface IInteractor
-{
-    public Func<string, string> ChatTextFilter { get; set; }
-    public void Prompt(string prompt);
-    public void Poke(string message);
-    public void Chat(string message);
-    public Task<ChatResult> ChatAsync(string message);
-}
-
-public interface IInteractor<T> : IInteractor;
-
 public partial class Interactor<T>
 {
     public static string GetPromptTag()
@@ -29,7 +18,9 @@ public partial class Interactor<T>
     }
 }
 
+#pragma warning disable CS0618
 public partial class Interactor<T>(ChatBot target) : IInteractor<T>, IDisposable
+#pragma warning restore CS0618
 {
     public Func<string, string> ChatTextFilter { get; set; } = text => text;
     public void Prompt(string prompt)

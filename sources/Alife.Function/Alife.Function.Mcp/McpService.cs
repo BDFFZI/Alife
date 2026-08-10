@@ -35,7 +35,7 @@ public class McpServerConfig
 public class McpService(
     XmlFunctionCaller functionService,
     ILoggerFactory loggerFactory,
-    IInteractor<McpService> interactor) :
+    Interactor<McpService> interactor) :
     ChatBehaviour,
     IConfigurable<McpServerConfig>
 {

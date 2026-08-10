@@ -46,7 +46,7 @@ public partial class XmlFunctionCaller
     defaultCategory: "Alife 官方/功能底座")]
 public partial class XmlFunctionCaller(
     ILogger<XmlFunctionCaller> logger,
-    IInteractor<XmlFunctionCaller> interactor) :
+    Interactor<XmlFunctionCaller> interactor) :
     ChatBehaviour,
     IConfigurable<XmlFunctionCallerConfig>
 {

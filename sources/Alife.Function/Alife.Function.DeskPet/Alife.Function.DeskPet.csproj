@@ -4,6 +4,7 @@
         <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
         <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
         <ProjectReference Include="..\..\Alife.DeskPet\Alife.DeskPet.Protocol\Alife.DeskPet.Protocol.csproj" />
+        <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj" />
   </ItemGroup>
 
 </Project>
