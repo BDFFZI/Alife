@@ -18,10 +18,6 @@ public class XmlFunctionCallerConfig
 
     [Description("触发子句分隔的最短文本长度（字符数）")]
     public int MinBreakingLength { get; set; } = 23;
-
-    [DisplayName("自动思考")]
-    [Description("根据是否使用隐式功能或报错情况，自动开启思考。")]
-    public bool AutoThinking { get; set; } = true;
 }
 
 public enum DocumentMode
@@ -122,7 +118,6 @@ public partial class XmlFunctionCaller(
     XmlStreamExecutor executor = null!;
     OccupationMarker? chatOccupationMarker;
     //自动思考功能
-    IThinkingAbility? thinkingAbility;
     OccupationMarker? thinkingOccupationMarker;
     readonly List<string> thinkingReasons = new();
 
@@ -133,8 +128,6 @@ public partial class XmlFunctionCaller(
     }
     protected override Task OnStart()
     {
-        thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
-
         //统计XmlForm参数以便注册为纯文本区域
         IEnumerable<XmlParameter> parameters = handlerTable.GetAllHandlers()
             .SelectMany(handler => handler.Functions
@@ -249,20 +242,17 @@ public partial class XmlFunctionCaller(
             thinkingReasons.Add("隐式功能激活中");
 
         //使用自动思考功能
-        if (Configuration.AutoThinking && thinkingAbility != null)
+        if (thinkingReasons.Count != 0)
         {
-            if (thinkingReasons.Count != 0)
-            {
-                if (thinkingOccupationMarker == null)
-                    thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent(string.Join(" | ", thinkingReasons));
-                else
-                    thinkingOccupationMarker.Reason = string.Join(" | ", thinkingReasons);
-            }
-            else if (thinkingOccupationMarker != null)
-            {
-                thinkingAbility.ThinkingRequest.Return(thinkingOccupationMarker);
-                thinkingOccupationMarker = null;
-            }
+            if (thinkingOccupationMarker == null)
+                thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent(string.Join(" | ", thinkingReasons));
+            else
+                thinkingOccupationMarker.Reason = string.Join(" | ", thinkingReasons);
+        }
+        else if (thinkingOccupationMarker != null)
+        {
+            ChatBot.LanguageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
+            thinkingOccupationMarker = null;
         }
     }
 

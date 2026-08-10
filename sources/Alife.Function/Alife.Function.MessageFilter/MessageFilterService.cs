@@ -58,13 +58,10 @@ public class MessageFilterService(
     public MessageFilterData Configuration { get; set; } = null!;
 
     int injectionCountdown;
-    IThinkingAbility? thinkingAbility;
     OccupationMarker? thinkingOccupationMarker;
 
     protected override Task OnAwake()
     {
-        thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
-
         ChatBot.ChatSend += OnChatSend;
         ChatBot.PokeSend += OnPokeSend;
         ChatBot.ChatFinished += OnChatFinished;
@@ -95,17 +92,14 @@ public class MessageFilterService(
             needThinking = true;
         }
 
-        if (thinkingAbility != null)
+        if (needThinking && thinkingOccupationMarker == null)
         {
-            if (needThinking && thinkingOccupationMarker == null)
-            {
-                thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent("消息回复格式出错");
-            }
-            else if (thinkingOccupationMarker != null)
-            {
-                thinkingAbility.ThinkingRequest.Return(thinkingOccupationMarker);
-                thinkingOccupationMarker = null;
-            }
+            thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("消息回复格式出错");
+        }
+        else if (thinkingOccupationMarker != null)
+        {
+            ChatBot.LanguageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
+            thinkingOccupationMarker = null;
         }
     }
 

@@ -29,12 +29,14 @@ public class OpenAILanguageModel(
     ILogger<OpenAILanguageModel> logger) :
     ChatBehaviour,
     ILanguageModel,
-    IConfigurable<OpenAILanguageModelConfig>,
-    IThinkingAbility
+    IConfigurable<OpenAILanguageModelConfig>
 {
     public OpenAILanguageModelConfig Configuration { get; set; } = null!;
-    public OccupationNotepad ThinkingRequest { get; } = new();
 
+    public OccupationNotepad GetThinkingRequester()
+    {
+        return thinkingRequester;
+    }
     public async Task<string> ChatStreamingAsync(
         ChatHistoryAgentThread chatHistoryAgentThread,
         Action<string>? textReceived = null,
@@ -44,7 +46,7 @@ public class OpenAILanguageModel(
         CancellationToken cancellationToken = default)
     {
         StringBuilder nonThinkingContent = new(); //用于存储不含思考过程的最终回复
-        ChatCompletionAgent agent = Configuration.defaultThinking || ThinkingRequest.IsOccupied
+        ChatCompletionAgent agent = Configuration.defaultThinking || GetThinkingRequester().IsOccupied
             ? chatCompletionAgent
             : chatCompletionAgentNotThinking;
 
@@ -113,6 +115,7 @@ public class OpenAILanguageModel(
 
     ChatCompletionAgent chatCompletionAgent = null!;
     ChatCompletionAgent chatCompletionAgentNotThinking = null!;
+    readonly OccupationNotepad thinkingRequester = new();
 
     [Experimental("SKEXP0010")]
     protected override Task OnAwake()

@@ -95,8 +95,7 @@ public class SystemEventService(
 
         //发送系统启动消息
         {
-            IThinkingAbility? thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
-            OccupationMarker? occupationMarker = thinkingAbility?.ThinkingRequest.Rent("程序启动");
+            OccupationMarker? occupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("程序启动");
 
             if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
             {

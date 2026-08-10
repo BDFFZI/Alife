@@ -39,6 +39,7 @@ public class ChatMessageService
             SaveSettings();
         }
     }
+
     public int MaxMessageCount
     {
         get => settings.MaxMessageCount;
@@ -48,6 +49,7 @@ public class ChatMessageService
             SaveSettings();
         }
     }
+
     public bool ShowReasoning
     {
         get => settings.ShowReasoning;
@@ -128,13 +130,12 @@ public class ChatMessageService
             {
                 messages.Add(new ChatMessage { Content = message, IsUser = true });
                 string? thinkingReason = null;
-                if (activity.ChatBot.LanguageModel is IThinkingAbility thinkingAbility)
-                {
-                    thinkingAbility.ThinkingRequest.Query(list => {
-                        if (list.Count > 0)
-                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
-                    });
-                }
+
+                activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                    if (list.Count > 0)
+                        thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                });
+
                 messages.Add(new ChatMessage { IsUser = false, IsInputting = true, ThinkingReason = thinkingReason });
                 TrimMessages(name);
             }

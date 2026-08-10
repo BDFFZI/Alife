@@ -283,13 +283,10 @@ public partial class QChatService(
     OneBotClient oneBotClient = null!;
     readonly Dictionary<long, GroupState> groupStates = new();
     DateTime lastReconnectAttemptTime = DateTime.MinValue;
-    IThinkingAbility? thinkingAbility;
     OccupationMarker? thinkingOccupationMarker;
 
     protected override Task OnAwake()
     {
-        thinkingAbility = ChatBot.LanguageModel as IThinkingAbility;
-
         if (Configuration.OwnerId == 0 || Configuration.BotId == 0)
             logger.LogError("你的QQ插件没有配置AI和主人的QQ号，这会影响功能的正常使用！");
 
@@ -430,13 +427,13 @@ public partial class QChatService(
 
     void OnChatSent(string message)
     {
-        if (thinkingAbility != null && HasGroupMessageTag(message))
-            thinkingOccupationMarker = thinkingAbility.ThinkingRequest.Rent("处理Q群消息");
+        if (HasGroupMessageTag(message))
+            thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("处理Q群消息");
     }
     void OnChatOver()
     {
-        if (thinkingAbility != null && thinkingOccupationMarker != null)
-            thinkingAbility.ThinkingRequest.Return(thinkingOccupationMarker);
+        if (thinkingOccupationMarker != null)
+            ChatBot.LanguageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
     }
 
     async void OnEventReceived(OneBotBaseEvent oneBotEvent)
