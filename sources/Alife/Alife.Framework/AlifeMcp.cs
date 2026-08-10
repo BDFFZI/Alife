@@ -92,20 +92,6 @@ public class AlifeMcpTools(
     #region 文档指南
 
     [McpServerTool]
-    [Description("使用 alife-mcp 请先阅读此文档")]
-    public string ReadMe()
-    {
-        return $$"""
-                 请挨个调用如下函数，阅读这些文档，来了解工具使用，避免盲目使用：
-
-                 - {{nameof(ReadAlifeFrameworkGuide)}}：了解alife基本结构。
-                 - {{nameof(ReadDebugDiagnosticGuide)}}：了解通过log和上下文捕获alife中的异常。
-                 - {{nameof(ReadFunctionDevelopmentGuide)}}：了解如何管理角色并为他们启用功能。
-
-                 如果涉及到与其他插件的互操作性，你还应该阅读：{{nameof(ReadPluginMarketGuide)}}
-                 """;
-    }
-    [McpServerTool]
     [Description("了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
     public string ReadAlifeFrameworkGuide()
     {
@@ -113,11 +99,7 @@ public class AlifeMcpTools(
                  # Alife 框架介绍
 
                  Alife 是一款主要面向娱乐陪伴方向的开源 AIAgent。
-
-                 - 当前客户端版本：{{pluginSystem.ClientVersion}}
-                 - 源码地址：https://github.com/BDFFZI/Alife/releases/download/v{{pluginSystem.ClientVersion}}/Alife.Client.zip
-
-                 为了便于深入了解、排错、查API，请先下载源码，然后再对照阅读。
+                 官网：https://github.com/BDFFZI/Alife
 
                  ## 项目结构
 
@@ -219,9 +201,9 @@ public class AlifeMcpTools(
     public string ReadFunctionDevelopmentGuide()
     {
         return $$"""
-                 # Alife 插件开发指南
+                 # Alife 功能开发指南
 
-                 插件生态对 Alife 尤为重要，因为其本身是全插件框架，如果没有插件，那么 Alife 将只是一具无法运作的空壳。
+                 Alife 是全插件框架，功能完全由插件提供。
 
                  ## 插件原理
 
@@ -231,67 +213,18 @@ public class AlifeMcpTools(
 
                  在软件运行时，每个插件目录都会被系统热编译成dll，并将其加载到一个`AssemblyLoadContext`中，同时系统还会根据清单处理它的环境依赖。
 
-                 ## 插件清单
+                 ## 开发步骤
 
-                 每个插件目录要有一个 `manifest.json` 文件，此文件表示插件清单(`{{nameof(PluginManifest)}}`)，用于标识插件的版本，和对其他插件的依赖，或运行环境的依赖。
-
-                 ```json
-                 {
-                   "Version": "x.x.x",//你的插件版本，首位应与客户端一致
-                   "Dependencies": {//对其他插件的依赖（可选）
-                     "Alife.Function.FunctionCaller": ""
-                   },
-                   "Environments": {//对运行环境的依赖（可选）
-                     "nuget": {
-                       "Newtonsoft.Json": ""
-                     },
-                     "pip": {
-                       "requests": ""
-                     }
-                   }
-                 }
-                 ```
-                 所有插件或环境依赖都可以限制版本号，支持`>=`,`<=`,`==`,或者留空，留空表示不限制版本。
-                 比如：`"Newtonsoft.Json": ">=13.0.3"`，`"Alife.Function.FunctionCaller": "<=3.99.0`。不过为了最大兼容性，建议都留空，因为运行环境是全插件共享的。
-
-                 ### 版本规范
-
-                 为了解决版本兼容问题，必须注意版本号的分配。Alife 中的版本号与语义化版本规范基本一致，采用 x.x.x 的版本号格式，其中每位的具体作用如下：
-
-                 - 第一位（主版本号）：表示客户端和插件的兼容性情况，版本变动意味着可能不兼容。
-                 - 第二位（次版本号）：表示功能上的新增删改。（更新后确实会让用户的使用产生变化）
-                 - 第三位（修订版本号）：表示漏洞修复或功能微调。（仅对产生问题的用户有影响，否则不升级也能有一致的体验）
-
-                 第二三位没啥要专门处理的，根据各自情况自定义修改即可。第一位则确实会在功能性上影响系统对插件和客户端间兼容性的判断：
-
-                 - 如果插件的主版本号低于客户端版本：插件可能不兼容客户端
-                 - 如果插件的主版本号存在与客户端一致的版本：其他低版本一定不兼容
-                 - 如果插件的主版本号高于客户端版本：客户端一定不兼容该插件
-
-                 举例而言，设客户端为 v3.1.1，则：
-
-                 1. 某插件最高版本为 v1.2.1：该插件理论最早可以兼容到 v1 版的客户端，对 v3 也可能兼容，可以下载使用。
-                 2. 某插件最高版本为 v3.0.1，当前已安装版本为 v.1.0.3：必须立即升级，v3 以下版本已不兼容。
-                 3. 某插件最高版本为 v4.2.1：该 v4 版本无法升级，只能用 v3 及以下版本。
-
-                 ## 功能实现
-
-                 通过基于 Alife 的 Module 框架编写 cs 代码到插件文件夹，来实现功能注入。具体参考下方连接中的项目，这是一个官方插件示例，具有详细的说明注释。
-
-                 <https://github.com/BDFFZI/Alife/tree/master/Demos/Alife.Demo.Plugin>
-
-                 注意：示例插件中使用了 `.razor` 来自定义 UI。这种文件没法直接被编译，所以如果要用，必须自行编译成 `.g.cs` 文件。或者不要使用自定义 UI，Alife 本身提供了一套默认的表单 UI，可以满足大部分使用场景。
-
-                 ## 实操步骤
-
-                 1. 在`插件根文件夹`新增一个以插件id为名的子文件夹（id通常与插件命名空间一致，是一种个人域名），该文件夹将作为你后续步骤的插件目录。
-                 2. 在新增的插件目录中创建一个`manifest.json`，按照上文的清单要求或参考其他插件填写内容，该文件表示插件清单。
-                 3. 使用 {{nameof(ReloadPluginEnvironment)}} 加载插件清单，借此系统将处理插件依赖关系，并安装清单中的环境要求。
-                 4. 在插件文件夹增加 cs 文件，参考上文 `功能实现` 中的示例插件项目，编写你的功能代码。
-                 5. 如果模块用到配置功能，还可通过 {{nameof(SetModuleConfig)}} 功能进行配置设置（可以先 {{nameof(GetModuleConfig)}} 然后参考着修改）。
-                 6. 通过 {{nameof(ReloadPlugin)}} 编译加载插件，如果异常可以修改 cs 后再次尝试加载，如果要修改依赖则回到步骤 2。
+                 1. 调用{{nameof(GetAlifeSourceCode)}}获取Alife源码，对照{{nameof(ReadAlifeFrameworkGuide)}}了解基本软件轮廓。
+                 2. 在`插件根文件夹`新增一个以插件id为名的子文件夹（id通常与插件命名空间一致，是一种个人域名），该文件夹将作为你后续步骤的插件目录。
+                 3. 在新增的插件目录中创建一个`manifest.json`，参考{{nameof(ReadPluginManifestDemo)}}填写内容，该文件表示插件清单。
+                 4. 使用{{nameof(ReloadPluginEnvironment)}} 加载插件清单，借此系统将处理插件依赖关系，并安装清单中的环境要求。
+                 5. 在插件文件夹增加 cs 文件，参考{{nameof(ReadPluginModuleDemo)}}实现你的功能代码。
+                 5. 如果模块用到配置功能，还可通过 {{nameof(SetModuleConfig)}} 功能进行配置设置（可以先{{nameof(GetModuleConfig)}}然后参考着修改）。
+                 6. 通过{{nameof(ReloadPlugin)}}编译加载插件，如果异常可以修改 cs 后再次尝试加载，如果要修改依赖则回到步骤2。
                  7. 加载成功后，编辑角色配置文件(`{角色目录}/index.json`)，将新增模块id(类名`Type.FullName`)填入到`Modules`数组中。
-                 8. 用 {{nameof(ReloadCharacterConfig)}} 重载角色配置，并用 {{nameof(ListModulesInCharacter)}} 验证模块启用
+                 8. 用{{nameof(ReloadCharacterConfig)}}重载角色配置，并用{{nameof(ListModulesInCharacter)}}验证模块启用。
+                 9. 用{{nameof(ActivateCharacter)}}激活角色（如果角色已激活则忽略），然后通过{{nameof(ReadDebugDiagnosticGuide)}}的方法去检查验证活动是否正常。
 
                  按官方示例实现的插件支持完全的热重载，包括角色活动时重载功能和提示词，因此完成上述步骤后，模块功能即可生效，可立即与被启用的角色进行交互性测试。
                  （但具体而言，热重载受插件实现影响（例如没有做好回收工作，导致事件订阅重复）。所以如果出现问题可以尝试重新激活角色，但此过程耗时较长，不建议日常使用）
@@ -375,6 +308,77 @@ public class AlifeMcpTools(
                  - 插件市场仓库对于新增或同一提交人的修改，可以直接通过pr，便于你快速分发。
                  - 当你将插件上传市场后，可以调用 {{nameof(RePullPluginMarket)}} 拉取，然后尝试 {{nameof(InstallPlugins)}} 来验证上传成功。
                  """;
+    }
+
+    [McpServerTool]
+    [Description("获取 Alife 框架源代码")]
+    public string GetAlifeSourceCode()
+    {
+        return $"""
+                - 当前客户端版本：{pluginSystem.ClientVersion}
+                - 源码地址：https://github.com/BDFFZI/Alife/releases/download/v{pluginSystem.ClientVersion}/Alife.Client.zip
+                请直接下载该zip然后解压到你的目录，这里面就是源码。
+
+                （如果没有上述文件，则下载：https://github.com/BDFFZI/Alife/archive/refs/heads/develop.zip）
+                """;
+    }
+    [McpServerTool]
+    [Description("阅读插件清单写法示例。")]
+    public string ReadPluginManifestDemo()
+    {
+        return $$"""
+                 ## 插件清单
+
+                 每个插件目录要有一个 `manifest.json` 文件，此文件表示插件清单(`{{nameof(PluginManifest)}}`)，用于标识插件的版本，和对其他插件的依赖，或运行环境的依赖。
+
+                 ```json
+                 {
+                   "Version": "x.x.x",//你的插件版本，首位应与客户端一致
+                   "Dependencies": {//对其他插件的依赖（可选）
+                     "Alife.Function.FunctionCaller": ""
+                   },
+                   "Environments": {//对运行环境的依赖（可选）
+                     "nuget": {
+                       "Newtonsoft.Json": ""
+                     },
+                     "pip": {
+                       "requests": ""
+                     }
+                   }
+                 }
+                 ```
+                 所有插件或环境依赖都可以限制版本号，支持`>=`,`<=`,`==`,或者留空，留空表示不限制版本。
+                 比如：`"Newtonsoft.Json": ">=13.0.3"`，`"Alife.Function.FunctionCaller": "<=3.99.0`。不过为了最大兼容性，建议都留空，因为运行环境是全插件共享的。
+
+                 ## 版本规范
+
+                 为了解决版本兼容问题，必须注意版本号的分配。Alife 中的版本号与语义化版本规范基本一致，采用 x.x.x 的版本号格式，其中每位的具体作用如下：
+
+                 - 第一位（主版本号）：表示客户端和插件的兼容性情况，版本变动意味着可能不兼容。
+                 - 第二位（次版本号）：表示功能上的新增删改。（更新后确实会让用户的使用产生变化）
+                 - 第三位（修订版本号）：表示漏洞修复或功能微调。（仅对产生问题的用户有影响，否则不升级也能有一致的体验）
+
+                 第二三位没啥要专门处理的，根据各自情况自定义修改即可。第一位则确实会在功能性上影响系统对插件和客户端间兼容性的判断：
+
+                 - 如果插件的主版本号低于客户端版本：插件可能不兼容客户端
+                 - 如果插件的主版本号存在与客户端一致的版本：其他低版本一定不兼容
+                 - 如果插件的主版本号高于客户端版本：客户端一定不兼容该插件
+
+                 举例而言，设客户端为 v3.1.1，则：
+
+                 1. 某插件最高版本为 v1.2.1：该插件理论最早可以兼容到 v1 版的客户端，对 v3 也可能兼容，可以下载使用。
+                 2. 某插件最高版本为 v3.0.1，当前已安装版本为 v.1.0.3：必须立即升级，v3 以下版本已不兼容。
+                 3. 某插件最高版本为 v4.2.1：该 v4 版本无法升级，只能用 v3 及以下版本。
+                 """;
+    }
+    [McpServerTool]
+    [Description("阅读插件模块写法示例。")]
+    public string ReadPluginModuleDemo()
+    {
+        return """
+               请先获取Alife源码，然后查看其中的`Demos\Alife.Demo.Plugin`项目，学习其中的写法，即通过基于 Alife 的 Module 框架编写 cs 代码到插件文件夹，来实现功能注入。
+               注意：示例插件中使用了 `.razor` 来自定义 UI。这种文件没法直接被编译，所以如果要用，必须自行编译成 `.g.cs` 文件。或者不要使用自定义 UI，Alife 本身提供了一套默认的表单 UI，可以满足大部分使用场景。
+               """;
     }
 
     #endregion
