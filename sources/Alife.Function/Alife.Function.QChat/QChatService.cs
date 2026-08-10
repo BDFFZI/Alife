@@ -365,7 +365,7 @@ public partial class QChatService(
             OutputMatching = output => output.Contains(nameof(QChat), StringComparison.OrdinalIgnoreCase) ||
                                        output.Contains(nameof(QImage), StringComparison.OrdinalIgnoreCase),
             DeviationHandling = () => interactor.Poke($"{nameof(QChatService)}消息必须用{nameof(QChat)}标签回复。如果不想发送消息，也请发送空标签。")
-        });
+        }, DestroyCancellationToken);
 
         return Task.CompletedTask;
     }
