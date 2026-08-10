@@ -56,17 +56,17 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
 
         //将模块注册为xml处理器，以支持文档化和xml调用
         XmlHandler xmlHandler = new(this) {
-            Description = "此服务可以为你提供一个生成随机数的功能。",
-            Explanation = "..."//此处填写的提示词将按需加载，因此可以热重载
+            Description = "此服务可以为你提供一个生成随机数的功能。", //描述文本总是直接注入到上下文
+            Explanation = "..." //此文本仅会显示在文档中
         };
         functionCaller.RegisterHandler(xmlHandler,
-            DocumentMode.Implicit, //使用按需加载的文档功能，从而节省上下文开销，实现更大的可扩展性
+            DocumentMode.Implicit, //使用隐式文档功能，可以实现调用时才注入文档提示词，从而节省上下文开销，实现更大的可扩展性
             cancellationToken: DestroyCancellationToken //传入取消 token 可以在模块销毁时自动取消函数注册，方便进行热重载
         );
 
         // 备选：将文档直接注入到上下文中，适合那些希望全局生效的功能
         // functionCaller.RegisterHandlerWithoutDocument(xmlHandler, cancellationToken: DestroyCancellationToken);
-        // interactor.Prompt(xmlHandler.Document()); //Prompt注入的提示词支持热重载
+        // interactor.Prompt(xmlHandler.Document()); //Prompt注入的提示词默认支持热重载
 
         return Task.CompletedTask;
     }
