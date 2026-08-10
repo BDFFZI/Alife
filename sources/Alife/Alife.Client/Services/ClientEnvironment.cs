@@ -1,3 +1,4 @@
+using System.Collections;
 using Alife.Foundation;
 
 namespace Alife.Components.Services;
@@ -17,6 +18,8 @@ public static class ClientEnvironment
     /// </summary>
     public static void SyncEnvironment()
     {
+        RefreshProcessEnvironment();
+
         //检查 VC++
         {
             string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "vcruntime140.dll");
@@ -103,6 +106,8 @@ public static class ClientEnvironment
         AlifeUtility.Command(tempExe, "/install /quiet /norestart");
         File.Delete(tempExe);
 
+        progress?.Report("正在刷新环境变量...");
+
         progress?.Report(".NET SDK 10 安装完成");
     }
     public static async Task InstallPythonAsync(IProgress<string>? progress = null)
@@ -152,5 +157,32 @@ public static class ClientEnvironment
         AlifeUtility.Command("python.exe", $"-m pip {pipInstall}");
 
         progress?.Report("CUDA 安装完成");
+    }
+
+    /// <summary>
+    /// 安装程序写入的环境变量不会自动同步到当前进程，需要从注册表重新读取。
+    /// </summary>
+    static void RefreshProcessEnvironment()
+    {
+        //PATH 需要合并机器和用户两处，并展开 %SystemRoot% 之类的占位符
+        string? machinePath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine);
+        string? userPath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.User);
+        string mergedPath = string.Join(Path.PathSeparator.ToString(),
+            new[] { machinePath, userPath }.Where(p => !string.IsNullOrWhiteSpace(p)));
+        if (mergedPath.Length > 0)
+            Environment.SetEnvironmentVariable("Path", Environment.ExpandEnvironmentVariables(mergedPath));
+
+        //其余变量以 机器->用户 的顺序覆盖
+        foreach (var target in new[] { EnvironmentVariableTarget.Machine, EnvironmentVariableTarget.User })
+        {
+            foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables(target))
+            {
+                string? key = entry.Key?.ToString();
+                string? value = entry.Value?.ToString();
+                if (string.IsNullOrEmpty(key) || key == "Path")
+                    continue;
+                Environment.SetEnvironmentVariable(key, value);
+            }
+        }
     }
 }
