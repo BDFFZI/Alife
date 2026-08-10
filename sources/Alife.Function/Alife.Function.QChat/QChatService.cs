@@ -416,12 +416,12 @@ public partial class QChatService(
                 {
                     try
                     {
-                        logger.LogInformation("[QChatService] 自动重连");
+                        logger.LogInformation("自动重连");
                         await ReconnectAsync();
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning("[QChatService] 自动重连失败: {Message}", ex.Message);
+                        logger.LogInformation("自动重连失败: {Message}", ex.Message);
                     }
                 }
             }

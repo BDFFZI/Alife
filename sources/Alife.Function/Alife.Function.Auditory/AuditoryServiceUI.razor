@@ -55,6 +55,18 @@
                 </Flex>
             </Flex>
 
+            @* 输出标签 *@
+            <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                <Text Strong>回复限定词</Text>
+                <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                    AI回复语音识别消息时，必须包含这些词中的一个，否则会提示回复格式错误。多个标签用逗号分隔。
+                </Text>
+                <Input Value="@string.Join(",", Configuration.OutputTags ?? [])"
+                       ValueChanged="@((string value) => OnOutputTagsChanged(value))"
+                       Placeholder="&lt;speak&gt;"
+                       Style="width: 300px;"/>
+            </Flex>
+
             @* 重置按钮 *@
             <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
                 <Button Type="@ButtonType.Default" Size="@ButtonSize.Small" OnClick="@ResetRecognizer"
@@ -82,6 +94,13 @@
     void OnIsListeningChanged(bool isListening)
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    void OnOutputTagsChanged(string value)
+    {
+        Configuration.OutputTags = string.IsNullOrWhiteSpace(value)
+            ? []
+            : [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }
 
     async Task ResetRecognizer()
