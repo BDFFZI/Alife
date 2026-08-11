@@ -1,19 +1,23 @@
 @namespace Alife.Function.MessageFilter
 @using AntDesign
-@using static Alife.Function.MessageFilter.MessageFilterData
+@using static Alife.Function.MessageFilter.MessageFilterServiceConfig
 
 <div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e8e8e8; margin-bottom: 12px;">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px;">
         <Flex Align="FlexAlign.Center" Gap="@("8")">
             <Switch @bind-Checked="@Rule.Enabled"/>
             <Text Strong Style="font-size: 13px;">
-                @(string.IsNullOrEmpty(Rule.InputRegex) ? $"规则 {Index + 1}" : (Rule.InputRegex.Length > 30 ? Rule.InputRegex[..30] + "..." : Rule.InputRegex))
+                @(!string.IsNullOrEmpty(Rule.Name) ? Rule.Name : (string.IsNullOrEmpty(Rule.InputRegex) ? $"规则 {Index + 1}" : (Rule.InputRegex.Length > 30 ? Rule.InputRegex[..30] + "..." : Rule.InputRegex)))
             </Text>
         </Flex>
         <Button Size="@ButtonSize.Small" Danger OnClick="@(() => OnRemove.InvokeAsync(Rule))">删除</Button>
     </Flex>
 
     <Flex Direction="FlexDirection.Vertical" Gap="@("8")">
+        <Flex Align="FlexAlign.Center" Gap="@("8")">
+            <Text Style="font-size: 12px; white-space: nowrap;">名称</Text>
+            <Input @bind-Value="@Rule.Name" Placeholder="规则名称，仅用于显示区分" Size="@InputSize.Small" Style="flex: 1;"/>
+        </Flex>
         <Flex Align="FlexAlign.Center" Gap="@("8")">
             <Text Style="font-size: 12px; white-space: nowrap;">输入正则</Text>
             <Input @bind-Value="@Rule.InputRegex" Placeholder="匹配 ChatSend 处理后的消息" Size="@InputSize.Small" Style="flex: 1;"/>
@@ -30,7 +34,7 @@
 </div>
 
 @code {
-    [Parameter] public RegexMessageReplyRule Rule { get; set; } = null!;
+    [Parameter] public RegexMessageReplyRuleConfig Rule { get; set; } = null!;
     [Parameter] public int Index { get; set; }
-    [Parameter] public EventCallback<RegexMessageReplyRule> OnRemove { get; set; }
+    [Parameter] public EventCallback<RegexMessageReplyRuleConfig> OnRemove { get; set; }
 }

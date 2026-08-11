@@ -164,11 +164,11 @@ public class DeskPetService(
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
 
         //注册消息回复规则
-        messageFilterService.RegisterReplyRule(new MessageReplyRule {
+        messageFilterService.AddMessageReplyRule(new MessageReplyRule {
             Name = nameof(DeskPetService),
             InputMatching = input => input.Contains(Interactor<DeskPetService>.GetMessageTag()),
             OutputMatching = output => output.Contains(nameof(Speak), StringComparison.OrdinalIgnoreCase),
-            DeviationHandling = () => interactor.Poke($"{nameof(DeskPetService)}消息必须用{nameof(Speak)}标签回复。如果不想发送消息，也请发送空标签。")
+            CorrectionMessage = () => $"{nameof(DeskPetService)}消息必须用{nameof(Speak)}标签回复。如果不想发送消息，也请发送空标签。"
         }, DestroyCancellationToken);
     }
     protected override async Task OnStart()

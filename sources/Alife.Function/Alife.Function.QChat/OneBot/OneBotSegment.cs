@@ -15,14 +15,19 @@ public static class OneBotSegment
         string sayerLabel = basicMessage is OneBotMessageEvent messageEvent
             ? $"{basicMessage.UserId}({messageEvent.Sender?.Nickname})"
             : $"{basicMessage.UserId}";
-        return (basicMessage.GroupId == 0 ? "[私聊]" : "") + $"[{sayerLabel}]";
+        return $"[{sayerLabel}]";
     }
-    public static string GetGroupTag(this OneBotBasicMessageEvent basicMessage)
+    public static string? GetPrivateName(this OneBotBasicMessageEvent basicMessage)
     {
-        string groupLabel = basicMessage is OneBotMessageEvent messageEvent
-            ? $"{basicMessage.GroupId},{messageEvent.GroupName}"
-            : $"{basicMessage.GroupId}";
-        return groupLabel;
+        if (basicMessage is OneBotMessageEvent messageEvent)
+            return messageEvent.Sender?.Nickname;
+        return null;
+    }
+    public static string? GetGroupName(this OneBotBasicMessageEvent basicMessage)
+    {
+        if (basicMessage is OneBotMessageEvent messageEvent)
+            return messageEvent.GroupName;
+        return null;
     }
 
     /// <summary>

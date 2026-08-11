@@ -147,7 +147,7 @@ public class ChatActivity(
         }
         //开始update
         cancelTimerSource = new CancellationTokenSource();
-        StartTimer(1f, cancelTimerSource.Token);
+        StartTimer(0.3f, cancelTimerSource.Token);
     }
     public async Task Destroy(IProgress<(string, float)>? progress = null)
     {

@@ -1,5 +1,5 @@
 @namespace Alife.Function.QChat
-@inherits Alife.Framework.ModuleUIBase<QChatService, QChatConfig>
+@inherits Alife.Framework.ModuleUIBase<QChatService, QChatServiceConfig>
 @using AntDesign
 @implements IDisposable
 @inject IMessageService MessageService
@@ -16,7 +16,7 @@
         </Flex>
 
         <Flex Align="FlexAlign.Center" Style="margin-bottom: 16px; gap: 8px;">
-            <Select TItemValue="long?" TItem="GroupState"
+            <Select TItemValue="long?" TItem="GroupMessageSource"
                     @bind-Value="@selectedGroupId"
                     Placeholder="选择群号"
                     AllowClear
@@ -25,9 +25,9 @@
                 <SelectOptions>
                     @foreach (var kv in Module.GroupStates.OrderByDescending(x => x.Value.IsEnabled).ThenBy(x => x.Key))
                     {
-                        <SelectOption TItemValue="long?" TItem="GroupState"
+                        <SelectOption TItemValue="long?" TItem="GroupMessageSource"
                                       Value="@((long?)kv.Key)" Item="@kv.Value">
-                            @(kv.Value.IsEnabled ? "🟢" : "⚪") @kv.Key@(kv.Value.Tag != null ? $" ({kv.Value.Tag})" : "")
+                            @(kv.Value.IsEnabled ? "🟢" : "⚪") @kv.Key@(kv.Value.Name != null ? $" ({kv.Value.Name})" : "")
                         </SelectOption>
                     }
                 </SelectOptions>
@@ -38,13 +38,13 @@
                 <Button Danger="@selState.IsEnabled"
                         Type="@ButtonType.Primary"
                         Size="@ButtonSize.Small"
-                        OnClick="@(() => Module.QGroup(gid, !selState.IsEnabled))">
+                        OnClick="@(() => Module.QGroupSwitch(gid, !selState.IsEnabled))">
                     @(selState.IsEnabled ? "关闭" : "开启")
                 </Button>
                 <Button Type="@ButtonType.Default"
                         Size="@ButtonSize.Small"
                         Disabled="@(selState.MessageBuffer.Count == 0)"
-                        OnClick="@(() => Module.FlushGroupBuffer(selState))">
+                        OnClick="@(() => Module.FlushGroupMessage(selState))">
                     立即推送
                 </Button>
             }
@@ -72,14 +72,14 @@
                         </SpaceItem>
                     </Space>
                     <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 12px;">
-                        最后活动: @st.LastActivityTime.ToString("HH:mm:ss")
+                        最后活动: @st.LastUsingTime.ToString("HH:mm:ss")
                     </AntDesign.Text>
                 </Flex>
 
-                @if (!string.IsNullOrEmpty(st.Tag))
+                @if (!string.IsNullOrEmpty(st.Name))
                 {
                     <div style="margin-bottom: 8px;">
-                        <Tag Color="TagColor.Blue">@st.Tag</Tag>
+                        <Tag Color="TagColor.Blue">@st.Name</Tag>
                     </div>
                 }
 
@@ -138,7 +138,7 @@
         </div>
     </Flex>
 
-    <Form TModel="QChatConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
+    <Form TModel="QChatServiceConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
         <FormItem Label="WebSocket URL">
             <Input @bind-Value="@Configuration.Url" placeholder="例如: ws://127.0.0.1:3004"/>
         </FormItem>
@@ -171,7 +171,13 @@
             <TextArea @bind-Value="@Configuration.AppendGroupChatPrompt" Rows="2"
                       Placeholder="收到群聊消息时附加给AI的提示词"></TextArea>
         </FormItem>
-
+        <FormItem Label="私聊防抖时间 (秒)">
+            <AntDesign.InputNumber @bind-Value="@Configuration.PrivateDebounceTime" Min="0f" Step="0.1f"
+                                   Style="width: 100%;"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                进行私聊时消息的防抖秒数。
+            </AntDesign.Text>
+        </FormItem>
 
 
         @* ───── 群监听唤醒 ───── *@

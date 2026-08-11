@@ -11,7 +11,7 @@ var character = new Character {
 
 await DemoSuite.Run(character, provider => {
     ConfigurationSystem configurationSystem = provider.GetRequiredService<ConfigurationSystem>();
-    configurationSystem.SetConfiguration(typeof(QChatService), new QChatConfig {
+    configurationSystem.SetConfiguration(typeof(QChatService), new QChatServiceConfig {
         Url = "ws://127.0.0.1:3001",
         Token = "",
         OwnerId = 1330958515L,

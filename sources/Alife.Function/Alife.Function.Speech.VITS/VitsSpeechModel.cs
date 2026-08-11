@@ -133,7 +133,7 @@ public class VitsSpeechModel(
 
     protected override async Task OnAwake()
     {
-        if (Directory.Exists(RuntimeFolder) == false)
+        if (File.Exists(Path.Combine(RuntimeFolder, "models.py")) == false)
             await DownloadAndExtractAsync();
 
         pythonPipe = new("vits_speech", pythonCode);

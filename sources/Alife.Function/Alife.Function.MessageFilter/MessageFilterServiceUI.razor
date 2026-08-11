@@ -1,7 +1,7 @@
 @namespace Alife.Function.MessageFilter
-@inherits Alife.Framework.ModuleUIBase<MessageFilterService, MessageFilterData>
+@inherits Alife.Framework.ModuleUIBase<MessageFilterService, MessageFilterServiceConfig>
 @using AntDesign
-@using static Alife.Function.MessageFilter.MessageFilterData
+@using static Alife.Function.MessageFilter.MessageFilterServiceConfig
 @implements IDisposable
 
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
@@ -149,13 +149,16 @@
 
     void AddRule()
     {
-        var list = new List<RegexMessageReplyRule>(Configuration.MessageReplyRules) { new RegexMessageReplyRule() };
+        var list = new List<RegexMessageReplyRuleConfig>(Configuration.MessageReplyRules)
+        {
+            new RegexMessageReplyRuleConfig() { Name = $"规则 {Configuration.MessageReplyRules.Count + 1}" }
+        };
         Configuration.MessageReplyRules = list;
     }
 
-    void RemoveRule(RegexMessageReplyRule rule)
+    void RemoveRule(RegexMessageReplyRuleConfig rule)
     {
-        var list = new List<RegexMessageReplyRule>(Configuration.MessageReplyRules);
+        var list = new List<RegexMessageReplyRuleConfig>(Configuration.MessageReplyRules);
         list.Remove(rule);
         Configuration.MessageReplyRules = list;
     }

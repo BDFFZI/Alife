@@ -9,6 +9,12 @@
         style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
         <Title Level="4" Style="margin: 0;">插件环境</Title>
         <Flex Gap="@("12")" Align="FlexAlign.Center">
+            <Tooltip Title="清除并重新编译所有插件">
+                <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.PlayCircle" OnClick="@RecompileAllPlugins"
+                        Loading="@isRecompiling">
+                    重新编译所有插件
+                </Button>
+            </Tooltip>
             <Tooltip Title="同步本地插件环境">
                 <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Reload" OnClick="@SyncEnvironment"
                         Loading="@isSyncing">
@@ -148,6 +154,7 @@
     string[] selectedKeys = [];
     bool isSyncing;
     bool isReloading;
+    bool isRecompiling;
     Exception? exception;
 
     protected override void OnInitialized()
@@ -223,6 +230,29 @@
         finally
         {
             isSyncing = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task RecompileAllPlugins()
+    {
+        isRecompiling = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Run(() => PluginContext.ClearAllPluginDll());
+            await Task.Run(() => PluginContext.SyncPluginEnvironment());
+            _ = NotificationService.Success(new NotificationConfig { Message = "所有插件已重新编译" });
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+            StateHasChanged();
+        }
+        finally
+        {
+            isRecompiling = false;
             StateHasChanged();
         }
     }

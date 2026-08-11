@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 
 namespace Alife.Function.QChat;
 
@@ -38,28 +39,20 @@ public class OneBotClient(string url, string token = "") : IAsyncDisposable
     /// <summary>
     /// WebSocket 地址。
     /// </summary>
-    public string Url
-    {
-        get => url;
-        set => url = value;
-    }
+    public string Url { get => url; set => url = value; }
 
     /// <summary>
     /// 认证 Token。
     /// </summary>
-    public string Token
-    {
-        get => token;
-        set => token = value;
-    }
+    public string Token { get => token; set => token = value; }
 
 
     public async Task ConnectAsync()
     {
-        BotId = 0;//清除ID信息
-        if (loopCancellation != null)//关闭接收
+        BotId = 0; //清除ID信息
+        if (loopCancellation != null) //关闭接收
             await loopCancellation.CancelAsync();
-        if (ws.State == WebSocketState.Open)//关闭连接
+        if (ws.State == WebSocketState.Open) //关闭连接
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting", CancellationToken.None);
         ws.Dispose();
 
@@ -114,7 +107,7 @@ public class OneBotClient(string url, string token = "") : IAsyncDisposable
 
         JsonElement result = await tcs.Task;
         OneBotResponse<T>? response = result.Deserialize<OneBotResponse<T>>();
-        
+
         if (response != null && response.RetCode != 0 && response.RetCode != 1)
         {
             throw new Exception($"调用失败 (RetCode: {response.RetCode}) - {response.Message}");
@@ -138,7 +131,10 @@ public class OneBotClient(string url, string token = "") : IAsyncDisposable
             while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
             {
                 OneBotBaseEvent? ev = await ReceiveEventAsync(ct);
-                if (ev != null) EventReceived?.Invoke(ev);
+                if (ev != null)
+                {
+                    AlifeUtility.SafeInvoke(() => EventReceived?.Invoke(ev));
+                }
             }
         }
         catch (Exception ex)
@@ -147,7 +143,7 @@ public class OneBotClient(string url, string token = "") : IAsyncDisposable
         }
         finally
         {
-            ConnectionStatusChanged?.Invoke(false);
+            AlifeUtility.SafeInvoke(() => ConnectionStatusChanged?.Invoke(false));
         }
     }
 
