@@ -28,6 +28,15 @@
                     <span
                         style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @PluginPackage.Author</span>
                 }
+                @if (PluginPackage.Tags != null && PluginPackage.Tags.Count > 0)
+                {
+                    <Flex Align="FlexAlign.Center" Gap="@("6")" Style="margin-top: 8px; flex-wrap: wrap;">
+                        @foreach (var tag in PluginPackage.Tags)
+                        {
+                            <Tag>@tag</Tag>
+                        }
+                    </Flex>
+                }
             </div>
         </Flex>
 
