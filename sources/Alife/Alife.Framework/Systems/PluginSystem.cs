@@ -100,11 +100,6 @@ public class PluginSystem
             .FirstOrDefault();
     }
 
-    public List<string> GetBeDependentPlugins(string pluginId)
-    {
-        return pluginMarket.ResolveBeDependentPlugins(pluginId);
-    }
-
     public async Task InstallPlugins(List<KeyValuePair<PluginPackage, string>> plugins)
     {
         //卸载插件并删除其dll，以便在后同步插件环境时重新编译加载

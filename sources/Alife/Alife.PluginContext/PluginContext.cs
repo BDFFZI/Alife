@@ -192,9 +192,20 @@ public class PluginContext(
 
     public async Task ClearPluginDll(string pluginId)
     {
-        if (currentPluginLoadContexts.TryGetValue(pluginId, out var value))
-            await value.DisposeAsync();
-        File.Delete(GetPluginCompiledDllPath(pluginId));
+        {
+            if (currentPluginLoadContexts.TryGetValue(pluginId, out var value))
+                await value.DisposeAsync();
+            File.Delete(GetPluginCompiledDllPath(pluginId));
+        }
+
+        //同时清理被依赖插件的的dll，以重新编译
+        List<string> beDependentPlugins = GetBeDependentPlugins(pluginId);
+        foreach (string beDependentPluginId in beDependentPlugins)
+        {
+            if (currentPluginLoadContexts.TryGetValue(beDependentPluginId, out var value))
+                await value.DisposeAsync();
+            File.Delete(GetPluginCompiledDllPath(beDependentPluginId));
+        }
     }
     public async Task ClearAllPluginDll()
     {
@@ -217,6 +228,21 @@ public class PluginContext(
         if (pluginId == null || currentPluginLoadContexts.ContainsKey(pluginId) == false)
             return null;
         return pluginId;
+    }
+    public List<string> GetBeDependentPlugins(string pluginId)
+    {
+        List<string> dependents = new();
+        foreach ((string id, PluginManifest manifest) in AllPluginManifests)
+        {
+            if (id == pluginId)
+                continue;
+
+            Dictionary<string, string>? dependencies = manifest.Dependencies;
+            if (dependencies != null && dependencies.ContainsKey(pluginId))
+                dependents.Add(id);
+        }
+
+        return dependents;
     }
 
 
