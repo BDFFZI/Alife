@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Demos/">
+    <Project Path="Demos/Alife.Demo.Auditory/Alife.Demo.Auditory.csproj" />
     <Project Path="Demos/Alife.Demo.Browser/Alife.Demo.Browser.csproj" />
     <Project Path="Demos/Alife.Demo.DeskPet/Alife.Demo.DeskPet.csproj" />
     <Project Path="Demos/Alife.Demo.Framework/Alife.Demo.Framework.csproj" />

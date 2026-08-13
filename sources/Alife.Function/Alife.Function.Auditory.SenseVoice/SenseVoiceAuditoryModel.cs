@@ -14,7 +14,8 @@ namespace Alife.Function.Auditory.SenseVoice;
 public class SenseVoiceAuditoryModel :
     ChatBehaviour,
     IConfigurable<SenseVoiceAuditoryModelConfig>,
-    IAuditoryModel
+    IAuditoryModel,
+    IAudioRecognizerProvider
 {
     public static bool ModelsExists
     {
@@ -28,42 +29,17 @@ public class SenseVoiceAuditoryModel :
     }
 
     public SenseVoiceAuditoryModelConfig Configuration { get; set; } = null!;
-    public event Action<string>? Recognized;
 
-    public void AcceptWaveform(float[] samples)
-    {
-        var detector = vad;
-        lock (detector)
-        {
-            detector.AcceptWaveform(samples);
-            while (detector.IsEmpty() == false)
-            {
-                SpeechSegment segment = detector.Front();
-                if (segment.Samples is { Length: > 0 })
-                    ProcessSegment(segment.Samples);
-                detector.Pop();
-            }
-        }
-
-        void ProcessSegment(float[] samples)
-        {
-            using OfflineStream stream = recognizer.CreateStream();
-            stream.AcceptWaveform(16000, samples);
-            recognizer.Decode(stream);
-
-            string text = stream.Result.Text;
-            if (string.IsNullOrWhiteSpace(text))
-                return;
-            if (text == "。")
-                return;
-            Recognized?.Invoke(text);
-        }
-    }
+    public event Action<string>? Recognized { add => realtimeRecognizer.Recognized += value; remove => realtimeRecognizer.Recognized -= value; }
+    public void AcceptWaveform(float[] samples, int length) => realtimeRecognizer.AcceptWaveform(samples, length);
+    
+    public IAudioRecognizer CreateAudioRecognizer() => new SenseVoiceAudioRecognizer(recognizer, vadConfig);
 
     const string SenseVoiceId = "pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue";
     const string VadId = "pengzhendong/silero-vad";
     OfflineRecognizer recognizer = null!;
-    VoiceActivityDetector vad = null!;
+    VadModelConfig vadConfig = new();
+    SenseVoiceAudioRecognizer realtimeRecognizer = null!;
 
     protected override Task OnAwake()
     {
@@ -79,21 +55,21 @@ public class SenseVoiceAuditoryModel :
         config.ModelConfig.Debug = 0;
         recognizer = new OfflineRecognizer(config);
 
-        VadModelConfig vadConfig = new();
+        vadConfig = new VadModelConfig();
         vadConfig.SileroVad.Model = vadModelPath;
         vadConfig.SileroVad.Threshold = Configuration.VadThreshold;
         vadConfig.SileroVad.MinSilenceDuration = Configuration.VadMinSilenceDuration;
         vadConfig.SileroVad.MinSpeechDuration = Configuration.VadMinSpeechDuration;
         vadConfig.SampleRate = 16000;
-        vad = new VoiceActivityDetector(vadConfig, bufferSizeInSeconds: 30);
+
+        realtimeRecognizer = new SenseVoiceAudioRecognizer(recognizer, vadConfig);
 
         return Task.CompletedTask;
     }
     protected override Task OnDestroy()
     {
+        realtimeRecognizer.Dispose();
         recognizer.Dispose();
-        vad.Dispose();
-
         return Task.CompletedTask;
     }
 }

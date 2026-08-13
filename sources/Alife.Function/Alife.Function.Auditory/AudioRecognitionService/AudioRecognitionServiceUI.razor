@@ -1,0 +1,109 @@
+@namespace Alife.Function.Auditory
+@inherits Alife.Framework.ModuleUIBase<AudioRecognitionService, AudioRecognitionServiceConfig>
+@implements IDisposable
+@using AntDesign
+
+<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+    <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
+
+        <!-- 监听与推送监控 -->
+        <div>
+            <Title Level="4" Style="margin-bottom: 16px;">声音监听与推送监控</Title>
+            @if (Module != null)
+            {
+                <Flex Direction="FlexDirection.Horizontal" Align="FlexAlign.Start" Gap="@("24")">
+                    <div style="text-align: center; min-width: 140px;">
+                        @if (Module.IsListeningActive)
+                        {
+                            <Badge Status="BadgeStatus.Processing" Text="正在监听中"/>
+                        }
+                        else
+                        {
+                            <Badge Status="BadgeStatus.Default" Text="未在监听"/>
+                        }
+                        <div style="margin-top: 12px;">
+                            <Progress Type="ProgressType.Circle" Percent="@CountdownPercent" Width="110"
+                                      StrokeColor="@("#1890ff")"
+                                      Format="@((_) => FormatCountdown(Module.SecondsUntilNextPush))"/>
+                        </div>
+                        <Text Type="TextElementType.Secondary" Style="font-size: 12px;">下次推送倒计时</Text>
+                    </div>
+
+                    <div style="flex: 1; min-width: 0;">
+                        <Card Size="CardSize.Small" Title="当前缓存内容（待推送）" Style="border-radius: 8px;">
+                            @if (string.IsNullOrEmpty(Module.PendingPushText))
+                            {
+                                <span style="color: rgba(0,0,0,0.45); font-size: 13px;">暂无缓存内容</span>
+                            }
+                            else
+                            {
+                                <pre style="max-height: 220px; overflow: auto; background: #f8f8f8; padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; margin: 0;">@Module.PendingPushText</pre>
+                            }
+                        </Card>
+                    </div>
+                </Flex>
+
+                <Alert Type="AlertType.Info"
+                       ShowIcon="true"
+                       Style="border-radius: 6px; margin-top: 16px;">
+                    <div style="font-size: 13px; line-height: 1.8;">
+                        识别结果先缓存，按 <code>推送间隔 ± 随机抖动</code>（默认 30 ± 10 秒）合并推送给 AI，
+                        避免高频消息打扰。
+                    </div>
+                </Alert>
+            }
+            else
+            {
+                <Alert Type="AlertType.Info" Message="模块未运行，监控不可用" ShowIcon="true"/>
+            }
+        </div>
+
+        <Divider Style="margin: 8px 0;"/>
+
+        <!-- 配置（默认表单） -->
+        <div>
+            <Title Level="4" Style="margin-bottom: 16px;">配置</Title>
+            @DefaultUI
+        </div>
+    </Flex>
+</div>
+
+@code {
+    System.Timers.Timer? refreshTimer;
+
+    protected override void OnInitialized()
+    {
+        refreshTimer = new System.Timers.Timer(500);
+        refreshTimer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+
+    int CountdownPercent
+    {
+        get
+        {
+            if (Module == null || !Module.IsListeningActive)
+                return 0;
+            double max = Module.Configuration.PushIntervalSeconds + Module.Configuration.PushJitterSeconds;
+            if (max <= 0)
+                return 0;
+            double percent = (1 - Module.SecondsUntilNextPush / max) * 100;
+            return (int)Math.Clamp(percent, 0, 100);
+        }
+    }
+
+    string FormatCountdown(double seconds)
+    {
+        if (seconds <= 0)
+            return "即将推送";
+        if (seconds >= 60)
+            return $"{(int)seconds / 60}m{(int)seconds % 60}s";
+        return $"{seconds:F0}s";
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
+    }
+}

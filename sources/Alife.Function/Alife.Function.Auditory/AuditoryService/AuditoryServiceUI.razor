@@ -24,6 +24,18 @@
                 }
             </Flex>
 
+            @* 实时语音识别开关 *@
+            <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                    <Switch Checked="@realtimeEnabled"
+                            CheckedChanged="@OnRealtimeToggleChanged"/>
+                    <Text Strong>实时语音识别</Text>
+                </Flex>
+                <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                    关闭后不再监听麦克风。
+                </Text>
+            </Flex>
+
             @* 按键说话 *@
             <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
                 <Text Strong>按键说话</Text>
@@ -61,7 +73,7 @@
                 <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                     AI回复语音识别消息时，必须包含这些词中的一个，否则会提示回复格式错误。多个标签用逗号分隔。
                 </Text>
-                <Input Value="@string.Join(",", Configuration.OutputTags ?? [])"
+                <Input Value="@string.Join(",", Configuration.ReplyRestrictedWords ?? [])"
                        ValueChanged="@((string value) => OnOutputTagsChanged(value))"
                        Placeholder="&lt;speak&gt;"
                        Style="width: 300px;"/>
@@ -82,6 +94,7 @@
 
 @code {
     bool isRestarting;
+    bool realtimeEnabled = true;
     readonly string[] pushToTalkKeys = Enum.GetNames<ConsoleKey>();
 
     protected override void OnInitialized()
@@ -96,9 +109,36 @@
         InvokeAsync(StateHasChanged);
     }
 
+    async Task OnRealtimeToggleChanged(bool enabled)
+    {
+        realtimeEnabled = enabled;
+        if (Module == null)
+            return;
+
+        try
+        {
+            if (enabled)
+            {
+                await Module.StartRecordingAsync();
+            }
+            else
+            {
+                Module.StopRecording();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "切换实时语音识别失败");
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     void OnOutputTagsChanged(string value)
     {
-        Configuration.OutputTags = string.IsNullOrWhiteSpace(value)
+        Configuration.ReplyRestrictedWords = string.IsNullOrWhiteSpace(value)
             ? []
             : [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }

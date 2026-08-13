@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alife.Demo.Framework\Alife.Demo.Framework.csproj"/>
+    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Auditory\Alife.Function.Auditory.csproj"/>
+    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Auditory.SenseVoice\Alife.Function.Auditory.SenseVoice.csproj"/>
+  </ItemGroup>
+
+</Project>

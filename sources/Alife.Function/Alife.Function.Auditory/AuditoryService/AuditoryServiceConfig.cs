@@ -5,5 +5,5 @@ namespace Alife.Function.Auditory;
 public class AuditoryServiceConfig
 {
     public string? PushToTalkKey { get; set; }
-    public List<string> OutputTags { get; set; } = ["<speak>"];
+    public List<string> ReplyRestrictedWords { get; set; } = ["<speak>"];
 }

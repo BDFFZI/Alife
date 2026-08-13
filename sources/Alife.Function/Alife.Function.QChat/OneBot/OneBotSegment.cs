@@ -44,6 +44,7 @@ public static class OneBotSegment
         content = await FilterFile(content, messageEvent.GroupId, oneBotClient);
         content = FilterForward(content);
         content = FilterImage(content);
+        content = FilterRecord(content);
         return content;
     }
     /// <summary>
@@ -56,6 +57,7 @@ public static class OneBotSegment
         text = FilterAt(text);
         text = FilterForward(text, true);
         text = FilterImage(text);
+        text = FilterRecord(text);
         return text;
     }
 
@@ -145,9 +147,18 @@ public static class OneBotSegment
     }
     public static string FilterImage(string text)
     {
-        text = Regex.Replace(text, @"\[CQ:image,.*?url=(?<url>http[s]?://[^,\]]+).*?\]", "[图片: ${url}]");
+        text = Regex.Replace(text, @"\[CQ:image,.*?path=(?<path>[^,\]]+).*?\]", "[图片: ${path}]");
+        text = Regex.Replace(text, @"\[CQ:image,.*?url=(?<url>[^,\]]+).*?\]", "[图片: ${url}]");
         text = Regex.Replace(text, @"\[CQ:image,.*?file=(?<file>[^,\]]+).*?\]", "[图片: ${file}]");
         text = Regex.Replace(text, @"\[CQ:image[^\]]*\]", "[图片]");
+        return text;
+    }
+    public static string FilterRecord(string text)
+    {
+        text = Regex.Replace(text, @"\[CQ:record,.*?path=(?<path>[^,\]]+).*?\]", "[音频: ${path}]");
+        text = Regex.Replace(text, @"\[CQ:record,.*?url=(?<url>[^,\]]+).*?\]", "[音频: ${url}]");
+        text = Regex.Replace(text, @"\[CQ:record,.*?file=(?<file>[^,\]]+).*?\]", "[音频: ${file}]");
+        text = Regex.Replace(text, @"\[CQ:record[^\]]*\]", "[音频]");
         return text;
     }
     public static async Task<string> FilterFile(string text, long groupId, OneBotClient client)
