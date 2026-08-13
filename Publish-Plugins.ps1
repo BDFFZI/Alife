@@ -126,13 +126,22 @@ foreach ($dir in $functionDirs) {
         }
 
     $generatedDir = Join-Path $dir.FullName "obj\Release\generated\Microsoft.CodeAnalysis.Razor.Compiler"
-    if (Test-Path -LiteralPath $generatedDir) {
-        Get-ChildItem $generatedDir -Filter "*_razor.g.cs" -Recurse -File |
+    $generatorDir = Join-Path $generatedDir "Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator"
+    if (Test-Path -LiteralPath $generatorDir) {
+        Get-ChildItem $generatorDir -Filter "*_razor.g.cs" -Recurse -File |
             ForEach-Object {
+                $relativePath = $_.FullName.Substring($generatorDir.Length).TrimStart('\')
                 $razorName = $_.Name -replace '_razor\.g\.cs$', ''
-                $razorFile = Join-Path $dir.FullName "$razorName.razor"
+                $razorSubDir = Split-Path $relativePath -Parent
+                $razorBase = Join-Path $dir.FullName $razorSubDir
+                $razorFile = Join-Path $razorBase "$razorName.razor"
                 if (Test-Path -LiteralPath $razorFile) {
-                    Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+                    $destFile = Join-Path $target $relativePath
+                    $destSubDir = Split-Path $destFile -Parent
+                    if (-not (Test-Path -LiteralPath $destSubDir)) {
+                        New-Item -ItemType Directory -Path $destSubDir -Force | Out-Null
+                    }
+                    Copy-Item -LiteralPath $_.FullName -Destination $destFile -Force
                 } else {
                     Write-Host "  [skip] $($_.Name)"
                 }
