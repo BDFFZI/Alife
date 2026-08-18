@@ -153,6 +153,17 @@ foreach ($dir in $functionDirs) {
         Copy-Item -LiteralPath $manifestFile -Destination $target -Force
     }
 
+    # 复制插件项目中的 Resources 内容文件夹（网页资源等随插件分发）
+    $resourcesDir = Join-Path $dir.FullName "Resources"
+    if (Test-Path -LiteralPath $resourcesDir) {
+        $resourcesTarget = Join-Path $target "Resources"
+        if (Test-Path -LiteralPath $resourcesTarget) {
+            Remove-Item -LiteralPath $resourcesTarget -Recurse -Force
+        }
+        Copy-Item -LiteralPath $resourcesDir -Destination $target -Recurse -Force
+        Write-Host "  [resources] $($dir.Name)\Resources" -ForegroundColor Green
+    }
+
     Write-Host "  [done] $($dir.Name)" -ForegroundColor Green
 }
 
