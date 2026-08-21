@@ -123,7 +123,7 @@ public class ChatMessageService
     {
         string name = activity.Character.Name;
         List<ChatMessage> messages = GetMessages(name);
-        chatbotMap.Add(name, activity.ChatBot);
+        chatbotMap[name] = activity.ChatBot; // 幂等：直接赋值覆盖，避免重复激活时抛异常
         ChatbotMapUpdated?.Invoke();
         activity.ChatBot.ChatSent += message => {
             lock (messages)

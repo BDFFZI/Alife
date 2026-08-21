@@ -18,7 +18,8 @@
             </li>
             <li>
                 <div class="feature-name">深度自由扩展</div>
-                <div class="feature-desc">强大且模块化的全插件框架，功能自由搭配，配有专用插件开发工具和在线插件市场。</div>
+                <div class="feature-desc">强大且模块化的全插件框架，功能自由搭配，配有专用插件开发工具和在线插件市场。
+                </div>
             </li>
             <li>
                 <div class="feature-name">高度信息透明</div>
@@ -36,6 +37,10 @@
         <p class="cover-hint">
             正式开始Alife前，你需要配置一些环境内容，但你不用担心，只要一路点"下一步"即可。
         </p>
+        <Alert Type="AlertType.Error">
+            注意！将电脑的控制权交到 AI 手上，是一件极其危险的事情。他可以帮你做事，但同样也完全有机会摧毁你的电脑!
+            谨慎下载插件，开启功能、捏病娇人设、带入群聊等事项。如果你因此遭受了损失，本框架概不负责！请慎之又慎。
+        </Alert>
     </div>
 
     <div class="step-nav">
@@ -49,7 +54,10 @@
 @code {
     [Parameter] public EventCallback OnNextStep { get; set; }
 
-    async Task OnNext() { await OnNextStep.InvokeAsync(); }
+    async Task OnNext()
+    {
+        await OnNextStep.InvokeAsync();
+    }
 }
 
 <style>
@@ -57,7 +65,7 @@
         width: 64px;
         height: 64px;
         border-radius: 16px;
-        background: rgba(24,144,255,.08);
+        background: rgba(24, 144, 255, .08);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -67,8 +75,12 @@
     }
 
     @@keyframes rocketFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-6px); }
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-6px);
+        }
     }
 
     .cover-title {
@@ -86,7 +98,7 @@
     .cover-body p {
         margin: 0 0 10px;
         font-size: 13px;
-        color: rgba(0,0,0,.65);
+        color: rgba(0, 0, 0, .65);
         line-height: 1.8;
     }
 
@@ -121,16 +133,16 @@
 
     .feature-desc {
         font-size: 12px;
-        color: rgba(0,0,0,.5);
+        color: rgba(0, 0, 0, .5);
         line-height: 1.7;
     }
 
     .cover-hint {
         margin-top: 12px !important;
         padding: 10px 14px;
-        background: rgba(24,144,255,.04);
+        background: rgba(24, 144, 255, .04);
         border-radius: 8px;
-        color: rgba(0,0,0,.45) !important;
+        color: rgba(0, 0, 0, .45) !important;
         font-size: 12px !important;
     }
 

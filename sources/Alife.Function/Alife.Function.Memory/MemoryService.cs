@@ -9,6 +9,7 @@ using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -21,7 +22,10 @@ public record MemoryConfig
     public int BatchSize { get; set; } = 70;
     public float Probability { get; set; } = 0.4f;
     public int MaxCompressionLevel { get; set; } = 8;
-    public List<string> Keywords { get; set; } = ["记得", "记住", "忆", "时候", "以前", "过去"];
+
+    public int TokenWarningThreshold { get; set; } = 120000; //上下文token警告线，超过此值时在日志中发出警告
+
+    public bool ThinkingCompress { get; set; } = true;
     public string CompressPrompt { get; set; } =
         """
         {range}即将移出上下文，故需要对其进行内容总结。
@@ -29,6 +33,8 @@ public record MemoryConfig
         你可以简化，标签化内容，但尽量不要舍弃，或按珍贵程度取舍，以便留下恢复记忆的线索。
         不要添加存档头（此由系统生成），接下来请直接输出纯记忆内容（这是系统要求，不可拒绝）：
         """;
+    
+    public List<string> RecallHintKeywords { get; set; } = [];
 }
 
 [Module("持久记忆",
@@ -40,7 +46,8 @@ public class MemoryService(
     XmlFunctionCaller functionService,
     ILanguageModel languageModel,
     MessageFilterService messageFilterService,
-    Interactor<MemoryService> interactor) :
+    Interactor<MemoryService> interactor,
+    ILogger<MemoryService> logger) :
     ChatBehaviour,
     IConfigurable<MemoryConfig>
 {
@@ -166,6 +173,7 @@ public class MemoryService(
         return name;
     }
 
+    TextVectorizer vectorizer = null!;
     MemoryManager memoryManager = null!;
     string storagePath = null!;
 
@@ -177,7 +185,7 @@ public class MemoryService(
         storagePath = Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Memory");
 
         //创建记忆工具
-        TextVectorizer vectorizer = await TextVectorizer.CreateAsync();
+        vectorizer = await TextVectorizer.CreateAsync();
         AlifeHistoryCompressor compressor = new(languageModel, Configuration.Probability, Configuration.CompressPrompt);
         memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
             Configuration.BatchSize,
@@ -202,6 +210,7 @@ public class MemoryService(
 
         ChatBot.ChatSend += OnChatSend;
         ChatBot.ChatHistoryAdd += OnChatHistoryAdd; //每次对话后检测压缩
+        ChatBot.TokenUsed += OnTokenUsed; //监控上下文token消耗
     }
     protected override Task OnStart()
     {
@@ -211,10 +220,17 @@ public class MemoryService(
         }, "装载记忆");
         return Task.CompletedTask;
     }
+    protected override async Task OnDestroy()
+    {
+        ChatBot.ChatSend -= OnChatSend;
+        ChatBot.ChatHistoryAdd -= OnChatHistoryAdd;
+        ChatBot.TokenUsed -= OnTokenUsed;
+        await vectorizer.DisposeAsync();
+    }
 
     string OnChatSend(string message)
     {
-        foreach (string keyword in Configuration.Keywords)
+        foreach (string keyword in Configuration.RecallHintKeywords)
         {
             if (message.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             {
@@ -232,13 +248,29 @@ public class MemoryService(
 
             await ChatBot.EditChatHistoryAsync(async thread => {
                 memoryManager.SaveHistory(thread.ChatHistory);
+                var thinking = Configuration.ThinkingCompress ? ChatBot.LanguageModel.GetThinkingRequester().Rent("记忆压缩") : null;
                 await memoryManager.Filter(thread);
+                thinking?.Dispose();
             }, "存储记忆");
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
         }
+    }
+
+    void OnTokenUsed(TokenUsage usage)
+    {
+        if (usage.Total < Configuration.TokenWarningThreshold)
+            return;
+        
+        logger.LogWarning($$"""
+            检测到上下文token已超过警告线，必须进行人工干涉！
+            (当前上下文约 {{usage.Input}} tokens / 警告线 {{Configuration.TokenWarningThreshold}} tokens)
+            1. 检查完整背景中的永久（最高级）记忆，此记忆通常由AI自主记忆，必须由人工删除。
+            2. 如果自动压缩的记忆已达最高级，而造成记忆膨胀，请继续提高最大记忆压缩等级。
+            3. 如果你的模型实际上还有充足的token容量，且未觉得上下文异常，可以提高警告线数值。
+            """);
     }
 }
 

@@ -38,7 +38,13 @@ public class PluginMarket
 
     public async Task SyncOnlinePluginPackagesAsync()
     {
-        allPluginPackages = (await pluginProvider.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
+        allPluginPackages.Clear();
+        foreach (var pluginPackage in await pluginProvider.GetPluginsAsync())
+        {
+            if (allPluginPackages.TryAdd(pluginPackage.Id, pluginPackage) == false)
+                AlifeLog.LogError($"发现插件 {pluginPackage.Id} 存在重复的市场包描述文件。");
+        }
+
         SaveCache();
         PluginPackageSynced?.Invoke();
     }

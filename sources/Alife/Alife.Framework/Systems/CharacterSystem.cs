@@ -72,7 +72,9 @@ public class CharacterSystem
     public async Task LoadCharacter(Character character)
     {
         string json = await File.ReadAllTextAsync(Path.Combine(AlifePath.StorageFolderPath, "Character", character.Name, "index.json"));
-        JsonConvert.PopulateObject(json, character);
+        JsonConvert.PopulateObject(json, character,new JsonSerializerSettings() {
+            ObjectCreationHandling = ObjectCreationHandling.Replace
+        });
 
         if (CharacterChangedAsync != null)
         {

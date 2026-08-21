@@ -37,7 +37,7 @@ public class MemoryManager
             Directory.CreateDirectory(storagePath);
     }
 
-    public async Task<bool> Filter(ChatHistoryAgentThread chatHistoryAgentThread)
+    public async Task Filter(ChatHistoryAgentThread chatHistoryAgentThread)
     {
         ChatHistory chatHistory = chatHistoryAgentThread.ChatHistory;
 
@@ -50,56 +50,63 @@ public class MemoryManager
         }
 
         //遍历每个层级的聊天记录
-        int areaLevel = -1;
-        int areaStart = -1;
-        int areaCount = -1;
-        int areaCompressionThreshold = -1;
-        int areaCompressionCount = -1;
+        int areaLevel = int.MaxValue;
+        int areaStart = contentIndex;
+        int areaCount = 0;
         for (; contentIndex < chatHistory.Count; contentIndex++)
         {
             ChatMessageContent currentContent = chatHistory[contentIndex];
             MemoryMeta currentMemoryMeta = GetMemoryMetaData(currentContent);
 
             int currentLevel = currentMemoryMeta.Level;
+            areaCount++;
+
             if (areaLevel != currentLevel)
             {
-                //进入一个区域
+                if (areaLevel < currentLevel)
+                {
+                    //检测到逆序记录，需要合并升级来修复
+                    if (areaCount == 1)
+                        memoryMetaDatas[currentContent] = new MemoryMeta(currentLevel, currentMemoryMeta.StartTime, currentMemoryMeta.EndTime);
+                    else
+                        await CompressArea(areaCount);
+                    return;
+                }
+
+                //已完成上一个区域过滤，进入一个新区域
                 areaLevel = currentLevel;
                 areaStart = contentIndex;
                 areaCount = 1;
-                areaCompressionThreshold = areaLevel == 0 ? compressionThreshold : 4;
-                areaCompressionCount = areaLevel == 0 ? compressionCount : 3;
-            }
-            else
-            {
-                areaCount++;
             }
 
-            if (areaCount >= areaCompressionThreshold && areaLevel + 1 <= maxCompressionLevel)//压缩记忆
+            if (areaLevel + 1 <= maxCompressionLevel && areaCount >= (areaLevel == 0 ? compressionThreshold : 4)) //压缩记忆
+            {
+                int areaCompressionCount = areaLevel == 0 ? compressionCount : 3;
+                await CompressArea(areaCompressionCount);
+                return;
+            }
+
+            async Task CompressArea(int count)
             {
                 //确认压缩事件段和内容
                 DateTime startTime = GetMemoryMetaData(chatHistory[areaStart]).StartTime;
-                DateTime endTime = GetMemoryMetaData(chatHistory[areaStart + areaCompressionCount - 1]).EndTime;
-                string fullContent = PickContent(chatHistory, areaStart, areaStart + areaCompressionCount);
+                DateTime endTime = GetMemoryMetaData(chatHistory[areaStart + count - 1]).EndTime;
+                string fullContent = PickContent(chatHistory, areaStart, areaStart + count);
 
                 string range = $"从`{startTime}`到`{endTime}`期间的`{(areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档")}`";
                 string? summary = await compressor.Compress(chatHistoryAgentThread, range);
                 if (summary == null)
-                    return false;
+                    return;
 
                 //插入新增的记忆存档
                 await SaveMemory(areaLevel + 1, startTime, endTime, summary, fullContent, chatHistory, areaStart);
 
                 //移除被压缩记忆
-                for (int index = areaStart + areaCompressionCount; index > areaStart; index--)
+                for (int index = areaStart + count; index > areaStart; index--)
                     memoryMetaDatas.Remove(chatHistory[index]);
-                chatHistory.RemoveRange(areaStart + 1, areaCompressionCount);
-
-                return true;
+                chatHistory.RemoveRange(areaStart + 1, count);
             }
         }
-
-        return false;
     }
 
     public async Task<string> InsertMemory(ChatHistory chatHistory, int level, string summary, string content, DateTime startTime, DateTime endTime)
@@ -154,6 +161,7 @@ public class MemoryManager
     public void SaveHistory(ChatHistory chatHistory)
     {
         List<HistoryRecord> history = new List<HistoryRecord>();
+
         foreach (ChatMessageContent chatMessageContent in chatHistory.Where(content => content.Role != AuthorRole.System))
         {
             if (chatMessageContent.Content == null)
@@ -178,6 +186,13 @@ public class MemoryManager
         if (history == null)
             return;
 
+        //清除已有的非提示词内容，防止污染
+        for (int i = chatHistory.Count - 1; i >= 0; i--)
+        {
+            if (chatHistory[i].Role != AuthorRole.System)
+                chatHistory.RemoveAt(i);
+        }
+
         foreach (HistoryRecord historyRecord in history)
         {
             ChatMessageContent chatMessageContent = new(historyRecord.Role, historyRecord.Content);
@@ -192,7 +207,8 @@ public class MemoryManager
         return memoryStorage.LoadAsync(level, index);
     }
 
-    public async Task<(List<SearchResult> Results, int Total)> SearchMemory(int level, string keyword, string? question, int count, int offset, DateTime? startTime, DateTime? endTime)
+    public async Task<(List<SearchResult> Results, int Total)> SearchMemory(int level, string keyword, string? question, int count, int offset,
+        DateTime? startTime, DateTime? endTime)
     {
         return await memoryStorage.SearchAsync(level, keyword, question, count, offset, startTime, endTime);
     }
@@ -218,7 +234,8 @@ public class MemoryManager
     readonly string historyStoragePath;
     readonly Dictionary<ChatMessageContent, MemoryMeta> memoryMetaDatas = new Dictionary<ChatMessageContent, MemoryMeta>();
 
-    async Task<string> SaveMemory(int level, DateTime startTime, DateTime endTime, string summary, string content, ChatHistory chatHistory, int insertIndex)
+    async Task<string> SaveMemory(int level, DateTime startTime, DateTime endTime, string summary, string content, ChatHistory chatHistory,
+        int insertIndex)
     {
         MemoryMeta memoryMeta = new(level, startTime, endTime);
         string name = memoryMeta.Name;

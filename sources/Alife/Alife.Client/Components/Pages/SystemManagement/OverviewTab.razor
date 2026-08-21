@@ -125,22 +125,19 @@
     {
         try
         {
-            string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
             AlifeUtility.Command("schtasks", value
-                ? $"/create /tn \"Alife\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f"
+                ? $"/create /tn \"Alife\" /tr \"\\\"{AlifePath.AppPath}\\\"\" /sc onlogon /rl highest /f"
                 : "/delete /tn \"Alife\" /f");
 
             autoStartOnBoot = value;
 
-            await NotificationService.Success(new NotificationConfig
-            {
+            await NotificationService.Success(new NotificationConfig {
                 Message = value ? "已开启开机自启" : "已关闭开机自启"
             });
         }
         catch (Exception ex)
         {
-            await NotificationService.Error(new NotificationConfig
-            {
+            await NotificationService.Error(new NotificationConfig {
                 Message = $"设置开机自启失败: {ex.Message}"
             });
         }
@@ -158,8 +155,7 @@
         }
         catch (Exception e)
         {
-            await NotificationService.Error(new NotificationConfig
-            {
+            await NotificationService.Error(new NotificationConfig {
                 NotificationType = NotificationType.Error,
                 Message = "检查更新失败。",
             });
@@ -178,8 +174,7 @@
 
         try
         {
-            await ClientUpgrade.ApplyNewVersion(progress =>
-            {
+            await ClientUpgrade.ApplyNewVersion(progress => {
                 upgradeDownloadProgress = progress;
                 InvokeAsync(StateHasChanged);
             });
@@ -214,8 +209,7 @@
     static async Task<string?> PickFolderAsync()
     {
         var browserWindow = Electron.WindowManager.BrowserWindows.First();
-        var options = new OpenDialogOptions
-        {
+        var options = new OpenDialogOptions {
             Title = "请选择文件夹",
             Properties = [OpenDialogProperty.openDirectory]
         };

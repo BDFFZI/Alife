@@ -50,7 +50,7 @@ public class ChatBot : IAsyncDisposable
     public bool IsChatOccupied => chatSemaphore.CurrentCount == 0;
     public bool IsChatHistoryOccupied => chatHistorySemaphore.CurrentCount == 0;
     public OccupationNotepad ResourceOccupiedReason { get; set; } = new();
-    public IReadOnlyList<ChatMessageContent> ChatHistory => chatHistoryAgentThread.ChatHistory;
+    public IReadOnlyList<ChatMessageContent> ChatHistory => chatHistorySnapshot;
     public CancellationTokenSource ChatBreakTokenSource => chatBreakSource;
     public ILanguageModel LanguageModel => languageModel;
 
@@ -63,6 +63,7 @@ public class ChatBot : IAsyncDisposable
             using (ResourceOccupiedReason.Rent(reason))
                 await action(chatHistoryAgentThread);
             lastContentIndex = ChatHistory.Count;
+            chatHistorySnapshot = [.. chatHistoryAgentThread.ChatHistory];
         }
         finally
         {
@@ -79,6 +80,7 @@ public class ChatBot : IAsyncDisposable
             using (ResourceOccupiedReason.Rent(reason))
                 action(chatHistoryAgentThread);
             lastContentIndex = ChatHistory.Count;
+            chatHistorySnapshot = [.. chatHistoryAgentThread.ChatHistory];
         }
         finally
         {
@@ -297,6 +299,7 @@ public class ChatBot : IAsyncDisposable
     //上下文
     readonly ChatHistoryAgentThread chatHistoryAgentThread = new();
     readonly SemaphoreSlim chatHistorySemaphore = new(1, 1);
+    List<ChatMessageContent> chatHistorySnapshot = new();
     int lastContentIndex;
     //对话
     readonly ConcurrentQueue<string> messageCache = new();

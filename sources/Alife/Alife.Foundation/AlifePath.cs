@@ -7,6 +7,7 @@ namespace Alife.Foundation;
 public class AlifePath
 {
     public static string AppFolderPath { get; private set; }
+    public static string AppPath { get; private set; }
     public static string StorageFolderPath { get; private set; }
     public static string RuntimeFolderPath { get; private set; }
     public static string TempFolderPath { get; }
@@ -34,6 +35,7 @@ public class AlifePath
             parentDirectory = Path.GetDirectoryName(parentDirectory);
         }
         AppFolderPath = realLaunchPath;
+        AppPath = Path.Combine(realLaunchPath, exeName);
 
         //老路径兼容
         string outputsFolderPath = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)) ?? "";

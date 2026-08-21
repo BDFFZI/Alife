@@ -44,10 +44,11 @@
             </GridCol>
         </GridRow>
 
-        <FormItem Label="记忆提醒关键词 (Keywords)">
-            <TextArea Value="@keywordsString" ValueChanged="@((string value) => { keywordsString = value; UpdateKeywords(); })" ValueExpression="@(() => keywordsString)" Rows="2" Placeholder="输入关键词，用逗号分隔（如：记得,记住,忆）"/>
+        <FormItem Label="启用思考压缩 (ThinkingCompress)">
+            <Switch @bind-Value="@Configuration.ThinkingCompress" Rows="12"
+                      Placeholder="使用 {range} 作为被压缩内容的占位符"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                当用户消息包含这些关键词时，系统会提醒AI使用记忆搜索功能
+                在压缩时使用思考功能。启用思考可以提高记忆存档质量，关闭则可减少输出token开销。
             </Text>
         </FormItem>
 
@@ -56,6 +57,21 @@
                       Placeholder="使用 {range} 作为被压缩内容的占位符"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 自定义记忆压缩时使用的提示词模板，{range} 会被替换为待压缩的上下文内容
+            </Text>
+        </FormItem>
+        
+        <FormItem Label="记忆提醒关键词 (RecallHintKeywords)">
+            <TextArea Value="@keywordsString" ValueChanged="@((string value) => { keywordsString = value; UpdateKeywords(); })" ValueExpression="@(() => keywordsString)" Rows="2" Placeholder="输入关键词，用逗号分隔（如：记得,记住,忆）"/>
+            <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                当用户消息包含这些关键词时，系统会提醒AI使用记忆搜索功能
+            </Text>
+        </FormItem>
+
+        <Divider>上下文Token警告</Divider>
+        <FormItem Label="Token警告线 (TokenWarningThreshold)">
+            <AntDesign.InputNumber @bind-Value="@Configuration.TokenWarningThreshold" Min="1" Style="width: 100%;"/>
+            <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                当一次对话的上下文（输入）token超过此值时，会在日志中发出人工干涉警告。默认 120000。
             </Text>
         </FormItem>
     </Form>
@@ -108,18 +124,18 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        if (Configuration?.Keywords != null)
+        if (Configuration?.RecallHintKeywords != null)
         {
-            keywordsString = string.Join(",", Configuration.Keywords);
+            keywordsString = string.Join(",", Configuration.RecallHintKeywords);
         }
     }
 
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
-        if (Configuration?.Keywords != null)
+        if (Configuration?.RecallHintKeywords != null)
         {
-            keywordsString = string.Join(",", Configuration.Keywords);
+            keywordsString = string.Join(",", Configuration.RecallHintKeywords);
         }
     }
 
@@ -127,7 +143,7 @@
     {
         if (Configuration != null)
         {
-            Configuration.Keywords = keywordsString
+            Configuration.RecallHintKeywords = keywordsString
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(k => k.Trim())
                 .Where(k => !string.IsNullOrEmpty(k))

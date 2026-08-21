@@ -11,7 +11,7 @@
     <p class="step-desc">接入 OpenAI 兼容协议的大语言模型</p>
 
     <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
-           Message="LLM一般要钱，本地的又太蠢。但网上依然有很多免费鸡蛋可以领，比如 https://opencode.ai/zen 每天会提供一些免费额度，你只要注册账号，然后复制粘贴你的 API 密钥即可。"></Alert>
+           Message="LLM一般要钱，本地的又太蠢。但网上依然有很多免费鸡蛋可以领，比如 https://platform.agnes-ai.cn 就有提供免费模型。你只需要注册账号，然后复制粘贴你的 API 密钥即可。但该模型限速有甲，陪伴效果很差，有条件的最好换掉，或者你也可以尝试市场中的本地语言模型。"></Alert>
 
     <Form TModel="LlmConfigModel" Model="@llmConfig" Layout="@FormLayout.Vertical" Size="@FormSize.Small">
         <FormItem Label="API Base URL（端点）">
@@ -71,9 +71,9 @@
 
     protected override void OnInitialized()
     {
-        llmConfig.endpoint = StorageSystem.GetProperty("endpoint") ?? "https://opencode.ai/zen/v1";
+        llmConfig.endpoint = StorageSystem.GetProperty("endpoint") ?? "https://api.agnes-ai.cn/v1";
         llmConfig.apiKey = StorageSystem.GetProperty("apiKey") ?? "";
-        llmConfig.modelId = StorageSystem.GetProperty("modelId") ?? "deepseek-v4-flash-free";
+        llmConfig.modelId = StorageSystem.GetProperty("modelId") ?? "agnes-2.5-flash";
     }
 
     async Task FetchModels()
@@ -103,7 +103,10 @@
             }
             else operException = new Exception($"拉取失败 ({r.StatusCode})");
         }
-        catch (Exception ex) { operException = ex; }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
         finally
         {
             isFetchingModels = false;
@@ -141,6 +144,7 @@
         public string apiKey { get; set; } = "";
         public string modelId { get; set; } = "";
     }
+
 }
 
 <style>

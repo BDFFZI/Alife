@@ -56,27 +56,27 @@ public class TextVectorizer : IAsyncDisposable
     PythonPipeProcess? pythonPipe;
 
     const string PythonCode = """
-        import torch
-        from transformers import AutoModel, AutoTokenizer
+                              import torch
+                              from transformers import AutoModel, AutoTokenizer
 
-        model = None
-        tokenizer = None
-        device = None
+                              model = None
+                              tokenizer = None
+                              device = None
 
-        def init(model_path):
-            global model, tokenizer, device
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            torch_dtype = torch.float16 if device == 'cuda' else torch.float32
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            model = AutoModel.from_pretrained(model_path, torch_dtype=torch_dtype).to(device)
-            model.eval()
-            return f"ready on {device}"
+                              def init(model_path):
+                                  global model, tokenizer, device
+                                  device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                                  torch_dtype = torch.float16 if device == 'cuda' else torch.float32
+                                  tokenizer = AutoTokenizer.from_pretrained(model_path)
+                                  model = AutoModel.from_pretrained(model_path, torch_dtype=torch_dtype).to(device)
+                                  model.eval()
+                                  return f"ready on {device}"
 
-        def embed(text):
-            inputs = tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt").to(device)
-            with torch.no_grad():
-                output = model(**inputs)
-            embedding = output.last_hidden_state[:, 0, :].squeeze().float().cpu().tolist()
-            return embedding
-        """;
+                              def embed(text):
+                                  inputs = tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt").to(device)
+                                  with torch.no_grad():
+                                      output = model(**inputs)
+                                  embedding = output.last_hidden_state[:, 0, :].squeeze().float().cpu().tolist()
+                                  return embedding
+                              """;
 }

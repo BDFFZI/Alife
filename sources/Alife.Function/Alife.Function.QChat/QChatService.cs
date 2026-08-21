@@ -586,6 +586,10 @@ public class QChatService(
                     Random.Shared.NextSingle() < Configuration.ProactiveChatProbability) //群聊未激活时（概率接收）
                 {
                     BufferGroupMessage(messageSource, $"{speaker}:{content}");
+
+                    //遇到满足唤醒条件的群消息，立即发送
+                    if (Configuration.PushOnWakeUp && isAwakening)
+                        FlushGroupMessage(messageSource);
                 }
                 else //未通过发送检测，但缓存消息，作为未来发送时的上下文
                 {

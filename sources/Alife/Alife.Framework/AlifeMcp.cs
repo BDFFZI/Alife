@@ -222,12 +222,12 @@ public class AlifeMcpTools(
                  5. 在插件文件夹增加 cs 文件，参考{{nameof(ReadPluginModuleDemo)}}实现你的功能代码。
                  5. 如果模块用到配置功能，还可通过 {{nameof(SetModuleConfig)}} 功能进行配置设置（可以先{{nameof(GetModuleConfig)}}然后参考着修改）。
                  6. 通过{{nameof(ReloadPlugin)}}编译加载插件，如果异常可以修改 cs 后再次尝试加载，如果要修改依赖则回到步骤2。
-                 7. 加载成功后，编辑角色配置文件(`{角色目录}/index.json`)，将新增模块id(类名`Type.FullName`)填入到`Modules`数组中。
+                 7. 加载成功后，开始进行黑盒测试。创建一个新角色，然后编辑角色配置(`{角色目录}/index.json`)，将新增模块id(类名`Type.FullName`)填入到`Modules`数组中。
                  8. 用{{nameof(ReloadCharacterConfig)}}重载角色配置，并用{{nameof(ListModulesInCharacter)}}验证模块启用。
                  9. 用{{nameof(ActivateCharacter)}}激活角色（如果角色已激活则忽略），然后通过{{nameof(ReadDebugDiagnosticGuide)}}的方法去检查验证活动是否正常。
+                 10. 驱动测试角色进行功能测试，确保功能正常。如果需要调整功能，可以直接编辑源码，然后重新加载插件，插件支持完全的热重载。
 
-                 按官方示例实现的插件支持完全的热重载，包括角色活动时重载功能和提示词，因此完成上述步骤后，模块功能即可生效，可立即与被启用的角色进行交互性测试。
-                 （但具体而言，热重载受插件实现影响（例如没有做好回收工作，导致事件订阅重复）。所以如果出现问题可以尝试重新激活角色，但此过程耗时较长，不建议日常使用）
+                 注意：具体而言，热重载受插件实现影响（例如没有做好回收工作，导致事件订阅重复）。所以如果出现问题可以尝试重新激活角色，但此过程耗时较长，不建议日常使用。
 
                  ## 注意事项
 
@@ -257,7 +257,7 @@ public class AlifeMcpTools(
         return $$"""
                  # Alife 插件贡献指南
 
-                 将你的插件代码打包成zip上传到网络，然后编写一份插件包描述文件，并直接将其提交到插件市场仓库即可。
+                 将你的插件代码打包成zip上传到网络（例如创建一个自己的github仓库用做存储），然后编写一份下方的插件包描述文件，通过pr将其提交到插件市场仓库即可。
 
                  ## 插件市场
 
@@ -304,7 +304,7 @@ public class AlifeMcpTools(
 
                  ## 操作提示
 
-                 - 由于插件市场是一个git仓库，所以为了上传插件，你可以尝试安装一个github-mcp或者任何类似的方式，帮助用户上传插件。
+                 - 如果用户不会github，你可以先引导他帮忙在你的浏览器登入github账号，然后你再操作浏览器用这个账号申请token，接着用token实现仓库创建pr等操作。
                  - 插件市场仓库对于新增或同一提交人的修改，可以直接通过pr，便于你快速分发。
                  - 当你将插件上传市场后，可以调用 {{nameof(RePullPluginMarket)}} 拉取，然后尝试 {{nameof(InstallPlugins)}} 来验证上传成功。
                  """;
@@ -316,7 +316,7 @@ public class AlifeMcpTools(
     {
         return $"""
                 - 当前客户端版本：{pluginSystem.ClientVersion}
-                - 源码地址：https://github.com/BDFFZI/Alife/releases/download/v{pluginSystem.ClientVersion}/Alife.Client.zip
+                - 源码地址：https://github.com/BDFFZI/Alife/archive/refs/tags/v{pluginSystem.ClientVersion}.zip
                 请直接下载该zip然后解压到你的目录，这里面就是源码。
 
                 （如果没有上述文件，则下载：https://github.com/BDFFZI/Alife/archive/refs/heads/develop.zip）
