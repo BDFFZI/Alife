@@ -17,12 +17,12 @@ public record QChatServiceConfig
     public string IgnoredGroup { get; set; } = ""; //完全屏蔽消息的群，不会收到这些群的任何信息，以逗号分隔
     public string WakingWords { get; set; } = ""; //原始群消息中触发开启群消息监听的唤醒词，以逗号分隔
     public float ProactiveChatProbability { get; set; } //收到原始群消息时自动激活群消息监听的概率
-    public bool PushOnWakeUp { get; set; } //遇到满足唤醒条件的消息立即推送缓存的消息
     //群监听缓存
     public int PerBufferSize { get; set; } = 5; //非激活时也始终缓存的消息池大小，当角色激活时会附带发送，使ai可以感知到聊天背景
     public int MaxBufferMessages { get; set; } = -1; //激活状态下的最大群消息暂存数量，发生溢出时会立即推送，-1表示无限
     public float FlushInterval { get; set; } = 12f; //推送倒计时，隔一段时间推送暂存的群消息
     public bool DebounceEnabled { get; set; } //消息防抖，接收消息后重置推送倒计时，继续等待消息
+    public bool PushOnWakeUp { get; set; } //遇到满足唤醒条件的消息立即推送缓存的消息
     //群监听关闭
     public bool CloseGroupAfterReply { get; set; } //AI回复后立即关闭群消息监听
     public float AutoCloseMinutes { get; set; } = 4f; //长时间不触发唤醒条件时，自动关闭群消息监听的时间

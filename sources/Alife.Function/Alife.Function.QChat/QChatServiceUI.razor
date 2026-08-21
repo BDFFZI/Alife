@@ -60,7 +60,8 @@
                             <AntDesign.Text Strong Style="font-size: 16px;">群 @gid2</AntDesign.Text>
                         </SpaceItem>
                         <SpaceItem>
-                            <Tag Color="@(st.IsEnabled ? TagColor.Green : TagColor.Default)">@(st.IsEnabled ? "已激活" : "休眠")</Tag>
+                            <Tag
+                                Color="@(st.IsEnabled ? TagColor.Green : TagColor.Default)">@(st.IsEnabled ? "已激活" : "休眠")</Tag>
                         </SpaceItem>
                         <SpaceItem>
                             <Tag Color="TagColor.Orange">
@@ -89,7 +90,8 @@
                         <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                             激活前缓冲 (@st.PreMessageBuffer.Count):
                         </AntDesign.Text>
-                        <div style="max-height: 80px; overflow-y: auto; background: #f6f8fa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px dashed #d9d9d9; margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">
+                        <div
+                            style="max-height: 80px; overflow-y: auto; background: #f6f8fa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px dashed #d9d9d9; margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">
                             @foreach (var msg in st.PreMessageBuffer)
                             {
                                 <div style="color: #8c8c8c; margin-bottom: 2px;">@msg</div>
@@ -98,15 +100,18 @@
                     </div>
                 }
 
-                <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 12px; display: block; margin-bottom: 4px;">
+                <AntDesign.Text Type="TextElementType.Secondary"
+                                Style="font-size: 12px; display: block; margin-bottom: 4px;">
                     消息缓冲 (@st.MessageBuffer.Count):
                 </AntDesign.Text>
-                <div style="max-height: 200px; overflow-y: auto; background: #fafafa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 12px; word-break: break-all; overflow-wrap: break-word;">
+                <div
+                    style="max-height: 200px; overflow-y: auto; background: #fafafa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 12px; word-break: break-all; overflow-wrap: break-word;">
                     @if (st.MessageBuffer.Count > 0)
                     {
                         @foreach (var msg in st.MessageBuffer)
                         {
-                            <div style="margin-bottom: 4px; border-bottom: 1px solid #f0f0f0; padding-bottom: 2px;">@msg</div>
+                            <div
+                                style="margin-bottom: 4px; border-bottom: 1px solid #f0f0f0; padding-bottom: 2px;">@msg</div>
                         }
                     }
                     else
@@ -123,7 +128,7 @@
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
         <Title Level="4" Style="margin: 0;">聊天配置</Title>
         <div style="display: flex; align-items: center; gap: 8px;">
-            @if (Module is {} qChat)
+            @if (Module is { } qChat)
             {
                 <Badge Status="@(qChat.IsConnected ? BadgeStatus.Success : BadgeStatus.Error)"
                        Text="@(qChat.IsConnected ? "已连接" : "未连接")"/>
@@ -184,7 +189,9 @@
         <Divider>群消息接收开启条件</Divider>
         <FormItem Label="屏蔽群号">
             <Input @bind-Value="@Configuration.IgnoredGroup" Placeholder="每个群号间用英文逗号分隔，如：1111,2222"/>
-            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">上述群号的消息将会被完全屏蔽不可见。</AntDesign.Text>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                上述群号的消息将会被完全屏蔽不可见。
+            </AntDesign.Text>
         </FormItem>
         <FormItem Label="唤醒关键词">
             <Input @bind-Value="@Configuration.WakingWords" Placeholder="每个关键词间用英文逗号分隔，如: 小猫,喵喵"/>
@@ -198,13 +205,6 @@
                                    Style="width: 100%;"/>
             <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 0 表示关闭。收到非@@、非唤醒消息时，会尝试以此概率打开群聊接收。
-            </AntDesign.Text>
-        </FormItem>
-        <FormItem Label="唤醒时立即推送">
-            <Switch @bind-Value="@Configuration.PushOnWakeUp"/>
-            <br/>
-            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                开启后，当群聊条件满足唤醒（被@@、戳一戳或命中唤醒关键词）而激活时，立即将缓存的消息推送给AI。
             </AntDesign.Text>
         </FormItem>
 
@@ -238,6 +238,13 @@
             <br/>
             <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 开启后当收到新的群消息时，会重置发送倒计时。
+            </AntDesign.Text>
+        </FormItem>
+        <FormItem Label="唤醒时立即推送">
+            <Switch @bind-Value="@Configuration.PushOnWakeUp"/>
+            <br/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                开启后，当群聊条件满足唤醒（被@@、戳一戳或命中唤醒关键词）而激活时，立即将缓存的消息推送给AI。
             </AntDesign.Text>
         </FormItem>
 
@@ -309,7 +316,7 @@
 
     async Task Reconnect()
     {
-        if (Module is {} qChat)
+        if (Module is { } qChat)
         {
             isReconnecting = true;
             try

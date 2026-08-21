@@ -19,6 +19,7 @@
     <Project Path="Tests/Alife.Test.FileService/Alife.Test.FileService.csproj" />
     <Project Path="Tests/Alife.Test.Framework/Alife.Test.Framework.csproj" />
     <Project Path="Tests/Alife.Test.Interpreter/Alife.Test.Interpreter.csproj" />
+    <Project Path="Tests/Alife.Test.Memory/Alife.Test.Memory.csproj" />
     <Project Path="Tests/Alife.Test.ProcessManager/Alife.Test.ProcessManager.csproj" />
     <Project Path="Tests/Alife.Test.Python/Alife.Test.Python.csproj" />
     <Project Path="Tests/Alife.Test.PythonPipe/Alife.Test.PythonPipe.csproj" />
