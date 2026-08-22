@@ -55,51 +55,61 @@ public class MemoryManager
         int areaCount = 0;
         for (; contentIndex < chatHistory.Count; contentIndex++)
         {
-            ChatMessageContent currentContent = chatHistory[contentIndex];
-            MemoryMeta currentMemoryMeta = GetMemoryMetaData(currentContent);
+            ChatMessageContent newContent = chatHistory[contentIndex];
+            MemoryMeta newMemoryMeta = GetMemoryMetaData(newContent);
+            int newLevel = newMemoryMeta.Level;
 
-            int currentLevel = currentMemoryMeta.Level;
-            areaCount++;
-
-            if (areaLevel != currentLevel)
+            if (areaLevel < newLevel)
             {
-                if (areaLevel < currentLevel)
+                //检测到逆序记录，需要合并升级来修复
+                if (areaCount == 1)
                 {
-                    //检测到逆序记录，需要合并升级来修复
-                    if (areaCount == 1)
-                        memoryMetaDatas[currentContent] = new MemoryMeta(currentLevel, currentMemoryMeta.StartTime, currentMemoryMeta.EndTime);
-                    else
-                        await CompressArea(areaCount);
-                    return;
+                    //异常区域仅一条记录
+                    ChatMessageContent lastContent = chatHistory[contentIndex - 1];
+                    MemoryMeta lastMemoryMeta = GetMemoryMetaData(lastContent);
+                    memoryMetaDatas[lastContent] = new MemoryMeta(newLevel, lastMemoryMeta.StartTime, lastMemoryMeta.EndTime);
                 }
+                else
+                {
+                    //将异常区域压缩
+                    await CompressArea(areaCount, newLevel, "记忆");
+                }
+                
+                return;
+            }
 
-                //已完成上一个区域过滤，进入一个新区域
-                areaLevel = currentLevel;
+            if (areaLevel != newLevel)
+            {
+                //正常进入新区域
+                areaLevel = newLevel;
                 areaStart = contentIndex;
                 areaCount = 1;
+                continue;
             }
+
+            areaCount++;
 
             if (areaLevel + 1 <= maxCompressionLevel && areaCount >= (areaLevel == 0 ? compressionThreshold : 4)) //压缩记忆
             {
                 int areaCompressionCount = areaLevel == 0 ? compressionCount : 3;
-                await CompressArea(areaCompressionCount);
+                await CompressArea(areaCompressionCount, areaLevel + 1, areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档");
                 return;
             }
 
-            async Task CompressArea(int count)
+            async Task CompressArea(int count, int newLevel, string type)
             {
                 //确认压缩事件段和内容
                 DateTime startTime = GetMemoryMetaData(chatHistory[areaStart]).StartTime;
                 DateTime endTime = GetMemoryMetaData(chatHistory[areaStart + count - 1]).EndTime;
                 string fullContent = PickContent(chatHistory, areaStart, areaStart + count);
 
-                string range = $"从`{startTime}`到`{endTime}`期间的`{(areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档")}`";
+                string range = $"从`{startTime}`到`{endTime}`期间的`{type}`";
                 string? summary = await compressor.Compress(chatHistoryAgentThread, range);
                 if (summary == null)
                     return;
 
                 //插入新增的记忆存档
-                await SaveMemory(areaLevel + 1, startTime, endTime, summary, fullContent, chatHistory, areaStart);
+                await SaveMemory(newLevel, startTime, endTime, summary, fullContent, chatHistory, areaStart);
 
                 //移除被压缩记忆
                 for (int index = areaStart + count; index > areaStart; index--)
