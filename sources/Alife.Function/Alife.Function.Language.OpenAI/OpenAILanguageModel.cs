@@ -52,6 +52,7 @@ public class OpenAILanguageModel(
 
         try
         {
+            TokenUsage tokenUsage = default;
             await foreach (AgentResponseItem<StreamingChatMessageContent> chatMessage in agent.InvokeStreamingAsync(
                                chatHistoryAgentThread, cancellationToken: cancellationToken))
             {
@@ -87,16 +88,17 @@ public class OpenAILanguageModel(
                     {
                         if (usage is ChatTokenUsage chatTokenUsage)
                         {
-                            tokenUsed?.Invoke(new TokenUsage() {
+                            tokenUsage = new TokenUsage() {
                                 Total = chatTokenUsage.TotalTokenCount,
                                 Input = chatTokenUsage.InputTokenCount,
                                 Output = chatTokenUsage.OutputTokenCount,
                                 Cached = chatTokenUsage.InputTokenDetails?.CachedTokenCount ?? 0
-                            });
+                            };
                         }
                     }
                 }
             }
+            tokenUsed?.Invoke(tokenUsage);
         }
         catch (Exception e)
         {
