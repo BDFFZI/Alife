@@ -12,29 +12,32 @@
         </div>
 
         <Flex Direction="FlexDirection.Vertical" Gap="@("16")">
-            @* 状态指示 *@
-            <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
-                @if (Module?.IsRunning == true)
-                {
-                    <Badge Status="BadgeStatus.Processing" Text="正在监听中..."/>
-                }
-                else
-                {
-                    <Badge Status="BadgeStatus.Default" Text="未启用"/>
-                }
-            </Flex>
-
-            @* 实时语音识别开关 *@
-            <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+            @if (Module != null)
+            {
+                @* 状态指示 *@
                 <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
-                    <Switch Checked="@realtimeEnabled"
-                            CheckedChanged="@OnRealtimeToggleChanged"/>
-                    <Text Strong>实时语音识别</Text>
+                    @if (Module.IsRunning)
+                    {
+                        <Badge Status="BadgeStatus.Processing" Text="正在监听中..."/>
+                    }
+                    else
+                    {
+                        <Badge Status="BadgeStatus.Default" Text="未启用"/>
+                    }
                 </Flex>
-                <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
-                    关闭后不再监听麦克风。
-                </Text>
-            </Flex>
+
+                @* 实时语音识别开关 *@
+                <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                    <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                        <Switch Checked="@Module.IsRunning"
+                                CheckedChanged="@OnRealtimeToggleChanged"/>
+                        <Text Strong>启用语音识别</Text>
+                    </Flex>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        关闭后不再监听麦克风。
+                    </Text>
+                </Flex>
+            }
 
             @* 按键说话 *@
             <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
@@ -53,7 +56,7 @@
                             <SelectOption Value="@key" Label="@key"/>
                         }
                     </Select>
-                    @if (Module != null && Module.Configuration?.PushToTalkKey == Configuration.PushToTalkKey && Configuration.PushToTalkKey != null)
+                    @if (Module != null && Module.Configuration.PushToTalkKey == Configuration.PushToTalkKey && Configuration.PushToTalkKey != null)
                     {
                         @if (Module.IsListening)
                         {
@@ -73,28 +76,16 @@
                 <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                     AI回复语音识别消息时，必须包含这些词中的一个，否则会提示回复格式错误。多个标签用逗号分隔。
                 </Text>
-                <Input Value="@string.Join(",", Configuration.ReplyRestrictedWords ?? [])"
+                <Input Value="@string.Join(",", Configuration.ReplyRestrictedWords)"
                        ValueChanged="@((string value) => OnOutputTagsChanged(value))"
                        Placeholder="&lt;speak&gt;"
                        Style="width: 300px;"/>
-            </Flex>
-
-            @* 重置按钮 *@
-            <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
-                <Button Type="@ButtonType.Default" Size="@ButtonSize.Small" OnClick="@ResetRecognizer"
-                        Loading="@isRestarting">重置录音机
-                </Button>
-                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                    当无法进行语音识别时，可以尝试重置录音机。
-                </Text>
             </Flex>
         </Flex>
     </Flex>
 </div>
 
 @code {
-    bool isRestarting;
-    bool realtimeEnabled = true;
     readonly string[] pushToTalkKeys = Enum.GetNames<ConsoleKey>();
 
     protected override void OnInitialized()
@@ -111,7 +102,6 @@
 
     async Task OnRealtimeToggleChanged(bool enabled)
     {
-        realtimeEnabled = enabled;
         if (Module == null)
             return;
 
@@ -128,7 +118,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "切换实时语音识别失败");
+            Logger.LogError(ex, "切换启用语音识别失败");
         }
         finally
         {
@@ -141,27 +131,5 @@
         Configuration.ReplyRestrictedWords = string.IsNullOrWhiteSpace(value)
             ? []
             : [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
-    }
-
-    async Task ResetRecognizer()
-    {
-        if (Module == null)
-            return;
-
-        isRestarting = true;
-        try
-        {
-            Module.StopRecording();
-            await Module.StartRecordingAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "重启录音机失败");
-        }
-        finally
-        {
-            isRestarting = false;
-            await InvokeAsync(StateHasChanged);
-        }
     }
 }
