@@ -8,7 +8,6 @@ using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
-using NAudio.Wave;
 
 namespace Alife.Function.Auditory;
 
@@ -26,7 +25,8 @@ public class AudioRecognitionService(
     public AudioRecognitionServiceConfig Configuration { get; set; } = null!;
 
     //以下属性暴露给 UI 监控
-    public bool IsListeningActive => listeningSampler != null;
+    public bool IsListeningActive => listeningRecorder.IsRecording;
+
     public string PendingPushText
     {
         get
@@ -35,11 +35,12 @@ public class AudioRecognitionService(
                 return pendingPush.ToString();
         }
     }
+
     public double SecondsUntilNextPush
     {
         get
         {
-            if (listeningSampler == null || nextPushTime == DateTime.MinValue)
+            if (listeningRecorder.IsRecording == false || nextPushTime == DateTime.MinValue)
                 return 0;
             double seconds = (nextPushTime - DateTime.Now).TotalSeconds;
             return seconds < 0 ? 0 : seconds;
@@ -107,12 +108,8 @@ public class AudioRecognitionService(
     IAudioRecognizer oneShotRecognizer = null!;
     //主动监听
     IAudioRecognizer listeningRecognizer = null!;
-    IWaveIn? listeningSampler;
-    StreamingResampler? listeningConverter; //system 声（设备 MixFormat）→ 16k mono float；mic 为 null
+    SystemAudioRecorder listeningRecorder = null!; //复用对象化的系统录音器
     OccupationMarker? thinkingOccupationMarker;
-    readonly Lock listeningLock = new(); //音频线程(OnListeningData) 与 关闭时释放 存在跨线程竞态，需串行
-    float[]? convInput; //OnListeningData 字节 → float 复用缓冲
-    float[]? convOutput; //转换器输出复用缓冲
     readonly Lock pendingLock = new(); //识别结果缓存（音频线程写，更新线程读）互斥
     readonly StringBuilder pendingPush = new(); //待合并推送的识别结果
     DateTime nextPushTime; //下一次推送的时间
@@ -122,6 +119,9 @@ public class AudioRecognitionService(
         oneShotRecognizer = audioRecognizerProvider.CreateAudioRecognizer();
         listeningRecognizer = audioRecognizerProvider.CreateAudioRecognizer();
         listeningRecognizer.Recognized += OnListeningRecognized;
+
+        listeningRecorder = new SystemAudioRecorder();
+        listeningRecorder.WaveformReady += OnListeningWaveform;
 
         XmlHandler xmlHandler = new(this) {
             Description = "此服务让你能够识别音频文件，或主动监听系统或麦克风的声音。"
@@ -134,6 +134,8 @@ public class AudioRecognitionService(
     {
         CloseAudioListening();
 
+        listeningRecorder.WaveformReady -= OnListeningWaveform;
+        listeningRecorder.Dispose();
         listeningRecognizer.Recognized -= OnListeningRecognized;
         listeningRecognizer.Dispose();
         oneShotRecognizer.Dispose();
@@ -141,7 +143,7 @@ public class AudioRecognitionService(
     }
     protected override Task OnUpdate()
     {
-        if (listeningSampler != null && DateTime.Now > nextPushTime)
+        if (listeningRecorder.IsRecording && DateTime.Now > nextPushTime)
         {
             TryFlushPendingPush();
 
@@ -158,77 +160,32 @@ public class AudioRecognitionService(
         lock (pendingLock)
             pendingPush.AppendLine(text);
     }
-    void OnListeningData(object? sender, WaveInEventArgs e)
+    void OnListeningWaveform(float[] samples, int count)
     {
-        if (e.BytesRecorded <= 0)
-            return;
-
-        lock (listeningLock)
-        {
-            if (listeningSampler == null)
-                return;
-
-            //字节 → float（复用缓冲，避免分配）
-            int sampleCount = e.BytesRecorded / 4;
-            if (convInput == null || convInput.Length < sampleCount)
-                convInput = new float[sampleCount];
-            Buffer.BlockCopy(e.Buffer, 0, convInput, 0, e.BytesRecorded);
-
-            if (listeningConverter != null)
-            {
-                //system：设备 MixFormat（如 48k 双声道 float）→ 16k mono float，流式零补零
-                if (convOutput == null || convOutput.Length < sampleCount)
-                    convOutput = new float[sampleCount];
-                int converted = listeningConverter.Process(convInput, sampleCount, convOutput);
-                if (converted > 0)
-                    listeningRecognizer.AcceptWaveform(convOutput, converted);
-            }
-            else
-            {
-                //mic：WaveInEvent 已是 16k mono float，直接喂入
-                listeningRecognizer.AcceptWaveform(convInput, sampleCount);
-            }
-        }
+        //系统录音器已统一转为 16k mono float，直接喂入识别器
+        listeningRecognizer.AcceptWaveform(samples, count);
     }
 
     void OpenAudioListening(string source)
     {
-        if (listeningSampler != null)
+        if (listeningRecorder.IsRecording)
             throw new Exception("声音监听已开启，请先关闭");
 
-        //唯一分支：创建采样器（麦克风或系统声）
-        listeningSampler = source == "mic"
-            ? new WaveInEvent { WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1) }
-            : new WasapiLoopbackCapture();
-
-        //system 声是设备 MixFormat（如 48k 双声道 float），需要流式转成 16k mono float；
-        //mic 已是 16k mono float，无需转换。转换在 OnListeningData 中直接完成并喂给识别器。
-        listeningConverter = source == "mic"
-            ? null
-            : new StreamingResampler(listeningSampler.WaveFormat);
-
-        listeningSampler.DataAvailable += OnListeningData;
-        listeningSampler.StartRecording();
+        //对象化的系统录音器：负责采样与转格式，此处仅消费波形
+        listeningRecorder.Start(source);
 
         thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("主动监听声音");
         interactor.Poke($"已开启{source}监听，系统将持续汇报听到的内容");
     }
     void CloseAudioListening()
     {
-        if (listeningSampler == null)
+        if (listeningRecorder.IsRecording == false)
         {
             interactor.Poke("声音监听未开启");
             return;
         }
 
-        lock (listeningLock)
-        {
-            listeningSampler.DataAvailable -= OnListeningData;
-            listeningSampler.StopRecording();
-            listeningSampler.Dispose();
-            listeningSampler = null;
-            listeningConverter = null; //转换器无托管外资源，直接清除引用
-        }
+        listeningRecorder.Stop();
 
         listeningRecognizer.Flush();
         TryFlushPendingPush(); //关闭前把缓存的识别结果一并推送
