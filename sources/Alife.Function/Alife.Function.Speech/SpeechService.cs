@@ -11,7 +11,7 @@ using NAudio.Wave;
 namespace Alife.Function.Speech;
 
 [Module("语音说话",
-    "为AI增加语音转文字输出的能力。",
+    "为AI增加文字转语音输出的能力。",
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(SpeechServiceUI))]
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
