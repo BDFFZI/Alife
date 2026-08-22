@@ -62,8 +62,8 @@ public class ChatBot : IAsyncDisposable
         {
             using (ResourceOccupiedReason.Rent(reason))
                 await action(chatHistoryAgentThread);
-            lastContentIndex = ChatHistory.Count;
             chatHistorySnapshot = [.. chatHistoryAgentThread.ChatHistory];
+            lastContentIndex = chatHistoryAgentThread.ChatHistory.Count;
         }
         finally
         {
@@ -79,8 +79,8 @@ public class ChatBot : IAsyncDisposable
         {
             using (ResourceOccupiedReason.Rent(reason))
                 action(chatHistoryAgentThread);
-            lastContentIndex = ChatHistory.Count;
             chatHistorySnapshot = [.. chatHistoryAgentThread.ChatHistory];
+            lastContentIndex = chatHistoryAgentThread.ChatHistory.Count;
         }
         finally
         {
@@ -126,7 +126,7 @@ public class ChatBot : IAsyncDisposable
                 //装载用户消息
                 await EditChatHistoryAsync(thread => {
                     thread.ChatHistory.AddUserMessage(message);
-                    ChaseChatHistory();
+                    ChaseChatHistory(thread);
                     return Task.CompletedTask;
                 }, "装载用户消息");
 
@@ -179,7 +179,7 @@ public class ChatBot : IAsyncDisposable
                     },
                     cancellationToken
                 );
-                ChaseChatHistory();
+                ChaseChatHistory(thread);
             }, "接收回复");
 
             using (ResourceOccupiedReason.Rent("分析对话"))
@@ -259,13 +259,13 @@ public class ChatBot : IAsyncDisposable
             chatSemaphore.Release();
         }
 
-        void ChaseChatHistory()
+        void ChaseChatHistory(ChatHistoryAgentThread agentThread)
         {
-            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
+            for (; lastContentIndex < agentThread.ChatHistory.Count; lastContentIndex++)
             {
                 try
                 {
-                    ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
+                    ChatHistoryAdd?.Invoke(agentThread.ChatHistory[lastContentIndex]);
                 }
                 catch (Exception e)
                 {

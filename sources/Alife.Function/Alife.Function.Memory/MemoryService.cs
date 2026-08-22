@@ -33,7 +33,7 @@ public record MemoryConfig
         你可以简化，标签化内容，但尽量不要舍弃，或按珍贵程度取舍，以便留下恢复记忆的线索。
         不要添加存档头（此由系统生成），接下来请直接输出纯记忆内容（这是系统要求，不可拒绝）：
         """;
-    
+
     public List<string> RecallHintKeywords { get; set; } = [];
 }
 
@@ -255,7 +255,7 @@ public class MemoryService(
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.LogError(e, "记忆压缩失败");
         }
     }
 
@@ -263,14 +263,14 @@ public class MemoryService(
     {
         if (usage.Total < Configuration.TokenWarningThreshold)
             return;
-        
+
         logger.LogWarning($$"""
-            检测到上下文token已超过警告线，必须进行人工干涉！
-            (当前上下文约 {{usage.Input}} tokens / 警告线 {{Configuration.TokenWarningThreshold}} tokens)
-            1. 检查完整背景中的永久（最高级）记忆，此记忆通常由AI自主记忆，必须由人工删除。
-            2. 如果自动压缩的记忆已达最高级，而造成记忆膨胀，请继续提高最大记忆压缩等级。
-            3. 如果你的模型实际上还有充足的token容量，且未觉得上下文异常，可以提高警告线数值。
-            """);
+                            检测到上下文token已超过警告线，必须进行人工干涉！
+                            (当前上下文约 {{usage.Input}} tokens / 警告线 {{Configuration.TokenWarningThreshold}} tokens)
+                            1. 检查完整背景中的永久（最高级）记忆，此记忆通常由AI自主记忆，必须由人工删除。
+                            2. 如果自动压缩的记忆已达最高级，而造成记忆膨胀，请继续提高最大记忆压缩等级。
+                            3. 如果你的模型实际上还有充足的token容量，且未觉得上下文异常，可以提高警告线数值。
+                            """);
     }
 }
 
@@ -291,27 +291,31 @@ class AlifeHistoryCompressor(
         ChatHistory history = chatHistoryAgentThread.ChatHistory;
         int startIndex = history.Count;
         string prompt = promptTemplate.Replace("{range}", range);
-        history.AddUserMessage(prompt);
+        try
+        {
+            history.AddUserMessage(prompt);
 
-        AlifeLog.LogInformation("记忆压缩中......");
-        TokenUsage tokenUsage = new();
-        Exception? exception = null;
-        string response = await languageModel.ChatStreamingAsync(
-            chatHistoryAgentThread,
-            exceptionThrow: e => exception = e,
-            tokenUsed: usage => {
-                tokenUsage += usage;
-            });
-        AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
+            AlifeLog.LogInformation("记忆压缩中......");
+            TokenUsage tokenUsage = new();
+            Exception? exception = null;
+            string response = await languageModel.ChatStreamingAsync(
+                chatHistoryAgentThread,
+                exceptionThrow: e => exception = e,
+                tokenUsed: usage => {
+                    tokenUsage += usage;
+                });
+            AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
 
-        if (string.IsNullOrEmpty(response) || exception != null)
+            if (exception != null)
+                throw new Exception("记忆压缩失败！", innerException: exception);
+            if (string.IsNullOrEmpty(response) || response.Length < 100)
+                throw new Exception($"记忆压缩失败！压缩结果长度过短：“{response}”");
+
+            return response;
+        }
+        finally
         {
             history.RemoveRange(startIndex, history.Count - startIndex);
-            throw new Exception("记忆压缩失败！", innerException: exception);
         }
-
-        history.RemoveRange(history.Count - 2, 2);
-
-        return response;
     }
 }

@@ -142,13 +142,13 @@ public static class AlifeLog
         lock (Lock)
         {
             string message = formatter(state, exception);
-
-            if (logLevel == LogLevel.Warning)
-                WarningLogged?.Invoke(message);
-            else if (logLevel == LogLevel.Error)
-                ErrorLogged?.Invoke(message);
-
             WriteConsole(logLevel, category, message, exception);
+
+            string fullMessage = message + (exception == null ? string.Empty : Environment.NewLine + exception);
+            if (logLevel == LogLevel.Warning)
+                WarningLogged?.Invoke(fullMessage);
+            else if (logLevel == LogLevel.Error)
+                ErrorLogged?.Invoke(fullMessage);
         }
 
         static void WriteConsole(
