@@ -291,7 +291,7 @@ public class ChatBot : IAsyncDisposable
         while (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
         messageCache.Enqueue(message);
-        lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
+        lastPokeTime = DateTime.Now; //重新计时，防止后续还有Poke
     }
 
 
@@ -307,14 +307,13 @@ public class ChatBot : IAsyncDisposable
     CancellationTokenSource chatBreakSource = new();
     //计时器
     readonly CancellationTokenSource cancelTimerSource = new();
-    int currentTime;
-    int lastAutoFlushTime;
+    DateTime lastPokeTime;
 
     public ChatBot(ILanguageModel languageModel)
     {
         this.languageModel = languageModel;
 
-        StartTimer(1, cancelTimerSource.Token);
+        StartPokePusher(0.7f, cancelTimerSource.Token);
     }
     public async ValueTask DisposeAsync()
     {
@@ -351,22 +350,20 @@ public class ChatBot : IAsyncDisposable
         //发送消息
         Chat($"{PokeMessageTag}\n{poke}");
     }
-    async void StartTimer(int expectedDeltaTime, CancellationToken cancellationToken = default)
+    async void StartPokePusher(float debounceTime, CancellationToken cancellationToken = default)
     {
         try
         {
-            PeriodicTimer periodicTimer = new(TimeSpan.FromSeconds(expectedDeltaTime));
-            while (await periodicTimer.WaitForNextTickAsync(cancellationToken))
+            while (!cancellationToken.IsCancellationRequested)
             {
-                currentTime += expectedDeltaTime;
-                if (currentTime - lastAutoFlushTime > 2)
+                if (DateTime.Now - lastPokeTime > TimeSpan.FromSeconds(debounceTime))
                 {
                     TryFlushMessageCache();
-                    lastAutoFlushTime = currentTime;
+                    lastPokeTime = DateTime.Now;
                 }
+                await Task.Yield();
             }
         }
-        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

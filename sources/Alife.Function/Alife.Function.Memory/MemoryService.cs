@@ -249,8 +249,14 @@ public class MemoryService(
             await ChatBot.EditChatHistoryAsync(async thread => {
                 memoryManager.SaveHistory(thread.ChatHistory);
                 var thinking = Configuration.ThinkingCompress ? ChatBot.LanguageModel.GetThinkingRequester().Rent("记忆压缩") : null;
-                await memoryManager.Filter(thread);
-                thinking?.Dispose();
+                try
+                {
+                    await memoryManager.Filter(thread);
+                }
+                finally
+                {
+                    thinking?.Dispose();
+                }
             }, "存储记忆");
         }
         catch (Exception e)
