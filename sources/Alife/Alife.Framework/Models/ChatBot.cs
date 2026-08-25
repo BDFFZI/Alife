@@ -288,8 +288,11 @@ public class ChatBot : IAsyncDisposable
     }
     public void Poke(string message)
     {
-        while (messageCache.Count > 11)
+        if (messageCache.Any(s => s == message))
+            return;
+        if (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
+        
         messageCache.Enqueue(message);
         lastPokeTime = DateTime.Now; //重新计时，防止后续还有Poke
     }
@@ -313,7 +316,7 @@ public class ChatBot : IAsyncDisposable
     {
         this.languageModel = languageModel;
 
-        StartPokePusher(0.7f, cancelTimerSource.Token);
+        StartPokePusher(0.5f, cancelTimerSource.Token);
     }
     public async ValueTask DisposeAsync()
     {
@@ -333,7 +336,7 @@ public class ChatBot : IAsyncDisposable
 
         //组合消息
         StringBuilder stringBuilder = new();
-        foreach (string message in messageCache.Distinct())
+        foreach (string message in messageCache)
             stringBuilder.AppendLine(message);
         string poke = stringBuilder.ToString().Trim();
         messageCache.Clear();
@@ -354,14 +357,12 @@ public class ChatBot : IAsyncDisposable
     {
         try
         {
+            TimeSpan timeSpan = TimeSpan.FromSeconds(debounceTime);
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (DateTime.Now - lastPokeTime > TimeSpan.FromSeconds(debounceTime))
-                {
+                if (DateTime.Now - lastPokeTime > timeSpan)
                     TryFlushMessageCache();
-                    lastPokeTime = DateTime.Now;
-                }
-                await Task.Yield();
+                await Task.Delay(timeSpan, cancellationToken);
             }
         }
         catch (Exception e)
