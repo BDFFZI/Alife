@@ -274,11 +274,11 @@ public class PluginContext(
         if (!allPluginManifests.TryGetValue(pluginId, out PluginManifest pluginManifest))
             throw new Exception($"未找到插件环境信息，请先使用 {nameof(SyncPluginEnvironment)} 同步环境。");
 
-        string[] codeFiles = Directory.GetFiles(pluginDirectory, "*.cs", SearchOption.AllDirectories);
+        string[] codeFiles = GetPluginFiles(pluginDirectory, "*.cs");
         if (codeFiles.Length == 0)
             throw new Exception("插件目录中不存在 cs 文件，请确认插件是否真的需要编译代码，且代码文件放在了插件目录中。");
 
-        HashSet<string> dllFiles = Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories).ToHashSet();
+        HashSet<string> dllFiles = GetPluginFiles(pluginDirectory, "*.dll").ToHashSet();
         DependencyResolver pluginDependencyResolver = new();
         AddDependencies(pluginManifest);
 
@@ -314,7 +314,7 @@ public class PluginContext(
 
         string pluginDirectory = GetPluginDirectoryPath(pluginId);
         //添加需要编译的dll
-        if (Directory.GetFiles(pluginDirectory, "*.cs", SearchOption.AllDirectories).Length > 0)
+        if (GetPluginFiles(pluginDirectory, "*.cs").Length > 0)
         {
             string pluginCompiledDllPath = GetPluginCompiledDllPath(pluginId);
             if (AlifeUtility.IsValidDll(pluginCompiledDllPath, out _) == false)
@@ -323,8 +323,37 @@ public class PluginContext(
         }
 
         //添加插件自带的dll
-        result.AddRange(Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories));
+        result.AddRange(GetPluginFiles(pluginDirectory, "*.dll"));
 
         return result;
+    }
+
+    /// <summary>
+    /// 枚举插件目录下的源码或 dll 文件。
+    /// 跳过 bin、obj 等构建输出目录，避免重复加载项目自身构建出的程序集；
+    /// 但保留 obj 下 generated 目录（razor 编译生成的 g.cs），以支持含 razor 的插件项目作为热更新源码加载。
+    /// </summary>
+    static string[] GetPluginFiles(string path, string searchPattern)
+    {
+#if DEBUG
+        return Directory.EnumerateFiles(path, searchPattern, SearchOption.AllDirectories)
+            .Where(file => {
+                string relativeDir = Path.GetDirectoryName(file)![path.Length..]
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (relativeDir.Contains("Debug", StringComparison.OrdinalIgnoreCase) &&
+                    relativeDir.Contains("generated", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (relativeDir.Contains("bin", StringComparison.OrdinalIgnoreCase) ||
+                    relativeDir.Contains("obj", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                return true;
+            })
+            .ToArray();
+#else
+        return Directory.GetFiles(path, searchPattern, SearchOption.AllDirectories);
+#endif
     }
 }

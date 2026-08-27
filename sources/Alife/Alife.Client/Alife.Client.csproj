@@ -25,10 +25,6 @@
         <ProjectReference Include="..\Alife.PluginMarket\Alife.PluginMarket.csproj"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <ProjectReference Include="..\..\Alife.Function\**\*.csproj"/>
-    </ItemGroup>
-
     <ItemGroup>
         <Content Include="alife-icon.ico">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
