@@ -166,7 +166,7 @@ public class ChatActivity(
             container.UnRegisterBuilder(moduleType);
 
         object[] invalidModules = container.Instances
-            .Where(instance => TypeUtility.IsRelatedInstance(instance, moduleTypes))
+            .Where(instance => TypeUtility.IsInstanceUsingType(instance, moduleTypes))
             .ToArray();
 
         foreach (object instance in invalidModules.Reverse())
@@ -189,14 +189,6 @@ public class ChatActivity(
 
         foreach (Type moduleType in enabledModuleTypes)
             await container.RequireInstance(moduleType);
-
-        object[] invalidModules = container.Instances.Where(instance =>
-            ModuleSystem.IsModule(instance.GetType()) &&
-            TypeUtility.IsRelatedInstance(instance, enabledModuleTypes) == false
-        ).ToArray();
-
-        foreach (object instance in invalidModules.Reverse())
-            await container.RemoveInstance(instance);
     }
 
     void ResetModuleBuilder(out Type[] enabledModuleTypes)

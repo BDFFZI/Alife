@@ -9,7 +9,7 @@ namespace Alife.Framework;
 
 public static class TypeUtility
 {
-    public static bool IsRelatedInstance(object instance, IList<Type> targetTypes)
+    public static bool IsInstanceUsingType(object instance, IList<Type> targetTypes)
     {
         //直接目标类型
         Type instanceType = instance.GetType();

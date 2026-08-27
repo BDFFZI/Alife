@@ -11,7 +11,7 @@
         <ElectronIcon>alife-icon.ico</ElectronIcon>
         <SelfContained>true</SelfContained>
         <PublishSelfContained>true</PublishSelfContained>
-        <Version>4.2.6</Version>
+        <Version>4.3.0</Version>
     </PropertyGroup>
 
     <ItemGroup>

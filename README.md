@@ -183,7 +183,9 @@ alife-mcp 提供了完整的对 Alife 框架的所有控制功能：
 
 https://github.com/BDFFZI/Alife.PluginMarket
 
-Alife 是全插件框架，所以你可以在这里浏览 Alife 中目前真正支持的所有功能。
+Alife 是全插件框架，并支持通过在线市场分享自己的插件。在这里，你可以看到 Alife 中目前真正支持的所有功能。 
+
+如果你也想参与贡献，同样请使用 alife-mcp，如何上传插件的文档也在其中。
 
 ---
 

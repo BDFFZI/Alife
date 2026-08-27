@@ -1,23 +1,28 @@
 @using Alife.PluginMarket
 @inject PluginSystem PluginSystem
 @inject IJSRuntime JsRuntime
+@inject StorageSystem StorageSystem
 @implements IAsyncDisposable
 
-<div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;">
+<div style="height: 100%; overflow: hidden; display: flex; flex-direction: column; background: #fafafa;"
+     xmlns="http://www.w3.org/1999/html">
     @* 标题栏 *@
     <div
         style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff;">
-        <Title Level="4" Style="margin: 0;">插件市场</Title>
+        <div style="display: flex; align-items: center; gap: 4px;">
+            <Title Level="4" Style="margin: 0;">插件市场</Title>
+            <Tooltip Title="使用插件前必读的安全须知">
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.InfoCircle" OnClick="@(() => showNoticeModal = true)"
+                        Class="@("notice-btn" + (showNoticeModal || hideNoticeAnimation ? " notice-paused" : ""))">
+                    使用须知
+                </Button>
+            </Tooltip>
+        </div>
         <Flex Gap="@("12")" Align="FlexAlign.Center">
             <RadioGroup TValue="string" Value="@viewMode" ValueChanged="@(ChangeViewMode)">
                 <Radio Value="@("all")">全部插件</Radio>
                 <Radio Value="@("installed")">已安装</Radio>
             </RadioGroup>
-            <Tooltip Title="上传自己的插件或用Issue反馈已有插件的问题">
-                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.PlusCircle" OnClick="@OpenContributePage">
-                    贡献反馈插件
-                </Button>
-            </Tooltip>
             <Tooltip Title="重载插件市场">
                 <Button Type="@ButtonType.Link" Icon="@IconType.Outline.CloudDownload" OnClick="@FetchOnlinePlugin"
                         Loading="isFetching"></Button>
@@ -193,7 +198,55 @@
             transform: rotate(8deg) scale(1.1);
         }
     }
+
+    .notice-btn {
+        color: #fa8c16 !important;
+        animation: upgrade-bounce 1s ease-in-out infinite;
+        transform-origin: center bottom;
+    }
+
+    .notice-btn:hover {
+        animation: none;
+        transform: scale(1.1);
+    }
+
+    .notice-paused {
+        animation: none !important;
+    }
 </style>
+
+@* 使用须知弹窗 *@
+<Modal Title="使用须知"
+       Visible="showNoticeModal"
+       OnCancel="@(() => showNoticeModal = false)"
+       Footer="null"
+       Width="560"
+       Centered="true">
+    <div style="height: 420px; overflow-y: auto; line-height: 1.9; font-size: 14px;">
+        <Alert Message="插件极其危险" Description="任何人都可以开发插件，因此要小心存在不法分子的情况。优先选择熟知，来源可信，结构干净的插件。启用前，也一定要先让 AI 分析其源码，然后谨慎使用。如果遇到有问题的插件，请及时在 Github 页或用其他途径向官方反馈。"
+               Type="@AlertType.Error" ShowIcon="true" Style="margin-bottom: 16px;"/>
+        <Divider Style="margin: 16px 0;"/>
+        <div style="padding: 4px 0;">
+            <div style="font-weight: 600; font-size: 15px; margin-bottom: 8px;">自己开发和贡献插件</div>
+            <div style="color: rgba(0,0,0,0.65);">
+                如果想自己开发和贡献插件，请参考：
+                <br/>
+                <a href="https://github.com/BDFFZI/Alife#-%E6%8F%92%E4%BB%B6%E5%BC%80%E5%8F%91-plugin-development"
+                   target="_blank" style="color: #1890ff; word-break: break-all;">
+                    https://github.com/BDFFZI/Alife#-插件开发-plugin-development
+                </a>
+            </div>
+        </div>
+        <Divider Style="margin: 16px 0;"/>
+        <Checkbox @bind-Value="hideNoticeAnimation" OnChange="@OnHideNoticeAnimationChanged"
+                  Style="color: rgba(0,0,0,0.65);">
+            我已知晓，不再提醒
+        </Checkbox>
+    </div>
+    <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+        <Button Type="@ButtonType.Primary" OnClick="@(() => showNoticeModal = false)">我知道了</Button>
+    </div>
+</Modal>
 
 <ErrorWindowUI @bind-Value="@operException"/>
 
@@ -222,9 +275,12 @@
 
     List<PluginPackage> cartItems = [];
     bool showCartModal;
+    bool showNoticeModal;
+    bool hideNoticeAnimation;
 
     protected override void OnInitialized()
     {
+        hideNoticeAnimation = StorageSystem.GetObject("Settings/PluginNoticeConfig", new NoticeAnimationConfig())?.HideNoticeAnimation ?? false;
         UpdatePluginOptions();
         PluginSystem.PluginSynced += OnPluginSynced;
     }
@@ -428,13 +484,6 @@
     }
 
     #region 页面功能回调
-    void OpenContributePage()
-    {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
-            FileName = "https://github.com/BDFFZI/Alife.PluginMarket",
-            UseShellExecute = true
-        });
-    }
     void OpenPluginFolder()
     {
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
@@ -452,7 +501,20 @@
         currentPage = args.Page;
         PagePlugins();
     }
+
+void OnHideNoticeAnimationChanged(bool checkedValue)
+    {
+        var config = StorageSystem.GetObject("Settings/PluginNoticeConfig", new NoticeAnimationConfig()) ?? new NoticeAnimationConfig();
+        config.HideNoticeAnimation = hideNoticeAnimation;
+        StorageSystem.SetObject("Settings/PluginNoticeConfig", config);
+        StateHasChanged();
+    }
     #endregion
+
+    class NoticeAnimationConfig
+    {
+        public bool HideNoticeAnimation { get; set; }
+    }
 
     #region 插件选项回调
     void ToggleCart(PluginPackage plugin, bool addToCart)
