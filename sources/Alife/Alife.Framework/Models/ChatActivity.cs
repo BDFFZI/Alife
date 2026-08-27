@@ -26,66 +26,28 @@ public class ChatActivity(
 
     public async Task Awake(IProgress<(string, float)>? progress = null)
     {
-        //解析用户启用的模块
-        Type[] enabledModuleTypes = character.Modules
-            .Select(moduleSystem.GetModule)
-            .Where(t => t != null).Cast<Type>()
-            .OrderBy(t => ModuleSystem.GetModuleAttribute(t)!.LaunchOrder)
-            .ToArray();
+        //创建服务容器
+        container = new();
+
+        //添加现有系统
+        if (appendServices != null)
+        {
+            foreach (var appendService in appendServices)
+                await container.AddInstance(appendService);
+        }
+
+        //添加模块构建器
+        ResetModuleBuilder(out Type[] enabledModuleTypes);
 
         //创建基础环境
         {
-            //创建服务容器
-            container = new();
-            //添加现有系统
-            if (appendServices != null)
-            {
-                foreach (var appendService in appendServices)
-                    await container.AddInstance(appendService);
-            }
-
-            //添加可选工具
-            {
-                //logger功能
-                container.RegisterBuilder(typeof(LoggerFactory), _ =>
-                    Task.FromResult<object>(LoggerFactory.Create(builder => {
-                        builder.SetMinimumLevel(LogLevel.Information);
-                        builder.AddProvider(new AlifeLogProvider());
-                    }))
-                );
-                container.RegisterBuilder(typeof(Logger<>));
-                //interactor功能
-                container.RegisterBuilder(typeof(Interactor<>));
-            }
-            //添加用户模块（先插入优先级高）
-            foreach (Type moduleType in enabledModuleTypes)
-                container.RegisterBuilder(moduleType);
-            //添加全部模块（后备模块）
-            foreach (Type moduleType in moduleSystem.GetAllModules())
-            {
-                if (enabledModuleTypes.Contains(moduleType) == false)
-                    container.RegisterBuilder(moduleType);
-            }
-
             //创建chatbot
             progress?.Report(($"构造 {TypeUtility.GetReadableName(typeof(ChatBot))} 模块", 0));
             container.RegisterBuilder(typeof(ChatBot));
             ChatBot = (ChatBot)await container.RequireInstance(typeof(ChatBot));
-            //填充人设
-            ChatBot.EditChatHistory(thread => {
-                thread.ChatHistory.AddSystemMessage(
-                    $"""
-                     这是你的人物信息：
-                     - 名称：{character.Name}
-                     - 生日：{character.Birthday}
-                     - 简介：{character.Description}
-                     - 设定：
-                     {character.Prompt}
 
-                     这是你的私人文件夹：
-                     {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
-                     """);
-            }, "注入初始人设");
+            //填充人设
+            ResetCharacterPrompt();
 
             //创建用户显式启用的模块
             for (int index = 0; index < enabledModuleTypes.Length; index++)
@@ -117,7 +79,7 @@ public class ChatActivity(
             {
                 if (instance is IConfigurable configurable)
                 {
-                    object configData = configurationSystem.GetConfiguration(instance.GetType(), character.StorageKey)!;
+                    object configData = configurationSystem.GetConfiguration(instance.GetType(), character.StorageKey);
                     configurable.Configuration = configData;
                 }
 
@@ -132,7 +94,6 @@ public class ChatActivity(
         moduleSystem.ModulesUnloadedAsync += OnModulesUnloadedAsync;
         characterSystem.CharacterChangedAsync += OnCharacterChangedAsync;
     }
-
     public async Task Start(IProgress<(string, float)>? progress = null)
     {
         //启动模块
@@ -203,27 +164,18 @@ public class ChatActivity(
     {
         foreach (Type moduleType in moduleTypes)
             container.UnRegisterBuilder(moduleType);
-        
-        object[] invalidModules = container.Instances.Where(instance => {
-            Type moduleType = instance.GetType();
-            if (moduleTypes.Contains(moduleType))
-                return true;
-            if (moduleType.IsGenericType && moduleType.GenericTypeArguments.Any(moduleTypes.Contains))
-                return true;
-            return false;
-        }).ToArray();
-        
-        foreach (object instance in invalidModules)
-            container.RemoveInstance(instance);
 
-        await TypeUtility.DisposeObjects(invalidModules);
+        object[] invalidModules = container.Instances
+            .Where(instance => TypeUtility.IsRelatedInstance(instance, moduleTypes))
+            .ToArray();
+
+        foreach (object instance in invalidModules.Reverse())
+            await container.RemoveInstance(instance);
     }
     async Task OnModulesLoadedAsync(List<Type> moduleTypes)
     {
-        Type[] enabledModuleTypes = moduleTypes.Where(type => Character.Modules.Contains(ModuleSystem.GetModuleID(type))).ToArray();
+        ResetModuleBuilder(out Type[] enabledModuleTypes);
 
-        foreach (Type moduleType in enabledModuleTypes)
-            container.RegisterBuilder(moduleType);
         foreach (Type moduleType in enabledModuleTypes)
             await container.RequireInstance(moduleType);
     }
@@ -232,12 +184,76 @@ public class ChatActivity(
         if (reloadedCharacter != character)
             return;
 
-        Type[] enabledModuleTypes = reloadedCharacter.Modules
-            .Select(moduleSystem.GetModule).Where(type => type != null).Cast<Type>()
-            .Except(container.Instances.Select(instance => instance.GetType())).ToArray();
-        foreach (Type moduleType in enabledModuleTypes)
-            container.RegisterBuilder(moduleType);
+        ResetModuleBuilder(out Type[] enabledModuleTypes);
+        ResetCharacterPrompt();
+
         foreach (Type moduleType in enabledModuleTypes)
             await container.RequireInstance(moduleType);
+
+        object[] invalidModules = container.Instances.Where(instance =>
+            ModuleSystem.IsModule(instance.GetType()) &&
+            TypeUtility.IsRelatedInstance(instance, enabledModuleTypes) == false
+        ).ToArray();
+
+        foreach (object instance in invalidModules.Reverse())
+            await container.RemoveInstance(instance);
+    }
+
+    void ResetModuleBuilder(out Type[] enabledModuleTypes)
+    {
+        container.ClearBuilders();
+
+        //添加可选工具
+        {
+            //logger功能
+            container.RegisterBuilder(typeof(LoggerFactory), _ =>
+                Task.FromResult<object>(LoggerFactory.Create(builder => {
+                    builder.SetMinimumLevel(LogLevel.Information);
+                    builder.AddProvider(new AlifeLogProvider());
+                }))
+            );
+            container.RegisterBuilder(typeof(Logger<>));
+            //interactor功能
+            container.RegisterBuilder(typeof(Interactor<>));
+        }
+
+        //解析用户启用的模块
+        enabledModuleTypes = character.Modules
+            .Select(moduleSystem.GetModule)
+            .Where(t => t != null).Cast<Type>()
+            .OrderBy(t => ModuleSystem.GetModuleAttribute(t)!.LaunchOrder)
+            .ToArray();
+
+        //添加用户模块（先插入优先级高）
+        foreach (Type moduleType in enabledModuleTypes)
+            container.RegisterBuilder(moduleType);
+
+        //添加全部模块（后备模块）
+        foreach (Type moduleType in moduleSystem.GetAllModules())
+        {
+            if (enabledModuleTypes.Contains(moduleType) == false)
+                container.RegisterBuilder(moduleType);
+        }
+    }
+    void ResetCharacterPrompt()
+    {
+        string prompt = $"""
+                         这是你的人物信息：
+                         - 名称：{character.Name}
+                         - 生日：{character.Birthday}
+                         - 简介：{character.Description}
+                         - 设定：
+                         {character.Prompt}
+
+                         这是你的私人文件夹：
+                         {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
+                         """;
+
+        ChatBot.EditChatHistory(thread => {
+            if (thread.ChatHistory.Count == 0)
+                thread.ChatHistory.AddSystemMessage(prompt);
+            else
+                thread.ChatHistory[0].Content = prompt;
+        }, "注入初始人设");
     }
 }

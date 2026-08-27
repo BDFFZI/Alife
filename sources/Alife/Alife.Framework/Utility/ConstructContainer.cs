@@ -11,6 +11,11 @@ public class ConstructContainer
     public IReadOnlyList<object> Instances => instances;
     public event Func<object, Task>? InstanceCreated;
 
+    public void ClearBuilders()
+    {
+        types.Clear();
+    }
+
     public void RegisterBuilder(Type type, Func<Type, Task<object>>? builder = null, bool isSingleton = true)
     {
         types.Add((type, builder ?? DefaultBuilder, isSingleton));
@@ -38,8 +43,11 @@ public class ConstructContainer
         }
     }
 
-    public void RemoveInstance(object instance)
+    public async Task RemoveInstance(object instance)
     {
+        if (isOwned.Contains(instance))
+            await TypeUtility.DisposeObject(instance);
+
         instances.Remove(instance);
         isOwned.Remove(instance);
     }

@@ -9,6 +9,30 @@ namespace Alife.Framework;
 
 public static class TypeUtility
 {
+    public static bool IsRelatedInstance(object instance, IList<Type> targetTypes)
+    {
+        //直接目标类型
+        Type instanceType = instance.GetType();
+        if (targetTypes.Contains(instanceType))
+            return true;
+
+        //通过泛型引用
+        if (instanceType.IsGenericType && instanceType.GenericTypeArguments.Any(targetTypes.Contains))
+            return true;
+
+        //通过接口引用
+        ConstructorInfo? constructor = instanceType.GetConstructors().SingleOrDefault();
+        if (constructor != null)
+        {
+            foreach (var parameterInfo in constructor.GetParameters())
+            {
+                if (targetTypes.Any(parameterInfo.ParameterType.IsAssignableFrom))
+                    return true;
+            }
+        }
+
+        return false;
+    }
     public static string GetReadableName(Type type)
     {
         DisplayNameAttribute? displayNameAttribute = type.GetCustomAttribute<DisplayNameAttribute>();
