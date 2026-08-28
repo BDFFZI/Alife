@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>陪玩数据</title>
+  <link rel="stylesheet" href="float-style.css" />
+</head>
+<body>
+  <!-- 悬浮球（收起态） -->
+  <div id="ball" class="ball" title="展开陪玩数据">
+    <div class="ball-icon">✦</div>
+    <div id="ball-dot" class="ball-dot"></div>
+  </div>
+
+  <!-- 展开面板 -->
+  <div id="panel" class="panel">
+<div class="panel-head" id="panel-head">
+      <span class="panel-title" id="float-title">陪玩数据</span>
+      <span id="float-status" class="fstatus off">未运行</span>
+    </div>
+    <div class="panel-body" id="float-values">
+      <div class="empty">暂无数据</div>
+    </div>
+
+    <!-- 底部控制：选择游戏 / 开启 / 关闭 / 参数编辑 -->
+    <div class="panel-control">
+      <div class="ctrl-row">
+        <span class="ctrl-help" id="ctrl-help">?<span class="help-tip">
+          <b>运行中不可切换配置</b>：陪玩进行中无法切换游戏或修改该面板的启动项，需先「关闭陪玩」。<br/>
+          <b>推送条件</b>：只有当全部「陪玩验证器」的采样器均有数据（CurrentValue 非空）时，才会把变化推送给 AI。<br/>
+          <b>蓝条=防抖</b>（左侧填充，满格可推），<b>橙条=过期</b>（右侧填充，非强制且满格则静默丢弃）。
+        </span></span>
+        <select id="game-select"></select>
+        <button id="btn-start" class="pf primary">开启陪玩</button>
+        <button id="btn-stop" class="pf danger">关闭陪玩</button>
+      </div>
+      <div class="ctrl-row">
+        <label class="ov-label"><input type="checkbox" id="btn-overlay-view" /> 显示覆盖层</label>
+        <button id="btn-open-config" class="pf">打开配置目录</button>
+        <button id="btn-refresh-config" class="pf">刷新配置</button>
+        <button id="btn-edit" class="pf">编辑陪玩配置</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="bridge.js"></script>
+  <script src="float.js"></script>
+</body>
+</html>

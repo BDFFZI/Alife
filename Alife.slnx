@@ -48,6 +48,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.FunctionCaller/Alife.Function.FunctionCaller.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Mcp/Alife.Function.Mcp.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Skill/Alife.Function.Skill.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.GameCompanion/Alife.Function.GameCompanion.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Instrument/">
     <Project Path="Sources/Alife.Function/Alife.Function.Browser/Alife.Function.Browser.csproj" />

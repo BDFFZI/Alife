@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>区域编辑器</title>
+  <link rel="stylesheet" href="overlay-style.css" />
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="hud">
+    <div class="hud-title">陪玩区域编辑器</div>
+    <select id="item-select"></select>
+    <div id="coord">未选中区域</div>
+    <div class="hud-hint">在屏幕上拖拽矩形调整区域；拖动顶点缩放；像素点位直接拖动十字标记。</div>
+    <div class="hud-buttons">
+      <button id="btn-finish">完成 (Esc)</button>
+    </div>
+  </div>
+  <script src="bridge.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>
