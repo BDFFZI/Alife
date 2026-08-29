@@ -1,0 +1,15 @@
+{
+  "Version": "1.3.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": "",
+    "Alife.Function.AIModelUtility": "",
+    "Alife.Function.Auditory": "",
+    "Alife.Function.Vision": "",
+    "Alife.Function.MessageFilter": ""
+  },
+  "Environments": {
+    "nuget": {
+      "Microsoft.Windows.SDK.NET.Ref": ""
+    }
+  }
+}

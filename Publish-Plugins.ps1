@@ -87,7 +87,7 @@ New-Item -ItemType Directory -Path $PluginBuildRoot -Force | Out-Null
 
 $functionDirs = Get-ChildItem (Join-Path $Src "Alife.Function") -Directory |
     Where-Object {
-        $_.Name -match '^Alife\.Function\.' -and
+        $_.Name -match '^(Alife\.Function\.|BDFFZI\.)' -and
         (Test-Path -LiteralPath (Join-Path $_.FullName "$($_.Name).csproj"))
     }
 
