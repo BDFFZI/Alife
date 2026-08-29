@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Alife.Function.GameCompanion.Collectors;
+namespace Alife.Function.GameCompanion.Collector;
 
 /// <summary>
 /// 采样器配置列表的 JSON 转换：外部以「{ Name, Sampler, Config }」包装持久化
@@ -19,6 +19,32 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
         {
             foreach (CollectConfigBase config in value)
             {
+                // 占位配置：直接输出保留的原始数据，不走 FromObject
+                if (config is PlaceholderCollectConfig placeholder)
+                {
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("Name");
+                    writer.WriteValue(placeholder.Name);
+                    writer.WritePropertyName("IsEnable");
+                    writer.WriteValue(placeholder.IsEnable);
+                    writer.WritePropertyName("IsValidator");
+                    writer.WriteValue(placeholder.IsValidator);
+                    writer.WritePropertyName("DebounceSeconds");
+                    writer.WriteValue(placeholder.DebounceSeconds);
+                    writer.WritePropertyName("ExpireSeconds");
+                    writer.WriteValue(placeholder.ExpireSeconds);
+                    writer.WritePropertyName("ForcePush");
+                    writer.WriteValue(placeholder.ForcePush);
+                    writer.WritePropertyName("Prerequisite");
+                    writer.WriteValue(placeholder.Prerequisite ?? "");
+                    writer.WritePropertyName("Sampler");
+                    writer.WriteValue(placeholder.SamplerName);
+                    writer.WritePropertyName("Config");
+                    placeholder.RawConfig.WriteTo(writer);
+                    writer.WriteEndObject();
+                    continue;
+                }
+
                 writer.WriteStartObject();
                 writer.WritePropertyName("Name");
                 writer.WriteValue(config.Name);
@@ -32,6 +58,8 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
                 writer.WriteValue(config.ExpireSeconds);
                 writer.WritePropertyName("ForcePush");
                 writer.WriteValue(config.ForcePush);
+                writer.WritePropertyName("Prerequisite");
+                writer.WriteValue(config.Prerequisite ?? "");
                 writer.WritePropertyName("Sampler");
                 writer.WriteValue(CollectorRegistry.TypeName(config));
                 writer.WritePropertyName("Config");
@@ -42,6 +70,7 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
                 data.Remove("DebounceSeconds");
                 data.Remove("ExpireSeconds");
                 data.Remove("ForcePush");
+                data.Remove("Prerequisite");
                 data.WriteTo(writer);
                 writer.WriteEndObject();
             }
@@ -80,6 +109,9 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
             config.ForcePush = entry["ForcePush"]?.Value<bool>()
                 ?? data?["ForcePush"]?.Value<bool>()
                 ?? false;
+            string? prereq = entry["Prerequisite"]?.ToString()
+                ?? data?["Prerequisite"]?.ToString();
+            config.Prerequisite = string.IsNullOrEmpty(prereq) ? null : prereq;
             list.Add(config);
         }
         return list;

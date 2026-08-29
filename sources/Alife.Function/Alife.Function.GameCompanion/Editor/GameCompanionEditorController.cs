@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.GameCompanion.Collectors;
+using Alife.Function.GameCompanion.Collector;
 using Alife.Function.GameCompanion.Screen;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
@@ -160,14 +160,6 @@ public sealed class GameCompanionEditorController : IDisposable
 
         if (floatWindow != null && !await floatWindow.IsDestroyedAsync())
         {
-            // 强制复位为收起小球状态：避免上次手动展开未收起就重启/重载导致
-            // 透明大矩形残留挡住鼠标（用户需再点一次才纠正，这里主动复位）
-            SwitchFloatState(true);
-            try
-            {
-                Electron.IpcMain.Send(floatWindow, "companion:float-reset-collapsed");
-            }
-            catch { }
             floatWindow.Show();
             return;
         }

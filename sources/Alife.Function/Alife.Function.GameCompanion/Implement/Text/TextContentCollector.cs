@@ -1,9 +1,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Function.GameCompanion.Collector;
 using Alife.Function.GameCompanion.Screen;
 
-namespace Alife.Function.GameCompanion.Collectors;
+namespace Alife.Function.GameCompanion.Implement;
 
 /// <summary>
 /// 文本内容采样器：OCR 识别指定区域，经正则过滤后输出文本。
@@ -11,25 +12,17 @@ namespace Alife.Function.GameCompanion.Collectors;
 /// <see cref="DebugValue"/> 为过滤前的原始识别文本。值变化时标记更新时间供防抖。
 /// 有效 = 识别到非空文本且命中过滤。
 /// </summary>
-public sealed class TextContentCollector(TextContentConfig config) : CollectorBase
+[Collector(typeof(TextContentConfig), "文本内容",
+    Ui = """
+        <div class="t-specific-row"><label>OCR 区域</label><span data-region="Region"></span></div>
+        <div class="t-specific-row"><label>内容要求</label><input data-regex="RegexFilter" placeholder="正则表达式，如 \\d+" /></div>
+        """)]
+public sealed class TextContentCollector(TextContentConfig config) : Collector.CollectorBase
 {
     string? value;
     string? debugValue;
 
-    static TextContentCollector()
-    {
-        CollectorRegistry.Register<TextContentConfig>(
-            "文本内容",
-            cfg => new TextContentCollector(cfg),
-            cfg => !cfg.Region.IsEmpty,
-            ui: """
-                <div class="t-specific-row"><label>OCR 区域</label><span data-region="Region"></span></div>
-                <div class="t-specific-row"><label>内容要求</label><input data-regex="RegexFilter" placeholder="正则表达式，如 \\d+" /></div>
-                """);
-    }
-
-    public override string Name => config.Name;
-    public override double DebounceSeconds => config.DebounceSeconds;
+    public override CollectConfigBase Config => config;
     public override string? Value => value;
     public override string? DebugValue => debugValue;
 

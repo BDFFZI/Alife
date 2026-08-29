@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Function.GameCompanion.Collectors;
+using Alife.Function.GameCompanion.Collector;
 using Alife.Function.GameCompanion.Screen;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -32,7 +32,7 @@ public sealed class GameMonitor
     sealed class CollectorEntry
     {
         public required string Signature;
-        public required CollectorBase Instance;
+        public required CollectorState State;
     }
 
     readonly ILogger logger;
@@ -42,7 +42,7 @@ public sealed class GameMonitor
     readonly Action<MonitorSnapshot>? onData;
     readonly Dictionary<string, CollectorEntry> cachedCollectors = new();
     Func<GameConfig?> getGame = () => null;
-    List<CollectorBase>? currentCollectors;
+    List<CollectorState>? currentStates;
     volatile bool paused;
 
     /// <summary>采样前隐藏遮挡窗口（如覆盖层），返回是否继续；采样后恢复。由模块注入。</summary>
@@ -88,7 +88,7 @@ public sealed class GameMonitor
         this.getGame = getGame;
         GameName = game.GameName;
         State = MonitorState.Running;
-        currentCollectors = null;
+        currentStates = null;
         PushData();
     }
 
@@ -96,11 +96,11 @@ public sealed class GameMonitor
     public void Stop()
     {
         foreach (CollectorEntry entry in cachedCollectors.Values)
-            DisposeSafe(entry.Instance);
+            DisposeSafe(entry.State.Collector);
         cachedCollectors.Clear();
         State = MonitorState.Stopped;
         GameName = "";
-        currentCollectors = null;
+        currentStates = null;
         PushData();
     }
 
@@ -144,8 +144,8 @@ public sealed class GameMonitor
         }
 
         // 从最新配置刷新采样器（配置未变则复用，共享服务保持存活）
-        var collectors = RebuildCollectors(game);
-        currentCollectors = collectors;
+        var states = RebuildCollectors(game);
+        currentStates = states;
 
         try
         {
@@ -164,88 +164,111 @@ public sealed class GameMonitor
             }
             var ctx = new GameContext { Frame = frame };
 
-            foreach (CollectorBase collector in collectors)
-                await collector.Update(ctx, ct);
+            // 构建名称→状态查找表（供前置采样器判断）
+            var stateByName = new Dictionary<string, CollectorState>(StringComparer.Ordinal);
+            foreach (CollectorState state in states)
+                stateByName[state.Collector.Config.Name] = state;
+
+            // 按配置查找表（供前置采样器判断）
+            var configByName = new Dictionary<string, CollectConfigBase>(StringComparer.Ordinal);
+            foreach (CollectConfigBase c in game.Collectors)
+                configByName[c.Name] = c;
+
+            // 更新采样器：有前置采样器的，仅当前置有效时才执行 Update
+            foreach (CollectorState state in states)
+            {
+                if (configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? cfg)
+                    && !string.IsNullOrEmpty(cfg.Prerequisite)
+                    && stateByName.TryGetValue(cfg.Prerequisite, out CollectorState? prereq)
+                    && prereq.CurrentValue is null)
+                {
+                    continue; // 前置无效，跳过更新
+                }
+                await state.Collector.Update(ctx, ct);
+            }
 
             DateTime now = DateTime.UtcNow;
 
             // 追踪每个采样器的当前值（值变化时自动刷新防抖计时）
-            foreach (CollectorBase collector in collectors)
-                collector.TrackCurrentValue();
+            foreach (CollectorState state in states)
+                state.TrackCurrentValue();
 
         // 仅当全部「验证采样器」(IsValidator) 有效才进入上报流程
-        var due = new List<CollectorBase>();
-        if (AllValidatorsValid(collectors, game))
+        var due = new List<CollectorState>();
+        if (AllValidatorsValid(states, game))
         {
-            foreach (CollectorBase collector in collectors)
+            foreach (CollectorState state in states)
             {
-                if (collector.CurrentValue is null)
+                if (state.CurrentValue is null)
                     continue;
-                if (collector.IsDue(now))
-                    due.Add(collector);
+                // 前置采样器无效时，不推送
+                if (configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? pcfg)
+                    && !string.IsNullOrEmpty(pcfg.Prerequisite)
+                    && stateByName.TryGetValue(pcfg.Prerequisite, out CollectorState? prereqState)
+                    && prereqState.CurrentValue is null)
+                {
+                    continue;
+                }
+                if (state.IsDue(now))
+                    due.Add(state);
             }
         }
 
-        // 每个采样器配置查找（用于过期/强制推送判断）
-        var configByName = new Dictionary<string, CollectConfigBase>(StringComparer.Ordinal);
-        foreach (CollectConfigBase c in game.Collectors)
-            configByName[c.Name] = c;
-
-        var dropExpired = new List<CollectorBase>();   // 过期且非强制 → 静默更新 PushedValue，不推送
-        var forceNow = new List<CollectorBase>();      // 过期且强制 → 过期时才 Chat 打断推送
-        var normalNow = new List<CollectorBase>();     // 未过期（防抖已过）→ 普通 Poke 推送，过期时间内等待
-        foreach (CollectorBase collector in due)
+        var dropExpired = new List<CollectorState>();   // 过期且非强制 → 静默更新 PushedValue，不推送
+        var forceNow = new List<CollectorState>();      // 过期且强制 → 过期时才 Chat 打断推送
+        var normalNow = new List<CollectorState>();     // 未过期（防抖已过）→ 普通 Poke 推送，过期时间内等待
+        foreach (CollectorState state in due)
         {
-            string? cur = collector.CurrentValue;
-            if (cur is null || cur == collector.PushedValue)
+            string? cur = state.CurrentValue;
+            if (cur is null || cur == state.PushedValue)
                 continue;
-            bool force = configByName.TryGetValue(collector.Name, out CollectConfigBase? cc) && cc.ForcePush;
-            double expire = configByName.TryGetValue(collector.Name, out cc) ? cc.ExpireSeconds : 0;
-            double elapsed = (now - new DateTime(collector.LastUpdateTimeTicks)).TotalSeconds;
-            bool expired = elapsed >= Math.Max(0, collector.DebounceSeconds) + Math.Max(0, expire);
+            bool force = configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? cc) && cc.ForcePush;
+            double expire = configByName.TryGetValue(state.Collector.Config.Name, out cc) ? cc.ExpireSeconds : 0;
+            double elapsed = (now - new DateTime(state.LastUpdateTimeTicks)).TotalSeconds;
+            bool expired = elapsed >= Math.Max(0, state.Collector.Config.DebounceSeconds) + Math.Max(0, expire);
 
             // 过期时刻才区分：强制→打断推送；非强制→静默丢弃。过期时间内都走普通等待推送
             if (expired)
             {
-                if (force) forceNow.Add(collector);
-                else dropExpired.Add(collector);
+                if (force) forceNow.Add(state);
+                else dropExpired.Add(state);
             }
             else
             {
-                normalNow.Add(collector);
+                normalNow.Add(state);
             }
         }
 
         // 1) 过期且非强制：静默更新 PushedValue，不打扰 AI
-        foreach (CollectorBase collector in dropExpired)
-            collector.OnPushed(collector.CurrentValue, now);
+        foreach (CollectorState state in dropExpired)
+            state.OnPushed(state.CurrentValue, now);
 
         // 2) 有强制推送项：连同普通项一起用 Chat 打断推送
         if (forceNow.Count > 0)
         {
-            var all = new List<CollectorBase>(forceNow);
+            var all = new List<CollectorState>(forceNow);
             all.AddRange(normalNow);
             var parts = new List<string>(all.Count);
-            foreach (CollectorBase collector in all)
-                parts.Add(FormatForPush(collector));
+            foreach (CollectorState state in all)
+                parts.Add(FormatForPush(state));
             string message = string.Join("；", parts);
             if (reportForce(message))
             {
-                foreach (CollectorBase collector in all)
-                    collector.OnPushed(collector.CurrentValue, now);
+                foreach (CollectorState state in all)
+                    state.OnPushed(state.CurrentValue, now);
             }
         }
         // 3) 仅普通项：Poke 推送（对话占用时 report 返回 false，保留待推）
         else if (normalNow.Count > 0)
         {
             var parts = new List<string>(normalNow.Count);
-            foreach (CollectorBase collector in normalNow)
-                parts.Add(FormatForPush(collector));
+            foreach (CollectorState state in normalNow)
+                parts.Add(FormatForPush(state));
             string message = string.Join("；", parts);
             if (report(message))
             {
-                foreach (CollectorBase collector in normalNow)
-                    collector.OnPushed(collector.CurrentValue, now);
+                foreach (CollectorState state in normalNow)
+                    state.OnPushed(state.CurrentValue, now);
             }
         }
 
@@ -259,23 +282,23 @@ public sealed class GameMonitor
     }
 
     /// <summary>推送消息片段：{Name}: {CurrentValue}。</summary>
-    static string FormatForPush(CollectorBase collector)
+    static string FormatForPush(CollectorState state)
     {
-        string? cur = collector.CurrentValue;
-        return cur is null ? "" : $"{collector.Name}: {cur}";
+        string? cur = state.CurrentValue;
+        return cur is null ? "" : $"{state.Collector.Config.Name}: {cur}";
     }
 
     /// <summary>验证门：作为「数据验证器」的采样器全部有当前值（CurrentValue != null）才允许上报。</summary>
-    static bool AllValidatorsValid(List<CollectorBase> collectors, GameConfig game)
+    static bool AllValidatorsValid(List<CollectorState> states, GameConfig game)
     {
         // 名字 → 是否数据验证器
         var validatorNames = new Dictionary<string, bool>(StringComparer.Ordinal);
         foreach (CollectConfigBase config in game.Collectors)
             validatorNames[config.Name] = config.IsValidator;
 
-        foreach (CollectorBase collector in collectors)
+        foreach (CollectorState state in states)
         {
-            if (validatorNames.TryGetValue(collector.Name, out bool isValidator) && isValidator && collector.CurrentValue is null)
+            if (validatorNames.TryGetValue(state.Collector.Config.Name, out bool isValidator) && isValidator && state.CurrentValue is null)
                 return false;
         }
         return true;
@@ -285,9 +308,9 @@ public sealed class GameMonitor
     /// 根据最新配置刷新采样器：配置签名未变则复用旧实例，否则释放重建；
     /// 移除的配置一并释放（采样器内部共享服务随之回收）。
     /// </summary>
-    List<CollectorBase> RebuildCollectors(GameConfig game)
+    List<CollectorState> RebuildCollectors(GameConfig game)
     {
-        var builders = new List<CollectorBase>();
+        var builders = new List<CollectorState>();
         var next = new Dictionary<string, CollectorEntry>(StringComparer.Ordinal);
 
         foreach (CollectConfigBase config in game.Collectors)
@@ -299,23 +322,25 @@ public sealed class GameMonitor
             string signature = SignatureOf(config);
             if (cachedCollectors.TryGetValue(config.Name, out CollectorEntry? old) && old.Signature == signature)
             {
-                // 配置未变：复用旧实例
-                collector = old.Instance;
+                // 配置未变：复用旧实例（含其状态）
+                next[config.Name] = old;
+                builders.Add(old.State);
             }
             else
             {
                 if (old != null)
-                    DisposeSafe(old.Instance);
+                    DisposeSafe(old.State.Collector);
+                var state = new CollectorState { Collector = collector };
+                next[config.Name] = new CollectorEntry { Signature = signature, State = state };
+                builders.Add(state);
             }
-            next[config.Name] = new CollectorEntry { Signature = signature, Instance = collector };
-            builders.Add(collector);
         }
 
         // 释放已移除配置对应实例
         foreach (CollectorEntry entry in cachedCollectors.Values)
         {
-            if (!next.ContainsKey(entry.Instance.Name))
-                DisposeSafe(entry.Instance);
+            if (!next.ContainsKey(entry.State.Collector.Config.Name))
+                DisposeSafe(entry.State.Collector);
         }
 
         cachedCollectors.Clear();
@@ -334,7 +359,7 @@ public sealed class GameMonitor
 
     static void DisposeSafe(CollectorBase collector)
     {
-        try { collector.Dispose(); } catch (Exception ex) { _ = ex; }
+        try { if (collector is IDisposable d) d.Dispose(); } catch (Exception ex) { _ = ex; }
     }
 
     void PushData()
@@ -364,23 +389,23 @@ public sealed class GameMonitor
                     cfgByName[config.Name] = config;
                 }
             }
-            if (currentCollectors != null)
+            if (currentStates != null)
             {
                 DateTime now = DateTime.UtcNow;
-                foreach (CollectorBase collector in currentCollectors)
+                foreach (CollectorState state in currentStates)
                 {
-                    values[collector.Name] = collector.Value;
-                    raws[collector.Name] = collector.DebugValue;
-                    currents[collector.Name] = collector.CurrentValue;
-                    pusheds[collector.Name] = collector.PushedValue;
+                    values[state.Collector.Config.Name] = state.Collector.Value;
+                    raws[state.Collector.Config.Name] = state.Collector.DebugValue;
+                    currents[state.Collector.Config.Name] = state.CurrentValue;
+                    pusheds[state.Collector.Config.Name] = state.PushedValue;
                     // 仅当有待推内容（CurrentValue 与已推送不同）才显示进度；推后归零消失
-                    bool pending = collector.CurrentValue is not null && collector.CurrentValue != collector.PushedValue;
-                    progress[collector.Name] = pending ? collector.DebounceProgress(now) : 0;
-                    debounceSecs[collector.Name] = collector.DebounceSeconds;
-                    updateTicks[collector.Name] = collector.LastUpdateTimeTicks;
+                    bool pending = state.CurrentValue is not null && state.CurrentValue != state.PushedValue;
+                    progress[state.Collector.Config.Name] = pending ? state.DebounceProgress(now) : 0;
+                    debounceSecs[state.Collector.Config.Name] = state.Collector.Config.DebounceSeconds;
+                    updateTicks[state.Collector.Config.Name] = state.LastUpdateTimeTicks;
                     // 过期时长（前端据此做防抖之后的平滑过期动画）
-                    double expire = cfgByName.TryGetValue(collector.Name, out CollectConfigBase? cc) ? cc.ExpireSeconds : 0;
-                    expireSecs[collector.Name] = Math.Max(0, expire);
+                    double expire = cfgByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? cc) ? cc.ExpireSeconds : 0;
+                    expireSecs[state.Collector.Config.Name] = Math.Max(0, expire);
                 }
             }
 

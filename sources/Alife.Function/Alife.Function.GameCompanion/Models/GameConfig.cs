@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Alife.Function.GameCompanion.Collectors;
+using Alife.Function.GameCompanion.Collector;
 using Newtonsoft.Json;
 
 namespace Alife.Function.GameCompanion;

@@ -101,6 +101,9 @@ main { padding: 16px; overflow-y: auto; height: calc(100vh - 96px); }
 .target-top .t-name { flex: 1; min-width: 140px; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; }
 .target-top select { padding: 5px 6px; border: 1px solid #d9d9d9; border-radius: 4px; }
 .sys-base { display: inline-flex; align-items: center; gap: 6px; }
+.sys-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.sys-divider { border: none; border-top: 1px solid #e8e8e8; margin: 6px 0; }
+.s-input-error { border-color: #ff4d4f !important; background: #fff2f0; }
 .sys-base label { color: #555; font-size: 13px; flex-shrink: 0; }
 .sys-base .s-base-cb { width: auto; height: 14px; margin: 0; cursor: pointer; }
 .sys-base .s-base-db { width: 46px; padding: 3px 4px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 12px; }

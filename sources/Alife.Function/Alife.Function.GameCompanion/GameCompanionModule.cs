@@ -9,7 +9,7 @@ using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
 using Alife.Function.GameCompanion.Audio;
-using Alife.Function.GameCompanion.Collectors;
+using Alife.Function.GameCompanion.Collector;
 using Alife.Function.GameCompanion.Monitoring;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -80,6 +80,9 @@ public class GameCompanionModule(
 
         // 语音识别器由语音采样器内部经共享池创建/复用/回收，这里只需注入提供者
         VoiceDetectorPool.Initialize(audioRecognizerProvider);
+
+        // 扫描所有插件程序集，自动注册带 [Collector] 特性的采样器
+        CollectorRegistry.Initialize(pluginSystem.PluginContext);
 
         // 编辑器统一读写全局陪玩配置目录（每游戏一个 JSON + config.json）
         editorController = new Editor.GameCompanionEditorController(
@@ -305,7 +308,7 @@ lock (monitorLock)
     /// <summary>更新循环（框架逐帧驱动）：后台执行单步采样，避免截屏/OCR 拖死更新泵。</summary>
     /// <summary>当前游戏是否含启用中的颜色采样器（点/矩形/三角/扇面取色）。</summary>
     static bool HasColorCollector(GameConfig game)
-        => game.Collectors.Any(c => c.IsEnable && c is Alife.Function.GameCompanion.Collectors.PixelCollectorConfig);
+        => game.Collectors.Any(c => c.IsEnable && c is Alife.Function.GameCompanion.Implement.PixelCollectorConfig);
 
     protected override Task OnUpdate()
     {

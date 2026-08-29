@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace Alife.Function.GameCompanion.Collectors;
+namespace Alife.Function.GameCompanion.Implement;
 
 /// <summary>颜色匹配辅助方法，供颜色内容/颜色触发/颜色开关复用。</summary>
 static class ColorMatchHelper

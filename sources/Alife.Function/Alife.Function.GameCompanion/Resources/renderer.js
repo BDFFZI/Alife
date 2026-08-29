@@ -251,6 +251,23 @@ function fmtRegion(r, kind) {
   return `${r.X}, ${r.Y}  ${r.Width}×${r.Height}`;
 }
 
+function validatePrerequisite(input, currentCollector, game) {
+  const val = (input.value || '').trim();
+  if (!val) {
+    input.classList.remove('s-input-error');
+    input.title = '仅当前置采样器有效时才执行更新和推送（填写采样器名称，留空无前置）';
+    return;
+  }
+  const exists = (game.Collectors || []).some(c => c !== currentCollector && c.Name === val);
+  if (exists) {
+    input.classList.remove('s-input-error');
+    input.title = '前置采样器: ' + val;
+  } else {
+    input.classList.add('s-input-error');
+    input.title = '未找到名为「' + val + '」的采样器';
+  }
+}
+
 function renderTargetList(g) {
   const list = document.getElementById('target-list');
   list.innerHTML = '';
@@ -318,9 +335,7 @@ function renderTargetList(g) {
     nameInput.value = t.Name || '';
     nameInput.addEventListener('input', () => { t.Name = nameInput.value;  });
 
-    // 系统基础参数：陪玩验证器 + 防抖/过期/强制推送（每采样器独立）
-    const baseGroup = document.createElement('div');
-    baseGroup.className = 'sys-base';
+    // 陪玩验证器（与名称同行）
     const vLbl = document.createElement('label');
     vLbl.textContent = '陪玩验证器';
     const vCb = document.createElement('input');
@@ -329,8 +344,26 @@ function renderTargetList(g) {
     vCb.checked = t.IsValidator === true;
     vCb.title = '作为陪玩验证器：其 CurrentValue 非空（有数据）才允许推送';
     vCb.addEventListener('change', () => { t.IsValidator = vCb.checked; });
-    baseGroup.append(vLbl, vCb);
 
+    // 复制、删除按钮
+    const del = document.createElement('button');
+    del.className = 'small danger t-del';
+    del.textContent = '删除';
+    del.addEventListener('click', () => { g.Collectors.splice(i, 1); renderTargetList(g);  });
+    const copy = document.createElement('button');
+    copy.className = 'small t-copy';
+    copy.textContent = '复制';
+    copy.title = '复制此采样器（含全部配置）';
+    copy.addEventListener('click', () => {
+      const clone = JSON.parse(JSON.stringify(t));
+      clone.Name = (clone.Name || `目标${i + 1}`) + ' 副本';
+      g.Collectors.splice(i + 1, 0, clone);
+      renderTargetList(g);
+    });
+
+    // 第二行：防抖(s) / 过期(s) / 强制推送
+    const row2 = document.createElement('div');
+    row2.className = 'sys-row';
     const dBtn = document.createElement('label');
     dBtn.textContent = '防抖(s)';
     dBtn.title = '本采样器产出新值后至少等待该时长才推送（0=立即）';
@@ -339,14 +372,13 @@ function renderTargetList(g) {
     dInput.min = 0;
     dInput.step = 0.1;
     dInput.className = 's-base-db';
-    // 新建采样器时 DebounceSeconds 未定义，赋予默认 0.6 并写回配置
     if (t.DebounceSeconds == null) t.DebounceSeconds = 0.6;
     dInput.value = t.DebounceSeconds;
     dInput.addEventListener('input', () => {
       const n = parseFloat(dInput.value);
       t.DebounceSeconds = Number.isFinite(n) && n >= 0 ? n : 0.6;
     });
-    baseGroup.append(dBtn, dInput);
+    row2.append(dBtn, dInput);
 
     const eBtn = document.createElement('label');
     eBtn.textContent = '过期(s)';
@@ -362,7 +394,7 @@ function renderTargetList(g) {
       const n = parseFloat(eInput.value);
       t.ExpireSeconds = Number.isFinite(n) && n >= 0 ? n : 0.6;
     });
-    baseGroup.append(eBtn, eInput);
+    row2.append(eBtn, eInput);
 
     const fLbl = document.createElement('label');
     fLbl.textContent = '强制推送';
@@ -372,7 +404,25 @@ function renderTargetList(g) {
     fCb.className = 's-base-cb';
     fCb.checked = t.ForcePush === true;
     fCb.addEventListener('change', () => { t.ForcePush = fCb.checked; });
-    baseGroup.append(fLbl, fCb);
+    row2.append(fLbl, fCb);
+
+    // 第三行：前置采样器 / 采集类型
+    const row3 = document.createElement('div');
+    row3.className = 'sys-row';
+    const pLbl = document.createElement('label');
+    pLbl.textContent = '前置采样器';
+    pLbl.title = '仅当前置采样器有效时才执行更新和推送（填写采样器名称，留空无前置）';
+    const pInput = document.createElement('input');
+    pInput.type = 'text';
+    pInput.className = 's-base-db';
+    pInput.style.width = '100px';
+    pInput.placeholder = '采样器名称';
+    pInput.value = t.Prerequisite || '';
+    pInput.addEventListener('input', () => {
+      t.Prerequisite = pInput.value || undefined;
+      validatePrerequisite(pInput, t, g);
+    });
+    validatePrerequisite(pInput, t, g);
 
     const modeLbl = document.createElement('label');
     modeLbl.textContent = '采集类型';
@@ -388,25 +438,17 @@ function renderTargetList(g) {
     });
     modeSel.addEventListener('change', () => {
       t.Sampler = modeSel.value;
-      // 各采样器配置字段同名（Region/形状/正则等）可复用，切换时不清空 Config
       renderTargetList(g);
     });
-    const del = document.createElement('button');
-    del.className = 'small danger t-del';
-    del.textContent = '删除';
-    del.addEventListener('click', () => { g.Collectors.splice(i, 1); renderTargetList(g);  });
-    const copy = document.createElement('button');
-    copy.className = 'small t-copy';
-    copy.textContent = '复制';
-    copy.title = '复制此采样器（含全部配置）';
-    copy.addEventListener('click', () => {
-      const clone = JSON.parse(JSON.stringify(t));
-      clone.Name = (clone.Name || `目标${i + 1}`) + ' 副本';
-      g.Collectors.splice(i + 1, 0, clone);
-      renderTargetList(g);
-    });
-    top.append(handle, nameLbl, nameInput, baseGroup, modeLbl, modeSel, copy, del);
+    row3.append(pLbl, pInput, modeLbl, modeSel);
+
+    top.append(handle, nameLbl, nameInput, vLbl, vCb, copy, del, row2, row3);
     card.appendChild(top);
+
+    // 分割线：通用参数 vs 采样器专属配置
+    const divider = document.createElement('hr');
+    divider.className = 'sys-divider';
+    card.appendChild(divider);
 
     // 采样器专属配置 UI：由采样器注册的 HTML 片段渲染（前端无特定采样器分支）
     const spec = document.createElement('div');
@@ -769,7 +811,8 @@ function addTarget() {
   const g = currentGame();
   if (!g) return;
   const defType = COLLECTOR_TYPES.length > 0 ? COLLECTOR_TYPES[0].type : 'text';
-  g.Collectors.push({ Name: '', Sampler: defType, Config: {} });
+  const idx = (g.Collectors?.length || 0) + 1;
+  g.Collectors.push({ Name: `目标${idx}`, Sampler: defType, Config: {} });
   renderTargetList(g);
 }
 

@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Function.GameCompanion.Collector;
 using Alife.Function.GameCompanion.Screen;
 
-namespace Alife.Function.GameCompanion.Collectors;
+namespace Alife.Function.GameCompanion.Implement;
 
 /// <summary>
 /// 文本触发采样器：OCR 识别指定区域，当识别内容满足触发要求时记录一次触发。
@@ -12,27 +13,19 @@ namespace Alife.Function.GameCompanion.Collectors;
 /// <see cref="Value"/> 返回本次累计的所有触发时间戳（逗号分隔，未触发时返回 null）；
 /// 框架推送后 <see cref="Use"/> 清空。
 /// </summary>
-public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBase
+[Collector(typeof(TextTriggerConfig), "文本触发",
+    Ui = """
+        <div class="t-specific-row"><label>OCR 区域</label><span data-region="Region"></span></div>
+        <div class="t-specific-row"><label>触发要求</label><input data-regex="RegexFilter" placeholder="识别到匹配内容时触发，如 \\d+" /></div>
+        """)]
+public sealed class TextTriggerCollector(TextTriggerConfig config) : Collector.CollectorBase
 {
     readonly List<string> triggers = new();
     string lastRawOcr = "";
-    bool lastMatched; // 上一帧是否匹配（上升沿检测，Use 后不清空：持续匹配不重复触发）
-    DateTime lastMissTime = DateTime.MinValue; // 进入未匹配状态的时间（防抖从这里算起）
+    bool lastMatched;
+    DateTime lastMissTime = DateTime.MinValue;
 
-    static TextTriggerCollector()
-    {
-        CollectorRegistry.Register<TextTriggerConfig>(
-            "文本触发",
-            cfg => new TextTriggerCollector(cfg),
-            cfg => !cfg.Region.IsEmpty,
-            ui: """
-                <div class="t-specific-row"><label>OCR 区域</label><span data-region="Region"></span></div>
-                <div class="t-specific-row"><label>触发要求</label><input data-regex="RegexFilter" placeholder="识别到匹配内容时触发，如 \\d+" /></div>
-                """);
-    }
-
-    public override string Name => config.Name;
-    public override double DebounceSeconds => config.DebounceSeconds;
+    public override CollectConfigBase Config => config;
     public override string? Value => triggers.Count == 0 ? null : string.Join(",", triggers);
     public override string? DebugValue => lastRawOcr.Length == 0 ? null : lastRawOcr;
 
@@ -60,7 +53,7 @@ public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBa
         lastRawOcr = normalized;
 
         bool matched = false;
-        if (normalized.Length > 0 && !string.IsNullOrWhiteSpace(config.RegexFilter))
+        if (!string.IsNullOrWhiteSpace(config.RegexFilter))
         {
             try
             {
@@ -74,15 +67,12 @@ public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBa
         }
 
         DateTime now = DateTime.UtcNow;
-        // 从匹配进入未匹配的时刻记录防抖起点
         if (!matched && lastMatched)
             lastMissTime = now;
 
-        // 上升沿（未匹配→匹配）且「离开已满防抖时间」才触发：
-        // 持续匹配不重复触发；离开满防抖后才重新出现才会再次触发
         if (matched && !lastMatched)
         {
-            if ((now - lastMissTime).TotalSeconds >= Math.Max(0, DebounceSeconds))
+            if ((now - lastMissTime).TotalSeconds >= Math.Max(0, config.DebounceSeconds))
                 triggers.Add(DateTime.Now.ToString("HH:mm:ss"));
         }
         lastMatched = matched;

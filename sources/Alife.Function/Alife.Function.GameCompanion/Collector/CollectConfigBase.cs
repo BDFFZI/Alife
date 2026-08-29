@@ -1,4 +1,4 @@
-namespace Alife.Function.GameCompanion;
+namespace Alife.Function.GameCompanion.Collector;
 
 /// <summary>
 /// 采样器配置抽象基类：承载数据名、启用开关及框架通用参数。
@@ -24,4 +24,7 @@ public abstract class CollectConfigBase
 
     /// <summary>强制推送：本采样器到可推送时机时，立即用 Chat 打断当前对话并推送（连同本次其他可推送项）。</summary>
     public bool ForcePush { get; set; } = false;
+
+    /// <summary>前置采样器名称：仅当前置采样器有效（CurrentValue != null）时，本采样器才执行更新和推送。</summary>
+    public string? Prerequisite { get; set; }
 }
