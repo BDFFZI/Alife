@@ -43,7 +43,6 @@ public sealed class ScreenFrame : IDisposable
         try
         {
             Bitmap bitmap = await WindowCaptureHelper.CaptureFullscreenAsync();
-            Console.WriteLine($"[Companion] 全屏捕获 bitmap={bitmap.Width}x{bitmap.Height}");
             return new ScreenFrame(bitmap);
         }
         catch (Exception ex)
