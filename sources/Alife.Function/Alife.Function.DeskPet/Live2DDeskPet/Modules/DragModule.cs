@@ -1,45 +1,43 @@
+using System;
 using System.Text.Json;
+using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
 
-public class DragModule : IPetModule
+public class DragModule : IPetModule, IDisposable
 {
     public string JsCode => @"
+let isDragging = false;
 window.addEventListener('mousedown', async function(e) {
     if (e.button !== 0 || e.target.tagName !== 'CANVAS') return;
     var areas = await model.hitTest(e.clientX, e.clientY);
     if (!areas || areas.length === 0) {
-        window.petDragging = true;
+        isDragging = true;
         postMessage({type:'drag_start'});
     }
 });
+window.addEventListener('mousemove', function(e) {
+    if (isDragging === true) {
+        postMessage({type:'drag_move',dx:e.movementX,dy:e.movementY});
+    }
+});
 window.addEventListener('mouseup', function(e) {
-    if (window.petDragging === true) {
-        window.petDragging = false;
-        postMessage({type:'drag_end'});
+    if (isDragging === true) {
+        isDragging = false;
     }
 });
 ";
 
     readonly PetBridge bridge;
-    bool isDragging;
-    double lastMouseX, lastMouseY;
+    readonly PetWindow window;
+    Rectangle? startPosition;
 
-    public DragModule(PetBridge bridge, MouseTracker tracker, PetWindow window)
+    public DragModule(PetBridge bridge, PetWindow window)
     {
         this.bridge = bridge;
+        this.window = window;
         bridge.OnMessage += OnBridgeMessage;
-        tracker.MouseMoved += (x, y) => {
-            (double scaleX, double scaleY) dpi = window.GetDpi();
-            double windowMouseX = x / dpi.scaleX;
-            double windowMouseY = y / dpi.scaleY;
-            if (isDragging)
-                window.MoveBy(windowMouseX - lastMouseX, windowMouseY - lastMouseY);
-            lastMouseX = windowMouseX;
-            lastMouseY = windowMouseY;
-        };
     }
-
     public void Dispose()
     {
         bridge.OnMessage -= OnBridgeMessage;
@@ -50,10 +48,15 @@ window.addEventListener('mouseup', function(e) {
         switch (type)
         {
             case "drag_start":
-                isDragging = true;
+                startPosition = window.Window.GetBoundsAsync().Result;
                 break;
-            case "drag_end":
-                isDragging = false;
+            case "drag_move":
+                if (startPosition != null)
+                {
+                    startPosition.X += data.GetProperty("dx").GetInt32();
+                    startPosition.Y += data.GetProperty("dy").GetInt32();
+                    window.Window.SetBounds(startPosition);
+                }
                 break;
         }
     }

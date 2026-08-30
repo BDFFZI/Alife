@@ -1,8 +1,9 @@
+using System;
 using System.Text.Json;
 
 namespace Alife.Function.DeskPet;
 
-public class InputModule : IPetModule
+public class InputModule : IPetModule, IDisposable
 {
     public string CssCode => @"
 #input-container {

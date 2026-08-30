@@ -106,8 +106,7 @@ public partial class Live2DDeskPet(
     SubtitleModule subtitleModule = null!;
     ExpressionModule expressionModule = null!;
     UsingModule usingModule = null!;
-
-
+    
     protected override async Task OnAwake()
     {
         // 解析模型元数据（无模型时自动下载默认模型）
@@ -118,7 +117,7 @@ public partial class Live2DDeskPet(
         metadata = PetModelMetadata.Load(Path.Combine(ModelRoot, modelName));
 
         // 构建依赖注入容器
-        provider = BuildProvider();
+        provider = BuildProvider(out Type[] moduleTypes);
         try
         {
             //创建窗口
@@ -130,7 +129,7 @@ public partial class Live2DDeskPet(
             await LoadModelAsync();
 
             //加载模块
-            await LoadModuleAsync();
+            await LoadModuleAsync(moduleTypes);
 
             // subtitleModule = provider.GetRequiredService<SubtitleModule>();
             // expressionModule = provider.GetRequiredService<ExpressionModule>();
@@ -151,7 +150,7 @@ public partial class Live2DDeskPet(
     /// 构建桌宠组件依赖注入容器：注册窗口、桥、事件回调与全部 IPetModule。
     /// 模块通过反射从程序集自动发现，新增模块类即自动注册，无需手工维护。
     /// </summary>
-    ServiceProvider BuildProvider()
+    ServiceProvider BuildProvider(out Type[] moduleTypes)
     {
         ServiceCollection services = new();
         services.AddSingleton(logger);
@@ -164,14 +163,11 @@ public partial class Live2DDeskPet(
         services.AddSingleton<MotionDetector>();
         services.AddSingleton<WindowInteractionModule>();
 
-        Type[] moduleTypes = typeof(IPetModule).Assembly.GetTypes()
+        moduleTypes = typeof(IPetModule).Assembly.GetTypes()
             .Where(type => type is { IsClass: true, IsAbstract: false } && typeof(IPetModule).IsAssignableFrom(type))
             .ToArray();
         foreach (Type moduleType in moduleTypes)
-        {
             services.AddSingleton(moduleType);
-            services.AddSingleton(typeof(IPetModule), sp => sp.GetRequiredService(moduleType));
-        }
 
         return services.BuildServiceProvider();
     }
@@ -194,9 +190,9 @@ public partial class Live2DDeskPet(
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         await loadedTcs.Task.WaitAsync(timeout.Token);
     }
-    async Task LoadModuleAsync()
+    async Task LoadModuleAsync(Type[] moduleTypes)
     {
-        IPetModule[] modules = provider.GetServices<IPetModule>().ToArray();
+        IPetModule[] modules = moduleTypes.Select(provider.GetRequiredService).Cast<IPetModule>().ToArray();
         PetBridge bridge = provider.GetRequiredService<PetBridge>();
 
         List<IPetModule> cssModules = modules.Where(m => m.CssCode != null).ToList();

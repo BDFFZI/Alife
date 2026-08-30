@@ -20,8 +20,6 @@ public sealed class PetBridge : IDisposable
     /// <summary>向渲染进程发送消息（合并 type 与 payload 为单一信封对象）。</summary>
     public void SendMessage(string type, object? payload = null)
     {
-        BrowserWindow? w = window.Window;
-        if (w == null) return;
         try
         {
             JObject envelope = new() { ["type"] = type };
@@ -31,7 +29,7 @@ public sealed class PetBridge : IDisposable
                 foreach (KeyValuePair<string, JToken?> kvp in payloadObj)
                     envelope[kvp.Key] = kvp.Value;
             }
-            Electron.IpcMain.Send(w, "pet", envelope.ToString(Newtonsoft.Json.Formatting.Indented));
+            Electron.IpcMain.Send(window.Window, "pet", envelope.ToString(Newtonsoft.Json.Formatting.Indented));
         }
         catch (Exception ex)
         {
@@ -42,11 +40,9 @@ public sealed class PetBridge : IDisposable
     /// <summary>在渲染进程执行 JS 并返回结果。</summary>
     public async Task<string?> ExecuteJavaScriptAsync(string script)
     {
-        BrowserWindow? w = window.Window;
-        if (w == null) return null;
         try
         {
-            return await w.WebContents.ExecuteJavaScriptAsync<string>(script, true);
+            return await window.Window.WebContents.ExecuteJavaScriptAsync<string>(script, true);
         }
         catch (Exception ex)
         {

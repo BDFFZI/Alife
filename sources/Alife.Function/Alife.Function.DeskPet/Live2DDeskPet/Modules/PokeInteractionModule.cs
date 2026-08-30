@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace Alife.Function.DeskPet;
 
-public class PokeInteractionModule : IPetModule
+public class PokeInteractionModule : IPetModule, IDisposable
 {
     public string JsCode => @"
 window.addEventListener('dblclick', async function(e) {

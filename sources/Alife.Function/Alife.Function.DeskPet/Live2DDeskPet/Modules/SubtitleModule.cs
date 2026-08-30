@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Alife.Function.DeskPet;
 
-public class SubtitleModule : IPetModule
+public class SubtitleModule : IPetModule, IDisposable
 {
     public string CssCode => @"
 #bubble-container {

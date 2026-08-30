@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace Alife.Function.DeskPet;
 
-public class ExpressionModule : IPetModule
+public class ExpressionModule : IPetModule, IDisposable
 {
     public string JsCode => @"
 messageBus.on('expression', (msg) => model.expression(msg.id));

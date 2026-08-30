@@ -13,7 +13,7 @@ namespace Alife.Function.DeskPet;
 /// </summary>
 public sealed class PetWindow(ILogger<Live2DDeskPet> logger) : IDisposable
 {
-    public BrowserWindow? Window => window;
+    public BrowserWindow Window => window;
 
     public (double ScaleX, double ScaleY) GetDpi()
     {
@@ -55,13 +55,13 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger) : IDisposable
         }
     }
 
+
     /// <summary>
     /// 按 DIP 增量调整窗口大小（右下角缩放用，最小 150）。
     /// </summary>
     public void ResizeBy(double dx, double dy)
     {
         BrowserWindow? w = window;
-        if (w == null) return;
         try
         {
             Rectangle bounds = w.GetBoundsAsync().GetAwaiter().GetResult();
@@ -98,7 +98,7 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger) : IDisposable
         }
     }
 
-    BrowserWindow? window;
+    BrowserWindow window = null!;
     const int MinSize = 150;
     (double ScaleX, double ScaleY) dpi = (1.0, 1.0);
 
@@ -119,7 +119,9 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger) : IDisposable
             Frame = false,
             Transparent = true,
             HasShadow = false,
-            Resizable = true,
+            Show = false,
+            Movable = true,
+            Resizable = false,
             Fullscreenable = false,
             BackgroundColor = "#00000000",
             WebPreferences = new WebPreferences {

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Alife.Function.DeskPet;
 
-public class GazeModule : IPetModule
+public class GazeModule : IPetModule, IDisposable
 {
     public string JsCode => "messageBus.on('look', (msg) => model.focus(msg.x, msg.y, msg.instant));";
 
