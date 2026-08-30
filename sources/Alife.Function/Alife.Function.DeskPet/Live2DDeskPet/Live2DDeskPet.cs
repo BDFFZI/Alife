@@ -100,14 +100,13 @@ public partial class Live2DDeskPet(
         return window.ProgrammaticMoveAsync(offset.X, offset.Y, (int)(time * 1000));
     }
 
-    PetWindow window = null!;
-    PetBridge bridge = null!;
     PetModelMetadata metadata = null!;
+    ServiceProvider provider = null!;
+    PetWindow window = null!;
     SubtitleModule subtitleModule = null!;
     ExpressionModule expressionModule = null!;
     UsingModule usingModule = null!;
-    ServiceProvider provider = null!;
-    readonly List<IPetModule> modules = new();
+
 
     protected override async Task OnAwake()
     {
@@ -118,25 +117,30 @@ public partial class Live2DDeskPet(
             modelName = "Mao";
         metadata = PetModelMetadata.Load(Path.Combine(ModelRoot, modelName));
 
-        // 构建依赖注入容器（反射自动发现 IPetModule，新增模块无需注册）
+        // 构建依赖注入容器
         provider = BuildProvider();
-        window = provider.GetRequiredService<PetWindow>();
-        await window.CreateAsync();
-        bridge = provider.GetRequiredService<PetBridge>();
-        subtitleModule = provider.GetRequiredService<SubtitleModule>();
-        expressionModule = provider.GetRequiredService<ExpressionModule>();
-        usingModule = provider.GetRequiredService<UsingModule>();
-        modules.AddRange(provider.GetServices<IPetModule>());
+        try
+        {
+            //创建窗口
+            window = provider.GetRequiredService<PetWindow>();
+            string wwwRoot = Path.Combine(pluginSystem.PluginContext.GetPluginDirectoryPath("Alife.Function.DeskPet"), "Resources", "Live2DDeskPet");
+            await window.CreateAsync(wwwRoot);
 
-        // 注入模块前端资源，等待就绪并加载模型
-        await InjectModuleResourcesAsync();
-        await WaitReadyAsync();
-        await LoadModelAsync();
+            //加载模型
+            await LoadModelAsync();
 
-        // 启动交互检测（模块/组件已在构造时自注册鼠标事件）与鼠标追踪
-        WindowInteractionModule interactionModule = provider.GetRequiredService<WindowInteractionModule>();
-        provider.GetRequiredService<MouseTracker>().Start();
-        interactionModule.Play("startup", "启动");
+            //加载模块
+            await LoadModuleAsync();
+
+            // subtitleModule = provider.GetRequiredService<SubtitleModule>();
+            // expressionModule = provider.GetRequiredService<ExpressionModule>();
+            // usingModule = provider.GetRequiredService<UsingModule>();
+        }
+        catch
+        {
+            await provider.DisposeAsync();
+            throw;
+        }
     }
     protected override async Task OnDestroy()
     {
@@ -152,8 +156,7 @@ public partial class Live2DDeskPet(
         ServiceCollection services = new();
         services.AddSingleton(logger);
         services.AddSingleton(metadata);
-        services.AddSingleton<PetWindow>(_ => new PetWindow(logger,
-            Path.Combine(pluginSystem.PluginContext.GetPluginDirectoryPath("Alife.Function.DeskPet"), "Resources", "Live2D")));
+        services.AddSingleton<PetWindow>();
         services.AddSingleton<PetBridge>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));
         services.AddSingleton<InteractedEventCallback>(text => OnInteracted?.Invoke(text));
@@ -172,8 +175,30 @@ public partial class Live2DDeskPet(
 
         return services.BuildServiceProvider();
     }
-    async Task InjectModuleResourcesAsync()
+    async Task LoadModelAsync()
     {
+        PetBridge bridge = provider.GetRequiredService<PetBridge>();
+
+        TaskCompletionSource loadedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(string type, JsonElement _)
+        {
+            if (type == "loaded")
+            {
+                bridge.OnMessage -= Handler;
+                loadedTcs.TrySetResult();
+            }
+        }
+        bridge.OnMessage += Handler;
+        bridge.SendMessage("load", new { url = new Uri(metadata.ModelPath).AbsoluteUri });
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(DestroyCancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        await loadedTcs.Task.WaitAsync(timeout.Token);
+    }
+    async Task LoadModuleAsync()
+    {
+        IPetModule[] modules = provider.GetServices<IPetModule>().ToArray();
+        PetBridge bridge = provider.GetRequiredService<PetBridge>();
+
         List<IPetModule> cssModules = modules.Where(m => m.CssCode != null).ToList();
         if (cssModules.Count > 0)
         {
@@ -190,39 +215,5 @@ public partial class Live2DDeskPet(
         {
             await bridge.ExecuteJavaScriptAsync(module.JsCode!);
         }
-    }
-    async Task WaitReadyAsync()
-    {
-        TaskCompletionSource readyTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Handler(string type, JsonElement _)
-        {
-            if (type == "ready")
-            {
-                bridge.OnMessage -= Handler;
-                readyTcs.TrySetResult();
-            }
-        }
-        bridge.OnMessage += Handler;
-        bridge.SendMessage("_init");
-        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(DestroyCancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(15));
-        await readyTcs.Task.WaitAsync(timeout.Token);
-    }
-    async Task LoadModelAsync()
-    {
-        TaskCompletionSource loadedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Handler(string type, JsonElement _)
-        {
-            if (type == "loaded")
-            {
-                bridge.OnMessage -= Handler;
-                loadedTcs.TrySetResult();
-            }
-        }
-        bridge.OnMessage += Handler;
-        bridge.SendMessage("load", new { url = new Uri(metadata.ModelPath).AbsoluteUri });
-        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(DestroyCancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        await loadedTcs.Task.WaitAsync(timeout.Token);
     }
 }

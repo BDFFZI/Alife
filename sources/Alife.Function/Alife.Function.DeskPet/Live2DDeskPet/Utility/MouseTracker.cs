@@ -11,13 +11,11 @@ public class MouseTracker : IDisposable
 {
     public event Action<int, int>? MouseMoved;
 
-    public void Dispose() => Stop();
-
-    public void Start()
+    public MouseTracker()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) == false) return;
 
-        proc = MouseProc;
+        LowLevelMouseProc proc = MouseProc;
         using (Process curProcess = Process.GetCurrentProcess())
         using (ProcessModule curModule = curProcess.MainModule!)
         {
@@ -27,8 +25,7 @@ public class MouseTracker : IDisposable
         if (hookId == IntPtr.Zero)
             throw new Exception("[MouseTracker] 无法设置全局鼠标钩子");
     }
-
-    public void Stop()
+    public void Dispose()
     {
         if (hookId != IntPtr.Zero)
         {
@@ -38,7 +35,6 @@ public class MouseTracker : IDisposable
     }
 
     IntPtr hookId = IntPtr.Zero;
-    LowLevelMouseProc? proc;
 
     IntPtr MouseProc(int nCode, IntPtr wParam, IntPtr lParam)
     {

@@ -31,7 +31,7 @@ public sealed class PetBridge : IDisposable
                 foreach (KeyValuePair<string, JToken?> kvp in payloadObj)
                     envelope[kvp.Key] = kvp.Value;
             }
-            Electron.IpcMain.Send(w, "pet", envelope);
+            Electron.IpcMain.Send(w, "pet", envelope.ToString(Newtonsoft.Json.Formatting.Indented));
         }
         catch (Exception ex)
         {
@@ -71,7 +71,10 @@ public sealed class PetBridge : IDisposable
 
     void OnIpcMessage(object? payload)
     {
-        string? json = payload?.ToString();
+        logger.LogInformation(payload?.ToString());
+
+        if (payload is not string json)
+            return;
         if (string.IsNullOrEmpty(json))
             return;
 
@@ -85,7 +88,7 @@ public sealed class PetBridge : IDisposable
             string? type = typeProp.GetString();
             if (type == null)
                 return;
-            
+
             OnMessage?.Invoke(type, root);
         }
         catch (Exception ex)

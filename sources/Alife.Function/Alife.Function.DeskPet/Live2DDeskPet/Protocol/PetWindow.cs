@@ -11,7 +11,7 @@ namespace Alife.Function.DeskPet;
 /// 桌宠 Electron 浏览器窗口封装：负责创建透明置顶窗口、定位/移动/缩放、DPI 与脚本执行。
 /// 网页资源位于插件 Resources/Live2D/（随插件分发或内嵌到客户端输出目录）。
 /// </summary>
-public sealed class PetWindow(ILogger<Live2DDeskPet> logger, string wwwRoot) : IDisposable
+public sealed class PetWindow(ILogger<Live2DDeskPet> logger) : IDisposable
 {
     public BrowserWindow? Window => window;
 
@@ -102,7 +102,7 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger, string wwwRoot) : I
     const int MinSize = 150;
     (double ScaleX, double ScaleY) dpi = (1.0, 1.0);
 
-    public async Task CreateAsync()
+    public async Task CreateAsync(string wwwRoot)
     {
         string url = new Uri(Path.Combine(wwwRoot, "index.html")).AbsoluteUri;
         Display primary = await Electron.Screen.GetPrimaryDisplayAsync();
@@ -119,7 +119,6 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger, string wwwRoot) : I
             Frame = false,
             Transparent = true,
             HasShadow = false,
-            AutoHideMenuBar = true,
             Resizable = true,
             Fullscreenable = false,
             BackgroundColor = "#00000000",
@@ -130,11 +129,15 @@ public sealed class PetWindow(ILogger<Live2DDeskPet> logger, string wwwRoot) : I
                 DevTools = true
             }
         }, url);
+
+        TaskCompletionSource tcs = new TaskCompletionSource();
         window.OnReadyToShow += () => {
             //提升窗口置顶层级到最高（screen-saver），确保盖过全屏/无边框窗口。
             window.SetAlwaysOnTop(true, (OnTopLevel)7, 1);
             window.Show();
+            tcs.SetResult();
         };
+        await tcs.Task;
     }
     public void Dispose()
     {
