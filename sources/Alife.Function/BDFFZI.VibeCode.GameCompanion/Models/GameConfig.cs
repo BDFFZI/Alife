@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using BDFFZI.VibeCode.GameCompanion;
 using Newtonsoft.Json;
 
 namespace BDFFZI.VibeCode.GameCompanion;

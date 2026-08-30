@@ -1,22 +1,11 @@
 @namespace Alife.Function.DeskPet
-@using System.Diagnostics
-@using System.IO
 @using AntDesign
 @using Alife.Framework
-@using Alife.Foundation
-@using static Alife.Foundation.AlifePath
 @inherits ModuleUIBase<DeskPetService, DeskPetServiceConfig>
 
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
         <Form TModel="DeskPetServiceConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
-            <FormItem Label="模型名">
-                <Input @bind-Value="@Configuration.ModelName" Placeholder="Mao"/>
-                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                    输入模型文件夹名称，将按 <code>{名称}/{名称}.model3.json</code> 或 <code>{名称}/{名称}.model.json</code> 规则
-                    从 <code>wwwroot/model/</code> 目录加载。留空或 "Mao" 为默认角色。
-                </Text>
-            </FormItem>
             <FormItem Label="气泡时长 (ms/字)">
                 <InputNumber @bind-Value="@Configuration.BubbleDurationPerCharMs" Min="0" Max="5000" Placeholder="200"/>
                 <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
@@ -24,34 +13,5 @@
                 </Text>
             </FormItem>
         </Form>
-        
-        <Button Type="ButtonType.Default" Icon="folder-open" OnClick="OpenModelFolder">
-            打开模型文件夹
-        </Button>
-
-        <Card Size="CardSize.Small" Title="自定义模型说明" Style="border-radius: 8px;">
-            <div style="padding: 8px 0; font-size: 13px; line-height: 1.8;">
-                <Text Type="TextElementType.Secondary">
-                    1. 将 Live2D Cubism 模型文件夹放入程序目录下的 <code>wwwroot/model/</code> 中。<br/>
-                    2. 输入文件夹名即可加载，系统自动按 <code>{{名称}}/{{名称}}.model3.json</code> 或 <code>{{名称}}/{{名称}}.model.json</code> 定位。<br/>
-                    3. 本系统额外支持 <code>Interaction</code> 扩展字段，定义点击/晃动/启动等交互反馈。
-                    每个交互可以配置随机触发的<strong>气泡文本 + 表情 + 动作</strong>组合。
-                    格式参考 <code>Mao.model3.json</code> 中的同名顶层字段；Cubism 2 模型可在 <code>.model.json</code> 中添加同名顶层字段。<br/>
-                    4. 如不提供 <code>Interaction</code> 字段，模型可正常显示但无互动反馈。<br/>
-                    5. 目前支持 8 种交互类型：<code>head</code>、<code>body</code>、<code>rotate</code>、
-                    <code>window_shake</code>、<code>window_move</code>、<code>mouse_shake</code>、
-                    <code>mouse_combo</code>、<code>startup</code>。
-                </Text>
-            </div>
-        </Card>
     </Flex>
 </div>
-
-@code {
-    void OpenModelFolder()
-    {
-        string folder = Path.Combine(RuntimeFolderPath, "Alife.DeskPet.Client", "wwwroot", "model");
-        if (Directory.Exists(folder))
-            Process.Start("explorer.exe", $"\"{folder}\"");
-    }
-}

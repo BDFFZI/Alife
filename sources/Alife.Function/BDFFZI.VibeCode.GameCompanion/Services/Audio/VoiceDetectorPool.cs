@@ -1,4 +1,3 @@
-using System;
 using Alife.Function.AIModelUtility;
 
 namespace BDFFZI.VibeCode.GameCompanion;

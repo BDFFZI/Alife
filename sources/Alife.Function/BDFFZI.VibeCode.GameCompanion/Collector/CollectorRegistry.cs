@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Alife.PluginContext;
 using Newtonsoft.Json.Linq;
@@ -24,10 +23,10 @@ public static class CollectorRegistry
 
     static readonly Dictionary<string, Descriptor> ByTypeName = new();
     static readonly Dictionary<string, HashSet<string>> pluginTypeNames = new();
-    static Alife.PluginContext.PluginContext? pluginContext;
+    static PluginContext? pluginContext;
 
     /// <summary>初始化采样器注册器：扫描已有插件并订阅加载/卸载事件。</summary>
-    public static void Initialize(Alife.PluginContext.PluginContext context)
+    public static void Initialize(PluginContext context)
     {
         pluginContext = context;
         context.PluginLoadedAsync += OnPluginLoadedAsync;
@@ -41,7 +40,7 @@ public static class CollectorRegistry
     static Task OnPluginLoadedAsync(string pluginId, PluginLoadContext loadContext)
     {
         ScanAndRegister(pluginId, loadContext.Assemblies);
-        return System.Threading.Tasks.Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     static Task OnPluginUnloadedAsync(string pluginId, PluginLoadContext loadContext)
@@ -55,7 +54,7 @@ public static class CollectorRegistry
             }
             pluginTypeNames.Remove(pluginId);
         }
-        return System.Threading.Tasks.Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     static void ScanAndRegister(string pluginId, IEnumerable<Assembly> assemblies)

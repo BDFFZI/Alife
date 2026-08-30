@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <ItemGroup>
-        <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
-        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
-        <ProjectReference Include="..\..\Alife.DeskPet\Alife.DeskPet.Protocol\Alife.DeskPet.Protocol.csproj" />
-        <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj" />
+    <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
+    <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Resources\" />
+    <PackageReference Include="ElectronNET.Core.API" Version="0.5.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 </Project>

@@ -1,29 +1,29 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
+using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
 
 namespace Alife.Function.DeskPet;
 
-[Module("桌宠交互",
+/// <summary>
+/// 桌宠 AI 前端：通过 <see cref="IDeskPet"/> 驱动任意桌宠显示实现（如 Live2D）。
+/// 自身不管理桌宠生命周期，桌宠由具体实现（PetServer）自行管理。
+/// </summary>
+[Module("桌宠控制",
     """
-    将Live2D桌宠接入AI系统，实现表现力同步和互动反馈（仅支持Cubism 3及以上版本的live2D模型）
-    可选模型下载地址：
-    https://github.com/imuncle/live2d
+    将AI连接到桌宠身体，使其可以用桌宠表达自己并接收互动反馈。
     """,
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(DeskPetServiceUI))]
 public class DeskPetService(
     XmlFunctionCaller functionService,
     Interactor<DeskPetService> interactor,
-    MessageFilterService messageFilterService) :
+    MessageFilterService messageFilterService,
+    IDeskPet pet) :
     ChatBehaviour,
     IConfigurable<DeskPetServiceConfig>
 {
@@ -50,7 +50,7 @@ public class DeskPetService(
                     }
                     finally
                     {
-                        client.HideBubble();
+                        await pet.ShowSubtitle(null);
                     }
                     break;
                 }
@@ -65,7 +65,7 @@ public class DeskPetService(
                     if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
                         await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()),
                             cancellationToken);
-                    client.ShowBubble(content);
+                    await pet.ShowSubtitle(content);
                     lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() + content.Length * Configuration.BubbleDurationPerCharMs;
                     break;
                 }
@@ -76,28 +76,28 @@ public class DeskPetService(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("表演一个表情（具体选项见附加说明）")]
-    public void Expression(string option)
+    public Task Expression(string option)
     {
         option = option.Trim();
         if (string.IsNullOrWhiteSpace(option))
-            return;
-        if (client.SupportedExpressions.Contains(option) == false)
+            return Task.CompletedTask;
+        if (pet.SupportedExpressions.Contains(option) == false)
             throw new Exception("选项不存在");
 
-        client.PlayExpression(option);
+        return pet.ShowExpression(option);
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("表演一个动作（具体选项见附加说明）")]
-    public void Motion(string option)
+    public Task Motion(string option)
     {
         option = option.Trim();
         if (string.IsNullOrWhiteSpace(option))
-            return;
-        if (client.SupportedMotions.TryGetValue(option, out (string Group, int Index) motion) == false)
+            return Task.CompletedTask;
+        if (pet.SupportedMotions.Contains(option) == false)
             throw new Exception("选项不存在");
 
-        client.PlayMotion(motion.Group, motion.Index);
+        return pet.ShowMotion(option);
     }
 
     [XmlFunction(FunctionMode.OneShot)]
@@ -106,8 +106,8 @@ public class DeskPetService(
     {
         try
         {
-            (double x, double y) = await client.GetPositionAsync();
-            interactor.Poke($"当前位置: x={x}, y={y}");
+            Vector2 position = await pet.GetPosition();
+            interactor.Poke($"当前位置: x={position.X}, y={position.Y}");
         }
         catch (TimeoutException)
         {
@@ -119,46 +119,27 @@ public class DeskPetService(
     [Description("在屏幕上进行相对移动（注意！该移动方式为相对位置移动，使用前最好先确认当前位置）")]
     public async Task Move(double x = 0, double y = 0, float seconds = 1)
     {
-        await client.MoveAsync(x, y, (int)(seconds * 1000));
-        (x, y) = await client.GetPositionAsync();
-        interactor.Poke($"移动成功，当前位置: x={x}, y={y}");
+        await pet.Move(new Vector2((float)x, (float)y), seconds);
+        Vector2 position = await pet.GetPosition();
+        interactor.Poke($"移动成功，当前位置: x={position.X}, y={position.Y}");
     }
 
-    PetServer client = null!;
     long lastBubbleEndTime;
     bool lastStatus;
 
-    protected override async Task OnAwake()
+    protected override Task OnAwake()
     {
-        //启动桌宠客户端
-        {
-            string clientPath = Path.Combine(AlifePath.RuntimeFolderPath, "Alife.DeskPet.Client");
-            if (File.Exists(Path.Combine(clientPath, "Alife.DeskPet.Client.exe")) == false)
-            {
-                const string ZipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
-                await AlifeUtility.DownloadZipFileAsync(ZipUrl, clientPath);
-            }
-
-            string modelName = Configuration.ModelName;
-            if (string.IsNullOrWhiteSpace(modelName))
-                modelName = "Mao";
-            client = new PetServer(clientPath, modelName);
-        }
-
         //注册提示词
-        string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
+        string supportedExpressionsDescription = string.Join(", ", pet.SupportedExpressions);
         if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
-        string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
+        string supportedMotionsDescription = string.Join(", ", pet.SupportedMotions);
         if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
         XmlHandler xmlHandler = new(this) {
-            Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
+            Description = "此服务让你获得一副可交互的桌宠身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
             Explanation = $"""
                            ## 支持选项
                            - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
                            - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
-
-                           ## 其他信息
-                           - 当前屏幕分辨率：{GetResolution()}
                            """
         };
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
@@ -170,12 +151,15 @@ public class DeskPetService(
             OutputMatching = output => output.Contains(nameof(Speak), StringComparison.OrdinalIgnoreCase),
             CorrectionMessage = () => $"{nameof(DeskPetService)}消息必须用{nameof(Speak)}标签回复。如果不想发送消息，也请发送空标签。"
         }, DestroyCancellationToken);
+
+        return Task.CompletedTask;
     }
-    protected override async Task OnStart()
+    protected override Task OnStart()
     {
-        await client.WaitReadyAsync();
-        client.OnInput += interactor.Chat;
-        client.OnInteracted += text => interactor.Chat("交互：" + text);
+        pet.OnInput += interactor.Chat;
+        pet.OnInteracted += text => interactor.Chat("交互：" + text);
+
+        return Task.CompletedTask;
     }
     protected override Task OnUpdate()
     {
@@ -183,32 +167,9 @@ public class DeskPetService(
         if (currentStatus != lastStatus)
         {
             lastStatus = currentStatus;
-            client.SendStatus(currentStatus);
+            _ = pet.ShowUsing(currentStatus);
         }
+
         return Task.CompletedTask;
     }
-    protected override async Task OnDestroy()
-    {
-        await client.DisposeAsync();
-    }
-
-    static (int Width, int Height) GetResolution()
-    {
-        IntPtr hdc = GetDC(IntPtr.Zero);
-        try
-        {
-            int width = GetDeviceCaps(hdc, Desktophorzres);
-            int height = GetDeviceCaps(hdc, Desktopvertres);
-            return (width, height);
-        }
-        finally
-        {
-            ReleaseDC(IntPtr.Zero, hdc);
-        }
-    }
-    const int Desktophorzres = 118;
-    const int Desktopvertres = 117;
-    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr hWnd);
-    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
-    [DllImport("gdi32.dll")] static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 }

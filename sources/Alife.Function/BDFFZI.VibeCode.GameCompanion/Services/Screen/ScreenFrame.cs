@@ -104,7 +104,7 @@ public sealed class ScreenFrame : IDisposable
     /// <summary>
     /// 读取区域中心点的像素颜色。
     /// </summary>
-    public System.Drawing.Color? GetPixel(ScreenRegion region)
+    public Color? GetPixel(ScreenRegion region)
     {
         if (region == null || bitmap == null)
             return null;
@@ -121,15 +121,15 @@ public sealed class ScreenFrame : IDisposable
     /// 按区域采样像素颜色：矩形=区域内部所有像素；三角形=三角面内部所有像素。
     /// 返回覆盖的全部像素颜色，坐标自动夹紧到画面范围内。
     /// </summary>
-    public List<System.Drawing.Color> GetShapePixels(ScreenRegion region)
+    public List<Color> GetShapePixels(ScreenRegion region)
     {
-        var result = new List<System.Drawing.Color>();
+        var result = new List<Color>();
         if (region == null || bitmap == null)
             return result;
 
         if (region.IsPoint)
         {
-            System.Drawing.Color? p = GetPixel(region);
+            Color? p = GetPixel(region);
             if (p.HasValue)
                 result.Add(p.Value);
             return result;
@@ -161,7 +161,7 @@ public sealed class ScreenFrame : IDisposable
     }
 
     // 三角面内部采样：扫描线逐像素判断是否在三角形内
-    void SampleTriangle(List<System.Drawing.Color> result, ScreenRegion region)
+    void SampleTriangle(List<Color> result, ScreenRegion region)
     {
         var pts = region.TrianglePoints;
         if (pts == null || pts.Count < 3)
@@ -194,7 +194,7 @@ public sealed class ScreenFrame : IDisposable
     }
 
     // 扇面内部采样：扫描线逐像素判断是否在扇面内（圆心=X/Y，半径+角度）
-    void SampleSector(List<System.Drawing.Color> result, ScreenRegion region)
+    void SampleSector(List<Color> result, ScreenRegion region)
     {
         int cx = region.X, cy = region.Y;
         int radius = Math.Max(1, region.Radius);

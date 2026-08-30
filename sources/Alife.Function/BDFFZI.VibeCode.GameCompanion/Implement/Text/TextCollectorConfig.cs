@@ -1,6 +1,3 @@
-using BDFFZI.VibeCode.GameCompanion;
-using BDFFZI.VibeCode.GameCompanion;
-
 namespace BDFFZI.VibeCode.GameCompanion;
 
 /// <summary>文本识别基类配置：OCR 区域 + 可选的过滤正则。</summary>

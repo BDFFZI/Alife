@@ -1,5 +1,3 @@
-using BDFFZI.VibeCode.GameCompanion;
-
 namespace BDFFZI.VibeCode.GameCompanion;
 
 /// <summary>语音关键词采样器配置：触发关键词（逗号分隔可监听多个）。</summary>

@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Alife.Framework;
-using BDFFZI.VibeCode.GameCompanion;
-using BDFFZI.VibeCode.GameCompanion;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Microsoft.Extensions.Logging;
@@ -231,10 +229,10 @@ public sealed class GameCompanionEditorController : IDisposable
     // ============ 系统任务栏控制 ============
 
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-    static extern System.IntPtr FindWindow(string lpClassName, string lpWindowName);
+    static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-    static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     const int SW_HIDE = 0;
     const int SW_SHOW = 5;
@@ -244,8 +242,8 @@ public sealed class GameCompanionEditorController : IDisposable
     {
         try
         {
-            System.IntPtr hWnd = FindWindow("Shell_TrayWnd", null);
-            if (hWnd != System.IntPtr.Zero)
+            IntPtr hWnd = FindWindow("Shell_TrayWnd", null);
+            if (hWnd != IntPtr.Zero)
                 ShowWindow(hWnd, visible ? SW_SHOW : SW_HIDE);
         }
         catch
@@ -451,7 +449,7 @@ public sealed class GameCompanionEditorController : IDisposable
             string? raw = PayloadToString(payload);
             if (!string.IsNullOrEmpty(raw) && raw.StartsWith("{"))
             {
-                var jo = Newtonsoft.Json.Linq.JObject.Parse(raw);
+                var jo = JObject.Parse(raw);
                 show = jo["show"]?.Value<bool>() ?? false;
                 game = jo["game"]?.ToString();
             }
@@ -1085,10 +1083,10 @@ public sealed class GameCompanionEditorController : IDisposable
         try
         {
             string raw = readConfigJson();
-            var jo = Newtonsoft.Json.Linq.JObject.Parse(raw);
+            var jo = JObject.Parse(raw);
             if (!string.IsNullOrEmpty(LastGameName))
                 jo["DefaultGame"] = LastGameName;
-            return jo.ToString(Newtonsoft.Json.Formatting.None);
+            return jo.ToString(Formatting.None);
         }
         catch (Exception ex)
         {

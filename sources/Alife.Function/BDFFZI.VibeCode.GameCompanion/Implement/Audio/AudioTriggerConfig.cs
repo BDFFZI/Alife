@@ -1,5 +1,3 @@
-using BDFFZI.VibeCode.GameCompanion;
-
 namespace BDFFZI.VibeCode.GameCompanion;
 
 /// <summary>

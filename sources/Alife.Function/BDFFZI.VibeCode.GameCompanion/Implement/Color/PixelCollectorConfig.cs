@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using BDFFZI.VibeCode.GameCompanion;
-using BDFFZI.VibeCode.GameCompanion;
 
 namespace BDFFZI.VibeCode.GameCompanion;
 

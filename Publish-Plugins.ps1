@@ -65,21 +65,7 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "[Alife] Plugins: $PluginTarget"
 Write-Host ""
 
-Write-Host "[1/3] Publishing DeskPet..." -ForegroundColor Yellow
-$deskPetOutput = Join-Path $OutputDir "Alife.DeskPet.Client"
-if (Test-Path -LiteralPath $deskPetOutput) {
-    Remove-Item -LiteralPath $deskPetOutput -Recurse -Force
-}
-Invoke-DotnetPublish -Project (Join-Path $Src "Alife.DeskPet\Alife.DeskPet.Client\Alife.DeskPet.Client.csproj") -Arguments @(
-    "-c", "Release",
-    "-o", $deskPetOutput,
-    "-nologo",
-    "--verbosity", "quiet"
-)
-Write-Host "  DeskPet: $deskPetOutput" -ForegroundColor Green
-Write-Host ""
-
-Write-Host "[2/3] Building plugin sources..." -ForegroundColor Yellow
+Write-Host "[1/2] Building plugin sources..." -ForegroundColor Yellow
 if (Test-Path -LiteralPath $PluginBuildRoot) {
     Remove-Item -LiteralPath $PluginBuildRoot -Recurse -Force
 }
@@ -103,7 +89,7 @@ foreach ($dir in $functionDirs) {
 }
 Write-Host ""
 
-Write-Host "[3/3] Refreshing source-based plugins..." -ForegroundColor Yellow
+Write-Host "[2/2] Refreshing source-based plugins..." -ForegroundColor Yellow
 if (Test-Path -LiteralPath $PluginTarget) {
     Remove-Item -LiteralPath $PluginTarget -Recurse -Force
 }
