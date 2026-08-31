@@ -1,5 +1,3 @@
-using System;
-
 namespace Alife.Function.DeskPet;
 
 /// <summary>

@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
+using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
 
@@ -11,43 +13,59 @@ public class GazeModule : IPetModule, IDisposable
     readonly PetBridge bridge;
     readonly PetWindow window;
     readonly CancellationTokenSource? cancellationTokenSource;
-    long lastMouseMoveTime;
+    DateTime? lastMouseMoveTime;
 
-    public GazeModule(PetBridge bridge, MouseTracker tracker, PetWindow window)
+    public GazeModule(PetBridge bridge, PetWindow window)
     {
         this.bridge = bridge;
         this.window = window;
-        tracker.MouseMoved += (x, y) => {
-            lastMouseMoveTime = Now();
-            (double scaleX, double scaleY) dpi = window.GetDpi();
-            (double left, double top, double width, double height) layout = window.GetLayout();
-            bridge.SendMessage("look", new { x = x / dpi.scaleX - layout.left, y = y / dpi.scaleY - layout.top, instant = false });
-        };
+
+        window.MouseMoved += OnMouseMoved;
         cancellationTokenSource = new CancellationTokenSource();
-        _ = FocusResetLoop(cancellationTokenSource.Token);
+        FocusResetLoop(cancellationTokenSource.Token);
     }
+
     public void Dispose()
     {
+        window.MouseMoved -= OnMouseMoved;
         cancellationTokenSource?.Cancel();
         cancellationTokenSource?.Dispose();
     }
 
-    async Task FocusResetLoop(CancellationToken cancellationToken)
+    void OnMouseMoved()
+    {
+        Point point = window.CursorScreenPoint;
+        Rectangle rectangle = window.Bounds;
+        bridge.SendMessage("look", new {
+            x = point.X - rectangle.X, y = point.Y - rectangle.X, instant = false
+        });
+        lastMouseMoveTime = DateTime.Now;
+    }
+    async void FocusResetLoop(CancellationToken cancellationToken)
     {
         try
         {
-            while (true)
+            while (cancellationToken.IsCancellationRequested == false)
             {
                 await Task.Delay(500, cancellationToken);
-                if (Now() - lastMouseMoveTime > 3000)
+                if (lastMouseMoveTime == null)
+                    continue;
+
+                if (DateTime.Now - lastMouseMoveTime.Value > TimeSpan.FromSeconds(3))
                 {
-                    (double left, double top, double width, double height) layout = window.GetLayout();
-                    bridge.SendMessage("look", new { x = layout.width / 2, y = layout.height / 2, instant = false });
+                    bridge.SendMessage("look", new {
+                        x = window.Bounds.Width / 2,
+                        y = window.Bounds.Height / 2,
+                        instant = false
+                    });
+                    lastMouseMoveTime = null;
                 }
             }
         }
         catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
-
-    static long Now() => DateTimeOffset.Now.ToUnixTimeMilliseconds();
 }

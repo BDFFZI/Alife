@@ -48,7 +48,7 @@ window.addEventListener('mouseup', function(e) {
         switch (type)
         {
             case "drag_start":
-                startPosition = window.Window.GetBoundsAsync().Result;
+                startPosition = window.Bounds;
                 break;
             case "drag_move":
                 if (startPosition != null)

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
+using ElectronNET.API.Entities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -92,12 +93,39 @@ public partial class Live2DDeskPet(
     }
     public Task<Vector2> GetPosition()
     {
-        (double x, double y) = window.GetCenterPosition();
-        return Task.FromResult(new Vector2((float)x, (float)y));
+        float dpi = (float)window.Dpi;
+        Rectangle bounds = window.Bounds;
+        Vector2 position = new Vector2(
+            (bounds.X + bounds.Width / 2.0f) * dpi,
+            (bounds.Y + bounds.Height / 2.0f) * dpi
+        );
+
+        return Task.FromResult(position);
     }
-    public Task Move(Vector2 offset, float time)
+    public async Task Move(Vector2 offset, float seconds)
     {
-        return window.ProgrammaticMoveAsync(offset.X, offset.Y, (int)(time * 1000));
+        float dpi = (float)window.Dpi;
+        Rectangle bounds = window.Bounds;
+
+        double endX = bounds.X + offset.X / dpi;
+        double endY = bounds.Y + offset.Y / dpi;
+        long startTick = Environment.TickCount64;
+        int durationMs = (int)(seconds * 1000);
+        if (durationMs <= 0)
+            durationMs = 1;
+
+        while (true)
+        {
+            long elapsed = Environment.TickCount64 - startTick;
+            double t = Math.Min(1.0, (double)elapsed / durationMs);
+            double ease = t * (2 - t);
+            bounds.X += (int)Math.Round((endX - bounds.X) * ease);
+            bounds.Y += (int)Math.Round((endY - bounds.Y) * ease);
+
+            window.Window.SetBounds(bounds);
+            if (t >= 1.0) break;
+            await Task.Delay(16);
+        }
     }
 
     PetModelMetadata metadata = null!;
@@ -106,7 +134,7 @@ public partial class Live2DDeskPet(
     SubtitleModule subtitleModule = null!;
     ExpressionModule expressionModule = null!;
     UsingModule usingModule = null!;
-    
+
     protected override async Task OnAwake()
     {
         // 解析模型元数据（无模型时自动下载默认模型）
@@ -131,9 +159,9 @@ public partial class Live2DDeskPet(
             //加载模块
             await LoadModuleAsync(moduleTypes);
 
-            // subtitleModule = provider.GetRequiredService<SubtitleModule>();
-            // expressionModule = provider.GetRequiredService<ExpressionModule>();
-            // usingModule = provider.GetRequiredService<UsingModule>();
+            subtitleModule = provider.GetRequiredService<SubtitleModule>();
+            expressionModule = provider.GetRequiredService<ExpressionModule>();
+            usingModule = provider.GetRequiredService<UsingModule>();
         }
         catch
         {
@@ -159,9 +187,6 @@ public partial class Live2DDeskPet(
         services.AddSingleton<PetBridge>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));
         services.AddSingleton<InteractedEventCallback>(text => OnInteracted?.Invoke(text));
-        services.AddSingleton<MouseTracker>();
-        services.AddSingleton<MotionDetector>();
-        services.AddSingleton<WindowInteractionModule>();
 
         moduleTypes = typeof(IPetModule).Assembly.GetTypes()
             .Where(type => type is { IsClass: true, IsAbstract: false } && typeof(IPetModule).IsAssignableFrom(type))

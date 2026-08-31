@@ -17,5 +17,5 @@ public interface IDeskPet
     public Task ShowExpression(string? expression);
     public Task ShowMotion(string? motion);
     public Task<Vector2> GetPosition();
-    public Task Move(Vector2 offset, float time);
+    public Task Move(Vector2 offset, float seconds);
 }

@@ -34,7 +34,7 @@ body:hover #input-container,
 ";
     public string HtmlCode => @"
 <div id='input-container'>
-    <input type='text' id='chat-input' placeholder='和真央聊聊吧喵...' autocomplete='off'>
+    <input type='text' id='chat-input' placeholder='来聊聊吧...' autocomplete='off'>
     <button id='send-btn'>
         <svg viewBox='0 0 24 24' width='14' height='14' fill='currentColor'>
             <path d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/>

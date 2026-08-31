@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 
 namespace Alife.Function.DeskPet;
 
@@ -14,8 +15,8 @@ messageBus.on('motion', (msg) => model.motion(msg.group, msg.index, PIXI.live2d.
 
     public void PlayExpression(string? id)
     {
-        lastTime = Now();
         bridge.SendMessage("expression", new { id });
+        lastPlayExpressionTime = DateTime.Now;
     }
 
     public void PlayMotion(string group, int index)
@@ -26,37 +27,44 @@ messageBus.on('motion', (msg) => model.motion(msg.group, msg.index, PIXI.live2d.
     readonly PetBridge bridge;
     readonly PetModelMetadata metadata;
     readonly CancellationTokenSource? cancellationTokenSource;
-    long? lastTime;
+    DateTime? lastPlayExpressionTime;
 
     public ExpressionModule(PetBridge bridge, PetModelMetadata metadata)
     {
         this.bridge = bridge;
         this.metadata = metadata;
         cancellationTokenSource = new CancellationTokenSource();
-        _ = AutoRevertLoop(cancellationTokenSource.Token);
+
+        if (metadata.Expressions.Count != 0)
+            AutoRevertLoop(cancellationTokenSource.Token);
     }
     public void Dispose()
     {
         cancellationTokenSource?.Cancel();
         cancellationTokenSource?.Dispose();
     }
-    
-    async Task AutoRevertLoop(CancellationToken ct)
+
+    async void AutoRevertLoop(CancellationToken cancellationToken)
     {
         try
         {
-            while (true)
+            while (cancellationToken.IsCancellationRequested == false)
             {
-                await Task.Delay(200, ct);
-                if (lastTime != null && Now() - lastTime > 3000 && metadata.Expressions.Count > 0)
+                await Task.Delay(500, cancellationToken);
+                if (lastPlayExpressionTime == null)
+                    continue;
+
+                if (DateTime.Now - lastPlayExpressionTime.Value > TimeSpan.FromSeconds(3))
                 {
                     PlayExpression(metadata.Expressions.First());
-                    lastTime = null;
+                    lastPlayExpressionTime = null;
                 }
             }
         }
         catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
-
-    static long Now() => DateTimeOffset.Now.ToUnixTimeMilliseconds();
 }

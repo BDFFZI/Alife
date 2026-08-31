@@ -67,7 +67,7 @@ public sealed class PetBridge : IDisposable
 
     void OnIpcMessage(object? payload)
     {
-        logger.LogInformation(payload?.ToString());
+        // logger.LogInformation(payload?.ToString());
 
         if (payload is not string json)
             return;
@@ -85,11 +85,18 @@ public sealed class PetBridge : IDisposable
             if (type == null)
                 return;
 
-            OnMessage?.Invoke(type, root);
+            try
+            {
+                OnMessage?.Invoke(type, root);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "执行桌宠前端消息回调失败");
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "解析桌宠消息失败");
+            logger.LogError(ex, "解析桌宠前端消息失败");
         }
     }
 }

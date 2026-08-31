@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 
 namespace Alife.Function.DeskPet;
 
@@ -47,21 +48,22 @@ messageBus.on('hide-bubble', () => {
 
     public void Show(string text)
     {
-        lastTime = Now();
         bridge.SendMessage("bubble", new { text });
+        lastShowingTime = DateTime.Now;
     }
 
     public void Hide() => bridge.SendMessage("hide-bubble");
 
     readonly PetBridge bridge;
     readonly CancellationTokenSource? cancellationTokenSource;
-    long? lastTime;
+    DateTime? lastShowingTime;
 
     public SubtitleModule(PetBridge bridge)
     {
         this.bridge = bridge;
+
         cancellationTokenSource = new CancellationTokenSource();
-        _ = AutoHideLoop(cancellationTokenSource.Token);
+        AutoHideLoop(cancellationTokenSource.Token);
     }
     public void Dispose()
     {
@@ -70,22 +72,27 @@ messageBus.on('hide-bubble', () => {
     }
 
 
-    async Task AutoHideLoop(CancellationToken ct)
+    async void AutoHideLoop(CancellationToken cancellationToken)
     {
         try
         {
-            while (true)
+            while (cancellationToken.IsCancellationRequested == false)
             {
-                await Task.Delay(1000, ct);
-                if (lastTime != null && Now() - lastTime > 6000)
+                await Task.Delay(1000, cancellationToken);
+                if (lastShowingTime == null)
+                    continue;
+
+                if (DateTime.Now - lastShowingTime > TimeSpan.FromSeconds(6))
                 {
                     Hide();
-                    lastTime = null;
+                    lastShowingTime = null;
                 }
             }
         }
         catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
-
-    static long Now() => DateTimeOffset.Now.ToUnixTimeMilliseconds();
 }
