@@ -1,6 +1,9 @@
 using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Alife.Foundation;
+using ElectronNET.API;
+using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
 
@@ -11,72 +14,44 @@ public class MouseTracker : IDisposable
 {
     public event Action<int, int>? MouseMoved;
 
+    readonly CancellationTokenSource cancellationTokenSource;
+    readonly int[] lastPoint = new int[2];
+    readonly double dpi;
+
     public MouseTracker()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) == false) return;
-
-        LowLevelMouseProc proc = MouseProc;
-        using (Process curProcess = Process.GetCurrentProcess())
-        using (ProcessModule curModule = curProcess.MainModule!)
-        {
-            hookId = SetWindowsHookEx(WhMouseLl, proc, GetModuleHandle(curModule.ModuleName), 0);
-        }
-
-        if (hookId == IntPtr.Zero)
-            throw new Exception("[MouseTracker] 无法设置全局鼠标钩子");
+        dpi = Electron.Screen.GetPrimaryDisplayAsync().Result.ScaleFactor;
+        cancellationTokenSource = new CancellationTokenSource();
+        Loop();
     }
     public void Dispose()
     {
-        if (hookId != IntPtr.Zero)
+        cancellationTokenSource.Cancel();
+    }
+
+    async void Loop(CancellationToken cancellationToken = default)
+    {
+        try
         {
-            UnhookWindowsHookEx(hookId);
-            hookId = IntPtr.Zero;
+            while (cancellationToken.IsCancellationRequested == false)
+            {
+                await Task.Delay(30, cancellationToken);
+                Point point = await Electron.Screen.GetCursorScreenPointAsync();
+                int newX = (int)(point.X * dpi);
+                int newY = (int)(point.Y * dpi);
+
+                if (lastPoint[0] != newX || lastPoint[1] != newY)
+                {
+                    lastPoint[0] = newX;
+                    lastPoint[1] = newY;
+                    MouseMoved?.Invoke(newX, newY);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
         }
     }
-
-    IntPtr hookId = IntPtr.Zero;
-
-    IntPtr MouseProc(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        if (nCode >= 0 && (int)wParam == WmMousemove)
-        {
-            Msllhookstruct hookStruct = Marshal.PtrToStructure<Msllhookstruct>(lParam);
-            MouseMoved?.Invoke(hookStruct.pt.x, hookStruct.pt.y);
-        }
-        return CallNextHookEx(hookId, nCode, wParam, lParam);
-    }
-
-    const int WhMouseLl = 14;
-    const int WmMousemove = 0x0200;
-
-    public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct Point
-    {
-        public int x;
-        public int y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct Msllhookstruct
-    {
-        public Point pt;
-        public int mouseData;
-        public int flags;
-        public int time;
-        public IntPtr dwExtraInfo;
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern IntPtr GetModuleHandle(string lpModuleName);
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
 }
