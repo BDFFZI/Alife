@@ -22,7 +22,7 @@ public delegate void InteractedEventCallback(string text);
 
 public partial class Live2DDeskPet
 {
-    public static string ModelRoot { get; } = Path.Combine(AlifePath.StorageFolderPath, "DeskPet", "Live2D", "model");
+    public static string ModelRoot { get; } = Path.Combine(AlifePath.StorageFolderPath, "Live2DDeskPet", "Models");
     public static async Task EnsureDefaultModelsAsync()
     {
         if (Directory.Exists(ModelRoot) && Directory.GetDirectories(ModelRoot).Length > 0)
@@ -57,6 +57,7 @@ public partial class Live2DDeskPet
     EditorUI = typeof(Live2DDeskPetUI))]
 public partial class Live2DDeskPet(
     PluginSystem pluginSystem,
+    StorageSystem storageSystem,
     ILogger<Live2DDeskPet> logger) :
     ChatBehaviour,
     IConfigurable<Live2DDeskPetConfig>,
@@ -128,6 +129,12 @@ public partial class Live2DDeskPet(
         }
     }
 
+    /// <summary>将桌宠窗口恢复到默认位置与大小（用于桌宠意外跑出屏幕后重置）。</summary>
+    public void ResetWindow()
+    {
+        window.ResetBounds();
+    }
+
     PetModelMetadata metadata = null!;
     ServiceProvider provider = null!;
     PetWindow window = null!;
@@ -183,6 +190,7 @@ public partial class Live2DDeskPet(
         ServiceCollection services = new();
         services.AddSingleton(logger);
         services.AddSingleton(metadata);
+        services.AddSingleton(storageSystem);
         services.AddSingleton<PetWindow>();
         services.AddSingleton<PetBridge>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));

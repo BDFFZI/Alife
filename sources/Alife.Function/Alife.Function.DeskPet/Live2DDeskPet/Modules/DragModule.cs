@@ -8,13 +8,11 @@ public class DragModule : IPetModule, IDisposable
 {
     public string JsCode => @"
 let isDragging = false;
-window.addEventListener('mousedown', async function(e) {
-    if (e.button !== 0 || e.target.tagName !== 'CANVAS') return;
-    var areas = await model.hitTest(e.clientX, e.clientY);
-    if (!areas || areas.length === 0) {
-        isDragging = true;
-        postMessage({type:'drag_start'});
-    }
+window.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    if (!e.target.closest('[data-drag]')) return;
+    isDragging = true;
+    postMessage({type:'drag_start'});
 });
 window.addEventListener('mousemove', function(e) {
     if (isDragging === true) {
@@ -22,9 +20,7 @@ window.addEventListener('mousemove', function(e) {
     }
 });
 window.addEventListener('mouseup', function(e) {
-    if (isDragging === true) {
-        isDragging = false;
-    }
+    isDragging = false;
 });
 ";
 

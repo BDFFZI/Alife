@@ -2,7 +2,10 @@ body, html {
     margin: 0; padding: 0;
     width: 100%; height: 100%;
     overflow: hidden;
-    background-color: rgba(0, 0, 0, 0.0001);
+    /* 背景必须非全透明(alpha>0)：透明窗口下，鼠标悬停事件只会命中"已绘制"的像素，
+       若背景 alpha=0，移到空背景上收不到事件、hover 门控的 UI 不显示。
+       此处用极低 alpha：肉眼不可见，但可被命中。 */
+    background-color: rgba(0, 0, 0, 0.002);
 }
 :root { --ui-scale: 1; }
 #canvas { width: 100%; height: 100%; display: block; }

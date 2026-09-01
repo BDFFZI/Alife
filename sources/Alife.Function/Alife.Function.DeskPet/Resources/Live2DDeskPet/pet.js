@@ -132,15 +132,13 @@ async function loadModel(url) {
         return;
     }
     app.stage.addChild(model);
-
-    var bh = model.internalModel.originalHeight || (model.height / model.scale.y);
-
+    
     var updateLayout = function () {
         var s = window.innerHeight / 540;
         document.documentElement.style.setProperty('--ui-scale', s);
-        var sc = (window.innerHeight * 0.9) / bh;
+        const sc = window.innerHeight / model.internalModel.originalHeight;
         model.scale.set(sc);
-        model.position.set(window.innerWidth / 2, window.innerHeight / 2);
+        model.position.set(window.innerWidth * 0.5, window.innerHeight * 0.48);
     };
 
     model.anchor.set(0.5, 0.5);
