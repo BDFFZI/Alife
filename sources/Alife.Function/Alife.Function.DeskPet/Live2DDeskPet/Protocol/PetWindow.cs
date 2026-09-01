@@ -9,12 +9,15 @@ using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
 
+/// <summary>按角色隔离的存储键前缀，值为角色的 StorageKey（如 "Character\Mao"）。</summary>
+public record PetStorageKey(string Value);
+
 /// <summary>
 /// 桌宠 Electron 浏览器窗口封装：负责创建透明置顶窗口、定位/移动/缩放、DPI 与脚本执行，
-/// 并通过 StorageSystem 持久化/恢复窗口位置大小。
+/// 并通过 StorageSystem 持久化/恢复窗口位置大小（按角色隔离）。
 /// 网页资源位于插件 Resources/Live2D/（随插件分发或内嵌到客户端输出目录）。
 /// </summary>
-public sealed class PetWindow(StorageSystem storage) : IDisposable
+public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) : IDisposable
 {
     public event Action? MouseMoved;
 
@@ -23,7 +26,7 @@ public sealed class PetWindow(StorageSystem storage) : IDisposable
     public Rectangle Bounds => bounds;
     public Point Position => position;
     public Point CursorScreenPoint => cursorScreenPoint;
-    
+
     public void ResetBounds()
     {
         window.SetBounds(defaultBounds);
@@ -36,7 +39,7 @@ public sealed class PetWindow(StorageSystem storage) : IDisposable
     Point cursorScreenPoint = null!;
     CancellationTokenSource cancellationTokenSource = null!;
 
-    const string WindowStateKey = "Live2DDeskPet/WindowState";
+    readonly string windowBoundsKey = $"{storageKey.Value}/Live2DDeskPet/WindowBounds";
     Rectangle defaultBounds = null!;
 
     public async Task CreateAsync(string wwwRoot)
@@ -45,13 +48,13 @@ public sealed class PetWindow(StorageSystem storage) : IDisposable
         Display primary = await Electron.Screen.GetPrimaryDisplayAsync();
         defaultBounds = new Rectangle {
             X = primary.WorkArea.X + primary.WorkArea.Width - 710,
-            Y = primary.WorkArea.Y + primary.WorkArea.Height - 220,
+            Y = primary.WorkArea.Y + primary.WorkArea.Height - 210,
             Width = 320,
             Height = 480,
         };
 
         dpi = primary.ScaleFactor;
-        bounds = storage.GetObject<Rectangle>(WindowStateKey) ?? new Rectangle {
+        bounds = storage.GetObject<Rectangle>(windowBoundsKey) ?? new Rectangle {
             X = defaultBounds.X,
             Y = defaultBounds.Y,
             Width = defaultBounds.Width,
@@ -113,7 +116,7 @@ public sealed class PetWindow(StorageSystem storage) : IDisposable
     {
         cancellationTokenSource.Cancel();
         cancellationTokenSource.Dispose();
-        storage.SetObject(WindowStateKey, bounds);
+        storage.SetObject(windowBoundsKey, bounds);
         window.Destroy();
     }
 

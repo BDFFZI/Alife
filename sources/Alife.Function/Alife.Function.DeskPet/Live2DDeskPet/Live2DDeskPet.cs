@@ -191,6 +191,7 @@ public partial class Live2DDeskPet(
         services.AddSingleton(logger);
         services.AddSingleton(metadata);
         services.AddSingleton(storageSystem);
+        services.AddSingleton(new PetStorageKey(Character.StorageKey));
         services.AddSingleton<PetWindow>();
         services.AddSingleton<PetBridge>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));

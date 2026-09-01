@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
+using Alife.Framework;
 using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
@@ -27,7 +28,8 @@ public class MouseThroughModule : IPetModule, IDisposable
     border:1px solid rgba(255,255,255,0.2);
     opacity:0; transition:opacity 0.3s, background 0.3s, border-color 0.3s;
 }
-body:hover #lock-btn, #lock-btn.always { opacity:1; }
+body:hover #lock-btn { opacity:1; }
+body:hover #lock-btn.faded { opacity:0.6; }
 #lock-btn.left { left:8px; }
 #lock-btn.right { right:8px; }
 ";
@@ -46,12 +48,12 @@ body:hover #lock-btn, #lock-btn.always { opacity:1; }
     var btn = document.getElementById('lock-btn');
     function corner() {
         var isLeft = window.screenX < (screen.width - window.innerWidth) / 2;
-        btn.classList.toggle('left', isLeft);
-        btn.classList.toggle('right', !isLeft);
-        postMessage({type:'lock_corner', corner: isLeft ? 'left' : 'right'});
+        btn.classList.toggle('right', isLeft);
+        btn.classList.toggle('left', !isLeft);
+        postMessage({type:'lock_corner', corner: isLeft ? 'right' : 'left'});
     }
     function setState(on) {
-        btn.classList.toggle('always', on);
+        btn.classList.toggle('faded', on);
         document.getElementById('lock-open').style.display = on ? 'none' : 'block';
         document.getElementById('lock-closed').style.display = on ? 'block' : 'none';
     }
@@ -66,6 +68,8 @@ body:hover #lock-btn, #lock-btn.always { opacity:1; }
 
     readonly PetBridge bridge;
     readonly PetWindow window;
+    readonly StorageSystem storage;
+    readonly string mouseThroughKey;
     CancellationTokenSource? cancellationTokenSource;
     bool mouseThrough;
     string corner = "right";
@@ -73,11 +77,20 @@ body:hover #lock-btn, #lock-btn.always { opacity:1; }
     const int LockSize = 34;
     const int LockMargin = 8;
 
-    public MouseThroughModule(PetBridge bridge, PetWindow window)
+    public MouseThroughModule(PetBridge bridge, PetWindow window, StorageSystem storage, PetStorageKey storageKey)
     {
         this.bridge = bridge;
         this.window = window;
+        this.storage = storage;
+        mouseThroughKey = $"{storageKey.Value}/Live2DDeskPet/MouseThrough";
         bridge.OnMessage += OnBridgeMessage;
+
+        mouseThrough = storage.GetObject(mouseThroughKey, false);
+        if (mouseThrough)
+        {
+            window.Window.SetIgnoreMouseEvents(true);
+            StartLoop();
+        }
     }
     public void Dispose()
     {
@@ -105,6 +118,7 @@ body:hover #lock-btn, #lock-btn.always { opacity:1; }
     void SetMouseThrough(bool enabled)
     {
         mouseThrough = enabled;
+        storage.SetObject(mouseThroughKey, mouseThrough);
         bridge.SendMessage("lock_state", new { on = mouseThrough });
         if (enabled)
             StartLoop();
