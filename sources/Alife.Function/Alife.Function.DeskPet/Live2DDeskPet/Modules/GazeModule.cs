@@ -37,7 +37,7 @@ public class GazeModule : IPetModule, IDisposable
         Point point = window.CursorScreenPoint;
         Rectangle rectangle = window.Bounds;
         bridge.SendMessage("look", new {
-            x = point.X - rectangle.X, y = point.Y - rectangle.X, instant = false
+            x = (point.X - rectangle.X) * window.Dpi, y = (point.Y - rectangle.Y) * window.Dpi, instant = false
         });
         lastMouseMoveTime = DateTime.Now;
     }
