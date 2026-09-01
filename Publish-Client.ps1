@@ -80,14 +80,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $ElectronPackage "Alife.Client.exe")
 
 Get-ChildItem -LiteralPath $ElectronPackage -Force | Copy-Item -Destination $ClientTarget -Recurse -Force
 
-$safeModeScript = Join-Path $ClientTarget "Alife.Client.exe (Debug).cmd"
-@"
-@echo off
-chcp 65001 >nul
-Alife.Client.exe --no-sandbox --disable-gpu
-pause
-"@ | Set-Content -Path $safeModeScript -Encoding ASCII
-
 Write-Host "  Electron package: $ClientTarget" -ForegroundColor Green
 Write-Host ""
 

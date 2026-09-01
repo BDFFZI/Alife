@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds the Alife plugins (including DeskPet).
+    Builds the Alife plugins.
 .DESCRIPTION
-    Publishes DeskPet, builds all Function plugins, and refreshes source-based
-    plugins for client-side builds.
+    Builds all Function plugins, and refreshes source-based plugins for
+    client-side builds.
 .PARAMETER OutputDir
     Distribution root. Plugins are emitted to "$OutputDir\..\Plugins".
 .EXAMPLE

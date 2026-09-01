@@ -31,4 +31,11 @@
         </Content>
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="Properties\custom_main.js">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>.electron\custom_main.js</TargetPath>
+        </None>
+    </ItemGroup>
+
 </Project>
