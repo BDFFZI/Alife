@@ -67,7 +67,7 @@ public class DeskPetService(
                             cancellationToken);
                     await pet.ShowSubtitle(content);
                     lastBubbleEndTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() +
-                                        Math.Max(content.Length * Configuration.BubbleDurationPerCharMs, 2000);
+                                        Math.Max(content.Length * Configuration.BubbleDurationPerCharMs, 1500);
                     break;
                 }
             }

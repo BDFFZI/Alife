@@ -1,5 +1,7 @@
 @namespace Alife.Function.DeskPet
+@using System.IO
 @using System.Diagnostics
+@using System.Linq
 @using AntDesign
 @using Alife.Framework
 @inherits ModuleUIBase<Live2DDeskPet, Live2DDeskPetConfig>
@@ -15,11 +17,22 @@ else
         <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
             <Form TModel="Live2DDeskPetConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
                 <FormItem Label="模型名">
-                    <Input @bind-Value="@Configuration.ModelName" Placeholder="Mao"/>
+                    <Select @bind-Value="Configuration.ModelName"
+                            TItem="string"
+                            TItemValue="string"
+                            Style="width: 100%;"
+                            Placeholder="选择模型"
+                            AllowClear="true">
+                        <SelectOptions>
+                            @foreach (var folder in modelFolders)
+                            {
+                                <SelectOption TItem="string" TItemValue="string" Value="@folder" Label="@folder" />
+                            }
+                        </SelectOptions>
+                    </Select>
                     <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                        输入模型文件夹名称，将按 <code>{名称}/{名称}.model3.json</code> 或
-                        <code>{名称}/{名称}.model.json</code> 规则
-                        从存储目录 <code>Storage/DeskPet/Live2D/model/</code> 加载。留空或 "Mao" 为默认角色。
+                        从存储目录 <code>Storage/DeskPet/Live2D/model/</code> 下的模型文件夹中选择。
+                        将按 <code>{名称}/{名称}.model3.json</code> 或 <code>{名称}/{名称}.model.json</code> 规则加载。留空则使用默认角色 "Mao"。
                     </Text>
                 </FormItem>
             </Form>
@@ -29,7 +42,7 @@ else
             </Button>
 
             <Button Type="@ButtonType.Default" Icon="reload" OnClick="ResetWindow">
-                重置窗口位置
+                重置窗口位置大小
             </Button>
 
             <Card Size="CardSize.Small" Title="自定义模型说明" Style="border-radius: 8px;">
@@ -56,6 +69,7 @@ else
 
 @code {
     bool isDownloading;
+    List<string> modelFolders = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -63,6 +77,15 @@ else
         StateHasChanged();
         await Live2DDeskPet.EnsureDefaultModelsAsync();
         isDownloading = false;
+
+        modelFolders = Directory.Exists(Live2DDeskPet.ModelRoot)
+            ? Directory.GetDirectories(Live2DDeskPet.ModelRoot).Select(Path.GetFileName).Where(name => !string.IsNullOrEmpty(name)).ToList()!
+            : new List<string>();
+
+        // 确保当前配置值在可选范围内，否则回退到默认角色
+        if (string.IsNullOrEmpty(Configuration.ModelName) || modelFolders.Contains(Configuration.ModelName) == false)
+            Configuration.ModelName = modelFolders.Contains("Mao") ? "Mao" : modelFolders.FirstOrDefault() ?? "";
+
         StateHasChanged();
     }
 

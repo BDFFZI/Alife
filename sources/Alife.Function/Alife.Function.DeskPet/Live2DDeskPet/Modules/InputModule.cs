@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using Alife.Framework;
 
 namespace Alife.Function.DeskPet;
 
@@ -20,6 +21,7 @@ public class InputModule : IPetModule, IDisposable
 }
 body:hover #input-container,
 #input-container:focus-within { opacity:1; }
+#input-container.off { display:none; }
 #chat-input {
     flex:1; background:transparent; border:none; outline:none;
     color:white; font-size:13px; padding:6px;
@@ -31,6 +33,25 @@ body:hover #input-container,
     display:flex; align-items:center; justify-content:center;
     color:white;
 }
+#input-toggle-btn {
+    position:fixed; right:15px; bottom:88px;
+    width:28px; height:28px;
+    background:rgba(0,0,0,0.4);
+    backdrop-filter:blur(10px); border-radius:50%;
+    display:flex; justify-content:center; align-items:center;
+    color:white; cursor:pointer; z-index:2000;
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+    border:1px solid rgba(255,255,255,0.15);
+    opacity:0; transition:opacity 0.3s, background 0.3s, opacity 0.3s;
+}
+body:hover #input-toggle-btn { opacity:1; }
+#input-toggle-btn:hover { background:rgba(0,0,0,0.6); }
+#input-toggle-btn.faded {
+    filter:grayscale(1);
+    background:rgba(0,0,0,0.22);
+    border-color:rgba(255,255,255,0.1);
+}
+#input-toggle-btn.faded:hover { background:rgba(0,0,0,0.35); }
 ";
     public string HtmlCode => @"
 <div id='input-container'>
@@ -41,11 +62,18 @@ body:hover #input-container,
         </svg>
     </button>
 </div>
+<div id='input-toggle-btn' title='输入框开关'>
+    <svg viewBox='0 0 24 24' width='16' height='16' fill='currentColor'>
+        <path d='M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z'/>
+    </svg>
+</div>
 ";
     public string JsCode => @"
 (function() {
     var input = document.getElementById('chat-input');
     var btn = document.getElementById('send-btn');
+    var container = document.getElementById('input-container');
+    var toggleBtn = document.getElementById('input-toggle-btn');
     var onSend = function() {
         var text = input.value.trim();
         if (text) {
@@ -55,16 +83,30 @@ body:hover #input-container,
     };
     btn.onclick = onSend;
     input.onkeydown = function(e) { if (e.key === 'Enter') onSend(); };
+
+    messageBus.on('input_state', function(msg) {
+        container.classList.toggle('off', !msg.on);
+        toggleBtn.classList.toggle('faded', !msg.on);
+    });
+    toggleBtn.addEventListener('click', function() { postMessage({type:'input_toggle'}); });
+
+    postMessage({type:'input_toggle_ready'});
 })();
 ";
 
     readonly PetBridge bridge;
     readonly InputEventCallback onInput;
+    readonly StorageSystem storage;
+    readonly string inputEnabledKey;
+    bool inputEnabled = true;
 
-    public InputModule(PetBridge bridge, InputEventCallback onInput)
+    public InputModule(PetBridge bridge, InputEventCallback onInput, StorageSystem storage, PetStorageKey storageKey)
     {
         this.bridge = bridge;
         this.onInput = onInput;
+        this.storage = storage;
+        inputEnabledKey = $"{storageKey.Value}/Live2DDeskPet/InputEnabled";
+        inputEnabled = storage.GetObject(inputEnabledKey, true);
         bridge.OnMessage += OnBridgeMessage;
     }
     public void Dispose()
@@ -74,10 +116,23 @@ body:hover #input-container,
 
     void OnBridgeMessage(string type, JsonElement data)
     {
-        if (type == "input")
+        switch (type)
         {
-            string text = data.GetProperty("text").GetString() ?? "";
-            onInput(text);
+            case "input":
+                if (inputEnabled)
+                {
+                    string text = data.GetProperty("text").GetString() ?? "";
+                    onInput(text);
+                }
+                break;
+            case "input_toggle_ready":
+                bridge.SendMessage("input_state", new { on = inputEnabled });
+                break;
+            case "input_toggle":
+                inputEnabled = !inputEnabled;
+                storage.SetObject(inputEnabledKey, inputEnabled);
+                bridge.SendMessage("input_state", new { on = inputEnabled });
+                break;
         }
     }
 }

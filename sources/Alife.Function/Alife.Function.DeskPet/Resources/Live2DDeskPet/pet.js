@@ -120,6 +120,19 @@ const app = new PIXI.Application({
 
 let model = null;
 
+// 用户在模型上的追加偏移与缩放（独立于布局基准，窗口 resize/updateLayout 不会重置）
+let userScale = 1;
+let userOffsetX = 0;
+let userOffsetY = 0;
+
+// 将布局基准 + 用户追加变换应用到模型
+function applyTransform() {
+    if (!model) return;
+    const sc = window.innerHeight / model.internalModel.originalHeight;
+    model.scale.set(sc * userScale);
+    model.position.set(window.innerWidth * 0.5 + userOffsetX, window.innerHeight * 0.48 + userOffsetY);
+}
+
 async function loadModel(url) {
     console.log('[Pet] Loading model:', url);
     if (model) app.stage.removeChild(model);
@@ -136,9 +149,7 @@ async function loadModel(url) {
     var updateLayout = function () {
         var s = window.innerHeight / 540;
         document.documentElement.style.setProperty('--ui-scale', s);
-        const sc = window.innerHeight / model.internalModel.originalHeight;
-        model.scale.set(sc);
-        model.position.set(window.innerWidth * 0.5, window.innerHeight * 0.48);
+        applyTransform();
     };
 
     model.anchor.set(0.5, 0.5);

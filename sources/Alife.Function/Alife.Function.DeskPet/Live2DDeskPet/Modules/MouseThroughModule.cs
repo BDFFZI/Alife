@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
-using Alife.Framework;
 using ElectronNET.API.Entities;
 
 namespace Alife.Function.DeskPet;
@@ -12,7 +11,7 @@ namespace Alife.Function.DeskPet;
 /// 鼠标穿透模块：在 UI 角落提供一个圆形锁图标（根据窗口在屏幕的左右半区显示在左上或右上）。
 /// 点击锁图标切换鼠标穿透。穿透开启时整个窗口对鼠标透明（点击穿透到后台），
 /// 但主进程会持续检测光标是否落在锁图标区域，落在锁区域时临时恢复鼠标响应，保证锁图标始终可点击关闭。
-/// 穿透状态通过 <see cref="StorageSystem"/> 持久化。
+/// 穿透状态通过 StorageSystem 持久化。
 /// </summary>
 public class MouseThroughModule : IPetModule, IDisposable
 {
@@ -68,8 +67,6 @@ body:hover #lock-btn.faded { opacity:0.6; }
 
     readonly PetBridge bridge;
     readonly PetWindow window;
-    readonly StorageSystem storage;
-    readonly string mouseThroughKey;
     CancellationTokenSource? cancellationTokenSource;
     bool mouseThrough;
     string corner = "right";
@@ -77,20 +74,11 @@ body:hover #lock-btn.faded { opacity:0.6; }
     const int LockSize = 34;
     const int LockMargin = 8;
 
-    public MouseThroughModule(PetBridge bridge, PetWindow window, StorageSystem storage, PetStorageKey storageKey)
+    public MouseThroughModule(PetBridge bridge, PetWindow window)
     {
         this.bridge = bridge;
         this.window = window;
-        this.storage = storage;
-        mouseThroughKey = $"{storageKey.Value}/Live2DDeskPet/MouseThrough";
         bridge.OnMessage += OnBridgeMessage;
-
-        mouseThrough = storage.GetObject(mouseThroughKey, false);
-        if (mouseThrough)
-        {
-            window.Window.SetIgnoreMouseEvents(true);
-            StartLoop();
-        }
     }
     public void Dispose()
     {
@@ -118,7 +106,6 @@ body:hover #lock-btn.faded { opacity:0.6; }
     void SetMouseThrough(bool enabled)
     {
         mouseThrough = enabled;
-        storage.SetObject(mouseThroughKey, mouseThrough);
         bridge.SendMessage("lock_state", new { on = mouseThrough });
         if (enabled)
             StartLoop();
