@@ -5,7 +5,7 @@ public class OpenAILanguageModelConfig
     public string endpoint = "";
     public string modelId = "";
     public string apiKey = "";
-    public bool defaultThinking = false;
+    public bool defaultThinking = true;
     public string extraHeaders = "";
     //思考模式
     public string reasoningEffort = "low";

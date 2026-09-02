@@ -46,7 +46,7 @@ public class OpenAILanguageModel(
         CancellationToken cancellationToken = default)
     {
         StringBuilder nonThinkingContent = new(); //用于存储不含思考过程的最终回复
-        ChatCompletionAgent agent = Configuration.defaultThinking || GetThinkingRequester().IsOccupied
+        ChatCompletionAgent agent = GetThinkingRequester().IsOccupied
             ? chatCompletionAgent
             : chatCompletionAgentNotThinking;
 
@@ -142,9 +142,11 @@ public class OpenAILanguageModel(
             Arguments = new KernelArguments(ProvidePromptExecutionSettings(false)),
         };
 
+        if (Configuration.defaultThinking)
+            thinkingRequester.Rent("默认思考");
+
         return Task.CompletedTask;
     }
-
 
     void RegisterChatCompletion(IKernelBuilder kernelBuilder)
     {

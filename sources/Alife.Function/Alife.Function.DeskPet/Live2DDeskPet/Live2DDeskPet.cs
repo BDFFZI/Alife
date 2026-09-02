@@ -108,8 +108,10 @@ public partial class Live2DDeskPet(
         float dpi = (float)window.Dpi;
         Rectangle bounds = window.Bounds;
 
-        double endX = bounds.X + offset.X / dpi;
-        double endY = bounds.Y + offset.Y / dpi;
+        double startX = bounds.X;
+        double startY = bounds.Y;
+        double endX = startX + offset.X / dpi;
+        double endY = startY + offset.Y / dpi;
         long startTick = Environment.TickCount64;
         int durationMs = (int)(seconds * 1000);
         if (durationMs <= 0)
@@ -120,8 +122,8 @@ public partial class Live2DDeskPet(
             long elapsed = Environment.TickCount64 - startTick;
             double t = Math.Min(1.0, (double)elapsed / durationMs);
             double ease = t * (2 - t);
-            bounds.X += (int)Math.Round((endX - bounds.X) * ease);
-            bounds.Y += (int)Math.Round((endY - bounds.Y) * ease);
+            bounds.X = (int)Math.Round(startX + (endX - startX) * ease);
+            bounds.Y = (int)Math.Round(startY + (endY - startY) * ease);
 
             window.Window.SetBounds(bounds);
             if (t >= 1.0) break;
