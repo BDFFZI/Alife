@@ -132,7 +132,8 @@ public class AudioRecognitionService(
     }
     protected override Task OnDestroy()
     {
-        CloseAudioListening();
+        if (listeningRecorder.IsRecording)
+            CloseAudioListening();
 
         listeningRecorder.WaveformReady -= OnListeningWaveform;
         listeningRecorder.Dispose();
@@ -169,7 +170,10 @@ public class AudioRecognitionService(
     void OpenAudioListening(string source)
     {
         if (listeningRecorder.IsRecording)
-            throw new Exception("声音监听已开启，请先关闭");
+        {
+            interactor.Poke("声音监听已开启");
+            return;
+        }
 
         //对象化的系统录音器：负责采样与转格式，此处仅消费波形
         listeningRecorder.Start(source);
