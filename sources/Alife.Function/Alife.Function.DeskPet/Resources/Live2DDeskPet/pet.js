@@ -1,5 +1,8 @@
 // ---- Electron 通讯 ----
 
+// 每个桌宠实例使用独立的 IPC 频道，避免多开时消息互相串扰
+var petChannel = new URLSearchParams(location.search).get('petChannel') || 'pet';
+
 function getIpc() {
     var electron = require('electron');
     return electron.ipcRenderer;
@@ -7,7 +10,7 @@ function getIpc() {
 
 function postMessage(data) {
     try {
-        getIpc().send('pet', JSON.stringify(data));
+        getIpc().send(petChannel, JSON.stringify(data));
     } catch {
     }
 }
@@ -28,7 +31,7 @@ const messageBus = {
     }
 };
 
-getIpc().on('pet', function (event, msg) {
+getIpc().on(petChannel, function (event, msg) {
     if (typeof msg === 'string') {
         try {
             msg = JSON.parse(msg);
@@ -159,3 +162,6 @@ async function loadModel(url) {
 
     postMessage({type: 'loaded'});
 }
+
+// ---- 初始化完成 ----
+postMessage({type: 'init'});

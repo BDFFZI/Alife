@@ -292,7 +292,7 @@ public class ChatBot : IAsyncDisposable
             return;
         if (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
-        
+
         messageCache.Enqueue(message);
         lastPokeTime = DateTime.Now; //重新计时，防止后续还有Poke
     }
@@ -365,6 +365,7 @@ public class ChatBot : IAsyncDisposable
                 await Task.Delay(timeSpan, cancellationToken);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

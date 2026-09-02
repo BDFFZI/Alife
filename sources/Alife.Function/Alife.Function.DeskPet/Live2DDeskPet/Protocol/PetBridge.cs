@@ -10,7 +10,7 @@ namespace Alife.Function.DeskPet;
 
 /// <summary>
 /// 桌宠主进程 ⇄ 渲染进程的 Electron IPC 桥。
-/// 频道固定为 "pet"，信封对象为 { type: string, ...payload }。
+/// 频道为该桌宠实例独有的 <see cref="PetWindow.ChannelId"/>，信封对象为 { type: string, ...payload }。
 /// 渲染进程 → 主进程消息经 <see cref="OnMessage"/> 事件分发。
 /// </summary>
 public sealed class PetBridge : IDisposable
@@ -29,7 +29,7 @@ public sealed class PetBridge : IDisposable
                 foreach (KeyValuePair<string, JToken?> kvp in payloadObj)
                     envelope[kvp.Key] = kvp.Value;
             }
-            Electron.IpcMain.Send(window.Window, "pet", envelope.ToString(Newtonsoft.Json.Formatting.Indented));
+            Electron.IpcMain.Send(window.Window, window.ChannelId, envelope.ToString(Newtonsoft.Json.Formatting.Indented));
         }
         catch (Exception ex)
         {
@@ -58,11 +58,11 @@ public sealed class PetBridge : IDisposable
     {
         this.window = window;
         this.logger = logger;
-        Electron.IpcMain.On("pet", OnIpcMessage);
+        Electron.IpcMain.On(window.ChannelId, OnIpcMessage);
     }
     public void Dispose()
     {
-        Electron.IpcMain.RemoveAllListeners("pet");
+        Electron.IpcMain.RemoveAllListeners(window.ChannelId);
     }
 
     void OnIpcMessage(object? payload)

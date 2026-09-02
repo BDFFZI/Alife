@@ -159,8 +159,9 @@ public partial class Live2DDeskPet(
         {
             //创建窗口
             window = provider.GetRequiredService<PetWindow>();
+            PetBridge bridge = provider.GetRequiredService<PetBridge>();
             string wwwRoot = Path.Combine(pluginSystem.PluginContext.GetPluginDirectoryPath("Alife.Function.DeskPet"), "Resources", "Live2DDeskPet");
-            await window.CreateAsync(wwwRoot);
+            await window.CreateAsync(wwwRoot, bridge);
 
             //加载模型
             await LoadModelAsync();
