@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
+using Alife.Function.FunctionCaller;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -120,7 +122,7 @@ public class OpenAILanguageModel(
     readonly OccupationNotepad thinkingRequester = new();
 
     [Experimental("SKEXP0010")]
-    protected override Task OnAwake()
+    protected override async Task OnAwake()
     {
         if (string.IsNullOrEmpty(Configuration.endpoint))
             Configuration.endpoint = storageSystem.GetProperty("endpoint", string.Empty)!;
@@ -128,6 +130,13 @@ public class OpenAILanguageModel(
             Configuration.apiKey = storageSystem.GetProperty("apiKey", string.Empty)!;
         if (string.IsNullOrEmpty(Configuration.modelId))
             Configuration.modelId = storageSystem.GetProperty("modelId", string.Empty)!;
+
+        if (Configuration.enableImageInput || Configuration.enableVideoInput || Configuration.enableFileInput)
+        {
+            XmlFunctionCaller functionCaller = (XmlFunctionCaller)await ChatActivity.Container
+                .RequireInstance(typeof(XmlFunctionCaller));
+            RegisterMultimodalInputHandler(functionCaller);
+        }
 
         IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
         RegisterChatCompletion(kernelBuilder);
@@ -142,7 +151,6 @@ public class OpenAILanguageModel(
             Arguments = new KernelArguments(ProvidePromptExecutionSettings(false)),
         };
 
-        return Task.CompletedTask;
     }
 
 
@@ -188,12 +196,21 @@ public class OpenAILanguageModel(
             }
         }
 
-        kernelBuilder.AddOpenAIChatCompletion(
-            endpoint: new Uri(Configuration.endpoint),
-            modelId: Configuration.modelId,
-            apiKey: Configuration.apiKey,
-            httpClient: httpClient
-        );
+        if (Configuration.useGlmMultimodalProtocol)
+        {
+            kernelBuilder.Services.AddSingleton<IChatCompletionService>(
+                new GlmChatCompletionService(httpClient, Configuration.apiKey, Configuration.modelId,
+                    GlmChatCompletionService.CreateChatCompletionsUri(Configuration.endpoint)));
+        }
+        else
+        {
+            kernelBuilder.AddOpenAIChatCompletion(
+                endpoint: new Uri(Configuration.endpoint),
+                modelId: Configuration.modelId,
+                apiKey: Configuration.apiKey,
+                httpClient: httpClient
+            );
+        }
     }
 
     [Experimental("SKEXP0010")]
@@ -233,5 +250,24 @@ public class OpenAILanguageModel(
         }
 
         return settings;
+    }
+
+    void RegisterMultimodalInputHandler(XmlFunctionCaller functionCaller)
+    {
+        if (Configuration.enableImageInput == false &&
+            Configuration.enableVideoInput == false &&
+            Configuration.enableFileInput == false)
+            return;
+
+        if (Configuration.useGlmMultimodalProtocol == false &&
+            (Configuration.enableVideoInput || Configuration.enableFileInput))
+            throw new InvalidOperationException("视频和文件输入需要启用 GLM 多模态协议。");
+
+        XmlHandler handler = MultimodalInputHandler.Create(
+            ChatBot,
+            Configuration.enableImageInput,
+            Configuration.enableVideoInput,
+            Configuration.enableFileInput);
+        functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
     }
 }

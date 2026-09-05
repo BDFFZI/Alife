@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
+    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Language.OpenAI\Alife.Function.Language.OpenAI.csproj" />
+  </ItemGroup>
+
+</Project>

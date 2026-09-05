@@ -89,6 +89,16 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Queues a history edit requested while the current model response is streaming.
+    /// The edit is applied before the response releases the history lock, so a
+    /// subsequent Poke observes the new content without deadlocking the caller.
+    /// </summary>
+    public void QueueChatHistoryEdit(Action<ChatHistoryAgentThread> action, string reason)
+    {
+        queuedHistoryEdits.Enqueue((action, reason));
+    }
+
     public async Task<ChatResult> ChatAsync(string message, bool breakLast = true)
     {
         CancellationToken cancellationToken;
@@ -179,6 +189,7 @@ public class ChatBot : IAsyncDisposable
                     },
                     cancellationToken
                 );
+                FlushQueuedChatHistoryEdits(thread);
                 ChaseChatHistory(thread);
             }, "接收回复");
 
@@ -302,6 +313,7 @@ public class ChatBot : IAsyncDisposable
     //上下文
     readonly ChatHistoryAgentThread chatHistoryAgentThread = new();
     readonly SemaphoreSlim chatHistorySemaphore = new(1, 1);
+    readonly ConcurrentQueue<(Action<ChatHistoryAgentThread> Action, string Reason)> queuedHistoryEdits = new();
     List<ChatMessageContent> chatHistorySnapshot = new();
     int lastContentIndex;
     //对话
@@ -352,6 +364,15 @@ public class ChatBot : IAsyncDisposable
 
         //发送消息
         Chat($"{PokeMessageTag}\n{poke}");
+    }
+
+    void FlushQueuedChatHistoryEdits(ChatHistoryAgentThread thread)
+    {
+        while (queuedHistoryEdits.TryDequeue(out var edit))
+        {
+            using (ResourceOccupiedReason.Rent(edit.Reason))
+                edit.Action(thread);
+        }
     }
     async void StartPokePusher(float debounceTime, CancellationToken cancellationToken = default)
     {

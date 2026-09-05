@@ -98,6 +98,32 @@
             </AntDesign.Text>
         </FormItem>
 
+        <Divider>多模态输入</Divider>
+        <FormItem Label="图片输入">
+            <Switch @bind-Value="@Configuration.enableImageInput"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
+                启用后，AI 可调用 LoadImage 将本机图片或图片 URL 放入上下文。
+            </AntDesign.Text>
+        </FormItem>
+        <FormItem Label="视频输入">
+            <Switch @bind-Value="@Configuration.enableVideoInput"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
+                启用后，AI 可调用 LoadVideo；视频必须是模型服务可访问的 URL。
+            </AntDesign.Text>
+        </FormItem>
+        <FormItem Label="文件输入">
+            <Switch @bind-Value="@Configuration.enableFileInput"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
+                启用后，AI 可调用 LoadFile；文件必须是模型服务可访问的 URL。
+            </AntDesign.Text>
+        </FormItem>
+        <FormItem Label="使用 GLM 多模态协议">
+            <Switch @bind-Value="@Configuration.useGlmMultimodalProtocol"/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
+                视频和文件输入必须开启。启用后请求按 GLM 的 image_url、video_url、file 格式发送。
+            </AntDesign.Text>
+        </FormItem>
+
         @* ───── 高级配置 ───── *@
         <Divider>高级配置</Divider>
         <FormItem Label="默认启用思考">

@@ -20,4 +20,10 @@ public class OpenAILanguageModelConfig
                                            "thinking": {"type": "disabled"}
                                          }
                                          """;
+
+    // 多模态输入
+    public bool enableImageInput = false;
+    public bool enableVideoInput = false;
+    public bool enableFileInput = false;
+    public bool useGlmMultimodalProtocol = false;
 }
