@@ -100,6 +100,13 @@
 
         @* ───── 高级配置 ───── *@
         <Divider>高级配置</Divider>
+        <FormItem Label="温度 (Temperature)">
+            <InputNumber @bind-Value="@Configuration.temperature" Min="0" Max="2" Step="0.1" Style="width: 120px;"/>
+            <br/>
+            <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                越低越认真/严谨，越高越发散/有创造性，默认 0.6。
+            </AntDesign.Text>
+        </FormItem>
         <FormItem Label="默认启用思考">
             <Switch @bind-Value="@Configuration.defaultThinking"/>
             <br/>

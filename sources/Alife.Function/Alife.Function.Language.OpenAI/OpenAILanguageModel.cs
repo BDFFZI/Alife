@@ -202,6 +202,7 @@ public class OpenAILanguageModel(
     PromptExecutionSettings ProvidePromptExecutionSettings(bool thinking)
     {
         OpenAIPromptExecutionSettings settings = new();
+        settings.Temperature = Configuration.temperature;
 
         if (thinking)
         {
