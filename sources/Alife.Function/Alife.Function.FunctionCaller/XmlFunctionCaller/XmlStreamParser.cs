@@ -105,7 +105,16 @@ public class XmlStreamParser
             switch (ch)
             {
                 case '"':
-                    FlashAttributeValue();
+                    if (attributeQuoteChar == '"')
+                        FlashAttributeValue();
+                    else
+                        HandleTagChar(ch);
+                    break;
+                case '\'':
+                    if (attributeQuoteChar == '\'')
+                        FlashAttributeValue();
+                    else
+                        HandleTagChar(ch);
                     break;
                 default:
                     HandleTagChar(ch);
@@ -130,8 +139,12 @@ public class XmlStreamParser
                 await FlashTag();
                 break;
             case '"':
+            case '\'':
                 if (currentTagAttributeName != null)
+                {
+                    attributeQuoteChar = ch;
                     isValueParsing = true;
+                }
                 break;
             case '!':
                 ClearTag();
@@ -195,6 +208,7 @@ public class XmlStreamParser
     string? currentTagName;
     string? currentTagAttributeName;
     bool isValueParsing;
+    char attributeQuoteChar;
     readonly Dictionary<string, string> parsedAttributes = new();
     readonly HashSet<string> plainAreas;
     readonly StringBuilder contentBuffer = new StringBuilder();
@@ -348,6 +362,7 @@ public class XmlStreamParser
         currentTagName = null;
         currentTagAttributeName = null;
         isValueParsing = false;
+        attributeQuoteChar = '\0';
         tagMode = 0;
     }
 

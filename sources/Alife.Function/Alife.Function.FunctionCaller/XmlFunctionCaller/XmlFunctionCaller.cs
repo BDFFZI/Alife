@@ -20,27 +20,20 @@ public class XmlFunctionCallerConfig
     public int MinBreakingLength { get; set; } = 23;
 }
 
-public enum DocumentMode
-{
-    None,
-    Implicit,
-    Explicit,
-}
-
 public partial class XmlFunctionCaller
 {
     public static string GetDocumentTag(XmlHandler handler)
     {
-        return $"[使用文档({handler.Name})]";
+        return $"[工具文档({handler.Name})]";
     }
     public static bool HasDocumentTag(string message)
     {
-        return message.Contains("[使用文档(");
+        return message.Contains("[工具文档(");
     }
 }
 
 [Module(
-    "Xml函数执行器",
+    "Xml函数调用器",
     "提供一种Xml函数调用框架，可以将注册其中的函数，暴露给AI，并指导其用Xml标签调用。",
     launchOrder: -10000, //在活动开始之前，将收集到的函数调用信息注入
     defaultCategory: "Alife 官方/功能底座")]

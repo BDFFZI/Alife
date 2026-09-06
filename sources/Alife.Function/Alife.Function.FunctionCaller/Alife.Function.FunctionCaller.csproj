@@ -5,4 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" Version="1.1.0" />
+  </ItemGroup>
 </Project>
