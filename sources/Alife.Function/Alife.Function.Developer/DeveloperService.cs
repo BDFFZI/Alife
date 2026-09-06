@@ -1,7 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
-using Alife.Function.Mcp;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 
@@ -20,7 +19,7 @@ public class DeveloperService(
 
     protected override async Task OnAwake()
     {
-        mcpClient = await McpXmlAdapter.ConnectHttpAsync("AlifeMcp", AlifeMcp.Endpoint, loggerFactory);
+        mcpClient = await McpUtility.ConnectHttpAsync("AlifeMcp", AlifeMcp.Endpoint, loggerFactory);
         XmlHandler xmlHandler = await McpXmlAdapter.McpClientToXmlHandler(
             mcpClient,
             "DeveloperTools",
