@@ -58,6 +58,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
+    <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.McCompanion/BDFFZI.VibeCode.McCompanion.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Model/">
     <Project Path="Sources/Alife.Function/Alife.Function.AIModelUtility/Alife.Function.AIModelUtility.csproj" />
