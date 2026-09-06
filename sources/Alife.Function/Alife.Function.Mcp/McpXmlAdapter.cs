@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
@@ -18,40 +19,6 @@ namespace Alife.Function.Mcp;
 /// </summary>
 public static class McpXmlAdapter
 {
-    /// <summary>
-    /// 通过 stdio（本地命令）连接 MCP 服务器。
-    /// </summary>
-    public static async Task<McpClient> ConnectStdioAsync(
-        string name,
-        string command,
-        string[]? arguments = null,
-        ILoggerFactory? loggerFactory = null)
-    {
-        StdioClientTransportOptions options = new() {
-            Name = name,
-            Command = command,
-            Arguments = arguments ?? []
-        };
-
-        return await McpClient.CreateAsync(new StdioClientTransport(options), loggerFactory: loggerFactory);
-    }
-
-    /// <summary>
-    /// 通过 HTTP（流式传输）连接 MCP 服务器。
-    /// </summary>
-    public static async Task<McpClient> ConnectHttpAsync(
-        string name,
-        Uri endpoint,
-        ILoggerFactory? loggerFactory = null)
-    {
-        HttpClientTransportOptions options = new() {
-            Name = name,
-            Endpoint = endpoint
-        };
-
-        return await McpClient.CreateAsync(new HttpClientTransport(options), loggerFactory: loggerFactory);
-    }
-
     /// <summary>
     /// 将已连接的 MCP 客户端中的工具转换为 XmlHandler，供 AI 通过 Xml 函数调用。
     /// </summary>
@@ -98,6 +65,8 @@ public static class McpXmlAdapter
                 {
                     object? convertedValue = ConvertValue(value, typeInfo.Type);
                     arguments[typeInfo.OriginalName] = convertedValue;
+                    AlifeLog.LogInformation(
+                        $"[McpConvert] tool={tool.Name} key={key} raw={value} jsonType={typeInfo.Type} converted={System.Text.Json.JsonSerializer.Serialize(convertedValue)}");
                 }
                 else
                 {
@@ -113,7 +82,10 @@ public static class McpXmlAdapter
                     .Select(block => ((TextContentBlock)block).Text));
 
             if (result.IsError == true)
+            {
+                AlifeLog.LogWarning($"[McpConvert] tool={tool.Name} 调用失败: {resultText}");
                 throw new Exception(resultText);
+            }
 
             resultCallback?.Invoke(name, resultText);
         }
@@ -128,17 +100,50 @@ public static class McpXmlAdapter
 
     static object? ConvertValue(string value, string jsonType)
     {
-        // 数组类型（integer[]、string[] 等）
+        // 数组类型（integer[]、string[]、object[] 等）
         if (jsonType.EndsWith("[]"))
         {
+            string itemType = jsonType[..^2];
+
+            // 尝试按 JSON 解析（数组或单值字符串）
             try
             {
-                return JsonSerializer.Deserialize<object>(value);
+                using JsonDocument doc = JsonDocument.Parse(value);
+                return ParseJsonArrayElements(doc.RootElement, itemType);
             }
             catch
             {
-                return value;
+                // 非合法 JSON，继续尝试宽容解析
             }
+
+            // 宽容解析：把单引号替换为双引号（AI 常写 [{'a':'b'}] 而非 JSON 标准双引号）
+            string normalized = value.Replace('\'', '"');
+            if (normalized != value)
+            {
+                try
+                {
+                    using JsonDocument doc = JsonDocument.Parse(normalized);
+                    return ParseJsonArrayElements(doc.RootElement, itemType);
+                }
+                catch
+                {
+                    // 仍失败，进入下方兜底
+                }
+            }
+
+            // 兜底：剥括号 + 逗号拆分（仅适用于基础类型数组；对象/数组元素无法用逗号可靠拆分）
+            if (itemType is "object" or "array")
+                return new List<object?> { value };
+
+            string trimmed = value.Trim();
+            if (trimmed.Length >= 2 && trimmed[0] == '[' && trimmed[^1] == ']')
+                trimmed = trimmed[1..^1];
+
+            string[] parts = trimmed.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            List<object?> items = new();
+            foreach (string part in parts)
+                items.Add(ConvertValue(part.Trim(), itemType));
+            return items;
         }
 
         switch (jsonType)
@@ -162,6 +167,80 @@ public static class McpXmlAdapter
             default:
                 return value;
         }
+    }
+
+    /// <summary>
+    /// 将 JSON 元素按目标类型转换为 .NET 值（供数组元素使用）。
+    /// </summary>
+    static object? ConvertJsonElement(JsonElement element, string itemType)
+    {
+        switch (itemType)
+        {
+            case "number":
+                return element.ValueKind == JsonValueKind.Number ? element.GetDouble() : element.ToString();
+            case "integer":
+                return element.ValueKind == JsonValueKind.Number ? element.GetInt64() : element.ToString();
+            case "boolean":
+                return element.ValueKind == JsonValueKind.True || element.ValueKind == JsonValueKind.False
+                    ? element.GetBoolean()
+                    : element.ToString();
+            case "object":
+                return element.ValueKind == JsonValueKind.Object ? JsonElementToDictionary(element) : element.ToString();
+            case "array":
+                return element.ValueKind == JsonValueKind.Array ? JsonElementToArray(element) : element.ToString();
+            default:
+                return element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString();
+        }
+    }
+
+    /// <summary>
+    /// 将 JSON 根元素解析为数组元素列表（兼容数组或单值字符串）。
+    /// </summary>
+    static List<object?> ParseJsonArrayElements(JsonElement root, string itemType)
+    {
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            List<object?> jsonItems = new();
+            foreach (JsonElement element in root.EnumerateArray())
+                jsonItems.Add(ConvertJsonElement(element, itemType));
+            return jsonItems;
+        }
+        if (root.ValueKind == JsonValueKind.String)
+            return new List<object?> { ConvertValue(root.GetString() ?? "", itemType) };
+        return new List<object?> { ConvertJsonElement(root, itemType) };
+    }
+
+    /// <summary>
+    /// 将 JSON 对象元素转为 Dictionary<string, object?>，保持嵌套结构（供 object[] 元素使用）。
+    /// </summary>
+    static Dictionary<string, object?> JsonElementToDictionary(JsonElement element)
+    {
+        Dictionary<string, object?> dict = new();
+        foreach (JsonProperty property in element.EnumerateObject())
+            dict[property.Name] = ConvertJsonElement(property.Value, ResolveJsonValueKind(property.Value));
+        return dict;
+    }
+
+    /// <summary>
+    /// 将 JSON 数组元素转为 List<object?>，保持嵌套结构。
+    /// </summary>
+    static List<object?> JsonElementToArray(JsonElement element)
+    {
+        List<object?> list = new();
+        foreach (JsonElement item in element.EnumerateArray())
+            list.Add(ConvertJsonElement(item, ResolveJsonValueKind(item)));
+        return list;
+    }
+
+    static string ResolveJsonValueKind(JsonElement element)
+    {
+        return element.ValueKind switch {
+            JsonValueKind.Object => "object",
+            JsonValueKind.Array => "array",
+            JsonValueKind.Number => element.TryGetInt64(out _) ? "integer" : "number",
+            JsonValueKind.True or JsonValueKind.False => "boolean",
+            _ => "string"
+        };
     }
 
     static (List<XmlParameter> Parameters, Dictionary<string, (string OriginalName, string Type)> TypeMap)

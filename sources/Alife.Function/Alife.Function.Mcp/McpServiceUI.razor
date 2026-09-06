@@ -17,6 +17,9 @@
             @(context.IsUrlServer ? context.Endpoint : context.Command)
         </PropertyColumn>
         <PropertyColumn Property="c=>c.Description" Title="描述"></PropertyColumn>
+        <PropertyColumn Property="c=>c.RegisterMode" Title="注册方式">
+            @(context.RegisterMode == McpRegisterMode.Json ? "JSON" : "XML")
+        </PropertyColumn>
         <PropertyColumn Property="c=>c.IsImplicit" Title="渐进加载">
             <Switch @bind-Value="context.IsImplicit"/>
         </PropertyColumn>
@@ -58,10 +61,23 @@
                     </Segmented>
                 </FormItem>
 
+                <FormItem Label="注册方式">
+                    <Segmented TValue="McpRegisterMode"
+                               Value="@editingServer.RegisterMode"
+                               ValueChanged="@(v => editingServer.RegisterMode = v)"
+                               Block>
+                        <SegmentedItem Value="@McpRegisterMode.Json" Label="JSON"/>
+                        <SegmentedItem Value="@McpRegisterMode.Xml" Label="XML"/>
+                    </Segmented>
+                </FormItem>
+
                 @if (isUrlType)
                 {
                     <FormItem Label="服务器地址 (URL)">
                         <Input @bind-Value="editingServer.Endpoint" Placeholder="如 http://127.0.0.1:18765/mcp"/>
+                    </FormItem>
+                    <FormItem Label="Bearer Token (可选)">
+                        <Input @bind-Value="editingServer.Token" Placeholder="需要鉴权的服务器请填写 Token"/>
                     </FormItem>
                 }
                 else
