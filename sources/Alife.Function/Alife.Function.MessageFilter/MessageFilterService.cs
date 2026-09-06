@@ -105,6 +105,8 @@ public partial class MessageFilterService(
     {
         if (chatContext.UserMessage.Contains(GetReplyCorrectionTag()))
             return;
+        if (chatContext.CancellationToken.IsCancellationRequested)
+            return;
 
         bool needThinking = false;
 
