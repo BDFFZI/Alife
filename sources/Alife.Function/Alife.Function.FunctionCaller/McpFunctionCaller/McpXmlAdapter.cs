@@ -5,12 +5,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
-using Alife.Function.FunctionCaller;
-using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-namespace Alife.Function.Mcp;
+namespace Alife.Function.FunctionCaller;
 
 /// <summary>
 /// 业务无关的 MCP 适配器：负责建立 MCP 客户端连接，并把任意 MCP 服务器提供的工具转换为
@@ -66,7 +64,7 @@ public static class McpXmlAdapter
                     object? convertedValue = ConvertValue(value, typeInfo.Type);
                     arguments[typeInfo.OriginalName] = convertedValue;
                     AlifeLog.LogInformation(
-                        $"[McpConvert] tool={tool.Name} key={key} raw={value} jsonType={typeInfo.Type} converted={System.Text.Json.JsonSerializer.Serialize(convertedValue)}");
+                        $"[McpConvert] tool={tool.Name} key={key} raw={value} jsonType={typeInfo.Type} converted={JsonSerializer.Serialize(convertedValue)}");
                 }
                 else
                 {
