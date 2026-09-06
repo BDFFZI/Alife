@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
+using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -38,6 +39,7 @@ public class McAgentConfig
 public class McAgentModule(
     XmlFunctionCaller functionCaller,
     McpFunctionCaller mcpFunctionCaller,
+    MessageFilterService messageFilterService,
     ILogger<McAgentModule> logger,
     ILoggerFactory loggerFactory,
     Interactor<McAgentModule> interactor) :
@@ -81,6 +83,8 @@ public class McAgentModule(
                  {McpFunctionCaller.GetDocumentTag(mcpClient.ServerInfo.Name)}
                  {mcpClient.ServerInstructions}
 
+                 注意：忽略上述的循环要求，因为目前系统已会自动轮询 get_events/task_status，并按需推送结果给你，所以不需要你手动轮询。
+
                  {await McpUtility.BuildToolsJsonDocumentAsync(mcpClient)}
 
                  追加说明：
@@ -91,7 +95,7 @@ public class McAgentModule(
                  5. 任务已受理只是代表尝试执行，不代表执行成功，需要检查分身状态和任务结果。
                  6. 手持方块右键放置的落点不可控，优先使用build功能放置方块。例如放门，使用set_door+facing。
                  7. 分身采用半自动控制，其会根据情况自动寻找采集物、逃避敌人或战斗，因此任务中位置可能发生移动。
-                 8. 目前系统已会自动轮询 get_events/task_status，并按需推送结果给你，所以一般不再需要你手动轮询。
+                 8. 学会主动找事做，主动找主人玩，像一个真正的MC玩家那样，在这个虚拟世界里，和主人一起愉快玩耍吧。
                  """);
         }
 
@@ -102,12 +106,20 @@ public class McAgentModule(
                 ? "自动解析"
                 : $"「{Configuration.CompanionName.Trim()}」";
             interactor.Poke($"未检测到在线的分身 {want}，get_events/task_status 无法进行自动轮询。请确认 CompanionName 与在线分身一致（或先召唤分身）后重新开启 MC 陪玩。");
-            logger.LogWarning("未解析到在线分身，无法进行自动轮询。CompanionName: {Name}", Configuration.CompanionName);
+            logger.LogError("未解析到在线分身，无法进行自动轮询，这将严重影响 AI 的行动速度和稳定性！CompanionName: {Name}", Configuration.CompanionName);
         }
         else
         {
             pollLoop = new CancellationTokenSource();
             StartEventPollLoop(companion, pollLoop.Token);
+            replyRuleCts = new CancellationTokenSource();
+            messageFilterService.AddMessageReplyRule(new RegexMessageReplyRule() {
+                Name = "禁止手动轮询 get_events",
+                InputRegex = ".*",
+                OutputRegex = @"^(?![\s\S]*<JsonRpcMcp[^>]*>[\s\S]*""name""\s*:\s*""get_events"")",
+                CorrectionMessage = "注意：目前系统已会自动轮询 get_events/task_status，所以请不要手动轮询，从而提高交互速度。",
+            }, replyRuleCts.Token);
+
             ChatBot.ChatSent += OnChatSent;
             interactor.Poke($"已激活 MC 陪玩。当前分身「{companion}」。你可以使用 <JsonRpcMcp> 标签调用 MCP 工具操作 MC。" +
                             "注意：目前系统已会自动轮询 get_events/task_status，并按需推送结果给你，所以你一般不需要手动轮询。");
@@ -124,6 +136,7 @@ public class McAgentModule(
 
         ChatBot.ChatSent -= OnChatSent;
         await pollLoop!.CancelAsync();
+        await replyRuleCts!.CancelAsync();
 
         // 清空注入的提示词
         interactor.Prompt("");
@@ -142,6 +155,7 @@ public class McAgentModule(
 
     McpClient? mcpClient;
     CancellationTokenSource? pollLoop;
+    CancellationTokenSource? replyRuleCts;
     long taskProcess; //0-无任务；1-发起任务；2-监听任务
 
 
@@ -157,6 +171,11 @@ public class McAgentModule(
     protected override async Task OnDestroy()
     {
         ChatBot.ChatSent -= OnChatSent;
+        if (pollLoop != null)
+            await pollLoop.CancelAsync();
+        if (replyRuleCts != null)
+            await replyRuleCts.CancelAsync();
+
         if (mcpClient != null)
         {
             await mcpFunctionCaller.UnregisterMcpClientAsync(mcpClient);
