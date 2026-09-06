@@ -83,10 +83,11 @@ public partial class MessageFilterService(
             AddMessageReplyRule(regexMessageReplyRule);
         }
         AddMessageReplyRule(new RegexMessageReplyRuleConfig() {
+            Name = "调用丢失验证",
             Enabled = true,
             InputRegex = ".*",
             OutputRegex = "<.*>",
-            CorrectionMessage = "检测到你未使用任何函数调用，如果是遗忘了，请补上。否则请输出 <!----> 表示放弃。"
+            CorrectionMessage = "检测到你未使用任何函数调用，如果是遗忘了，请补上。否则请在输出中包含`<!---->`来显式表示本次输出不调用函数。"
         });
 
         interactor.Prompt("""
@@ -94,7 +95,7 @@ public partial class MessageFilterService(
                           其中`[]`表示消息属性，比如记载了发送时间，消息来源等；`()`则是对回复消息时的要求；中间的则是消息正文。
                           注意观察消息属性和附加要求，仔细斟酌后再以正确合适的方式回复。
 
-                          此外你所有发送的消息都必须包含xml函数调用。如果你不想使用，也请在输出中包含`<!---->`。
+                          此外你所有发送的消息都必须包含xml函数调用。如果你不想使用，也请在输出中包含`<!---->`来显式表示本次输出不调用函数。
                           """);
 
         return Task.CompletedTask;
