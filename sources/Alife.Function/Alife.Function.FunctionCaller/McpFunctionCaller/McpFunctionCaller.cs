@@ -157,7 +157,7 @@ public partial class McpFunctionCaller(
         string resultText = string.Join("\n", result.Content.Where(b => b is TextContentBlock).Select(b => ((TextContentBlock)b).Text));
         if (result.IsError == true)
             throw new Exception(resultText);
-        interactor.Poke($"MCP 工具执行完成\n{resultText}");
+        interactor.Poke($"{server}:{resultText}");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
