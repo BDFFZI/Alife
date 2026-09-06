@@ -11,9 +11,9 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-namespace BDFFZI.VibeCode.McCompanion;
+namespace Alife.Function.McAgent;
 
-public class McCompanionConfig
+public class McAgentConfig
 {
     [Description("Numen MCP 服务器地址")]
     public string Endpoint { get; set; } = "http://127.0.0.1:8765/mcp";
@@ -23,9 +23,6 @@ public class McCompanionConfig
 
     [Description("对应的分身名称。留空则自动选择第一个在线的分身。")]
     public string CompanionName { get; set; } = "";
-
-    [Description("注册到 MCP 函数调用器的客户端名称")]
-    public string McpServerName { get; set; } = "Numen";
 }
 
 /// <summary>
@@ -38,22 +35,22 @@ public class McCompanionConfig
     "接入 minecraft-numen 的外接大脑功能并进行框架融合，使 AI 可以控制 MC 中的分身：实现移动、挖掘、建造、合成、战斗等操作，同时自动化事件任务状态的拉取推送，以及部分提示词的修正，实现真正的一起玩 MC。"
     + "\nMod下载地址：https://github.com/Dwinovo/minecraft-numen",
     defaultCategory: "真央的小工具")]
-public class McCompanionModule(
+public class McAgentModule(
     XmlFunctionCaller functionCaller,
     McpFunctionCaller mcpFunctionCaller,
-    ILogger<McCompanionModule> logger,
+    ILogger<McAgentModule> logger,
     ILoggerFactory loggerFactory,
-    Interactor<McCompanionModule> interactor) :
+    Interactor<McAgentModule> interactor) :
     ChatBehaviour,
-    IConfigurable<McCompanionConfig>
+    IConfigurable<McAgentConfig>
 {
-    public McCompanionConfig Configuration { get; set; } = null!;
+    public McAgentConfig Configuration { get; set; } = null!;
 
     #region 激活与关闭
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("开启MC陪玩，和用户一起玩Minecraft。")]
-    public async Task ActivateMcCompanion()
+    public async Task ActivateMcAgent()
     {
         if (mcpClient != null)
             throw new Exception("MC 陪玩已经连接，请先关闭。");
@@ -74,7 +71,7 @@ public class McCompanionModule(
 
         // 注册 MC 陪玩的函数和文档
         {
-            mcpClient.ServerInfo.Name = Configuration.McpServerName;
+            mcpClient.ServerInfo.Name = "McAgent";
             await mcpFunctionCaller.RegisterMcpClientAsync(
                 mcpClient,
                 DocumentMode.None,
@@ -104,8 +101,8 @@ public class McCompanionModule(
             string want = string.IsNullOrWhiteSpace(Configuration.CompanionName)
                 ? "自动解析"
                 : $"「{Configuration.CompanionName.Trim()}」";
-            interactor.Poke($"未检测到在线的分身 {want}，get_events/task_status 自动轮询未启动。请确认 CompanionName 与在线分身一致（或先召唤分身）后重新开启 MC 陪玩。");
-            logger.LogWarning("未解析到在线分身，自动轮询未启动。CompanionName: {Name}", Configuration.CompanionName);
+            interactor.Poke($"未检测到在线的分身 {want}，get_events/task_status 无法进行自动轮询。请确认 CompanionName 与在线分身一致（或先召唤分身）后重新开启 MC 陪玩。");
+            logger.LogWarning("未解析到在线分身，无法进行自动轮询。CompanionName: {Name}", Configuration.CompanionName);
         }
         else
         {
@@ -120,7 +117,7 @@ public class McCompanionModule(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("关闭MC陪玩，清理思绪回到正常状态。")]
-    public async Task DeactivateMcCompanion()
+    public async Task DeactivateMcAgent()
     {
         if (mcpClient == null)
             throw new Exception("MC 陪玩当前未激活。");

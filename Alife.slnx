@@ -26,6 +26,10 @@
     <Project Path="Tests/Alife.Test.QChat/Alife.Test.QChat.csproj" />
     <Project Path="Tests/Alife.Test.Speech/Alife.Test.Speech.csproj" />
   </Folder>
+  <Folder Name="/Sources/Alife.Function/Recreation/">
+    <Project Path="Sources/Alife.Function/Alife.Function.McAgent/Alife.Function.McAgent.csproj" />
+    <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
+  </Folder>
   <Folder Name="/Sources/Alife/">
     <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
     <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
@@ -44,7 +48,6 @@
     <Project Path="Sources/Alife.Function/Alife.Function.FunctionCaller/Alife.Function.FunctionCaller.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Mcp/Alife.Function.Mcp.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Skill/Alife.Function.Skill.csproj" />
-    <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Instrument/">
     <Project Path="Sources/Alife.Function/Alife.Function.Browser/Alife.Function.Browser.csproj" />
@@ -58,7 +61,6 @@
     <Project Path="Sources/Alife.Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
-    <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.McCompanion/BDFFZI.VibeCode.McCompanion.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Model/">
     <Project Path="Sources/Alife.Function/Alife.Function.AIModelUtility/Alife.Function.AIModelUtility.csproj" />
