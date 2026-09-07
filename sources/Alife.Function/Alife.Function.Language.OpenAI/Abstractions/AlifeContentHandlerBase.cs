@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Function.Language.OpenAI;
 
@@ -20,7 +23,7 @@ public abstract class AlifeContentHandlerBase : IAlifeContentType
     public abstract string DisplayName { get; }
     public abstract string ProtocolTypeName { get; }
     public abstract JsonObject SerializeContent(KernelContent content);
-    public abstract XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config);
+    public abstract XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config, IMultimodalExecutor executor);
 
     /// <summary>按配置中的 <see cref="OpenAILanguageModelConfig.enabledContentTypes"/> 判断本类型是否启用注册。</summary>
     protected bool IsEnabled(OpenAILanguageModelConfig config)
@@ -28,11 +31,22 @@ public abstract class AlifeContentHandlerBase : IAlifeContentType
         return string.IsNullOrEmpty(RegistrationKey) == false && config.enabledContentTypes.Contains(RegistrationKey);
     }
 
+    /// <summary>解析函数参数中的 keep（bool），判断 AI 是否请求常驻上下文。</summary>
+    protected static bool IsPersistentRequested(XmlContext context)
+    {
+        return context.Parameters.TryGetValue("keep", out string? keep) &&
+            (keep.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+             keep.Equals("1", StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>把内容加入对话历史。AI 上传函数在模型流式期间被后台执行，使用异步编辑不会死锁。</summary>
     protected static Task QueueContentAsync(ChatBot chatBot, KernelContent content, string reason)
     {
         return chatBot.EditChatHistoryAsync(thread => {
-            thread.ChatHistory.AddUserMessage([content]);
+            ChatMessageContent chatMessageContent = new(AuthorRole.User, [content]) {
+                Content = content.GetType().Name
+            };
+            thread.ChatHistory.Add(chatMessageContent);
             return Task.CompletedTask;
         }, reason);
     }
@@ -46,23 +60,20 @@ public abstract class AlifeContentHandlerBase : IAlifeContentType
         return uri;
     }
 
-    /// <summary>构建一个参数化的 AI 可调用 XmlFunction。</summary>
+/// <summary>构建一个参数化的 AI 可调用 XmlFunction。</summary>
     protected static XmlFunction BuildXmlFunction(
         string name,
         string? description,
-        string parameterName,
-        string parameterDescription,
+        IEnumerable<(string Name, string Description, string Type)> parameters,
         Func<XmlContext, CancellationToken, Task> invoker)
     {
         return new XmlFunction {
             Name = name,
             Description = description,
             Mode = FunctionMode.OneShot,
-            Parameters = [new XmlParameter {
-                Name = parameterName,
-                Type = "String",
-                Description = parameterDescription
-            }],
+            Parameters = parameters
+                .Select(p => new XmlParameter { Name = p.Name, Type = p.Type, Description = p.Description })
+                .ToList(),
             Invoker = invoker
         };
     }

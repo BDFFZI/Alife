@@ -1,5 +1,6 @@
 @using System.Net.Http
 @using System.Linq
+@using System
 @using AntDesign
 @using Newtonsoft.Json.Linq
 @using Alife.Framework
@@ -100,6 +101,12 @@
         </FormItem>
 
         <Divider>多模态输入</Divider>
+        <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block; margin-bottom: 8px;">
+            打开"启用"开关后，AI 可调用对应 <span style="font-family: monospace;">Look</span> 系函数（LookImage/LookVideo/LookFile）查看此类内容，并通过
+            <span style="font-family: monospace;">keep</span> 参数选择：<span style="font-family: monospace;">keep=false</span>（默认，单独补全后返回文字描述）或
+            <span style="font-family: monospace;">keep=true</span>（保留，加入上下文长期参考）。勾选"允许保留在上下文"才允许 AI 使用
+            <span style="font-family: monospace;">keep=true</span>；未授权时 AI 以 keep=true 调用会收到报错。
+        </AntDesign.Text>
         @{
             var registrableContentTypes = AlifeContentRegistry.Handlers.Where(h => h.RegistrationKey != null).ToList();
         }
@@ -107,15 +114,25 @@
         {
             @foreach (var contentType in registrableContentTypes)
             {
-                <FormItem Label="@contentType.DisplayName">
-                    <Switch Checked="@IsContentTypeEnabled(contentType.RegistrationKey!)"
-                            CheckedChanged="@(value => ToggleContentType(contentType.RegistrationKey!, value))"/>
-                    <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
-                        协议类型
-                        <span style="font-family: monospace; background: #f6f8fa; padding: 0 4px; border-radius: 3px; border: 1px dashed #d9d9d9;">@contentType.ProtocolTypeName</span>
-                        。启用后，AI 可调用对应上传函数将此类内容放入上下文。
-                    </AntDesign.Text>
-                </FormItem>
+                string key = contentType.RegistrationKey!;
+                <div style="border: 1px solid #e8e8e8; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <div style="font-weight: 500;">@contentType.DisplayName</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 2px;">
+                                协议类型
+                                <span style="font-family: monospace; background: #f6f8fa; padding: 0 4px; border-radius: 3px; border: 1px dashed #d9d9d9;">@contentType.ProtocolTypeName</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 20px; align-items: center;">
+                            <Switch Checked="@IsContentTypeEnabled(key)"
+                                    CheckedChanged="@(value => ToggleContentType(key, value))"/>
+                            <Checkbox Checked="@IsPersistentChecked(key)"
+                                      Disabled="@(IsContentTypeEnabled(key) == false)"
+                                      CheckedChanged="@(value => TogglePersistent(key, value))">允许保留在上下文</Checkbox>
+                        </div>
+                    </div>
+                </div>
             }
         }
         else
@@ -266,6 +283,24 @@
                 Configuration.enabledContentTypes.Add(key);
             else
                 Configuration.enabledContentTypes.Remove(key);
+        }
+
+        bool IsPersistentAllowed(string key)
+        {
+            return Configuration.persistentDisabledContentTypes.Contains(key) == false;
+        }
+
+        bool IsPersistentChecked(string key)
+        {
+            return IsContentTypeEnabled(key) && IsPersistentAllowed(key);
+        }
+
+        void TogglePersistent(string key, bool allow)
+        {
+            if (allow)
+                Configuration.persistentDisabledContentTypes.Remove(key);
+            else
+                Configuration.persistentDisabledContentTypes.Add(key);
         }
     }
 </div>

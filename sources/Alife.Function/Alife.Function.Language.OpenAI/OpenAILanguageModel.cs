@@ -29,7 +29,8 @@ public class OpenAILanguageModel(
     ILogger<OpenAILanguageModel> logger) :
     ChatBehaviour,
     ILanguageModel,
-    IConfigurable<OpenAILanguageModelConfig>
+    IConfigurable<OpenAILanguageModelConfig>,
+    IMultimodalExecutor
 {
     public OpenAILanguageModelConfig Configuration { get; set; } = null!;
 
@@ -68,19 +69,16 @@ public class OpenAILanguageModel(
                     if (chunk.Error != null)
                         throw new HttpRequestException($"语言模型流式返回错误: {chunk.Error}");
 
+                    //思考与正文由解析器直接从原生字段拆出，各自分发
+                    if (chunk.Reasoning != null)
+                    {
+                        thinkReceived?.Invoke(chunk.Reasoning);
+                    }
+
                     if (chunk.Content != null)
                     {
-                        //前置报文（OpenAICompatibleHandler）会对思考内容进行特殊处理，使其带上前缀，以便区分
-                        if (chunk.Content.StartsWith(OpenAICompatibleHandler.ThinkContentPrefix))
-                        {
-                            string reasoningPart = chunk.Content[OpenAICompatibleHandler.ThinkContentPrefix.Length..];
-                            thinkReceived?.Invoke(reasoningPart);
-                        }
-                        else
-                        {
-                            nonThinkingContent.Append(chunk.Content);
-                            textReceived?.Invoke(chunk.Content);
-                        }
+                        nonThinkingContent.Append(chunk.Content);
+                        textReceived?.Invoke(chunk.Content);
                     }
 
                     if (chunk.Usage != null)
@@ -101,6 +99,41 @@ public class OpenAILanguageModel(
             chatHistoryAgentThread.ChatHistory.AddAssistantMessage(aiMessage);
 
         return aiMessage;
+    }
+
+    // ──── IMultimodalExecutor ────
+
+    public bool IsPersistentAllowed(string registrationKey)
+    {
+        return Configuration.persistentDisabledContentTypes.Contains(registrationKey) == false;
+    }
+
+    /// <summary>临时式补全：复用主线程，在锁内临时追加媒体为最新用户消息，调用 ChatStreamingAsync 后移除临时消息，不污染主历史。</summary>
+    public async Task<string> CompleteWithContentAsync(
+        ChatBot chatBot, KernelContent content, CancellationToken cancellationToken = default)
+    {
+        string result = "";
+        Exception? error = null;
+        await chatBot.EditChatHistoryAsync(async thread => {
+            ChatHistory history = thread.ChatHistory;
+            int startIndex = history.Count;
+            history.AddUserMessage([content, new TextContent("已上传")]);
+            try
+            {
+                result = await ChatStreamingAsync(thread,
+                    exceptionThrow: e => error = e,
+                    cancellationToken: cancellationToken);
+            }
+            finally
+            {
+                history.RemoveRange(startIndex, history.Count - startIndex);
+            }
+        }, "多模态分析");
+
+        // ChatStreamingAsync 会吞掉异常（通过回调），这里透传，避免调用方收到静默的空结果
+        if (error != null)
+            throw error;
+        return "AI分析结果如下：" + result;
     }
 
 
@@ -132,8 +165,8 @@ public class OpenAILanguageModel(
             PooledConnectionLifetime = TimeSpan.FromMinutes(5)
         };
 
-        // 使用通用处理器拦截并破解所有 OpenAI 兼容协议的思考过程字段
-        httpClient = new HttpClient(new OpenAICompatibleHandler(handler)) {
+        // 直接使用原生处理器，思考/正文由 AlifeSseParser 原生字段解析
+        httpClient = new HttpClient(handler) {
             DefaultRequestVersion = HttpVersion.Version11,
             DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
         };
@@ -166,6 +199,12 @@ public class OpenAILanguageModel(
 
         if (Configuration.defaultThinking)
             thinkingRequester.Rent("默认思考");
+    }
+
+    protected override Task OnDestroy()
+    {
+        httpClient.Dispose();
+        return Task.CompletedTask;
     }
 
     HttpRequestMessage BuildRequest(ChatHistory history, bool thinking)
@@ -212,7 +251,7 @@ public class OpenAILanguageModel(
         if (Configuration.enabledContentTypes.Count == 0)
             return;
 
-        XmlHandler handler = AlifeContentRegistry.BuildHandler(ChatBot, Configuration);
+        XmlHandler handler = AlifeContentRegistry.BuildHandler(ChatBot, Configuration, this);
         functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
     }
 }

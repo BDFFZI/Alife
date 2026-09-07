@@ -31,15 +31,15 @@ public static class AlifeContentRegistry
     }
 
     /// <summary>把各内容类型暴露的 AI 上传函数汇总注册到一个 XmlHandler。</summary>
-    public static XmlHandler BuildHandler(ChatBot chatBot, OpenAILanguageModelConfig config)
+    public static XmlHandler BuildHandler(ChatBot chatBot, OpenAILanguageModelConfig config, IMultimodalExecutor executor)
     {
         XmlHandler handler = new("MultimodalInput") {
-            Description = "将多模态内容直接加入到你的上下文，使你可以直接处理，而不是通过外部程序。"
+            Description = "让你能够直接使用自己的上下文分析多模态内容，而不是通过外部工具。"
         };
 
         foreach (IAlifeContentType type in Handlers)
         {
-            XmlFunction? function = type.CreateXmlFunction(chatBot, config);
+            XmlFunction? function = type.CreateXmlFunction(chatBot, config, executor);
             if (function != null)
                 handler.Functions.Add(function);
         }

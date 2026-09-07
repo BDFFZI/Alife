@@ -14,8 +14,10 @@ public sealed class AlifeSseChunk
 {
     /// <summary>是否为流结束标记（[DONE] 或流终止）。</summary>
     public bool IsDone { get; init; }
-    /// <summary>本次增量输出的文本（含思考前缀则走思考处理）。</summary>
+    /// <summary>本次增量输出的正文文本。</summary>
     public string? Content { get; init; }
+    /// <summary>本次增量输出的思考内容（reasoning_content/thought/thinking 等原生字段）。</summary>
+    public string? Reasoning { get; init; }
     /// <summary>服务端返回的用量信息（通常仅出现在流末尾）。</summary>
     public JsonObject? Usage { get; init; }
     /// <summary>服务端返回的错误信息。</summary>
@@ -32,6 +34,15 @@ public sealed class AlifeSseChunk
 /// </remarks>
 public static class AlifeSseParser
 {
+    /// <summary>各家厂商在 delta 中表达思考内容的字段名。</summary>
+    static readonly string[] ReasoningKeys = [
+        "reasoning_content",
+        "thought",
+        "thinking",
+        "thought_content",
+        "reasoning"
+    ];
+
     public static async IAsyncEnumerable<AlifeSseChunk> ParseAsync(
         Stream stream,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -74,9 +85,27 @@ public static class AlifeSseParser
                 continue;
             }
 
-            string? content = chunk["choices"]?[0]?["delta"]?["content"]?.GetValue<string>();
+            JsonObject? delta = chunk["choices"]?[0]?["delta"] as JsonObject;
+            string? content = delta?["content"]?.GetValue<string>();
+            string? reasoning = null;
+            if (delta != null)
+            {
+                foreach (string key in ReasoningKeys)
+                {
+                    JsonNode? node = delta[key];
+                    if (node != null && node.GetValueKind() != JsonValueKind.Null)
+                    {
+                        string? val = node.GetValue<string>();
+                        if (string.IsNullOrEmpty(val) == false)
+                        {
+                            reasoning = val;
+                            break;
+                        }
+                    }
+                }
+            }
             JsonObject? usage = chunk["usage"] as JsonObject;
-            yield return new AlifeSseChunk { Content = content, Usage = usage };
+            yield return new AlifeSseChunk { Content = content, Reasoning = reasoning, Usage = usage };
         }
     }
 }

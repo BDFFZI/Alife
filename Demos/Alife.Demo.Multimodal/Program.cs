@@ -59,7 +59,7 @@ try
     chatBot.ChatExceptionThrow += exception => chatException = exception;
 
     ChatResult firstResult = await chatBot.ChatAsync(
-        $"请只输出 `<loadimage path=\"{imagePath}\"/>`，不要输出任何其他文字。",
+        $"请只输出 `<LookImage path=\"{imagePath}\" keep=\"true\"/>`，不要输出任何其他文字。",
         breakLast: false);
     if (firstResult.Exception != null)
         throw new InvalidOperationException("首次请求失败。", firstResult.Exception);
@@ -70,7 +70,7 @@ try
         .OfType<ImageContent>()
         .Any();
     if (imageWasAdded == false)
-        throw new InvalidOperationException("loadimage 未将图片加入 ChatHistory。");
+        throw new InvalidOperationException("LookImage(persistent) 未将图片加入 ChatHistory。");
 
     ChatContext[] allResults = results.ToArray();
     if (chatException != null)

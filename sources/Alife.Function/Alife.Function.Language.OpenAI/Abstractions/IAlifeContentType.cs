@@ -31,6 +31,6 @@ public interface IAlifeContentType
     /// <summary>将内容序列化为协议 JSON 块。</summary>
     JsonObject SerializeContent(KernelContent content);
 
-    /// <summary>生成 AI 可调用的注册函数；返回 null 表示无需暴露给 AI（如文本）。</summary>
-    XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config);
+    /// <summary>生成 AI 可调用的注册函数；返回 null 表示无需暴露给 AI（如文本）。executor 提供加入模式与临时式补全能力。</summary>
+    XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config, IMultimodalExecutor executor);
 }

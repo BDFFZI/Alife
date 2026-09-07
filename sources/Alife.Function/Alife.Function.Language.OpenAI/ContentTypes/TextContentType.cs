@@ -20,7 +20,7 @@ public sealed class TextContentType : AlifeContentHandlerBase
         return new JsonObject { ["type"] = "text", ["text"] = text.Text };
     }
 
-    public override XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config)
+    public override XmlFunction? CreateXmlFunction(ChatBot chatBot, OpenAILanguageModelConfig config, IMultimodalExecutor executor)
     {
         return null;
     }
