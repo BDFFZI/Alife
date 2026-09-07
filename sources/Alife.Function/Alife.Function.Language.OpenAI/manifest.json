@@ -1,5 +1,8 @@
 {
   "Version": "4.2.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": ""
+  },
   "Environments": {
     "nuget": {
       "Microsoft.SemanticKernel": "==1.77.0",

@@ -6,6 +6,7 @@
     <Project Path="Demos/Alife.Demo.Framework/Alife.Demo.Framework.csproj" />
     <Project Path="Demos/Alife.Demo.Mcp/Alife.Demo.Mcp.csproj" />
     <Project Path="Demos/Alife.Demo.Memory/Alife.Demo.Memory.csproj" />
+    <Project Path="Demos/Alife.Demo.Multimodal/Alife.Demo.Multimodal.csproj" />
     <Project Path="Demos/Alife.Demo.Plugin/Alife.Demo.Plugin.csproj" />
     <Project Path="Demos/Alife.Demo.Python/Alife.Demo.Python.csproj" />
     <Project Path="Demos/Alife.Demo.QChat/Alife.Demo.QChat.csproj" />

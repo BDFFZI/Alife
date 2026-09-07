@@ -1,4 +1,5 @@
 @using System.Net.Http
+@using System.Linq
 @using AntDesign
 @using Newtonsoft.Json.Linq
 @using Alife.Framework
@@ -97,6 +98,30 @@
                 非思考模式下附加的请求体参数。
             </AntDesign.Text>
         </FormItem>
+
+        <Divider>多模态输入</Divider>
+        @{
+            var registrableContentTypes = AlifeContentRegistry.Handlers.Where(h => h.RegistrationKey != null).ToList();
+        }
+        @if (registrableContentTypes.Count > 0)
+        {
+            @foreach (var contentType in registrableContentTypes)
+            {
+                <FormItem Label="@contentType.DisplayName">
+                    <Switch Checked="@IsContentTypeEnabled(contentType.RegistrationKey!)"
+                            CheckedChanged="@(value => ToggleContentType(contentType.RegistrationKey!, value))"/>
+                    <AntDesign.Text Type="TextElementType.Secondary" Style="font-size: 11px; display: block;">
+                        协议类型
+                        <span style="font-family: monospace; background: #f6f8fa; padding: 0 4px; border-radius: 3px; border: 1px dashed #d9d9d9;">@contentType.ProtocolTypeName</span>
+                        。启用后，AI 可调用对应上传函数将此类内容放入上下文。
+                    </AntDesign.Text>
+                </FormItem>
+            }
+        }
+        else
+        {
+            <AntDesign.Text Type="TextElementType.Secondary">当前没有可注册的多模态内容类型。</AntDesign.Text>
+        }
 
         @* ───── 高级配置 ───── *@
         <Divider>高级配置</Divider>
@@ -228,6 +253,19 @@
         {
             Configuration.modelId = modelId;
             isModelModalVisible = false;
+        }
+
+        bool IsContentTypeEnabled(string key)
+        {
+            return Configuration.enabledContentTypes.Contains(key);
+        }
+
+        void ToggleContentType(string key, bool value)
+        {
+            if (value)
+                Configuration.enabledContentTypes.Add(key);
+            else
+                Configuration.enabledContentTypes.Remove(key);
         }
     }
 </div>

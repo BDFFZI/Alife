@@ -1,5 +1,7 @@
 ﻿namespace Alife.Function.Language.OpenAI;
 
+using System.Collections.Generic;
+
 public class OpenAILanguageModelConfig
 {
     public string endpoint = "";
@@ -22,4 +24,7 @@ public class OpenAILanguageModelConfig
                                            "thinking": {"type": "disabled"}
                                          }
                                          """;
+
+    // 多模态输入：勾选启用对应内容类型（IAlifeContentType.RegistrationKey）的 AI 上传注册
+    public HashSet<string> enabledContentTypes = new();
 }

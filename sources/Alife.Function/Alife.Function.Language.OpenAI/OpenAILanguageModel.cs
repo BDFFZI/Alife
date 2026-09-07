@@ -1,20 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
-using Microsoft.SemanticKernel;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
+using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using OpenAI.Chat;
-using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 namespace Alife.Function.Language.OpenAI;
 
@@ -37,6 +37,7 @@ public class OpenAILanguageModel(
     {
         return thinkingRequester;
     }
+
     public async Task<string> ChatStreamingAsync(
         ChatHistoryAgentThread chatHistoryAgentThread,
         Action<string>? textReceived = null,
@@ -46,56 +47,44 @@ public class OpenAILanguageModel(
         CancellationToken cancellationToken = default)
     {
         StringBuilder nonThinkingContent = new(); //用于存储不含思考过程的最终回复
-        ChatCompletionAgent agent = GetThinkingRequester().IsOccupied
-            ? chatCompletionAgent
-            : chatCompletionAgentNotThinking;
+        bool thinking = GetThinkingRequester().IsOccupied;
 
         try
         {
             TokenUsage tokenUsage = default;
-            await foreach (AgentResponseItem<StreamingChatMessageContent> chatMessage in agent.InvokeStreamingAsync(
-                               chatHistoryAgentThread, cancellationToken: cancellationToken))
+            using (HttpRequestMessage request = BuildRequest(chatHistoryAgentThread.ChatHistory, thinking))
+            using (HttpResponseMessage response = await httpClient.SendAsync(
+                       request, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
             {
-                string? content = chatMessage.Message.Content;
-                if (content != null)
+                if (response.IsSuccessStatusCode == false)
                 {
-                    //前置报文会对思考内容进行特殊处理，以便兼容思考模式
-                    if (content.StartsWith(OpenAICompatibleHandler.ThinkContentPrefix))
-                    {
-                        string reasoningPart = content.Substring(OpenAICompatibleHandler.ThinkContentPrefix.Length);
-                        thinkReceived?.Invoke(reasoningPart);
-                    }
-                    else
-                    {
-                        nonThinkingContent.Append(content);
-                        textReceived?.Invoke(content);
-                    }
+                    string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    throw new HttpRequestException($"语言模型返回 {(int)response.StatusCode} ({response.ReasonPhrase}): {responseBody}");
                 }
 
-                var metaData = chatMessage.Message.Metadata;
-                if (metaData != null)
+                await foreach (AlifeSseChunk chunk in AlifeSseParser.ParseAsync(
+                                   await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken))
                 {
-                    // 尝试从元数据中提取思考过程 (支持原生支持此字段的 SDK)
-                    if (metaData.TryGetValue("ReasoningContent", out object? reasoning) ||
-                        metaData.TryGetValue("reasoning_content", out reasoning))
-                    {
-                        string? reasoningStr = reasoning?.ToString();
-                        if (string.IsNullOrEmpty(reasoningStr) == false)
-                            thinkReceived?.Invoke(reasoningStr);
-                    }
+                    if (chunk.Error != null)
+                        throw new HttpRequestException($"语言模型流式返回错误: {chunk.Error}");
 
-                    if (metaData.TryGetValue("Usage", out object? usage))
+                    if (chunk.Content != null)
                     {
-                        if (usage is ChatTokenUsage chatTokenUsage)
+                        //前置报文（OpenAICompatibleHandler）会对思考内容进行特殊处理，使其带上前缀，以便区分
+                        if (chunk.Content.StartsWith(OpenAICompatibleHandler.ThinkContentPrefix))
                         {
-                            tokenUsage = new TokenUsage() {
-                                Total = chatTokenUsage.TotalTokenCount,
-                                Input = chatTokenUsage.InputTokenCount,
-                                Output = chatTokenUsage.OutputTokenCount,
-                                Cached = chatTokenUsage.InputTokenDetails?.CachedTokenCount ?? 0
-                            };
+                            string reasoningPart = chunk.Content[OpenAICompatibleHandler.ThinkContentPrefix.Length..];
+                            thinkReceived?.Invoke(reasoningPart);
+                        }
+                        else
+                        {
+                            nonThinkingContent.Append(chunk.Content);
+                            textReceived?.Invoke(chunk.Content);
                         }
                     }
+
+                    if (chunk.Usage != null)
+                        tokenUsage = AlifeChatProtocol.ParseUsage(chunk.Usage);
                 }
             }
             tokenUsed?.Invoke(tokenUsage);
@@ -105,22 +94,21 @@ public class OpenAILanguageModel(
             exceptionThrow?.Invoke(e);
         }
 
-        //受 SK 框架限制，思考只能存储在消息块中，所以需要额外的步骤修正内容。
+        //把 AI 回复写入对话历史，供下一轮对话继续参考（不含思考内容）；
+        //取消/异常时也保留已输出的部分内容（与旧实现一致），仅当完全没有输出时不入史。
         string aiMessage = nonThinkingContent.ToString();
-        ChatMessageContent lastMsg = chatHistoryAgentThread.ChatHistory[^1];
-        if (lastMsg.Role == AuthorRole.Assistant && (lastMsg.Content?.Contains(OpenAICompatibleHandler.ThinkContentPrefix) ?? false))
-            lastMsg.Content = aiMessage;
+        if (string.IsNullOrEmpty(aiMessage) == false)
+            chatHistoryAgentThread.ChatHistory.AddAssistantMessage(aiMessage);
 
         return aiMessage;
     }
 
 
-    ChatCompletionAgent chatCompletionAgent = null!;
-    ChatCompletionAgent chatCompletionAgentNotThinking = null!;
     readonly OccupationNotepad thinkingRequester = new();
+    HttpClient httpClient = null!;
+    Uri chatCompletionsUri = null!;
 
-    [Experimental("SKEXP0010")]
-    protected override Task OnAwake()
+    protected override async Task OnAwake()
     {
         if (string.IsNullOrEmpty(Configuration.endpoint))
             Configuration.endpoint = storageSystem.GetProperty("endpoint", string.Empty)!;
@@ -129,29 +117,10 @@ public class OpenAILanguageModel(
         if (string.IsNullOrEmpty(Configuration.modelId))
             Configuration.modelId = storageSystem.GetProperty("modelId", string.Empty)!;
 
-        IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
-        RegisterChatCompletion(kernelBuilder);
-        Kernel kernelService = kernelBuilder.Build();
-
-        chatCompletionAgent = new() {
-            Kernel = kernelService,
-            Arguments = new KernelArguments(ProvidePromptExecutionSettings(true)),
-        };
-        chatCompletionAgentNotThinking = new() {
-            Kernel = kernelService,
-            Arguments = new KernelArguments(ProvidePromptExecutionSettings(false)),
-        };
-
-        if (Configuration.defaultThinking)
-            thinkingRequester.Rent("默认思考");
-
-        return Task.CompletedTask;
-    }
-
-    void RegisterChatCompletion(IKernelBuilder kernelBuilder)
-    {
         if (string.IsNullOrWhiteSpace(Configuration.apiKey))
             throw new Exception("语言模型的key为空，请检查你的“OpenAI语言模型”插件配置是否正确。");
+
+        chatCompletionsUri = AlifeChatProtocol.CreateChatCompletionsUri(Configuration.endpoint);
 
         // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
         SocketsHttpHandler handler = new() {
@@ -164,9 +133,7 @@ public class OpenAILanguageModel(
         };
 
         // 使用通用处理器拦截并破解所有 OpenAI 兼容协议的思考过程字段
-        OpenAICompatibleHandler reasoningHandler = new(handler);
-
-        HttpClient httpClient = new(reasoningHandler) {
+        httpClient = new HttpClient(new OpenAICompatibleHandler(handler)) {
             DefaultRequestVersion = HttpVersion.Version11,
             DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
         };
@@ -190,42 +157,40 @@ public class OpenAILanguageModel(
             }
         }
 
-        kernelBuilder.AddOpenAIChatCompletion(
-            endpoint: new Uri(Configuration.endpoint),
-            modelId: Configuration.modelId,
-            apiKey: Configuration.apiKey,
-            httpClient: httpClient
-        );
+        if (Configuration.enabledContentTypes.Count > 0)
+        {
+            XmlFunctionCaller functionCaller = (XmlFunctionCaller)await ChatActivity.Container
+                .RequireInstance(typeof(XmlFunctionCaller));
+            RegisterMultimodalInputHandler(functionCaller);
+        }
+
+        if (Configuration.defaultThinking)
+            thinkingRequester.Rent("默认思考");
     }
 
-    [Experimental("SKEXP0010")]
-    PromptExecutionSettings ProvidePromptExecutionSettings(bool thinking)
+    HttpRequestMessage BuildRequest(ChatHistory history, bool thinking)
     {
-        OpenAIPromptExecutionSettings settings = new();
-        settings.Temperature = Configuration.temperature;
+        JsonObject payload = new() {
+            ["model"] = Configuration.modelId,
+            ["messages"] = AlifeChatProtocol.SerializeHistory(history),
+            ["stream"] = true,
+            ["temperature"] = Configuration.temperature,
+        };
 
-        if (thinking)
-        {
-            if (string.IsNullOrEmpty(Configuration.reasoningEffort) == false)
-                settings.ReasoningEffort = Configuration.reasoningEffort;
-        }
-        else
-        {
-            settings.ReasoningEffort = null;
-        }
+        if (thinking && string.IsNullOrEmpty(Configuration.reasoningEffort) == false)
+            payload["reasoning_effort"] = Configuration.reasoningEffort;
 
-        settings.ExtraBody = new Dictionary<string, object?>();
-        if (!string.IsNullOrWhiteSpace(Configuration.extraBody))
+        string extraBody = thinking ? Configuration.extraBody : Configuration.extraBodyNotThinking;
+        if (!string.IsNullOrWhiteSpace(extraBody))
         {
             try
             {
-                var bodyDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    thinking ? Configuration.extraBody : Configuration.extraBodyNotThinking);
+                var bodyDict = JsonSerializer.Deserialize<Dictionary<string, object>>(extraBody);
                 if (bodyDict != null)
                 {
                     foreach (var kvp in bodyDict)
                     {
-                        settings.ExtraBody[kvp.Key] = kvp.Value;
+                        payload[kvp.Key] = JsonSerializer.SerializeToNode(kvp.Value);
                     }
                 }
             }
@@ -235,6 +200,19 @@ public class OpenAILanguageModel(
             }
         }
 
-        return settings;
+        HttpRequestMessage request = new(HttpMethod.Post, chatCompletionsUri) {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Configuration.apiKey);
+        return request;
+    }
+
+    void RegisterMultimodalInputHandler(XmlFunctionCaller functionCaller)
+    {
+        if (Configuration.enabledContentTypes.Count == 0)
+            return;
+
+        XmlHandler handler = AlifeContentRegistry.BuildHandler(ChatBot, Configuration);
+        functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
     }
 }
