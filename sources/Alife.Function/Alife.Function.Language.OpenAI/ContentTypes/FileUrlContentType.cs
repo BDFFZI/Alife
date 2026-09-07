@@ -36,7 +36,7 @@ public sealed class FileUrlContentType : AlifeContentHandlerBase
             "一般仅支持部分文件类型，如PDF等常见文本文件。",
             [
                 ("url", "可直链访问的网络地址", "String"),
-                ("keep", "是否常驻上下文以便连续分析", "bool"),
+                ("keep", "是否常驻上下文以便连续分析，默认 true", "bool"),
             ],
             async (context, ct) => {
                 FileUrlContent file = new(RequireHttpUrl(context.Parameters["url"], "url"));

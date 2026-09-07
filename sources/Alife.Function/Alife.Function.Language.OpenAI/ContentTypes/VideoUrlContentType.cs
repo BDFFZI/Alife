@@ -36,7 +36,7 @@ public sealed class VideoUrlContentType : AlifeContentHandlerBase
             null,
             [
                 ("url", "可直链访问的网络地址", "String"),
-                ("keep", "是否常驻上下文以便连续分析", "bool"),
+                ("keep", "是否常驻上下文以便连续分析，默认 true", "bool"),
             ],
             async (context, ct) => {
                 VideoUrlContent video = new(RequireHttpUrl(context.Parameters["url"], "url"));

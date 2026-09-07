@@ -31,12 +31,12 @@ public abstract class AlifeContentHandlerBase : IAlifeContentType
         return string.IsNullOrEmpty(RegistrationKey) == false && config.enabledContentTypes.Contains(RegistrationKey);
     }
 
-    /// <summary>解析函数参数中的 keep（bool），判断 AI 是否请求常驻上下文。</summary>
+    /// <summary>解析函数参数中的 keep（bool），判断 AI 是否请求常驻上下文。未传时默认常驻。</summary>
     protected static bool IsPersistentRequested(XmlContext context)
     {
-        return context.Parameters.TryGetValue("keep", out string? keep) &&
-            (keep.Equals("true", StringComparison.OrdinalIgnoreCase) ||
-             keep.Equals("1", StringComparison.OrdinalIgnoreCase));
+        return context.Parameters.TryGetValue("keep", out string? keep) == false ||
+            keep.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+            keep.Equals("1", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>把内容加入对话历史。AI 上传函数在模型流式期间被后台执行，使用异步编辑不会死锁。</summary>

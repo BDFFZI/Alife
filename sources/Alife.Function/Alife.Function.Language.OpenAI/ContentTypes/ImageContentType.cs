@@ -32,7 +32,7 @@ public sealed class ImageContentType : AlifeContentHandlerBase
             null,
             [
                 ("path", "图片本机路径或 http(s) 地址", "String"),
-                ("keep", "是否常驻上下文以便连续分析", "bool"),
+                ("keep", "是否常驻上下文以便连续分析，默认 true", "bool"),
             ],
             async (context, ct) => {
                 ImageContent image = await LoadImageAsync(context.Parameters["path"]);
