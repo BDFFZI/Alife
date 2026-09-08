@@ -85,7 +85,10 @@ public static class AlifeSseParser
                 continue;
             }
 
-            JsonObject? delta = chunk["choices"]?[0]?["delta"] as JsonObject;
+            //choices 可能是空数组（例如带 usage 的收尾分块），直接取 [0] 会抛 ArgumentOutOfRangeException
+            JsonObject? delta = null;
+            if (chunk["choices"] is JsonArray choices && choices.Count > 0)
+                delta = choices[0]?["delta"] as JsonObject;
             string? content = delta?["content"]?.GetValue<string>();
             string? reasoning = null;
             if (delta != null)
