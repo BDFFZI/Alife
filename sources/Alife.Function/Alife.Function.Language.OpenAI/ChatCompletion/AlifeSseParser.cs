@@ -85,7 +85,9 @@ public static class AlifeSseParser
                 continue;
             }
 
-            JsonObject? delta = chunk["choices"]?[0]?["delta"] as JsonObject;
+            JsonObject? delta = null;
+            if (chunk["choices"] is JsonArray choices && choices.Count > 0)
+                delta = choices[0]?["delta"] as JsonObject;
             string? content = delta?["content"]?.GetValue<string>();
             string? reasoning = null;
             if (delta != null)

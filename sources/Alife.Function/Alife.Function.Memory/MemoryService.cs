@@ -26,6 +26,10 @@ public record MemoryConfig
     public int TokenWarningThreshold { get; set; } = 120000; //上下文token警告线，超过此值时在日志中发出警告
 
     public bool ThinkingCompress { get; set; } = true;
+
+    //用于记忆压缩的语言模型类名（简单名或完整名）。留空则使用默认注入的语言模型。
+    public string CompressModelClassName { get; set; } = "";
+
     public string CompressPrompt { get; set; } =
         """
         {range}即将移出上下文，故需要对其进行内容总结。
@@ -46,6 +50,7 @@ public class MemoryService(
     XmlFunctionCaller functionService,
     ILanguageModel languageModel,
     MessageFilterService messageFilterService,
+    ModuleSystem moduleSystem,
     Interactor<MemoryService> interactor,
     ILogger<MemoryService> logger) :
     ChatBehaviour,
@@ -175,21 +180,15 @@ public class MemoryService(
 
     TextVectorizer vectorizer = null!;
     MemoryManager memoryManager = null!;
+    ILanguageModel compressModel = null!;
     string storagePath = null!;
 
-    protected override async Task OnAwake()
+    protected override Task OnAwake()
     {
         if (messageFilterService.Configuration.EnableTimestamp == false)
             throw new Exception("持久记忆依赖消息过滤的时间戳功能，请先打开时间戳！");
 
         storagePath = Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Memory");
-
-        //创建记忆工具
-        vectorizer = await TextVectorizer.CreateAsync();
-        AlifeHistoryCompressor compressor = new(languageModel, Configuration.Probability, Configuration.CompressPrompt);
-        memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
-            Configuration.BatchSize,
-            Configuration.MaxCompressionLevel);
 
         //插入提示词
         XmlHandler xmlHandler = new(this) {
@@ -207,18 +206,61 @@ public class MemoryService(
                             """
         };
         functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
+        
+        return Task.CompletedTask;
+    }
+    protected override async Task OnStart()
+    {
+        //创建记忆工具
+        vectorizer = await TextVectorizer.CreateAsync();
+        compressModel = await ResolveCompressModel();
+        AlifeHistoryCompressor compressor = new(compressModel, Configuration.Probability, Configuration.CompressPrompt);
+        memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
+            Configuration.BatchSize,
+            Configuration.MaxCompressionLevel);
+        
+        //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
+        ChatBot.EditChatHistory(thread => {
+            memoryManager.LoadHistory(thread.ChatHistory);
+        }, "装载记忆");
 
         ChatBot.ChatSend += OnChatSend;
         ChatBot.ChatHistoryAdd += OnChatHistoryAdd; //每次对话后检测压缩
         ChatBot.TokenUsed += OnTokenUsed; //监控上下文token消耗
     }
-    protected override Task OnStart()
+
+    /// <summary>
+    /// 解析用于压缩的语言模型：若配置了类名且类型存在，则从容器中获取，否则回退到默认语言模型。
+    /// </summary>
+    async Task<ILanguageModel> ResolveCompressModel()
     {
-        //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
-        ChatBot.EditChatHistory(thread => {
-            memoryManager.LoadHistory(thread.ChatHistory);
-        }, "装载记忆");
-        return Task.CompletedTask;
+        string className = Configuration.CompressModelClassName;
+        if (string.IsNullOrWhiteSpace(className))
+            return languageModel;
+
+        Type? modelType = moduleSystem.GetAllModules()
+            .FirstOrDefault(type => type.Name == className || type.FullName == className);
+        if (modelType == null)
+        {
+            logger.LogWarning("未找到压缩语言模型类型“{ClassName}”，将使用默认语言模型。", className);
+            return languageModel;
+        }
+
+        try
+        {
+            object instance = await ChatActivity.Container.RequireInstance(modelType);
+            if (instance is ILanguageModel model)
+                return model;
+
+            logger.LogWarning("类型“{ClassName}”未实现 {Interface}，将使用默认语言模型。",
+                className, nameof(ILanguageModel));
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "获取压缩语言模型“{ClassName}”失败，将使用默认语言模型。", className);
+        }
+
+        return languageModel;
     }
     protected override async Task OnDestroy()
     {
@@ -248,7 +290,7 @@ public class MemoryService(
 
             await ChatBot.EditChatHistoryAsync(async thread => {
                 memoryManager.SaveHistory(thread.ChatHistory);
-                var thinking = Configuration.ThinkingCompress ? ChatBot.LanguageModel.GetThinkingRequester().Rent("记忆压缩") : null;
+                var thinking = Configuration.ThinkingCompress ? compressModel.GetThinkingRequester().Rent("记忆压缩") : null;
                 try
                 {
                     await memoryManager.Filter(thread);

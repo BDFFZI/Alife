@@ -52,6 +52,13 @@
             </Text>
         </FormItem>
 
+        <FormItem Label="自定义压缩语言模型 (CompressModelClassName)">
+            <Input @bind-Value="@Configuration.CompressModelClassName" Placeholder="输入模块类名，如Alife.Function.Language.OpenAI.OpenAILanguageModel"/>
+            <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                显式指定用于记忆压缩的语言模型。留空则沿用当前对话用的语言模型。
+            </Text>
+        </FormItem>
+
         <FormItem Label="压缩提示词模板 (CompressPrompt)">
             <TextArea @bind-Value="@Configuration.CompressPrompt" Rows="12"
                       Placeholder="使用 {range} 作为被压缩内容的占位符"/>

@@ -1,0 +1,11 @@
+{
+  "Version": "4.6.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": ""
+  },
+  "Environments": {
+    "nuget": {
+      "System.Security.Cryptography.ProtectedData": ">=9.0.0"
+    }
+  }
+}

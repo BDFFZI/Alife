@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Text.Json.Nodes;
-using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -9,7 +8,7 @@ using Microsoft.SemanticKernel;
 
 namespace Alife.Function.Language.OpenAI;
 
-/// <summary>图片内容：协议序列化为 <c>image_url</c>。AI 通过 <c>LookImage</c> 查看，用 mode 参数选择临时/保留。</summary>
+/// <summary>图片内容：协议序列化为 <c>image_url</c>。AI 通过 <c>LoadImage</c> 查看，用 temp 参数选择临时/保留。</summary>
 public sealed class ImageContentType : AlifeContentHandlerBase
 {
     public override Type ContentType => typeof(ImageContent);
@@ -28,18 +27,18 @@ public sealed class ImageContentType : AlifeContentHandlerBase
             return null;
 
         return BuildXmlFunction(
-            "LookImage",
+            "LoadImage",
             null,
             [
                 ("path", "图片本机路径或 http(s) 地址", "String"),
-                ("keep", "是否常驻上下文以便连续分析，默认 true", "bool"),
+                ("temp", "临时分析并直接获取结果，默认false", "bool"),
             ],
             async (context, ct) => {
                 ImageContent image = await LoadImageAsync(context.Parameters["path"]);
                 bool persistent = IsPersistentRequested(context);
                 if (persistent && executor.IsPersistentAllowed(RegistrationKey!) == false)
                 {
-                    chatBot.Poke("保留模式未授权，仅可使用 keep=false 临时查看。");
+                    chatBot.Poke("保留模式未授权，仅可使用 temp=true 临时查看。");
                     return;
                 }
                 if (persistent)

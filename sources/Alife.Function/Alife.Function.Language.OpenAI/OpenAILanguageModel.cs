@@ -117,7 +117,7 @@ public class OpenAILanguageModel(
         await chatBot.EditChatHistoryAsync(async thread => {
             ChatHistory history = thread.ChatHistory;
             int startIndex = history.Count;
-            history.AddUserMessage([content, new TextContent("已上传")]);
+            history.AddUserMessage([content, new TextContent("已临时上传，请立即完整分析内容。稍后这次对话将被删除，你的回复将作为分析结果返回。")]);
             try
             {
                 result = await ChatStreamingAsync(thread,
@@ -133,7 +133,7 @@ public class OpenAILanguageModel(
         // ChatStreamingAsync 会吞掉异常（通过回调），这里透传，避免调用方收到静默的空结果
         if (error != null)
             throw error;
-        return "AI分析结果如下：" + result;
+        return "分析结果如下：" + result;
     }
 
 

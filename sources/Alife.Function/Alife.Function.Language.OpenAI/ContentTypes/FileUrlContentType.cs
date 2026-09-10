@@ -1,14 +1,12 @@
 using System;
 using System.Text.Json.Nodes;
-using System.Threading;
-using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.SemanticKernel;
 
 namespace Alife.Function.Language.OpenAI;
 
-/// <summary>文件内容：协议序列化为 <c>file</c>。AI 通过 <c>LookFile</c> 查看，用 mode 参数选择临时/保留。</summary>
+/// <summary>文件内容：协议序列化为 <c>file</c>。AI 通过 <c>LoadFile</c> 查看，用 temp 参数选择临时/保留。</summary>
 public sealed class FileUrlContent(Uri url) : KernelContent
 {
     public Uri Url { get; } = url;
@@ -32,18 +30,18 @@ public sealed class FileUrlContentType : AlifeContentHandlerBase
             return null;
 
         return BuildXmlFunction(
-            "LookFile",
-            "一般仅支持部分文件类型，如PDF等常见文本文件。",
+            "LoadFile",
+            null,
             [
                 ("url", "可直链访问的网络地址", "String"),
-                ("keep", "是否常驻上下文以便连续分析，默认 true", "bool"),
+                ("temp", "临时分析并直接获取结果，默认false", "bool"),
             ],
             async (context, ct) => {
                 FileUrlContent file = new(RequireHttpUrl(context.Parameters["url"], "url"));
                 bool persistent = IsPersistentRequested(context);
                 if (persistent && executor.IsPersistentAllowed(RegistrationKey!) == false)
                 {
-                    chatBot.Poke("保留模式未授权，仅可使用 keep=false 临时查看。");
+                    chatBot.Poke("保留模式未授权，仅可使用 temp=true 临时查看。");
                     return;
                 }
                 if (persistent)
