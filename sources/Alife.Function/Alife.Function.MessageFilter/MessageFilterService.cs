@@ -65,10 +65,17 @@ public partial class MessageFilterService(
         };
         AddMessageReplyRule(messageReplyRule, cancellationToken);
     }
+    public void AddMessageReplyGuidance(Func<string> guidance, CancellationToken cancellationToken = default)
+    {
+        messageReplyGuidance.Add(guidance);
+        if (cancellationToken != CancellationToken.None)
+            cancellationToken.Register(() => messageReplyGuidance.Remove(guidance));
+    }
 
     int injectionCountdown;
     OccupationMarker? thinkingOccupationMarker;
     readonly List<MessageReplyRule> messageReplyRules = new();
+    readonly List<Func<string>> messageReplyGuidance = [];
 
     protected override Task OnAwake()
     {
@@ -89,6 +96,7 @@ public partial class MessageFilterService(
             OutputRegex = "<.*>",
             CorrectionMessage = "检测到你未使用任何函数调用，如果是遗忘了，请补上。否则请在输出中包含`<!---->`来显式表示本次输出不调用函数。"
         });
+        AddMessageReplyGuidance(() => Configuration.MessageAppend);
 
         interactor.Prompt("""
                           在你每次收到的消息中，通常结构如下`[xx]xx(xx)`。
@@ -143,7 +151,13 @@ public partial class MessageFilterService(
 
         if (injectionCountdown <= 0)
         {
-            message = $"{message}\n{Configuration.MessageAppend}";
+            foreach (Func<string> func in messageReplyGuidance)
+            {
+                string guidance = func();
+                if (!string.IsNullOrEmpty(guidance))
+                    message = $"{message}\n{guidance}";
+            }
+
             injectionCountdown = Configuration.InjectionInterval;
         }
         else

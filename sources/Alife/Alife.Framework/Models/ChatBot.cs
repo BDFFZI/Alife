@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
 using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 namespace Alife.Framework;
@@ -89,7 +90,7 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
-    public async Task<ChatResult> ChatAsync(string message, bool breakLast = true)
+    public async Task<ChatResult> ChatAsync(ChatMessageContent message, bool breakLast = true)
     {
         CancellationToken cancellationToken;
 
@@ -113,7 +114,7 @@ public class ChatBot : IAsyncDisposable
                     {
                         try
                         {
-                            message = func(message);
+                            message.Content = func(message.Content ?? "");
                         }
                         catch (Exception ex)
                         {
@@ -121,11 +122,10 @@ public class ChatBot : IAsyncDisposable
                         }
                     }
                 }
-                message = message.Trim();
 
                 //装载用户消息
                 await EditChatHistoryAsync(thread => {
-                    thread.ChatHistory.AddUserMessage(message);
+                    thread.ChatHistory.Add(message);
                     ChaseChatHistory(thread);
                     return Task.CompletedTask;
                 }, "装载用户消息");
@@ -133,7 +133,7 @@ public class ChatBot : IAsyncDisposable
                 //触发发送事件
                 try
                 {
-                    ChatSent?.Invoke(message);
+                    ChatSent?.Invoke(message.Content ?? "");
                 }
                 catch (Exception ex)
                 {
@@ -218,7 +218,7 @@ public class ChatBot : IAsyncDisposable
                 //对话完全结束
                 {
                     ChatContext chatContext = new() {
-                        UserMessage = message,
+                        UserMessage = message.Content ?? "",
                         AIMessage = aiMessage,
                         CancellationToken = cancellationToken,
                     };
@@ -273,6 +273,10 @@ public class ChatBot : IAsyncDisposable
                 }
             }
         }
+    }
+    public Task<ChatResult> ChatAsync(string message, bool breakLast = true)
+    {
+        return ChatAsync(new ChatMessageContent(AuthorRole.User, message), breakLast);
     }
     public async void Chat(string content)
     {

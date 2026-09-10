@@ -101,5 +101,5 @@ public class ChatBehaviour : IAsyncDisposable
     protected virtual Task OnUpdate() => Task.CompletedTask;
     protected virtual Task OnDestroy() => Task.CompletedTask;
 
-    CancellationTokenSource destroyCancellationTokenSource = new();
+    readonly CancellationTokenSource destroyCancellationTokenSource = new();
 }

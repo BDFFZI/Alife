@@ -1,0 +1,99 @@
+@namespace Alife.Function.Todo
+@using AntDesign
+@inherits Alife.Framework.ModuleUIBase<Alife.Function.Todo.TodoService>
+
+<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px;">
+        <Title Level="4" Style="margin: 0;">待办事项</Title>
+        <Space>
+            <Button Size="@ButtonSize.Small" OnClick="Reload">刷新</Button>
+            <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" OnClick="Save" Disabled="@(Module == null)">保存</Button>
+        </Space>
+    </Flex>
+
+    @if (Module == null)
+    {
+        <Alert Type="@AlertType.Info" Message="模块尚未激活，无法查看待办事项。" ShowIcon="true"/>
+    }
+    else
+    {
+        @if (items.Count == 0)
+        {
+            <div style="padding: 16px; background: #fff; border-radius: 8px; border: 1px dashed #d9d9d9; margin-bottom: 16px;">
+                <Text Type="TextElementType.Secondary">暂无待办事项</Text>
+            </div>
+        }
+        else
+        {
+            <div style="background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; margin-bottom: 16px;">
+                @for (int i = 0; i < items.Count; i++)
+                {
+                    var index = i;
+                    var item = items[index];
+                    <div style="padding: 8px 12px; border-bottom: 1px solid #f0f0f0;">
+                        <Flex Align="FlexAlign.Center" Gap="@("8")">
+                            <Checkbox Checked="@item.Completed" CheckedChanged="@(value => { item.Completed = value; })"/>
+                            <Input @bind-Value="@item.Content" Style="flex: 1;"/>
+                            <Button Size="@ButtonSize.Small" Danger OnClick="@(() => RemoveAt(index))">删除</Button>
+                        </Flex>
+                    </div>
+                }
+            </div>
+        }
+
+        <Flex Gap="@("8")">
+            <Input @bind-Value="@newContent" Placeholder="输入新的待办事项" Style="flex: 1;"/>
+            <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Plus" OnClick="AddItem">添加</Button>
+        </Flex>
+
+        <div style="margin-top: 12px;">
+            <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                编辑后请点击右上角"保存"写回；AI 侧的改动可点"刷新"查看。
+            </Text>
+        </div>
+    }
+</div>
+
+@code {
+    List<TodoItem> items = new();
+    string newContent = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    void Reload()
+    {
+        items = Module == null
+            ? new List<TodoItem>()
+            : Module.Items.Select(item => new TodoItem { Content = item.Content, Completed = item.Completed }).ToList();
+    }
+
+    void AddItem()
+    {
+        string content = newContent.Trim();
+        if (content.Length == 0)
+            return;
+
+        items.Add(new TodoItem { Content = content });
+        newContent = string.Empty;
+    }
+
+    void RemoveAt(int index)
+    {
+        if (index < 0 || index >= items.Count)
+            return;
+
+        items.RemoveAt(index);
+    }
+
+    void Save()
+    {
+        if (Module == null)
+            return;
+
+        Module.ReplaceTodos(items);
+        Reload();
+    }
+}

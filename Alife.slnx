@@ -55,6 +55,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.FileService/Alife.Function.FileService.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.ProcessService/Alife.Function.ProcessService.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Python/Alife.Function.Python.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Todo/Alife.Function.Todo.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Interaction/">
