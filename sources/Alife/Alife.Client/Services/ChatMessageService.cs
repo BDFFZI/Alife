@@ -65,7 +65,7 @@ public class ChatMessageService
         this.storage = storage;
         settings = storage.GetObject(SettingsKey, new ChatSettings())!;
         system.ActivatingCreated += OnActivityCreated;
-        system.Destroyed += OnActivityDestroyed;
+        system.Deactivated += OnActivityDeactivated;
         system.ActivationFailed += OnActivationFailed;
     }
 
@@ -177,7 +177,7 @@ public class ChatMessageService
         chatbotMap.Remove(arg1.Name);
         ChatbotMapUpdated?.Invoke();
     }
-    void OnActivityDestroyed(ChatActivity activity)
+    void OnActivityDeactivated(ChatActivity activity)
     {
         string name = activity.Character.Name;
         chatbotMap.Remove(name);

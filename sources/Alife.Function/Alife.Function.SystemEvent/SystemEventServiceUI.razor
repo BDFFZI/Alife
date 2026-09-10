@@ -6,51 +6,37 @@
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
 
-        <!-- 任务监控区域 -->
+        <!-- 下次报点时间 -->
         <div>
-            <Title Level="4" Style="margin-bottom: 16px;">时钟与定时任务监控</Title>
+            <Title Level="4" Style="margin-bottom: 16px;">下次报点时间</Title>
             @if (Module != null)
             {
-                <GridRow Gutter="16">
-                    @foreach ((DateTime Time, string Name) task in Module.ActiveTasks)
-                    {
-                        TimeSpan remaining = task.Time - DateTime.Now;
-                        var isFinished = remaining.TotalSeconds <= 0;
-                        var isPermanent = task.Time == DateTime.MaxValue;
+                DateTime nextReportTime = Module.NextReportTime;
 
-                        <GridCol Span="12" Style="margin-bottom: 16px;">
-                            <Card Size="CardSize.Small"
-                                  Style="border-radius: 8px; border: 1px solid #e8e8e8; background: #fff;">
-                                <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center">
-                                    <div style="flex: 1;">
-                                        <Text Strong
-                                              Style="font-size: 14px; display: block; margin-bottom: 4px;">@task.Name</Text>
-                                        @if (isPermanent)
-                                        {
-                                            <Badge Status="BadgeStatus.Default" Text="待机中"/>
-                                        }
-                                        else if (isFinished)
-                                        {
-                                            <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Green"
-                                                   Text="即将触发..."/>
-                                        }
-                                        else
-                                        {
-                                            <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Blue"
-                                                   Text="@FormatRemaining(remaining)"/>
-                                        }
-                                    </div>
-                                    <Icon Type="clock-circle" Theme="IconThemeType.Outline"
-                                          Style="font-size: 20px; color: #bfbfbf;"/>
-                                </Flex>
-                                <div
-                                    style="margin-top: 12px; font-size: 12px; color: #8c8c8c; border-top: 1px solid #f5f5f5; padding-top: 8px;">
-                                    设定时间: @(isPermanent ? "无" : task.Time.ToString("HH:mm:ss"))
-                                </div>
-                            </Card>
-                        </GridCol>
-                    }
-                </GridRow>
+                <Card Size="CardSize.Small" Style="border-radius: 8px;">
+                    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center">
+                        @if (nextReportTime == DateTime.MaxValue)
+                        {
+                            <Badge Status="BadgeStatus.Default" Text="待机中"/>
+                        }
+                        else if (nextReportTime <= DateTime.Now)
+                        {
+                            <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Green" Text="即将触发..."/>
+                        }
+                        else
+                        {
+                            <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Blue"
+                                   Text="@FormatRemaining(nextReportTime - DateTime.Now)"/>
+                        }
+                        <Text Type="TextElementType.Secondary">
+                            @(nextReportTime == DateTime.MaxValue ? "无" : nextReportTime.ToString("HH:mm:ss"))
+                        </Text>
+                    </Flex>
+                    <div
+                        style="margin-top: 12px; font-size: 12px; color: #8c8c8c; border-top: 1px solid #f5f5f5; padding-top: 8px;">
+                        当前报点次数: @Module.CurrentReportCount
+                    </div>
+                </Card>
             }
             else
             {
@@ -72,7 +58,7 @@
                     <TextArea @bind-Value="@Configuration.StartPrompt" Rows="2"
                               Style="border-radius: 6px;"></TextArea>
                 </Card>
-                
+
                 <Card Size="CardSize.Small" Title="关闭报点" Style="border-radius: 8px;">
                     <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px; font-size: 12px;">
                         程序关闭时附加发送的提示
@@ -85,10 +71,13 @@
                     <Flex Direction="FlexDirection.Vertical" Gap="@("12")">
                         <Alert Type="AlertType.Info" ShowIcon="true" Style="border-radius: 6px;">
                             <div style="font-size: 13px; line-height: 1.8;">
-                                <Text Strong>间隔算法：</Text><br/>
-                                <code>下次间隔 = (基础间隔 ± 随机偏移) × 间隔倍数 ^ min(连续触发次数, 最大翻倍次数)</code><br/>
+                                <Text Strong>间隔算法：</Text>
+                                <br/>
+                                <code>下次间隔 = (基础间隔 ± 随机偏移) × 间隔倍数 ^ min(连续触发次数,
+                                    最大翻倍次数)</code><br/>
                                 <Text Type="TextElementType.Secondary">
-                                    收到打断型消息后连续触发次数重置为 0；偏移范围为 <code>[-偏移范围, +偏移范围]</code> 内的随机值。
+                                    收到打断型消息后连续触发次数重置为 0；偏移范围为 <code>[-偏移范围, +偏移范围]</code>
+                                    内的随机值。
                                 </Text>
                             </div>
                         </Alert>
@@ -96,28 +85,36 @@
                         <GridRow Gutter="16">
                             <GridCol Span="12">
                                 <div>
-                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">基础间隔 (秒)</Text>
+                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">
+                                        基础间隔 (秒)
+                                    </Text>
                                     <InputNumber @bind-Value="@Configuration.UpdateInterval" Min="1"
                                                  Style="width: 100%; border-radius: 6px;"/>
                                 </div>
                             </GridCol>
                             <GridCol Span="12">
                                 <div>
-                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">随机偏移范围 (秒)</Text>
+                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">
+                                        随机偏移范围 (秒)
+                                    </Text>
                                     <InputNumber @bind-Value="@Configuration.UpdateRandomOffset" Min="0"
                                                  Style="width: 100%; border-radius: 6px;"/>
                                 </div>
                             </GridCol>
                             <GridCol Span="12">
                                 <div>
-                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">间隔倍数</Text>
+                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">
+                                        间隔倍数
+                                    </Text>
                                     <InputNumber @bind-Value="@Configuration.UpdateIntervalMultiplier" Min="1"
                                                  Style="width: 100%; border-radius: 6px;"/>
                                 </div>
                             </GridCol>
                             <GridCol Span="12">
                                 <div>
-                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">最大翻倍次数</Text>
+                                    <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px;">
+                                        最大翻倍次数
+                                    </Text>
                                     <InputNumber @bind-Value="@Configuration.UpdateMaxRetryCount" Min="0"
                                                  Style="width: 100%; border-radius: 6px;"/>
                                 </div>
@@ -125,7 +122,8 @@
                         </GridRow>
 
                         <div>
-                            <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px; font-size: 12px;">
+                            <Text Type="TextElementType.Secondary"
+                                  Style="display: block; margin-bottom: 8px; font-size: 12px;">
                                 定时触发时附加发送的提示
                             </Text>
                             <TextArea @bind-Value="@Configuration.UpdatePrompt" Rows="2"

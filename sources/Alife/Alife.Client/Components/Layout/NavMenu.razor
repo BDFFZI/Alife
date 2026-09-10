@@ -89,7 +89,7 @@
     {
         CharacterSystem.CharacterListChanged += Refresh;
         ChatActivitySystem.Activated += OnActivityChanged;
-        ChatActivitySystem.Destroyed += OnActivityChanged;
+        ChatActivitySystem.Deactivated += OnActivityChanged;
     }
 
     void OnActivityChanged(ChatActivity _) => Refresh();
@@ -109,6 +109,6 @@
     {
         CharacterSystem.CharacterListChanged -= Refresh;
         ChatActivitySystem.Activated -= OnActivityChanged;
-        ChatActivitySystem.Destroyed -= OnActivityChanged;
+        ChatActivitySystem.Deactivated -= OnActivityChanged;
     }
 }

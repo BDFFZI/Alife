@@ -26,13 +26,10 @@ public class TodoService(
         Save();
     }
 
-    [XmlFunction(FunctionMode.Content, "todoadd")]
-    public void Add(XmlExecutorContext context)
+    [XmlFunction(FunctionMode.OneShot, "todoadd")]
+    public void Add(string content)
     {
-        if (context.CallMode != CallMode.Closing)
-            return;
-
-        TodoItem item = manager.Add(context.FullContent);
+        TodoItem item = manager.Add(content);
         Save();
         PokeWithList($"已添加待办：{item.Content}");
     }
@@ -62,31 +59,16 @@ public class TodoService(
     protected override Task OnAwake()
     {
         manager.Load(storageSystem.GetObject<List<TodoItem>>(GetStoragePath()));
-        messageFilterService.AddMessageReplyGuidance(manager.Format, DestroyCancellationToken);
+        messageFilterService.AddMessageReplyGuidance(OnGuidance, DestroyCancellationToken);
 
         XmlHandler xmlHandler = new(this) {
-            Description = "当你需要进行复杂任务（如插件开发，需求研究）时使用，他能让你更加科学有规划执行长任务，从而大幅提高成功率。",
-            Explanation = """
-                          待办事项用于管理需要多步骤完成的任务，清单按添加顺序排列，并会自动附带在你收到的消息中。
-
-                          用法示例
-                          ```
-                          <todoadd>买牛奶</todoadd>              # 添加待办
-                          <todocomplete index="1"/>              # 完成第1项
-                          <todoclear/>                           # 仅清除已完成项
-                          <todoclear mode="All"/>                # 清空全部
-                          ```
-
-                          使用提示
-                          - 完成通过序号定位，序号以最新清单为准。
-                          - 清单会自动出现在你收到的消息中，无需专门查询。
-                          """
+            Description = "当用户向你发起需求，例如功能开发，分析检索内容，等各种任务时，请养成一个良好科学的解题习惯。比如先收集资料明确需求，然后分析拆解实现步骤，再用待办事项功能规划好你的计划，然后逐步执行它，从而大幅提高你完成任务的成功率。",
         };
-        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
-        functionCaller.AddPlainAreas("todoadd");
+        functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
 
         return Task.CompletedTask;
     }
+
 
     string GetStoragePath()
     {
@@ -102,5 +84,10 @@ public class TodoService(
     {
         string list = manager.Format();
         interactor.Poke(string.IsNullOrEmpty(list) ? message : $"{message}\n{list}");
+    }
+
+    string OnGuidance()
+    {
+        return manager.Format() + "\n(如果尚有代办事项未完成，请继续执行它们，否则请清理它们)";
     }
 }

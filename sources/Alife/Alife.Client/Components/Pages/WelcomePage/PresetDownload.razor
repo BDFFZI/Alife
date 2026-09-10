@@ -82,28 +82,32 @@
 
     static readonly string[] RecommendedPluginIds =
     [
+        //环境
+        "Alife.Function.Developer",
+        "Alife.Function.Memory",
+        "Alife.Function.MessageFilter",
+        "Alife.Function.SystemEvent",
+        "Alife.Function.VirtualWorld",
         //行业标准
         "Alife.Function.FunctionCaller",
         "Alife.Function.Mcp",
         "Alife.Function.Skill",
-        //对话环境
-        "Alife.Function.Memory",
-        "Alife.Function.MessageFilter",
-        "Alife.Function.SystemEvent",
-        "Alife.Function.Developer",
-        //实用工具
-        "Alife.Function.DeskPet",
+        //工具
         "Alife.Function.Browser",
-        "Alife.Function.Python",
         "Alife.Function.FileService",
-        //模型接入
-        "Alife.Function.Language.OpenAI",
-        "Alife.Function.AIModelUtility",
+        "Alife.Function.Python",
+        "Alife.Function.TimedTask",
+        "Alife.Function.Todo",
+        "Alife.Function.Vision",
+        //交互
         "Alife.Function.Auditory",
-        "Alife.Function.Auditory.SenseVoice",
+        "Alife.Function.DeskPet",
         "Alife.Function.Speech",
+        //模型
+        "Alife.Function.AIModelUtility",
+        "Alife.Function.Auditory.SenseVoice",
+        "Alife.Function.Language.OpenAI",
         "Alife.Function.Speech.VITS",
-        "Alife.Function.Vision"
     ];
 
     readonly List<PluginPackage> availablePlugins = new();

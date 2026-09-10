@@ -29,11 +29,11 @@ public class ChatActivitySystem
     /// <summary>
     /// 活动即将销毁
     /// </summary>
-    public event Action<ChatActivity>? Destroying;
+    public event Action<ChatActivity>? Deactivating;
     /// <summary>
     /// 活动销毁并移出全局统计后
     /// </summary>
-    public event Action<ChatActivity>? Destroyed;
+    public event Action<ChatActivity>? Deactivated;
 
     public IEnumerable<ChatActivity> GetAllChatActivities()
     {
@@ -85,10 +85,10 @@ public class ChatActivitySystem
         if (!activities.TryGetValue(character.Name, out ChatActivity? chatActivity))
             return;
 
-        Destroying?.Invoke(chatActivity);
+        Deactivating?.Invoke(chatActivity);
         await chatActivity.Destroy();
         activities.Remove(character.Name);
-        Destroyed?.Invoke(chatActivity);
+        Deactivated?.Invoke(chatActivity);
     }
 
     public ChatActivitySystem(

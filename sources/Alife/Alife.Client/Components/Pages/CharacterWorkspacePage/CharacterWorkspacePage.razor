@@ -138,8 +138,8 @@ else
     protected override void OnInitialized()
     {
         ChatActivitySystem.Activated += OnChatActivityActivated;
-        ChatActivitySystem.Destroyed += OnChatActivityDestroyed;
-        ChatActivitySystem.Destroying += OnChatActivityDestroying;
+        ChatActivitySystem.Deactivated += OnChatActivityDeactivated;
+        ChatActivitySystem.Deactivating += OnChatActivityDeactivating;
     }
     protected override void OnParametersSet()
     {
@@ -149,8 +149,8 @@ else
     public void Dispose()
     {
         ChatActivitySystem.Activated -= OnChatActivityActivated;
-        ChatActivitySystem.Destroyed -= OnChatActivityDestroyed;
-        ChatActivitySystem.Destroying -= OnChatActivityDestroying;
+        ChatActivitySystem.Deactivated -= OnChatActivityDeactivated;
+        ChatActivitySystem.Deactivating -= OnChatActivityDeactivating;
     }
 
     void OnChatActivityActivated(ChatActivity chatActivity)
@@ -161,7 +161,7 @@ else
         activity = chatActivity;
         InvokeAsync(StateHasChanged);
     }
-    void OnChatActivityDestroying(ChatActivity obj)
+    void OnChatActivityDeactivating(ChatActivity obj)
     {
         if (activity != obj)
             return;
@@ -169,7 +169,7 @@ else
         isStopping = true;
         InvokeAsync(StateHasChanged);
     }
-    void OnChatActivityDestroyed(ChatActivity obj)
+    void OnChatActivityDeactivated(ChatActivity obj)
     {
         if (activity != obj)
             return;

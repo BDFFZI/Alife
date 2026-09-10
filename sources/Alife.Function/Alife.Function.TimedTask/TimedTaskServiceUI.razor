@@ -1,0 +1,72 @@
+@namespace Alife.Function.SystemEvent
+@inherits Alife.Framework.ModuleUIBase<TimedTaskService>
+@implements IDisposable
+@using AntDesign
+
+<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+    <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
+
+        <!-- 下次报点时间 -->
+        <div>
+            <Title Level="4" Style="margin-bottom: 16px;">下次报点时间</Title>
+            @if (Module != null)
+            {
+                DateTime nextReportTime = Module.NextReportTime;
+
+                <Card Size="CardSize.Small" Style="border-radius: 8px;">
+                    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center">
+                        <div style="flex: 1;">
+                            <Text Strong
+                                  Style="font-size: 14px; display: block; margin-bottom: 4px;">@(string.IsNullOrEmpty(Module.Remark) ? "定点报时" : Module.Remark)</Text>
+                            @if (nextReportTime == DateTime.MaxValue)
+                            {
+                                <Badge Status="BadgeStatus.Default" Text="待机中"/>
+                            }
+                            else if (nextReportTime <= DateTime.Now)
+                            {
+                                <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Green" Text="即将触发..."/>
+                            }
+                            else
+                            {
+                                <Badge Status="BadgeStatus.Processing" Color="BadgeColor.Blue"
+                                       Text="@FormatRemaining(nextReportTime - DateTime.Now)"/>
+                            }
+                        </div>
+                        <Text Type="TextElementType.Secondary">
+                            @(nextReportTime == DateTime.MaxValue ? "无" : nextReportTime.ToString("HH:mm:ss"))
+                        </Text>
+                    </Flex>
+                </Card>
+            }
+            else
+            {
+                <Alert Type="AlertType.Info" Message="当前模块未在运行中，任务监控不可用喵！" ShowIcon="true"/>
+            }
+        </div>
+
+    </Flex>
+</div>
+
+@code {
+    System.Timers.Timer? refreshTimer;
+
+    protected override void OnInitialized()
+    {
+        refreshTimer = new System.Timers.Timer(1000);
+        refreshTimer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+
+    string FormatRemaining(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours}h {ts.Minutes}m {ts.Seconds}s";
+        if (ts.TotalMinutes >= 1) return $"{(int)ts.TotalMinutes}m {ts.Seconds}s";
+        return $"{(int)ts.TotalSeconds}s";
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
+    }
+}
