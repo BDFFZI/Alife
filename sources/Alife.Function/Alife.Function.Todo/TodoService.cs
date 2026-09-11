@@ -88,6 +88,6 @@ public class TodoService(
 
     string OnGuidance()
     {
-        return manager.Format() + "\n(如果尚有代办事项未完成，请继续执行它们，否则请清理它们)";
+        return manager.Format() + "\n(如果尚有代办事项未完成，请完成它们，否则请清理它们)";
     }
 }
