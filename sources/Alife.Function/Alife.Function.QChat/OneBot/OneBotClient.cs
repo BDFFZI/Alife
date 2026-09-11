@@ -179,29 +179,21 @@ public class OneBotClient(string url, string token = "") : IAsyncDisposable
             string? type = doc.RootElement.TryGetProperty("post_type", out JsonElement typeElem) ? typeElem.GetString() : "";
             string? subType = doc.RootElement.TryGetProperty("sub_type", out JsonElement subtypeElem) ? subtypeElem.GetString() : "";
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            switch (type)
+            OneBotBaseEvent? ev = type switch
             {
-                case "message":
-                    return doc.RootElement.Deserialize<OneBotMessageEvent>(options);
-                case "message_sent":
-                    return doc.RootElement.Deserialize<OneBotMessageSentEvent>(options);
-                case "meta_event":
-                    return doc.RootElement.Deserialize<OneBotMetaEvent>(options);
-                case "notice":
+                "message" => doc.RootElement.Deserialize<OneBotMessageEvent>(options),
+                "message_sent" => doc.RootElement.Deserialize<OneBotMessageSentEvent>(options),
+                "meta_event" => doc.RootElement.Deserialize<OneBotMetaEvent>(options),
+                "notice" => subType switch
                 {
-                    switch (subType)
-                    {
-                        case "poke":
-                            return doc.RootElement.Deserialize<OneBotPokeEvent>(options);
-                        default:
-                            return doc.RootElement.Deserialize<OneBotNoticeEvent>(options);
-                    }
-                }
-                case "request":
-                    return doc.RootElement.Deserialize<OneBotRequestEvent>(options);
-                default:
-                    return null;
-            }
+                    "poke" => doc.RootElement.Deserialize<OneBotPokeEvent>(options),
+                    _ => doc.RootElement.Deserialize<OneBotNoticeEvent>(options)
+                },
+                "request" => doc.RootElement.Deserialize<OneBotRequestEvent>(options),
+                _ => null
+            };
+            if (ev != null) ev.RawJson = json;
+            return ev;
         }
         catch (Exception ex)
         {

@@ -30,6 +30,10 @@ public abstract record OneBotBaseEvent
 
     [JsonPropertyName("self_id")]
     public long SelfId { get; init; }
+
+    /// <summary>原始OneBot报文JSON（框架接收时回填，用于插件解析模型未覆盖的字段）</summary>
+    [JsonIgnore]
+    public string? RawJson { get; set; }
 }
 
 public record OneBotBasicMessageEvent : OneBotBaseEvent
