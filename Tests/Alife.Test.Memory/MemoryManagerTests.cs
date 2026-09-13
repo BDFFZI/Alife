@@ -7,76 +7,63 @@ using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 namespace Alife.Test.Memory;
 
 /// <summary>
-/// 持久记忆插件修复回归测试。
-/// 主要验证 MemoryManager.Filter 对“逆序区域”的自动合并升级逻辑：
+/// 持久记忆插件回归测试。
+/// 主要验证 MemoryManager 对“逆序区域”的自动合并升级逻辑：
 /// 正常的历史顺序应是「级别从高到低」单调排列，当存档中出现「低级别之后又冒出高级别」的乱序
 /// （逆序）记录时，旧代码会静默跳过、导致高级别存档永远滞留/阻塞后续处理；本测试确认新代码
-/// 能正确检测并自动合并升级，且对正常单调结构不误触发。
+/// （快照分析 Analyze + 原子替换 Apply）能正确检测并自动合并升级，且对正常单调结构不误触发。
 /// </summary>
 /// <remarks>
-/// 说明：由于压缩会调用 SaveMemory → MemoryStorage.SaveAsync（依赖 DuckDB 与向量化模型），
-/// 本测试使用真实的 TextVectorizer（bge 模型）。运行测试前需确保模型与 python 环境可用
-/// （与 Alife 正式运行时一致）。
+/// 说明：测试仅针对逻辑层验证 Analyze 生成压缩计划、以及 Apply 对「无归纳摘要」分支的原子替换
+/// （单条逆序直接升级）。不走存储落库分支，故不依赖真实 TextVectorizer/DuckDB/Python 环境，
+/// 可在 Alife 客户端运行期间正常执行。
 /// </remarks>
 [TestFixture]
 public class MemoryManagerTests
 {
-    TextVectorizer vectorizer = null!;
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetup()
-    {
-        vectorizer = await TextVectorizer.CreateAsync();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        await vectorizer.DisposeAsync();
-    }
-
-    [SetUp]
-    public void Setup() { }
-
-    [TearDown]
-    public void Cleanup() { }
-
     /// <summary>
     /// 场景A：逆序时前面已积累多条低级别消息，应将受影响区域整体合并升级。
     /// </summary>
     [Test]
-    public async Task Filter_InverseRegion_WithMultiplePriorLowLevels_Consolidates()
+    public async Task Analyze_InverseRegion_WithMultiplePriorLowLevels_Consolidates()
     {
-        await RunFilterScenario(hb => {
+        await RunAnalyze(hb => {
             for (int i = 0; i < 5; i++) hb.AddRaw($"原始消息{i}");
             hb.AddArchive("高级别存档(乱序)", 2);   // 逆序：高级别出现在低级别之后
             hb.AddRaw("逆序之后的普通消息A");
             hb.AddRaw("逆序之后的普通消息B");
-        }, result => {
-            // 逆序区域应被合并升级为一个存档
-            Assert.That(result.ChatHistory, Has.Some.Matches<ChatMessageContent>(
-                m => m.Content != null && m.Content.Contains("[记忆存档(1-")));
-            // 逆序的高级别(level2)记录不应再残留
-            Assert.That(result.ChatHistory, Has.None.Matches<ChatMessageContent>(
-                m => m.Content != null && m.Content.Contains("高级别存档(乱序)")));
+        }, plan => {
+            // 5 条低级别消息应整体合并升级为 level2 存档
+            Assert.That(plan, Is.Not.Null);
+            Assert.That(plan.InsertIndex, Is.EqualTo(0));
+            Assert.That(plan.RemoveCount, Is.EqualTo(5));
+            Assert.That(plan.NewLevel, Is.EqualTo(2));
+            Assert.That(plan.Summary, Is.Not.Null);
+            // 锚点应指向快照上的头尾元素（供 Apply 做引用校验）
+            Assert.That(plan.HeadAnchor, Is.Not.Null);
+            Assert.That(plan.TailAnchor, Is.Not.Null);
+            Assert.That(ReferenceEquals(plan.HeadAnchor, plan.TailAnchor), Is.False);
         });
     }
 
     /// <summary>
-    /// 场景B：逆序时前面仅 1 条低级别消息，也应被合并升级，而非留下逆序残留。
+    /// 场景B：逆序时前面仅 1 条低级别消息，应直接升级为当前级别，而非留下逆序残留。
     /// </summary>
     [Test]
-    public async Task Filter_InverseRegion_SinglePriorLowLevel_Consolidates()
+    public async Task AnalyzeApply_InverseRegion_SinglePriorLowLevel_Consolidates()
     {
-        await RunFilterScenario(hb => {
+        await RunScenario(hb => {
             hb.AddRaw("单独的低级别消息");
             hb.AddArchive("高级别存档(乱序)", 2);   // 逆序
             hb.AddRaw("之后的消息");
-        }, result => {
-            Assert.That(result.ChatHistory, Has.Some.Matches<ChatMessageContent>(
-                m => m.Content != null && m.Content.Contains("[记忆存档(1-")));
+        }, (manager, result) => {
+            // 单条逆序前消息被直接升级到 level2，不产生新存档
             Assert.That(result.ChatHistory, Has.None.Matches<ChatMessageContent>(
-                m => m.Content != null && m.Content.Contains("高级别存档(乱序)")));
+                m => m.Content != null && m.Content.Contains("[记忆存档(")));
+            Assert.That(manager.GetMemoryMetaData(result.ChatHistory[0]).Level, Is.EqualTo(2));
+            // 原消息内容不应丢失
+            Assert.That(result.ChatHistory, Has.Some.Matches<ChatMessageContent>(
+                m => m.Content != null && m.Content.Contains("单独的低级别消息")));
         });
     }
 
@@ -84,16 +71,15 @@ public class MemoryManagerTests
     /// 场景C：正常的单调递减结构（高在前、低在后），不应误触发压缩。
     /// </summary>
     [Test]
-    public async Task Filter_NormalMonotonic_DoesNotMisTrigger()
+    public async Task Analyze_NormalMonotonic_DoesNotMisTrigger()
     {
-        await RunFilterScenario(hb => {
+        await RunAnalyze(hb => {
             hb.AddArchive("一级存档", 1);
             hb.AddRaw("普通消息1");
             hb.AddRaw("普通消息2");
-        }, result => {
-            // 阈值未达到，不应新增任何存档
-            Assert.That(result.ChatHistory, Has.None.Matches<ChatMessageContent>(
-                m => m.Content != null && m.Content.Contains("[记忆存档(")));
+        }, plan => {
+            // 阈值未达到，不应生成任何压缩计划
+            Assert.That(plan, Is.Null);
         });
     }
 
@@ -101,21 +87,42 @@ public class MemoryManagerTests
     /// 场景D：完全逆序结构（高级别反复穿插在低级别之间）不应崩溃，应被收敛。
     /// </summary>
     [Test]
-    public async Task Filter_HeavilyReversed_DoesNotCrash()
+    public async Task AnalyzeApply_HeavilyReversed_DoesNotCrash()
     {
-        await RunFilterScenario(hb => {
+        await RunScenario(hb => {
             hb.AddRaw("消息0");
             hb.AddArchive("存档-3级(逆序)", 3);
             hb.AddRaw("消息1");
             hb.AddArchive("存档-2级(逆序)", 2);
             hb.AddRaw("消息2");
             hb.AddRaw("消息3");
-        }, _ => {
-            // 只要求不崩溃；结构正确性由上述场景保证
+        }, (manager, result) => {
+            // 首个逆序点应把前面的单条消息升级到 level3，且不崩溃
+            Assert.That(manager.GetMemoryMetaData(result.ChatHistory[0]).Level, Is.EqualTo(3));
         });
     }
 
-    async Task RunFilterScenario(Action<HistoryBuilder> setup, Action<FilterResult> assert)
+    /// <summary>仅做分析并断言计划，不执行落库分支。</summary>
+    Task RunAnalyze(Action<HistoryBuilder> setup, Action<MemoryCompressionPlan?> assert)
+        => RunCore(setup, async (manager, chatHistory, snapshot) => {
+            MemoryCompressionPlan? plan = await manager.Analyze(snapshot);
+            assert(plan);
+        });
+
+    /// <summary>分析并应用（单条升级等无落库场景），然后断言最终上下文。</summary>
+    Task RunScenario(Action<HistoryBuilder> setup, Action<MemoryManager, FilterResult> assert)
+        => RunCore(setup, async (manager, chatHistory, snapshot) => {
+            // 阶段一：在快照副本上分析（与正式流程一致，不触碰真实上下文）
+            MemoryCompressionPlan? plan = await manager.Analyze(snapshot);
+
+            // 阶段二：依据计划对真实上下文原子替换（含锚点校验）
+            if (plan != null)
+                await manager.Apply(chatHistory, plan);
+
+            assert(manager, new FilterResult(chatHistory));
+        });
+
+    async Task RunCore(Action<HistoryBuilder> setup, Func<MemoryManager, ChatHistory, ChatHistory, Task> run)
     {
         string storagePath = Path.Combine(Path.GetTempPath(), $"alife_test_memory_{Guid.NewGuid():N}");
         Directory.CreateDirectory(storagePath);
@@ -127,9 +134,10 @@ public class MemoryManagerTests
 
             await File.WriteAllTextAsync(Path.Combine(storagePath, "History.json"), hb.BuildJson());
 
+            // 传 null 向量化器：本测试不触碰存储落库分支（SaveMemory/SearchAsync），故无需真实模型。
             MemoryManager manager = new(
                 new FakeCompressor(),
-                vectorizer,
+                null!,
                 storagePath,
                 compressionThreshold: 8,
                 compressionCount: 6,
@@ -138,10 +146,12 @@ public class MemoryManagerTests
             ChatHistoryAgentThread thread = new();
             manager.LoadHistory(thread.ChatHistory);
 
-            // 核心：确认滤除过程不抛出异常（逆序问题可能导致越界/死循环/静默跳过）
-            await manager.Filter(thread);
+            // 快照副本（浅拷贝共享同一批 ChatMessageContent 引用，供 Apply 锚点校验）
+            ChatHistory snapshot = new();
+            foreach (ChatMessageContent message in thread.ChatHistory)
+                snapshot.Add(message);
 
-            assert(new FilterResult(thread.ChatHistory));
+            await run(manager, thread.ChatHistory, snapshot);
         }
         finally
         {

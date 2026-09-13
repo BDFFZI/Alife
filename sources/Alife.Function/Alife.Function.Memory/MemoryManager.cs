@@ -17,6 +17,20 @@ public record MemoryMeta(int Level, DateTime StartTime, DateTime EndTime)
 }
 
 /// <summary>
+/// 压缩计划：在副本上分析并归纳完成后，用于对真实上下文进行原子替换。
+/// </summary>
+public record MemoryCompressionPlan(
+    int InsertIndex,
+    int RemoveCount,
+    int NewLevel,
+    DateTime StartTime,
+    DateTime EndTime,
+    string? Summary,
+    string FullContent,
+    ChatMessageContent HeadAnchor,
+    ChatMessageContent TailAnchor);
+
+/// <summary>
 /// 记忆核心管理器。协调存储、索引和压缩逻辑。
 /// 实现层级化索引关系：每个摘要记录都描述了其涵盖的对话范围和时间跨度。
 /// </summary>
@@ -37,10 +51,12 @@ public class MemoryManager
             Directory.CreateDirectory(storagePath);
     }
 
-    public async Task Filter(ChatHistoryAgentThread chatHistoryAgentThread)
+    /// <summary>
+    /// 阶段一：在快照副本上检查压缩条件并完成LLM归纳，不触碰真实上下文。
+    /// 返回压缩计划；无需压缩时返回null。
+    /// </summary>
+    public async Task<MemoryCompressionPlan?> Analyze(ChatHistory chatHistory)
     {
-        ChatHistory chatHistory = chatHistoryAgentThread.ChatHistory;
-
         //跳过系统提示词
         int contentIndex = 0;
         for (; contentIndex < chatHistory.Count; contentIndex++)
@@ -64,18 +80,15 @@ public class MemoryManager
                 //检测到逆序记录，需要合并升级来修复
                 if (areaCount == 1)
                 {
-                    //异常区域仅一条记录
+                    //异常区域仅一条记录，直接升级
                     ChatMessageContent lastContent = chatHistory[contentIndex - 1];
                     MemoryMeta lastMemoryMeta = GetMemoryMetaData(lastContent);
-                    memoryMetaDatas[lastContent] = new MemoryMeta(newLevel, lastMemoryMeta.StartTime, lastMemoryMeta.EndTime);
+                    return new MemoryCompressionPlan(contentIndex - 1, 1, newLevel, lastMemoryMeta.StartTime,
+                        lastMemoryMeta.EndTime, null!, null!, lastContent, lastContent);
                 }
-                else
-                {
-                    //将异常区域压缩
-                    await CompressArea(areaCount, newLevel, "记忆");
-                }
-                
-                return;
+
+                //将异常区域压缩
+                return await BuildCompressionPlan(chatHistory, areaStart, areaCount, newLevel, "记忆");
             }
 
             if (areaLevel != newLevel)
@@ -92,31 +105,60 @@ public class MemoryManager
             if (areaLevel + 1 <= maxCompressionLevel && areaCount >= (areaLevel == 0 ? compressionThreshold : 4)) //压缩记忆
             {
                 int areaCompressionCount = areaLevel == 0 ? compressionCount : 3;
-                await CompressArea(areaCompressionCount, areaLevel + 1, areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档");
-                return;
-            }
-
-            async Task CompressArea(int count, int newLevel, string type)
-            {
-                //确认压缩事件段和内容
-                DateTime startTime = GetMemoryMetaData(chatHistory[areaStart]).StartTime;
-                DateTime endTime = GetMemoryMetaData(chatHistory[areaStart + count - 1]).EndTime;
-                string fullContent = PickContent(chatHistory, areaStart, areaStart + count);
-
-                string range = $"从`{startTime}`到`{endTime}`期间的`{type}`";
-                string? summary = await compressor.Compress(chatHistoryAgentThread, range);
-                if (summary == null)
-                    return;
-
-                //插入新增的记忆存档
-                await SaveMemory(newLevel, startTime, endTime, summary, fullContent, chatHistory, areaStart);
-
-                //移除被压缩记忆
-                for (int index = areaStart + count; index > areaStart; index--)
-                    memoryMetaDatas.Remove(chatHistory[index]);
-                chatHistory.RemoveRange(areaStart + 1, count);
+                return await BuildCompressionPlan(chatHistory, areaStart, areaCompressionCount, areaLevel + 1,
+                    areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档");
             }
         }
+
+        return null;
+
+        async Task<MemoryCompressionPlan?> BuildCompressionPlan(ChatHistory snapshot,
+            int areaStart, int count, int newLevel, string type)
+        {
+            //确认压缩事件段和内容
+            DateTime startTime = GetMemoryMetaData(snapshot[areaStart]).StartTime;
+            DateTime endTime = GetMemoryMetaData(snapshot[areaStart + count - 1]).EndTime;
+            string fullContent = PickContent(snapshot, areaStart, areaStart + count);
+
+            string range = $"从`{startTime}`到`{endTime}`期间的`{type}`";
+            string? summary = await compressor.Compress(new ChatHistoryAgentThread(snapshot), range);
+            if (summary == null)
+                return null;
+
+            return new MemoryCompressionPlan(areaStart, count, newLevel, startTime, endTime, summary, fullContent,
+                snapshot[areaStart], snapshot[areaStart + count - 1]);
+        }
+    }
+
+    /// <summary>
+    /// 阶段二：依据压缩计划对真实上下文进行原子替换（落库+插入存档+移除旧区段）。
+    /// </summary>
+    public async Task Apply(ChatHistory chatHistory, MemoryCompressionPlan plan)
+    {
+        //验证替换区域头尾对象未被修改（浅拷贝共享引用，按引用比对）
+        if (plan.InsertIndex + plan.RemoveCount > chatHistory.Count
+            || !ReferenceEquals(chatHistory[plan.InsertIndex], plan.HeadAnchor)
+            || !ReferenceEquals(chatHistory[plan.InsertIndex + plan.RemoveCount - 1], plan.TailAnchor))
+        {
+            Console.WriteLine("记忆压缩放弃：快照与当前上下文不一致，留待下轮重新分析。");
+            return;
+        }
+
+        //仅层级升级（逆序单条修复），无需归纳内容
+        if (plan.Summary == null)
+        {
+            ChatMessageContent target = chatHistory[plan.InsertIndex];
+            memoryMetaDatas[target] = new MemoryMeta(plan.NewLevel, plan.StartTime, plan.EndTime);
+            return;
+        }
+
+        await SaveMemory(plan.NewLevel, plan.StartTime, plan.EndTime, plan.Summary, plan.FullContent, chatHistory,
+            plan.InsertIndex);
+
+        //移除被压缩记忆
+        for (int index = plan.InsertIndex + 1; index <= plan.InsertIndex + plan.RemoveCount; index++)
+            memoryMetaDatas.Remove(chatHistory[index]);
+        chatHistory.RemoveRange(plan.InsertIndex + 1, plan.RemoveCount);
     }
 
     public async Task<string> InsertMemory(ChatHistory chatHistory, int level, string summary, string content, DateTime startTime, DateTime endTime)

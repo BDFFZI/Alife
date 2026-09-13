@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
@@ -182,6 +183,7 @@ public class MemoryService(
     MemoryManager memoryManager = null!;
     ILanguageModel compressModel = null!;
     string storagePath = null!;
+    int compressing; //压缩进行中标志（含LLM归纳阶段），防重入
 
     protected override Task OnAwake()
     {
@@ -206,7 +208,7 @@ public class MemoryService(
                             """
         };
         functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
-        
+
         return Task.CompletedTask;
     }
     protected override async Task OnStart()
@@ -218,7 +220,7 @@ public class MemoryService(
         memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
             Configuration.BatchSize,
             Configuration.MaxCompressionLevel);
-        
+
         //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
         ChatBot.EditChatHistory(thread => {
             memoryManager.LoadHistory(thread.ChatHistory);
@@ -285,25 +287,50 @@ public class MemoryService(
     {
         try
         {
+            if (Interlocked.Exchange(ref compressing, 1) == 1)
+                return; //已在压缩中，跳过本次留待下轮触发
+
             if (content.Role != AuthorRole.Assistant)
                 return; //只在ai说话后整理，这样对话更完整，而且可以避免在ai异常时保持记忆
 
-            await ChatBot.EditChatHistoryAsync(async thread => {
+            //阶段一：先落盘历史并取出快照，随后在快照副本上完成压缩检测与LLM归纳，避免长时间占用真实上下文
+            MemoryCompressionPlan? plan;
+            ChatHistory snapshot = new();
+            await ChatBot.EditChatHistoryAsync(thread => {
                 memoryManager.SaveHistory(thread.ChatHistory);
-                var thinking = Configuration.ThinkingCompress ? compressModel.GetThinkingRequester().Rent("记忆压缩") : null;
-                try
-                {
-                    await memoryManager.Filter(thread);
-                }
-                finally
-                {
-                    thinking?.Dispose();
-                }
+                foreach (var message in thread.ChatHistory)
+                    snapshot.Add(message);
+                return Task.CompletedTask;
             }, "存储记忆");
+
+            var thinking = Configuration.ThinkingCompress
+                ? compressModel.GetThinkingRequester().Rent("记忆压缩")
+                : compressModel.GetThinkingRequester().Rent("记忆压缩(轻量)");
+            try
+            {
+                plan = await memoryManager.Analyze(snapshot);
+            }
+            finally
+            {
+                thinking.Dispose();
+            }
+
+            //阶段二：归纳完成后，原子替换真实上下文
+            if (plan != null)
+            {
+                await ChatBot.EditChatHistoryAsync(async thread => {
+                    await memoryManager.Apply(thread.ChatHistory, plan);
+                    memoryManager.SaveHistory(thread.ChatHistory);
+                }, "应用记忆压缩");
+            }
         }
         catch (Exception e)
         {
             logger.LogError(e, "记忆压缩失败");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref compressing, 0);
         }
     }
 

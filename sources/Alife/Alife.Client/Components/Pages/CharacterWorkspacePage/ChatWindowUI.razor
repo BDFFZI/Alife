@@ -296,15 +296,36 @@
         if (!element || element.dataset.scrollSetup) return;
         element.dataset.scrollSetup = "true";
 
+        // 只有用户主动滚动意图（滚轮/拖动滚动条/触摸）才会更新锚定状态，
+        // 内容新增(流式输出等)永远不会改变用户当前的阅读位置
         let isAtBottom = true;
-        let lastHeight = element.scrollHeight;
 
-        element.addEventListener('scroll', () => {
-            // 只有当内容高度稳定时（说明是用户在滚，而非内容在增加），才更新 isAtBottom
-            if (Math.abs(element.scrollHeight - lastHeight) < 5) {
-                isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+        const updateAnchor = () => {
+            isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+        };
+
+        element.addEventListener('wheel', () => {
+            requestAnimationFrame(updateAnchor);
+        }, {passive: true});
+
+        element.addEventListener('pointerdown', (e) => {
+            // 滚动条拖拽：pointermove时持续更新
+            const onMove = () => requestAnimationFrame(updateAnchor);
+            const onUp = () => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+            };
+            if (e.offsetX > element.clientWidth) { // 命中滚动条区域
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+            } else {
+                requestAnimationFrame(updateAnchor);
             }
         });
+
+        element.addEventListener('touchmove', () => {
+            requestAnimationFrame(updateAnchor);
+        }, {passive: true});
 
         const observer = new MutationObserver(() => {
             if (isAtBottom) {
@@ -314,15 +335,14 @@
                     if (isAtBottom) element.scrollTop = element.scrollHeight;
                 }, 10);
             }
-            lastHeight = element.scrollHeight;
         });
         observer.observe(element, {childList: true, subtree: true, characterData: true});
 
+        // 页面重新可见时回到上次位置：底部锚定则去底部，否则保持原位
         const visibilityObserver = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
                 setTimeout(() => {
-                    element.scrollTop = element.scrollHeight;
-                    lastHeight = element.scrollHeight;
+                    if (isAtBottom) element.scrollTop = element.scrollHeight;
                 }, 10);
             }
         });
@@ -417,14 +437,44 @@
         el.addEventListener('keydown', el._chatEnterHandler);
     };
 
-    window.setupChatInputPaste = (elementId) => {
+    window.setupChatInputPaste = (elementId, dotNetRef) => {
         const el = document.getElementById(elementId);
         if (!el || el._pasteHandlerSetup) return;
         el._pasteHandlerSetup = true;
 
+        const readAsBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const handleImageItems = async (imageItems) => {
+            const paths = [];
+            for (const item of imageItems) {
+                const file = item.getAsFile();
+                if (!file) continue;
+                try {
+                    const base64 = await readAsBase64(file);
+                    const ext = (item.type.split('/')[1] || 'png').replace(/[^\w]/g, '');
+                    const path = dotNetRef ? await dotNetRef.invokeMethodAsync('CreateTempImageAsync', base64, ext) : null;
+                    if (path) paths.push(path);
+                } catch (e) {
+                    console.error('粘贴图片失败:', e);
+                }
+            }
+            if (paths.length > 0) {
+                window.insertTextAtCursor(elementId, paths.join('\n'));
+            }
+        };
+
         el.addEventListener('paste', (event) => {
             event.preventDefault();
-            const files = event.clipboardData?.files;
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return;
+
+            // 1. 粘贴的是文件（带真实路径），直接插入路径
+            const files = clipboardData.files;
             if (files && files.length > 0) {
                 const paths = Array.from(files).map(f => f.path).filter(p => p);
                 if (paths.length > 0) {
@@ -432,7 +482,18 @@
                     return;
                 }
             }
-            const text = event.clipboardData?.getData('text') ?? '';
+
+            // 2. 粘贴的是图片数据，写入临时文件后插入路径
+            const imageItems = clipboardData.items
+                ? Array.from(clipboardData.items).filter(i => i.kind === 'file' && i.type.startsWith('image/'))
+                : [];
+            if (imageItems.length > 0) {
+                handleImageItems(imageItems);
+                return;
+            }
+
+            // 3. 纯文本
+            const text = clipboardData.getData('text') ?? '';
             if (text) {
                 window.insertTextAtCursor(elementId, text);
             }
@@ -474,6 +535,7 @@
         base.OnInitialized();
 
         messages = ChatMessageService.GetMessages(Character.Name);
+        inputText = ChatMessageService.GetDraft(Character.Name);
         ChatMessageService.MessageChanged += OnMessageChanged;
         ChatMessageService.UserMessageSent += OnUserMessageSent;
         ChatMessageService.ChatExceptionThrew += OnChatExceptionThrew;
@@ -525,7 +587,8 @@
         await JsRuntime.InvokeVoidAsync("setupSplitter");
         if (dotNetRef != null)
             await JsRuntime.InvokeVoidAsync("setupChatInputEnter", "chatInput", dotNetRef);
-        await JsRuntime.InvokeVoidAsync("setupChatInputPaste", "chatInput");
+        if (dotNetRef != null)
+            await JsRuntime.InvokeVoidAsync("setupChatInputPaste", "chatInput", dotNetRef);
     }
     public void Dispose()
     {
@@ -544,6 +607,24 @@
     public Task OnNativeEnterAsync(string rawInputText)
     {
         return OnSend(rawInputText);
+    }
+
+    [JSInvokable]
+    public Task<string?> CreateTempImageAsync(string base64Data, string extension)
+    {
+        try
+        {
+            byte[] data = Convert.FromBase64String(base64Data);
+            string filePath = Path.Combine(AlifePath.TempFolderPath, $"pasted_{DateTime.Now:HHmmss}_{Guid.NewGuid():N}.{extension}");
+            Directory.CreateDirectory(AlifePath.TempFolderPath);
+            File.WriteAllBytes(filePath, data);
+            return Task.FromResult<string?>(filePath);
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+            return Task.FromResult<string?>(null);
+        }
     }
     void OnMessageChanged(string name)
     {
