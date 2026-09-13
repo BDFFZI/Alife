@@ -30,7 +30,7 @@ public sealed class ImageContentType : AlifeContentHandlerBase
             "LoadImage",
             null,
             [
-                ("path", "图片本机路径或 http(s) 地址", "String"),
+                ("path", "图片本机路径或可直链访问的网络地址", "String"),
                 ("temp", "临时分析并直接获取结果，默认false", "bool"),
             ],
             async (context, ct) => {

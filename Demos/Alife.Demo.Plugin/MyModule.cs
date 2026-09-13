@@ -72,7 +72,7 @@ public class MyModule( //Module 可以通过依赖注入来获取其他系统、
     }
     protected override Task OnDestroy()
     {
-        //只要模块正常执行了 OnAwake。那销毁时就会调用 OnDestroy，可借此进行销毁操作
+        //只要模块正常执行了 OnAwake。那销毁时就会调用 OnDestroy，可借此进行回收操作（请务必做好回收工作，否则会影响热更功能）
         return Task.CompletedTask;
     }
     protected override async Task OnStart()

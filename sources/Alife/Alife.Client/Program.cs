@@ -3,6 +3,7 @@ using Alife.Framework;
 using Alife.Components.Services;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Web.WebView2.WinForms;
 using MenuItem = ElectronNET.API.Entities.MenuItem;
 using MessageBoxOptions = ElectronNET.API.Entities.MessageBoxOptions;
@@ -26,6 +27,8 @@ public static class Program
         {
             //前端框架
             builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+            //提高Blazor Server信号传输上限，支持超长文本输入
+            builder.Services.Configure<HubOptions>(o => o.MaximumReceiveMessageSize = 1024 * 1024);
             //前端组件库
             builder.Services.AddAntDesign();
             //前端载体

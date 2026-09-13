@@ -189,6 +189,22 @@ public class ChatActivity(
 
         foreach (Type moduleType in enabledModuleTypes)
             await container.RequireInstance(moduleType);
+
+        //统计保留实例：启用模块实例 + ChatBot，以及它们（递归）依赖的所有实例
+        object[] enabledInstances = enabledModuleTypes
+            .Select(type => container.Instances.FirstOrDefault(type.IsInstanceOfType))
+            .Where(instance => instance != null)
+            .Cast<object>()
+            .ToArray();
+        List<object> kept = container.CollectDependents([.. enabledInstances, ChatBot]);
+
+        //卸载冗余模块：非启用、且不在任何启用模块依赖链中的 ChatBehaviour
+        List<object> redundantModules = container.Instances
+            .Where(instance => instance is ChatBehaviour && kept.Contains(instance) == false)
+            .ToList();
+
+        foreach (object redundantModule in redundantModules)
+            await container.RemoveInstance(redundantModule);
     }
 
     void ResetModuleBuilder(out Type[] enabledModuleTypes)
