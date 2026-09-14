@@ -242,30 +242,39 @@ public sealed class GameMonitor
             state.OnPushed(state.CurrentValue, now);
 
         // 2) 有强制推送项：连同普通项一起用 Chat 打断推送
-        if (forceNow.Count > 0)
+        if (forceNow.Count > 0 || normalNow.Count > 0)
         {
             var all = new List<CollectorState>(forceNow);
             all.AddRange(normalNow);
+            var pushedNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (CollectorState state in all)
+                pushedNames.Add(state.Collector.Config.Name);
+
+            // 通用打包：逐层收拢前置依赖（支持多级链），不看防抖/过期
+            bool added = true;
+            while (added)
+            {
+                added = false;
+                foreach (CollectorState state in states)
+                {
+                    if (all.Contains(state) || state.CurrentValue is null || state.CurrentValue == state.PushedValue)
+                        continue;
+                    CollectConfigBase? cfg = configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? c) ? c : null;
+                    if (cfg == null || string.IsNullOrEmpty(cfg.Prerequisite) || !pushedNames.Contains(cfg.Prerequisite))
+                        continue;
+                    all.Add(state);
+                    pushedNames.Add(state.Collector.Config.Name);
+                    added = true;
+                }
+            }
             var parts = new List<string>(all.Count);
             foreach (CollectorState state in all)
                 parts.Add(FormatForPush(state));
             string message = string.Join("；", parts);
-            if (reportForce(message))
+            bool sent = forceNow.Count > 0 ? reportForce(message) : report(message);
+            if (sent)
             {
                 foreach (CollectorState state in all)
-                    state.OnPushed(state.CurrentValue, now);
-            }
-        }
-        // 3) 仅普通项：Poke 推送（对话占用时 report 返回 false，保留待推）
-        else if (normalNow.Count > 0)
-        {
-            var parts = new List<string>(normalNow.Count);
-            foreach (CollectorState state in normalNow)
-                parts.Add(FormatForPush(state));
-            string message = string.Join("；", parts);
-            if (report(message))
-            {
-                foreach (CollectorState state in normalNow)
                     state.OnPushed(state.CurrentValue, now);
             }
         }
