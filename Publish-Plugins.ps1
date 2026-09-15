@@ -7,14 +7,20 @@
     client-side builds.
 .PARAMETER OutputDir
     Distribution root. Plugins are emitted to "$OutputDir\..\Plugins".
+.PARAMETER Plugin
+    Optional plugin ID (directory name). When specified, only that plugin
+    is built. E.g. "Alife.Function.SystemEvent".
 .EXAMPLE
     .\Publish-Plugins.ps1
 .EXAMPLE
     .\Publish-Plugins.ps1 -OutputDir "C:\Releases\Alife"
+.EXAMPLE
+    .\Publish-Plugins.ps1 -Plugin "Alife.Function.SystemEvent"
 #>
 
 param(
-    [string]$OutputDir = ""
+    [string]$OutputDir = "",
+    [string]$Plugin = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,7 +80,8 @@ New-Item -ItemType Directory -Path $PluginBuildRoot -Force | Out-Null
 $functionDirs = Get-ChildItem (Join-Path $Src "Alife.Function") -Directory |
     Where-Object {
         $_.Name -match '^(Alife\.Function\.|BDFFZI\.)' -and
-        (Test-Path -LiteralPath (Join-Path $_.FullName "$($_.Name).csproj"))
+        (Test-Path -LiteralPath (Join-Path $_.FullName "$($_.Name).csproj")) -and
+        (-not $Plugin -or $_.Name -eq $Plugin)
     }
 
 foreach ($dir in $functionDirs) {
