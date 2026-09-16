@@ -37,6 +37,8 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
                     writer.WriteValue(placeholder.ForcePush);
                     writer.WritePropertyName("Prerequisite");
                     writer.WriteValue(placeholder.Prerequisite ?? "");
+                    writer.WritePropertyName("CooldownSeconds");
+                    writer.WriteValue(placeholder.CooldownSeconds);
                     writer.WritePropertyName("Sampler");
                     writer.WriteValue(placeholder.SamplerName);
                     writer.WritePropertyName("Config");
@@ -60,6 +62,8 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
                 writer.WriteValue(config.ForcePush);
                 writer.WritePropertyName("Prerequisite");
                 writer.WriteValue(config.Prerequisite ?? "");
+                writer.WritePropertyName("CooldownSeconds");
+                writer.WriteValue(config.CooldownSeconds);
                 writer.WritePropertyName("Sampler");
                 writer.WriteValue(CollectorRegistry.TypeName(config));
                 writer.WritePropertyName("Config");
@@ -71,6 +75,7 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
                 data.Remove("ExpireSeconds");
                 data.Remove("ForcePush");
                 data.Remove("Prerequisite");
+                data.Remove("CooldownSeconds");
                 data.WriteTo(writer);
                 writer.WriteEndObject();
             }
@@ -112,6 +117,9 @@ public sealed class CollectorConfigListConverter : JsonConverter<List<CollectCon
             string? prereq = entry["Prerequisite"]?.ToString()
                 ?? data?["Prerequisite"]?.ToString();
             config.Prerequisite = string.IsNullOrEmpty(prereq) ? null : prereq;
+            config.CooldownSeconds = entry["CooldownSeconds"]?.Value<double>()
+                ?? data?["CooldownSeconds"]?.Value<double>()
+                ?? 0;
             list.Add(config);
         }
         return list;

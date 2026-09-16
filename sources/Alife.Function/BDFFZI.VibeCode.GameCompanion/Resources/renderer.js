@@ -435,6 +435,22 @@ function renderTargetList(g) {
     fCb.addEventListener('change', () => { t.ForcePush = fCb.checked; });
     row2.append(fLbl, fCb);
 
+    const cLbl = document.createElement('label');
+    cLbl.textContent = '冷却(s)';
+    cLbl.title = '本采样器触发后 N 秒内完全不检测（静默期），防止重复触发刷屏（0=不冷却）';
+    const cInput = document.createElement('input');
+    cInput.type = 'number';
+    cInput.min = 0;
+    cInput.step = 0.1;
+    cInput.className = 's-base-db';
+    if (t.CooldownSeconds == null) t.CooldownSeconds = 0;
+    cInput.value = t.CooldownSeconds;
+    cInput.addEventListener('input', () => {
+      const n = parseFloat(cInput.value);
+      t.CooldownSeconds = Number.isFinite(n) && n >= 0 ? n : 0;
+    });
+    row2.append(cLbl, cInput);
+
     // 第三行：前置采样器 / 采集类型
     const row3 = document.createElement('div');
     row3.className = 'sys-row';

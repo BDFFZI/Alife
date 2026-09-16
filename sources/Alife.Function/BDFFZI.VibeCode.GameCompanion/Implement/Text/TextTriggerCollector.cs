@@ -22,6 +22,8 @@ public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBa
     string lastRawOcr = "";
     bool lastMatched;
     DateTime lastMissTime = DateTime.MinValue;
+    /// <summary>触发冷却静默期截止时间：期间完全不检测（跳过 OCR），防止重复触发刷屏。</summary>
+    DateTime silentUntil = DateTime.MinValue;
 
     public override CollectConfigBase Config => config;
     public override string? Value => triggers.Count == 0 ? null : string.Join(",", triggers);
@@ -31,6 +33,10 @@ public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBa
 
     public override async Task Update(GameContext ctx, CancellationToken ct)
     {
+        // 触发冷却静默期：期间完全不检测，保持状态不变，防止冷却结束后误判为新触发
+        if (DateTime.UtcNow < silentUntil)
+            return;
+
         if (ctx.Frame == null)
         {
             lastRawOcr = "";
@@ -71,7 +77,11 @@ public sealed class TextTriggerCollector(TextTriggerConfig config) : CollectorBa
         if (matched && !lastMatched)
         {
             if ((now - lastMissTime).TotalSeconds >= Math.Max(0, config.DebounceSeconds))
+            {
                 triggers.Add(DateTime.Now.ToString("HH:mm:ss"));
+                if (config.CooldownSeconds > 0)
+                    silentUntil = now.AddSeconds(config.CooldownSeconds);
+            }
         }
         lastMatched = matched;
     }
