@@ -6,7 +6,7 @@ public class SenseVoiceAuditoryModelConfig
     public bool UseInverseTextNormalization { get; set; } = true;
     public int NumThreads { get; set; } = 1;
 
-    public float VadThreshold { get; set; } = 0.4f;
-    public float VadMinSilenceDuration { get; set; } = 0.3f;
+    public float VadThreshold { get; set; } = 0.2f;
+    public float VadMinSilenceDuration { get; set; } = 0.5f;
     public float VadMinSpeechDuration { get; set; } = 0.25f;
 }
