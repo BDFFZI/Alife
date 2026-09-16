@@ -27,4 +27,7 @@ public abstract class CollectConfigBase
 
     /// <summary>前置采样器名称：仅当前置采样器有效（CurrentValue != null）时，本采样器才执行更新和推送。</summary>
     public string? Prerequisite { get; set; }
+
+    /// <summary>触发冷却（秒）：本采样器触发后 N 秒内完全不检测（静默期），防止重复触发刷屏（0 = 不冷却）。</summary>
+    public double CooldownSeconds { get; set; } = 0;
 }
