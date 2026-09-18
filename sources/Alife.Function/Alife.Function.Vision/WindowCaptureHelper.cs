@@ -278,7 +278,12 @@ public static class WindowCaptureHelper
         if (frame == null)
             throw new TimeoutException("WGC 捕获超时，未收到帧");
 
-        return ConvertFrameToBitmap(frame, size);
+        var bmp = ConvertFrameToBitmap(frame, size);
+
+        // 释放 GraphicsCaptureItem 的 RCW 引用（session/framePool 已由 using 释放）
+        try { Marshal.ReleaseComObject(item); } catch { }
+
+        return bmp;
     }
 
     private static unsafe Bitmap ConvertFrameToBitmap(Direct3D11CaptureFrame frame, SizeInt32 size)
@@ -386,6 +391,7 @@ public static class WindowCaptureHelper
             ref interopGuid,
             out IntPtr factoryPtr);
             var factory = (IGraphicsCaptureItemInterop)Marshal.GetObjectForIUnknown(factoryPtr);
+            Marshal.ReleaseComObject(factory);   // 还清 GetObjectForIUnknown 增加的 RCW 引用
             Marshal.Release(factoryPtr);
             return factory;
         }
