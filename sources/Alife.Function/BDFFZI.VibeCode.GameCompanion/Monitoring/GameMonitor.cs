@@ -172,22 +172,71 @@ public sealed class GameMonitor
             foreach (CollectConfigBase c in game.Collectors)
                 configByName[c.Name] = c;
 
-            // 更新采样器：有前置采样器的，仅当前置有效时才执行 Update
-            foreach (CollectorState state in states)
+            // 更新采样器：按前置依赖深度分层执行，每层"Update → Track"完成后才进入下一层，
+            // 保证第 N 层看到的第 N-1 层值是本帧新产出（多级前置链同帧传导）
             {
-                if (configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? cfg)
-                    && !string.IsNullOrEmpty(cfg.Prerequisite)
-                    && stateByName.TryGetValue(cfg.Prerequisite, out CollectorState? prereq)
-                    && prereq.CurrentValue is null)
+                // 计算依赖深度：无前置=0；有前置=深度(前置)+1；前置未知按0处理
+                var depth = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (CollectorState state in states)
                 {
-                    continue; // 前置无效，跳过更新
+                    string name = state.Collector.Config.Name;
+                    CollectConfigBase? cfg = configByName.TryGetValue(name, out CollectConfigBase? c) ? c : null;
+                    if (cfg == null || string.IsNullOrEmpty(cfg.Prerequisite)
+                        || !stateByName.ContainsKey(cfg.Prerequisite))
+                    {
+                        depth[name] = 0;
+                    }
                 }
-                await state.Collector.Update(ctx, ct);
+                bool changed = true;
+                while (changed)
+                {
+                    changed = false;
+                    foreach (CollectorState state in states)
+                    {
+                        string name = state.Collector.Config.Name;
+                        if (depth.ContainsKey(name))
+                            continue;
+                        CollectConfigBase? cfg = configByName.TryGetValue(name, out CollectConfigBase? c) ? c : null;
+                        if (cfg != null && !string.IsNullOrEmpty(cfg.Prerequisite)
+                            && depth.TryGetValue(cfg.Prerequisite, out int pd))
+                        {
+                            depth[name] = pd + 1;
+                            changed = true;
+                        }
+                    }
+                }
+
+                // 按深度逐层：先 Update 本层，再统一 Track 本层
+                int maxDepth = 0;
+                foreach (int dv in depth.Values)
+                {
+                    if (dv > maxDepth)
+                        maxDepth = dv;
+                }
+                for (int d = 0; d <= maxDepth; d++)
+                {
+                    foreach (CollectorState state in states)
+                    {
+                        if (depth.TryGetValue(state.Collector.Config.Name, out int dd) && dd == d)
+                            await state.Collector.Update(ctx, ct);
+                    }
+                    foreach (CollectorState state in states)
+                    {
+                        if (depth.TryGetValue(state.Collector.Config.Name, out int dd) && dd == d)
+                            state.TrackCurrentValue();
+                    }
+                }
+                // 兜底：不在 depth 中的（异常配置）统一 Track，避免漏记
+                foreach (CollectorState state in states)
+                {
+                    if (!depth.ContainsKey(state.Collector.Config.Name))
+                        state.TrackCurrentValue();
+                }
             }
 
             DateTime now = DateTime.UtcNow;
 
-            // 追踪每个采样器的当前值（值变化时自动刷新防抖计时）
+            // 统一兜底追踪（正常已被分层 Track 覆盖，此处为空操作）
             foreach (CollectorState state in states)
                 state.TrackCurrentValue();
 
@@ -250,22 +299,17 @@ public sealed class GameMonitor
             foreach (CollectorState state in all)
                 pushedNames.Add(state.Collector.Config.Name);
 
-            // 通用打包：逐层收拢前置依赖（支持多级链），不看防抖/过期
-            bool added = true;
-            while (added)
+            // 通用打包：只收触发项的直接前置（一层），用其当前值，不递归多级
+            var seedNames = new HashSet<string>(pushedNames);
+            foreach (CollectorState state in states)
             {
-                added = false;
-                foreach (CollectorState state in states)
-                {
-                    if (all.Contains(state) || state.CurrentValue is null || state.CurrentValue == state.PushedValue)
-                        continue;
-                    CollectConfigBase? cfg = configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? c) ? c : null;
-                    if (cfg == null || string.IsNullOrEmpty(cfg.Prerequisite) || !pushedNames.Contains(cfg.Prerequisite))
-                        continue;
-                    all.Add(state);
-                    pushedNames.Add(state.Collector.Config.Name);
-                    added = true;
-                }
+                if (all.Contains(state) || state.CurrentValue is null)
+                    continue;
+                CollectConfigBase? cfg = configByName.TryGetValue(state.Collector.Config.Name, out CollectConfigBase? c) ? c : null;
+                if (cfg == null || string.IsNullOrEmpty(cfg.Prerequisite) || !seedNames.Contains(cfg.Prerequisite))
+                    continue;
+                all.Add(state);
+                pushedNames.Add(state.Collector.Config.Name);
             }
             var parts = new List<string>(all.Count);
             foreach (CollectorState state in all)
