@@ -17,9 +17,9 @@ public class ConstructContainer
         types.Clear();
     }
 
-    public void RegisterBuilder(Type type, Func<Type, Task<object>>? builder = null, bool isSingleton = true)
+    public void RegisterBuilder(Type type, Func<Type, Task<object>>? builder = null, bool isSingleton = true, bool spare = false)
     {
-        types.Add((type, builder ?? DefaultBuilder, isSingleton));
+        types.Add((type, builder ?? DefaultBuilder, isSingleton, spare));
     }
 
     public void UnRegisterBuilder(Type type)
@@ -84,7 +84,7 @@ public class ConstructContainer
         }
     }
 
-    public async Task<object> RequireInstance(Type type)
+    public async Task<object> RequireInstance(Type type, bool allowSpare = false)
     {
         {
             object? instance = instances.FirstOrDefault(instance => instance.GetType().IsAssignableTo(type));
@@ -95,7 +95,7 @@ public class ConstructContainer
         (object instance, bool isSingleton)? builed = null;
 
         Type queryType = type.IsGenericType ? type.GetGenericTypeDefinition() : type;
-        var tuple = types.FirstOrDefault(tuple => tuple.type == queryType);
+        var tuple = types.FirstOrDefault(tuple => tuple.type == queryType && (!tuple.spare || allowSpare));
         if (tuple.type != null)
         {
             builed = (await tuple.builder.Invoke(type), tuple.isSingleton);
@@ -108,7 +108,7 @@ public class ConstructContainer
                 if (compatibleType.IsGenericTypeDefinition && type.IsGenericType)
                     compatibleType = pair.type.MakeGenericType(type.GetGenericArguments());
 
-                if (compatibleType.IsAssignableTo(type))
+                if (compatibleType.IsAssignableTo(type) && (!pair.spare || allowSpare))
                 {
                     builed = (await pair.builder(compatibleType), pair.isSingleton);
                     break;
@@ -123,7 +123,7 @@ public class ConstructContainer
             await AddInstance(builed.Value.instance, true);
         return builed.Value.instance;
     }
-    
+
     /// <summary>反查某实例直接依赖了哪些实例（O(1)），用于从启用模块出发递归统计需要保留的实例。</summary>
     public IReadOnlyList<object> GetInstanceDependents(object instance)
     {
@@ -135,7 +135,7 @@ public class ConstructContainer
     {
         return dependents.TryGetValue(instance, out List<object>? list) ? list : [];
     }
-    
+
     /// <summary>从根实例出发，递归收集所有直接或间接被依赖的实例（含根自身）。</summary>
     public List<object> CollectDependents(IEnumerable<object> roots)
     {
@@ -173,7 +173,7 @@ public class ConstructContainer
         }
     }
 
-    readonly List<(Type type, Func<Type, Task<object>> builder, bool isSingleton)> types = new();
+    readonly List<(Type type, Func<Type, Task<object>> builder, bool isSingleton, bool spare)> types = new();
     readonly List<object> instances = new();
     readonly HashSet<object> isOwned = new();
     readonly Dictionary<object, List<object>> dependents = new(); //被依赖项索引：实例 → 依赖它的实例列表（O(1)反向查找）
@@ -192,7 +192,7 @@ public class ConstructContainer
 
             try
             {
-                ctorDependencies[index] = await RequireInstance(parameterInfo.ParameterType);
+                ctorDependencies[index] = await RequireInstance(parameterInfo.ParameterType, !parameterInfo.HasDefaultValue);
             }
             catch (Exception ex)
             {

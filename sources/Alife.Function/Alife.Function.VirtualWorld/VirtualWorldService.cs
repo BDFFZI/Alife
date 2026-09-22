@@ -18,6 +18,9 @@ public class VirtualWorldConfig
         - 社交边界：与陌生人交流应保持适度的礼貌和距离，然后通过互动逐步摸清人物画像后再选择性建立关系。
         - 经济常识：遵循物价常识，大额交易应先沟通确认，小心骗子和假币，优先使用银行、公证人等信得过的平台。
         """;
+
+    public string CallMessageAddition { get; set; } = "(提示: 回复对方需要用<call>标签；但提防陌生人和骗子；可以对此信息忽略)";
+    public string GiveMessageAddition { get; set; } = "(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)";
 }
 
 [Module("虚拟世界",
@@ -58,7 +61,7 @@ public class VirtualWorldService(
 
             if (targetActivity != null)
             {
-                targetActivity.ChatBot.Poke($"[来自 {Character.Name} 的消息]: {context.FullContent.Trim()}\n(提示: 回复对方需要用<call>标签；但提防陌生人和骗子；可以对此信息忽略)");
+                targetActivity.ChatBot.Poke($"[来自{Character.Name}的消息]{context.FullContent.Trim()}{Configuration.CallMessageAddition}");
             }
             else
             {
@@ -96,7 +99,7 @@ public class VirtualWorldService(
 
             if (targetActivity != null)
             {
-                targetActivity.ChatBot.Poke($"[收到来自 {Character.Name} 的物品]: {context.FullContent.Trim()}\n(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)");
+                targetActivity.ChatBot.Poke($"[来自{Character.Name}的物品]{context.FullContent.Trim()}{Configuration.GiveMessageAddition}");
             }
             else
             {

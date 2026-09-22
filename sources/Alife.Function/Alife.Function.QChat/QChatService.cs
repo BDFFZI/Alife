@@ -10,6 +10,7 @@ using Alife.Framework;
 using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
+using Alife.Function.SystemEvent;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.QChat;
@@ -96,6 +97,7 @@ public class QChatService(
     MessageFilterService messageFilterService,
     ILogger<QChatService> logger,
     Interactor<QChatService> interactor,
+    ISystemEventService? systemEventService = null,
     ISpeechModel? speechModel = null) :
     ChatBehaviour,
     IConfigurable<QChatServiceConfig>
@@ -143,6 +145,7 @@ public class QChatService(
 
         string message = messageSource.ExtractMessage();
         interactor.Poke(message);
+        systemEventService?.ResetTimer();
 
         if (Configuration.CloseGroupAfterReply)
             QGroupSwitch(messageSource, false);
@@ -157,7 +160,10 @@ public class QChatService(
         if (messageSource.Id == configuration.OwnerId)
             interactor.Chat(message);
         else
+        {
             interactor.Poke(message);
+            systemEventService?.ResetTimer();
+        }
     }
     public void QGroupSwitch(long groupId, bool enabled)
     {

@@ -1,0 +1,52 @@
+﻿@inject ModuleSystem ModuleSystem
+@implements IDisposable
+
+@foreach (var (moduleType, componentType) in components)
+{
+    <DynamicComponent @key="moduleType" Type="componentType"/>
+}
+
+@code {
+    readonly Dictionary<Type, Type> components = new();
+
+    protected override void OnInitialized()
+    {
+        ModuleSystem.ModulesLoadedAsync += OnModulesLoaded;
+        ModuleSystem.ModulesUnloadedAsync += OnModulesUnloaded;
+        AddComponents(ModuleSystem.GetAllModules());
+    }
+    public void Dispose()
+    {
+        ModuleSystem.ModulesLoadedAsync -= OnModulesLoaded;
+        ModuleSystem.ModulesUnloadedAsync -= OnModulesUnloaded;
+    }
+
+
+    Task OnModulesLoaded(List<Type> moduleTypes)
+    {
+        return InvokeAsync(() => {
+            AddComponents(moduleTypes);
+            StateHasChanged();
+        });
+    }
+
+    Task OnModulesUnloaded(List<Type> moduleTypes)
+    {
+        return InvokeAsync(() => {
+            foreach (Type moduleType in moduleTypes)
+                components.Remove(moduleType);
+            StateHasChanged();
+        });
+    }
+
+    void AddComponents(IEnumerable<Type> moduleTypes)
+    {
+        foreach (Type moduleType in moduleTypes)
+        {
+            Type? ui = ModuleSystem.GetModuleAttribute(moduleType)?.GlobalUI;
+            if (ui is { IsAbstract: false, ContainsGenericParameters: false }
+                && typeof(IComponent).IsAssignableFrom(ui))
+                components[moduleType] = ui;
+        }
+    }
+}

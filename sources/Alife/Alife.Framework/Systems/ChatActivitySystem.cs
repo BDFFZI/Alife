@@ -57,21 +57,28 @@ public class ChatActivitySystem
     {
         try
         {
+            if (activities.TryGetValue(character.Name, out var activate))
+                return activate;
+
+            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, characterSystem, appendObjects);
+            activities.Add(character.Name, chatActivity);
+
             Progress<(string, float)> progress = new(tuple => {
                 ActivatingProcess?.Invoke(character, tuple);
             });
 
             Activating?.Invoke(character);
-            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, characterSystem, appendObjects);
             await chatActivity.Awake(progress);
             ActivatingCreated?.Invoke(chatActivity);
             await chatActivity.Start(progress);
-            activities.Add(character.Name, chatActivity);
+
             Activated?.Invoke(chatActivity);
             return chatActivity;
         }
         catch (Exception ex)
         {
+            activities.Remove(character.Name);
+
             ActivationFailed?.Invoke(character, ex);
             throw;
         }
@@ -96,7 +103,8 @@ public class ChatActivitySystem
         ConfigurationSystem configurationSystem,
         CharacterSystem characterSystem,
         PluginSystem pluginSystem,
-        ModuleSystem moduleSystem)
+        ModuleSystem moduleSystem,
+        IServiceProvider serviceProvider)
     {
         appendObjects = [
             storageSystem,
@@ -104,7 +112,8 @@ public class ChatActivitySystem
             characterSystem,
             pluginSystem,
             moduleSystem,
-            this
+            this,
+            serviceProvider
         ];
 
         this.moduleSystem = moduleSystem;

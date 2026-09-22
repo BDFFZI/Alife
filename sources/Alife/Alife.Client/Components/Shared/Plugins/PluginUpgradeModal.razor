@@ -68,7 +68,7 @@
                 .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.NewVersion))
                 .ToList();
             await Task.Run(() => PluginSystem.InstallPlugins(pluginDict));
-            await MessageService.SuccessAsync($"已升级 {toUpgrade.Count} 个插件");
+            _ = MessageService.SuccessAsync($"已升级 {toUpgrade.Count} 个插件");
             foreach (var item in toUpgrade)
                 UpgradeList.Remove(item);
             await VisibleChanged.InvokeAsync(false);
@@ -86,7 +86,7 @@
                     .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.OldVersion))
                     .ToList();
                 await Task.Run(() => PluginSystem.InstallPlugins(rollbackDict));
-                await MessageService.WarningAsync($"已回滚 {toUpgrade.Count} 个插件");
+                _ = MessageService.WarningAsync($"已回滚 {toUpgrade.Count} 个插件");
                 await OnUpgradeComplete.InvokeAsync();
             }
             catch (Exception rollbackEx)

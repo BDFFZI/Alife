@@ -3,7 +3,9 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Alife.Demo.Plugin;
 
@@ -19,12 +21,14 @@ public class MyModuleConfig
 [Module("我的功能模块",
     "一个示例功能模块",
     defaultCategory: "我的插件", //Module在UI上可以分类显示，设定好默认类别可以方便用户查找
-    EditorUI = typeof(MyModuleUI) //如果需要，可以用razor自定义模块界面，具体参考官方插件。否则默认使用预设的表单UI（注意：razor不支持热编译，你需要将其转为g.cs或dll）
+    EditorUI = typeof(MyModuleUI), //如果需要，可以用razor自定义模块界面，具体参考官方插件。否则默认使用预设的表单UI（注意：razor不支持热编译，你需要将其转为g.cs或dll）
+    GlobalUI = typeof(MyModuleGlobalUI) //额外的一种特殊基于类型的全局单例UI，其与MainLayout同级并默认平铺窗口且pointer-events为none。可借此实现全窗口下的覆盖UI。
 )]
 public class MyModule( //Module 可以通过依赖注入来获取其他系统、工具、插件对象，具体可见 ChatActivitySystem 的创建过程
     XmlFunctionCaller functionCaller, //XmlFunctionCaller 是一个常用的插件模块，借此可以轻松实现函数调用，是非常常用的基础模块
     ILogger<MyModule> logger, //可以申请专用的 logger，这不仅是一种规范，而且 logger 中记录的警告、报错将会实际的通过 UI 通知用户
-    Interactor<MyModule> interactor //当需要和 ai 交互时，使用专用的交换器，他可以自动格式化发给ai的文本，而且可以处理插件重载时的提示词注入问题
+    Interactor<MyModule> interactor, //当需要和 ai 交互时，使用专用的交换器，他可以自动格式化发给ai的文本，而且可以处理插件重载时的提示词注入问题
+    IServiceProvider serviceProvider //甚至你也可以直接申请构造Alife.Client时所用的系统依赖注入容器
 ) :
     ChatBehaviour, //一个常用的特殊模块基类，使用该基类后，获取到 ChatActivity 上下文，以及其生命周期事件
     IConfigurable<MyModuleConfig> //通过实现 IConfigurable 接入配置功能

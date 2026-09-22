@@ -1,0 +1,20 @@
+﻿@using Alife.Framework
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
+@* 在 UI 中也可以正常使用依赖注入 *@
+@inject IJSRuntime JsRuntime
+@inject CharacterSystem CharacterSystem
+@inject IServiceProvider ServiceProvider
+
+<div style="pointer-events: auto"> @* 全局UI默认关闭鼠标事件，需手动打开 *@
+    <button onclick="@((Action)OnClick)">测试</button>
+</div>
+
+@code {
+    void OnClick()
+    {
+        JsRuntime.InvokeVoidAsync("eval", "console.log('Hello Global UI!')");
+        Console.WriteLine(CharacterSystem.GetAllCharacters().Count);
+        Console.WriteLine(ServiceProvider.GetRequiredService<CharacterSystem>().GetAllCharacters().Count);
+    }
+}

@@ -264,8 +264,10 @@ public static class WindowCaptureHelper
         TaskCreationOptions.RunContinuationsAsynchronously);
 
         framePool.FrameArrived += (pool, _) => {
-            if (!tcs.Task.IsCompleted)
-                tcs.TrySetResult(pool.TryGetNextFrame());
+            if (tcs.Task.IsCompleted) return;
+            var f = pool.TryGetNextFrame();
+            if (!tcs.TrySetResult(f))
+                f?.Dispose();// 刚被超时置为完成：归还这一帧，避免漏缓冲
         };
 
         session.StartCapture();
@@ -326,21 +328,29 @@ public static class WindowCaptureHelper
         try
         {
             Bitmap bmp = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
-            BitmapData bmpData = bmp.LockBits(
-            new Rectangle(0, 0, bmp.Width, bmp.Height),
-            ImageLockMode.WriteOnly,
-            PixelFormat.Format32bppArgb);
-
-            int rowBytes = size.Width * 4;
-            for (int y = 0; y < size.Height; y++)
+            try
             {
-                void* src = (void*)(mapped.DataPointer + (nint)(y * mapped.RowPitch));
-                void* dst = (void*)(bmpData.Scan0 + (nint)(y * bmpData.Stride));
-                NativeMemory.Copy(src, dst, (nuint)rowBytes);
-            }
+                BitmapData bmpData = bmp.LockBits(
+                new Rectangle(0, 0, bmp.Width, bmp.Height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format32bppArgb);
 
-            bmp.UnlockBits(bmpData);
-            return bmp;
+                int rowBytes = size.Width * 4;
+                for (int y = 0; y < size.Height; y++)
+                {
+                    void* src = (void*)(mapped.DataPointer + (nint)(y * mapped.RowPitch));
+                    void* dst = (void*)(bmpData.Scan0 + (nint)(y * bmpData.Stride));
+                    NativeMemory.Copy(src, dst, (nuint)rowBytes);
+                }
+
+                bmp.UnlockBits(bmpData);
+                return bmp;
+            }
+            catch
+            {
+                bmp.Dispose();// 拷贝/LockBits 失败时归还 GDI+ 句柄
+                throw;
+            }
         }
         finally
         {
@@ -374,7 +384,8 @@ public static class WindowCaptureHelper
         return item;
     }
 
-    private static IGraphicsCaptureItemInterop GetCaptureItemInterop()
+    // 激活工厂是进程级 agile 单例，缓存一次即可，避免逐帧重建 COM 包装。
+    private static readonly Lazy<IGraphicsCaptureItemInterop> _interopFactory = new(() =>
     {
         string className = "Windows.Graphics.Capture.GraphicsCaptureItem";
         WindowsCreateString(className, className.Length, out IntPtr hString);
@@ -385,13 +396,20 @@ public static class WindowCaptureHelper
             hString,
             ref interopGuid,
             out IntPtr factoryPtr);
-            var factory = (IGraphicsCaptureItemInterop)Marshal.GetObjectForIUnknown(factoryPtr);
-            Marshal.Release(factoryPtr);
-            return factory;
+            try
+            {
+                return (IGraphicsCaptureItemInterop)Marshal.GetObjectForIUnknown(factoryPtr);
+            }
+            finally
+            {
+                Marshal.Release(factoryPtr);
+            }
         }
         finally
         {
             WindowsDeleteString(hString);
         }
-    }
+    });
+
+    private static IGraphicsCaptureItemInterop GetCaptureItemInterop() => _interopFactory.Value;
 }

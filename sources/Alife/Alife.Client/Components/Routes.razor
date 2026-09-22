@@ -53,22 +53,22 @@ else
 
                 PluginSystem pluginSystem = Program.ServiceProvider.GetRequiredService<PluginSystem>();
 
-#if !DEBUG
                 try
                 {
-                launchingProgress = "正在查询客户端版本...";
-                await InvokeAsync(StateHasChanged);
-                await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
+                    launchingProgress = "正在查询客户端版本...";
+                    await InvokeAsync(StateHasChanged);
+                    await Program.ServiceProvider.GetRequiredService<ClientUpgrade>().FetchNewVersion();
 
-                launchingProgress = "正在拉取在线插件...";
-                await InvokeAsync(StateHasChanged);
-                await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境
+#if !DEBUG
+                    launchingProgress = "正在拉取在线插件...";
+                    await InvokeAsync(StateHasChanged);
+                    await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境
+#endif
                 }
                 catch (Exception e)
                 {
-                Foundation.AlifeLog.LogError(e);
+                    Foundation.AlifeLog.LogError(e);
                 }
-#endif
 
                 launchingProgress = "正在加载本地插件...";
                 await InvokeAsync(StateHasChanged);

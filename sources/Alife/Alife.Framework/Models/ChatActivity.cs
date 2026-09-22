@@ -123,6 +123,7 @@ public class ChatActivity(
 
     ConstructContainer container = null!;
     CancellationTokenSource? cancelTimerSource;
+    readonly SemaphoreSlim containerLock = new(1, 1);
 
     async void StartTimer(float expectedDeltaTime, CancellationToken cancellationToken = default)
     {
@@ -149,8 +150,16 @@ public class ChatActivity(
                     Time = time += deltaTime,
                 };
 
-                foreach (ChatBehaviour behaviour in container.Instances.OfType<ChatBehaviour>())
-                    await behaviour.UpdateAsync(context);
+                await containerLock.WaitAsync(cancellationToken);
+                try
+                {
+                    foreach (ChatBehaviour behaviour in container.Instances.OfType<ChatBehaviour>())
+                        await behaviour.UpdateAsync(context);
+                }
+                finally
+                {
+                    containerLock.Release();
+                }
             }
         }
         catch (OperationCanceledException) { }
@@ -160,51 +169,75 @@ public class ChatActivity(
         }
     }
 
-    async Task OnModulesUnloadedAsync(List<Type> moduleTypes)
-    {
-        foreach (Type moduleType in moduleTypes)
-            container.UnRegisterBuilder(moduleType);
-
-        object[] invalidModules = container.Instances
-            .Where(instance => TypeUtility.IsInstanceUsingType(instance, moduleTypes))
-            .ToArray();
-
-        foreach (object instance in invalidModules.Reverse())
-            await container.RemoveInstance(instance);
-    }
     async Task OnModulesLoadedAsync(List<Type> moduleTypes)
     {
-        ResetModuleBuilder(out Type[] enabledModuleTypes);
+        await containerLock.WaitAsync();
+        try
+        {
+            ResetModuleBuilder(out Type[] enabledModuleTypes);
 
-        foreach (Type moduleType in enabledModuleTypes)
-            await container.RequireInstance(moduleType);
+            foreach (Type moduleType in enabledModuleTypes)
+                await container.RequireInstance(moduleType);
+        }
+        finally
+        {
+            containerLock.Release();
+        }
+    }
+    async Task OnModulesUnloadedAsync(List<Type> moduleTypes)
+    {
+        await containerLock.WaitAsync();
+        try
+        {
+            foreach (Type moduleType in moduleTypes)
+                container.UnRegisterBuilder(moduleType);
+
+            object[] invalidModules = container.Instances
+                .Where(instance => TypeUtility.IsInstanceUsingType(instance, moduleTypes))
+                .ToArray();
+
+            foreach (object instance in invalidModules.Reverse())
+                await container.RemoveInstance(instance);
+        }
+        finally
+        {
+            containerLock.Release();
+        }
     }
     async Task OnCharacterChangedAsync(Character reloadedCharacter)
     {
-        if (reloadedCharacter != character)
-            return;
+        await containerLock.WaitAsync();
+        try
+        {
+            if (reloadedCharacter != character)
+                return;
 
-        ResetModuleBuilder(out Type[] enabledModuleTypes);
-        ResetCharacterPrompt();
+            ResetModuleBuilder(out Type[] enabledModuleTypes);
+            ResetCharacterPrompt();
 
-        foreach (Type moduleType in enabledModuleTypes)
-            await container.RequireInstance(moduleType);
+            foreach (Type moduleType in enabledModuleTypes)
+                await container.RequireInstance(moduleType);
 
-        //统计保留实例：启用模块实例 + ChatBot，以及它们（递归）依赖的所有实例
-        object[] enabledInstances = enabledModuleTypes
-            .Select(type => container.Instances.FirstOrDefault(type.IsInstanceOfType))
-            .Where(instance => instance != null)
-            .Cast<object>()
-            .ToArray();
-        List<object> kept = container.CollectDependents([.. enabledInstances, ChatBot]);
+            //统计保留实例：启用模块实例 + ChatBot，以及它们（递归）依赖的所有实例
+            object[] enabledInstances = enabledModuleTypes
+                .Select(type => container.Instances.FirstOrDefault(type.IsInstanceOfType))
+                .Where(instance => instance != null)
+                .Cast<object>()
+                .ToArray();
+            List<object> kept = container.CollectDependents([.. enabledInstances, ChatBot]);
 
-        //卸载冗余模块：非启用、且不在任何启用模块依赖链中的 ChatBehaviour
-        List<object> redundantModules = container.Instances
-            .Where(instance => instance is ChatBehaviour && kept.Contains(instance) == false)
-            .ToList();
+            //卸载冗余模块：非启用、且不在任何启用模块依赖链中的 ChatBehaviour
+            List<object> redundantModules = container.Instances
+                .Where(instance => instance is ChatBehaviour && kept.Contains(instance) == false)
+                .ToList();
 
-        foreach (object redundantModule in redundantModules)
-            await container.RemoveInstance(redundantModule);
+            foreach (object redundantModule in redundantModules)
+                await container.RemoveInstance(redundantModule);
+        }
+        finally
+        {
+            containerLock.Release();
+        }
     }
 
     void ResetModuleBuilder(out Type[] enabledModuleTypes)
@@ -240,7 +273,7 @@ public class ChatActivity(
         foreach (Type moduleType in moduleSystem.GetAllModules())
         {
             if (enabledModuleTypes.Contains(moduleType) == false)
-                container.RegisterBuilder(moduleType);
+                container.RegisterBuilder(moduleType, spare: true);
         }
     }
     void ResetCharacterPrompt()

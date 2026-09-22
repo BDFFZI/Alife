@@ -70,10 +70,10 @@
     public async Task SaveCharacter()
     {
         isLoading = true;
-        await CharacterSystem.SaveCharacter(Character);
-        _ = NotificationService.Success(new NotificationConfig {
-            Message = "角色配置已成功保存！"
-        });
+
+        await Task.Run(() => CharacterSystem.SaveCharacter(Character));
+
+        _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });
         isLoading = false;
         StateHasChanged();
     }
@@ -81,11 +81,11 @@
     async Task LoadCharacter()
     {
         isLoading = true;
-        await CharacterSystem.LoadCharacter(Character);
-        _ = NotificationService.Success(new NotificationConfig {
-            Message = "角色配置已重新加载！"
-        });
+
+        await Task.Run(() => CharacterSystem.LoadCharacter(Character));
+
+        _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已重新加载！" });
         isLoading = false;
-        _ = InvokeAsync(StateHasChanged);
+        StateHasChanged();
     }
 }

@@ -15,11 +15,21 @@
     </div>
 </div>
 
-<CharacterLoadingOverlay/>
-<AutoActivateOverlay/>
-<UpdateNotificationOverlay/>
+<div class="overlay-layer">
+    <CharacterLoadingOverlay/>
+    <AutoActivateOverlay/>
+    <UpdateNotificationOverlay/>
+    <GlobalUIOverlay/>
+</div>
 
 <style>
+    .overlay-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1000;
+    }
+
     .app-container {
         height: 100vh;
         width: 100vw;

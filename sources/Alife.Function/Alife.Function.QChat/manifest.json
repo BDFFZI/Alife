@@ -1,8 +1,9 @@
 {
-  "Version": "4.3.1",
+  "Version": "4.4.0",
   "Dependencies": {
     "Alife.Function.FunctionCaller": "",
     "Alife.Function.AIModelUtility": "",
-    "Alife.Function.MessageFilter": ""
+    "Alife.Function.MessageFilter": "",
+    "Alife.Function.SystemEvent": ""
   }
 }
