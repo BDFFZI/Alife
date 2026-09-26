@@ -48,12 +48,12 @@ public record MemoryConfig
     LaunchOrder = -10000, //期望提前创建，以便在其他功能之前写入记忆上下文 
     EditorUI = typeof(MemoryServiceUI))]
 public class MemoryService(
-    XmlFunctionCaller functionService,
-    ILanguageModel languageModel,
-    MessageFilterService messageFilterService,
     ModuleSystem moduleSystem,
     Interactor<MemoryService> interactor,
-    ILogger<MemoryService> logger) :
+    ILogger<MemoryService> logger,
+    XmlFunctionCaller functionService,
+    ILanguageModel languageModel,
+    IMessageFilterService messageFilterService) :
     ChatBehaviour,
     IConfigurable<MemoryConfig>
 {
@@ -187,7 +187,7 @@ public class MemoryService(
 
     protected override Task OnAwake()
     {
-        if (messageFilterService.Configuration.EnableTimestamp == false)
+        if (messageFilterService.IsEnabledTimestamp == false)
             throw new Exception("持久记忆依赖消息过滤的时间戳功能，请先打开时间戳！");
 
         storagePath = Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Memory");
@@ -250,7 +250,7 @@ public class MemoryService(
 
         try
         {
-            object instance = await ChatActivity.Container.RequireInstance(modelType);
+            object instance = await ChatActivity.Container.RequireInstance(modelType, true);
             if (instance is ILanguageModel model)
                 return model;
 
