@@ -188,10 +188,11 @@ public class XmlStreamParser
 
     public XmlStreamParser(IEnumerable<string>? plainAreas = null)
     {
-        if (plainAreas == null)
-            this.plainAreas = [];
-        else
-            this.plainAreas = [..plainAreas];
+        if (plainAreas != null)
+        {
+            foreach (string plainArea in plainAreas)
+                this.plainAreas.Add(plainArea);
+        }
     }
 
     //注释状态
@@ -209,9 +210,9 @@ public class XmlStreamParser
     string? currentTagAttributeName;
     bool isValueParsing;
     char attributeQuoteChar;
-    readonly Dictionary<string, string> parsedAttributes = new();
-    readonly HashSet<string> plainAreas;
-    readonly StringBuilder contentBuffer = new StringBuilder();
+    readonly Dictionary<string, string> parsedAttributes = new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> plainAreas = new(StringComparer.OrdinalIgnoreCase);
+    readonly StringBuilder contentBuffer = new();
 
     /// 0：开标签；1：闭标签；2：自闭合标签
     int tagMode;
@@ -281,12 +282,12 @@ public class XmlStreamParser
     /// </summary>
     void FlushTagOrAttributeName()
     {
-        if (currentTagName == null)//正在解析名称
+        if (currentTagName == null) //正在解析名称
         {
             if (tagBuffer.Length != 0)
                 currentTagName = ExtractTagContent();
         }
-        else if (currentTagAttributeName == null)//正在解析属性名
+        else if (currentTagAttributeName == null) //正在解析属性名
         {
             if (tagBuffer.Length != 0)
                 currentTagAttributeName = ExtractTagContent();
@@ -320,7 +321,7 @@ public class XmlStreamParser
                     if (tagStack.Contains(currentTagName) == false)
                     {
                         Error?.Invoke(currentTagName, new Exception($"检测到无效的孤儿闭标签：{currentTagName}"));
-                        break;//无效的孤儿闭标签（未触发事件和入栈，直接无视即可）
+                        break; //无效的孤儿闭标签（未触发事件和入栈，直接无视即可）
                     }
 
                     while (tagStack.Last() != currentTagName)
@@ -328,7 +329,7 @@ public class XmlStreamParser
                         //移除无效的孤儿开标签
                         Error?.Invoke(tagStack.Last(), new Exception($"检测到无效的孤儿开标签：{tagStack.Last()}"));
                         if (TagClosed != null)
-                            await TagClosed.Invoke();//因为入栈且调用过函数，所以要回调
+                            await TagClosed.Invoke(); //因为入栈且调用过函数，所以要回调
                         tagStack.RemoveAt(tagStack.Count - 1);
                     }
 
@@ -350,7 +351,7 @@ public class XmlStreamParser
         isTagParsing = false;
         currentTagName = null;
         currentTagAttributeName = null;
-        if (tagStack.Count == 0)//TODO 缺少正确的Xml参数环境，目前等于不清除，虽然确保闭标签时也能拿到参数，但可能污染其他标签。
+        if (tagStack.Count == 0) //TODO 缺少正确的Xml参数环境，目前等于不清除，虽然确保闭标签时也能拿到参数，但可能污染其他标签。
             parsedAttributes.Clear();
         tagMode = 0;
     }

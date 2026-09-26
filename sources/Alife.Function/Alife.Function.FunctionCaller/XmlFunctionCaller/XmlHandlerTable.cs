@@ -95,8 +95,8 @@ public class XmlHandlerTable
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
-    readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new();
-    readonly Dictionary<string, List<XmlHandler>> functionToHandler = new();
+    readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, List<XmlHandler>> functionToHandler = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<XmlFunction> functions = new();
-    readonly HashSet<string> xmlForms = new();
+    readonly HashSet<string> xmlForms = new(StringComparer.OrdinalIgnoreCase);
 }
