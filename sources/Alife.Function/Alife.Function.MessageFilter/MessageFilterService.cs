@@ -39,7 +39,8 @@ public partial class MessageFilterService
 public partial class MessageFilterService(
     Interactor<MessageFilterService> interactor) :
     ChatBehaviour,
-    IConfigurable<MessageFilterServiceConfig>
+    IConfigurable<MessageFilterServiceConfig>,
+    IMessageFilterService
 {
     public MessageFilterServiceConfig Configuration { get; set; } = null!;
     public IReadOnlyList<MessageReplyRule> MessageReplyRules => messageReplyRules;
@@ -76,6 +77,7 @@ public partial class MessageFilterService(
     OccupationMarker? thinkingOccupationMarker;
     readonly List<MessageReplyRule> messageReplyRules = new();
     readonly List<Func<string>> messageReplyGuidance = [];
+    DateTime lastTimestamp = DateTime.MinValue;
 
     protected override Task OnAwake()
     {
@@ -147,7 +149,13 @@ public partial class MessageFilterService(
         }
 
         if (Configuration.EnableTimestamp)
-            message = $"当前时间:[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{message}";
+        {
+            if (DateTime.Now - lastTimestamp > TimeSpan.FromSeconds(Configuration.TimestampInterval))
+            {
+                message = $"当前时间:[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{message}";
+                lastTimestamp = DateTime.Now;
+            }
+        }
 
         if (injectionCountdown <= 0)
         {

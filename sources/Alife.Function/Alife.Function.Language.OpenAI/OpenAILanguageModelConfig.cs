@@ -7,7 +7,7 @@ public class OpenAILanguageModelConfig
     public string endpoint = "";
     public string modelId = "";
     public string apiKey = "";
-    public bool defaultThinking = true;
+    public bool defaultThinking = false;
     public string extraHeaders = "";
     //采样温度，越低越认真/严谨，越高越发散/有创造性
     public double temperature = 0.6;

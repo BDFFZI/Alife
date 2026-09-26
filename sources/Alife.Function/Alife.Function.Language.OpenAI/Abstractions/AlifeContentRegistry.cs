@@ -59,7 +59,7 @@ public static class AlifeContentRegistry
             return null;
 
         XmlHandler handler = new("MultimodalInput") {
-            Description = "让你能够直接使用自己的上下文分析多模态内容，而不是通过外部工具。",
+            Description = "此服务函数可以让你直接通过自己的上下文来分析多模态内容，而不是通过外部模型。（注意：这无法用于给用户展示内容，因为上下文仅你自己可见）",
             Functions = functions
         };
         return handler;

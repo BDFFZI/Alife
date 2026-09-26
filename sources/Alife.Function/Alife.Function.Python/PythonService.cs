@@ -26,11 +26,26 @@ public partial class PythonService(
     {
         if (context.CallMode == CallMode.Closing)
         {
-            string filePath = $"{AlifePath.TempFolderPath}/pythonScript.py";
-
+            string filePath = $"{AlifePath.TempFolderPath}/PythonService-{Guid.NewGuid()}.py";
             await File.WriteAllTextAsync(filePath, context.FullContent.Trim(), cancellationToken);
 
-            string result = await Python(filePath, timeout, cancellationToken);
+            string result;
+            try
+            {
+                result = await Python(filePath, timeout, cancellationToken);
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
             interactor.Poke("脚本执行完成\n" + result);
         }
     }

@@ -1,5 +1,8 @@
 {
   "Version": "4.2.0",
+  "Dependencies": {
+    "Alife.Function.MessageFilter": ""
+  },
   "Environments": {
     "nuget": {
       "ModelContextProtocol.Core": ">=1.1.0"

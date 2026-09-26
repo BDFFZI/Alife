@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Foundation;
+using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -39,7 +40,8 @@ public partial class XmlFunctionCaller
     defaultCategory: "Alife 官方/功能底座")]
 public partial class XmlFunctionCaller(
     ILogger<XmlFunctionCaller> logger,
-    Interactor<XmlFunctionCaller> interactor) :
+    Interactor<XmlFunctionCaller> interactor,
+    IMessageFilterService messageFilterService) :
     ChatBehaviour,
     IConfigurable<XmlFunctionCallerConfig>
 {
@@ -116,7 +118,19 @@ public partial class XmlFunctionCaller(
 
     protected override Task OnAwake()
     {
+        messageFilterService.AddMessageReplyGuidance(() =>
+            """
+            （
+                对话输出规范（在做任何事情时，都请务必遵从这些要求！）：
+                1. 首先进行思考、规划，确定简要方案后再进行实际行动。
+                2. 然后查阅资料文档，收集事实、确认函数用法，避免幻觉。
+                3. 接着看清消息来源和意图，根据场合选择最搭配的工具流程。
+                4. 最后调用工具不要编造结果，按需等待或重叠进行，然后以此循环。
+            ）
+            """, DestroyCancellationToken);
+
         UpdatePrompt(); //提前注入一个提示词块
+
         return Task.CompletedTask;
     }
     protected override Task OnStart()
@@ -278,6 +292,7 @@ public partial class XmlFunctionCaller(
         });
         handlerTable.Register(xmlHandler);
     }
+
     void UpdatePrompt()
     {
         //注入函数文档
@@ -287,20 +302,29 @@ public partial class XmlFunctionCaller(
 
              ## 使用提示
              1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
-             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条。
-             3. 很多xml函数拥有调用后返回结果的功能，因此你可以通过多轮对话解决事情（如先调用一下获取手册，然后等到收到结果后，再决定下一步的操作）
+             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条，所有函数将按顺序执行，并在下一论对话中将结果返回给你。
+             3. 由于返回值是延迟的，所以你要学会中断自己的输出来等待系统结果，并通过多轮对话解决事情（如先调用隐式文档，等到收到结果后，再选择函数）
+             4. 不要使用文档中不存在的函数，不要自己编造函数的返回结果。保持对函数注意力，学会循序规划的进行调用流程。
+             5. 你可以使用`#parallel='true'`参数来让要执行的函数在后台异步执行，从而实现多线程加速并避免你被长任务卡住。
+             6. 注释（`<!---->`）中的文字会被系统忽略，所以可在此实现空消息、自言自语、隐式思考等需求，要养成每次操作前先思考的习惯（如果模型支持思考，可跳过）。
 
-             ## 使用示例
-             当你的函数足够丰富后，你可以尝试用如下的方式使用他们，这是官方最佳示例（注意，示例中的函数不一定存在）：
+             ## 输出示例
+             请使用如下方式和用户对话。（注意，示例中的函数不一定存在）
              ```
-             (可选，未被标签包裹的文字，用户看不到，所以可以在此实现空消息、自言自语、思考等动作)
-             <Speak> <!-- 默认采用语音方式对外输出，并在文本中穿插表情动作，来实现动态的交互效果 -->
-             主人你看我画的好不好看，<Expression option="开心" />今天特意给你画的噢！<Motion option="摆摆手"/>
-             看你每天那么累，给你打打气。
-             </Speak>
-             <Python> <!-- 因为python执行需要时间，在结尾调用比较合适。 -->
-             show('cheer.png')
+             <!-- 接下来我要向用户展示文件，应当先使用python打开并同时进行对话输出 -->
+
+             <!-- python执行通常需要时间，所以我要先执行python并利用#parallel将其后台运行，从而和后续的说话函数重叠进行 -->
+             <Python timeout='7' #parallel='true'>
+             import os
+             os.startfile('cheer.png')
              <Python>
+
+             <!-- Speak中的内容通常专用于发给用户，部分情况还支持穿插表情动作，我可以用其来实现更加生动有趣的交互 -->
+             <Speak>
+             主人你看我画的好不好看，
+             <Expression option="开心" />今天特意给你画的噢！
+             <Motion option="摆摆手"/>看你每天那么累，给你打打气。
+             </Speak>
              ```   
 
              ## 原始字符串区域

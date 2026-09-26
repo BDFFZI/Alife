@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol.Core" Version="1.1.0" />

@@ -43,7 +43,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     }
     public async Task CancelAndClearAsync()
     {
-        while (commandChannel.Reader.TryRead(out _)) {}
+        while (commandChannel.Reader.TryRead(out _)) { }
         await handleTokenSource.CancelAsync();
         Flush();
         await WaitToInactive();
@@ -127,7 +127,7 @@ public class XmlStreamExecutor : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException) {}
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -139,13 +139,13 @@ public class XmlStreamExecutor : IAsyncDisposable
         if (aboveContentBuffer.Count < parser.TagStack.Count)
             aboveContentBuffer.Add(new StringBuilder());
 
-        await FlushContentBuffer(skipTop: true);//有新的标签要进入，不能让新标签拿到老内容
+        await FlushContentBuffer(skipTop: true); //有新的标签要进入，不能让新标签拿到老内容
         await HandleTag(CallMode.Opening);
     }
 
     async Task OnTagClosed()
     {
-        await FlushContentBuffer();//即使没有触发分词也必须推送了，因为标签即将关闭
+        await FlushContentBuffer(); //即使没有触发分词也必须推送了，因为标签即将关闭
         await HandleTag(CallMode.Closing);
 
         aboveContentBuffer[parser.TagStack.Count - 1].Clear();
@@ -186,7 +186,7 @@ public class XmlStreamExecutor : IAsyncDisposable
             foreach (string breaker in sentenceBreakers)
             {
                 if (content.EndsWith(breaker))
-                    return FlushContentBuffer(breaker);//提前推送一次content
+                    return FlushContentBuffer(breaker); //提前推送一次content
             }
         }
 
@@ -219,7 +219,7 @@ public class XmlStreamExecutor : IAsyncDisposable
             //获取调用后的内容，这可能被修改
             content = context.Content;
             if (content == "")
-                break;//被彻底拦截
+                break; //被彻底拦截
 
             //缓存内容
             aboveContentBuffer[index].Append(content);
@@ -238,7 +238,18 @@ public class XmlStreamExecutor : IAsyncDisposable
         try
         {
             Handling?.Invoke(name, tagContext);
-            await handler.Handle(name, tagContext, handleTokenSource.Token);
+            if (tagContext.Parameters.TryGetValue("#parallel", out string? parallel) == false || parallel != "true")
+            {
+                await handler.Handle(name, tagContext, handleTokenSource.Token);
+            }
+            else
+            {
+                Task task = handler.Handle(name, tagContext, processingTokenSource.Token);
+                _ = task.ContinueWith(task => {
+                    if (task.IsFaulted)
+                        Error?.Invoke(name, task.Exception);
+                });
+            }
         }
         catch (Exception e)
         {

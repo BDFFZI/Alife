@@ -22,7 +22,7 @@ public static class AlifeContentUtility
     {
         return BuildXmlFunction(
             name,
-            "调用后需等待系统上传",
+            null,
             [
                 ("pathOrUrl", "", "String"),
                 ("persistent", "将内容常驻上下文以持续分析", "bool"),

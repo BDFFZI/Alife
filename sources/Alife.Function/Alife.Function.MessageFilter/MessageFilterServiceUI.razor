@@ -60,6 +60,18 @@
             </GridCol>
 
             <GridCol Span="24">
+                <Flex Direction="FlexDirection.Vertical" Style="margin-bottom: 16px;">
+                    <Text Strong Style="margin-bottom: 8px;">时间戳间隔 (TimestampInterval)</Text>
+                    <Text Type="TextElementType.Secondary"
+                          Style="font-size: 12px; display: block; margin-bottom: 8px;">
+                        每隔多少秒注入一次时间戳。
+                    </Text>
+                    <InputNumber @bind-Value="@Configuration.TimestampInterval" Min="0" Max="3600"
+                                 Style="width: 200px;" />
+                </Flex>
+            </GridCol>
+
+            <GridCol Span="24">
                 <div style="margin-bottom: 16px;">
                     <Text Strong Style="display: block; margin-bottom: 8px;">消息附加内容 (MessageHeader)</Text>
                     <Text Type="TextElementType.Secondary"
