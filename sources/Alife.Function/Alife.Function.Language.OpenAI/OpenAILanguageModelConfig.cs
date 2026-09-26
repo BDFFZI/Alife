@@ -29,5 +29,5 @@ public class OpenAILanguageModelConfig
     public HashSet<string> enabledContentTypes = new();
 
     // 明确禁用保留模式的内容类型（空 = 全部允许保留，默认）；AI 在未授权时以保留模式调用会收到报错
-    public HashSet<string> persistentDisabledContentTypes = new();
+    public HashSet<string> enabledPersistentContentTypes = new();
 }

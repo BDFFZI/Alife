@@ -29,8 +29,7 @@ public class OpenAILanguageModel(
     ILogger<OpenAILanguageModel> logger) :
     ChatBehaviour,
     ILanguageModel,
-    IConfigurable<OpenAILanguageModelConfig>,
-    IMultimodalExecutor
+    IConfigurable<OpenAILanguageModelConfig>
 {
     public OpenAILanguageModelConfig Configuration { get; set; } = null!;
 
@@ -101,45 +100,21 @@ public class OpenAILanguageModel(
         return aiMessage;
     }
 
-    // ──── IMultimodalExecutor ────
-
-    public bool IsPersistentAllowed(string registrationKey)
-    {
-        return Configuration.persistentDisabledContentTypes.Contains(registrationKey) == false;
-    }
-
     /// <summary>临时式补全：复用主线程，在锁内临时追加媒体为最新用户消息，调用 ChatStreamingAsync 后移除临时消息，不污染主历史。</summary>
-    public async Task<string> CompleteWithContentAsync(
+    public async Task ChatWithTempContentAsync(
         ChatBot chatBot, KernelContent content, CancellationToken cancellationToken = default)
     {
-        string result = "";
-        Exception? error = null;
-        await chatBot.EditChatHistoryAsync(async thread => {
-            ChatHistory history = thread.ChatHistory;
-            int startIndex = history.Count;
-            history.AddUserMessage([content, new TextContent("已临时上传，请立即完整分析内容。稍后这次对话将被删除，你的回复将作为分析结果返回。")]);
-            try
-            {
-                result = await ChatStreamingAsync(thread,
-                    exceptionThrow: e => error = e,
-                    cancellationToken: cancellationToken);
-            }
-            finally
-            {
-                history.RemoveRange(startIndex, history.Count - startIndex);
-            }
-        }, "多模态分析");
-
-        // ChatStreamingAsync 会吞掉异常（通过回调），这里透传，避免调用方收到静默的空结果
-        if (error != null)
-            throw error;
-        return "分析结果如下：" + result;
+        ChatMessageContent chatMessageContent = new ChatMessageContent(AuthorRole.User, [content]);
+        await chatBot.ChatAsync(chatMessageContent, false);
+        await chatBot.EditChatHistoryAsync(thread => {
+            thread.ChatHistory.Remove(chatMessageContent);
+            return Task.CompletedTask;
+        }, "移除临时多模态资源");
     }
 
 
     readonly OccupationNotepad thinkingRequester = new();
     HttpClient httpClient = null!;
-    Uri chatCompletionsUri = null!;
 
     protected override async Task OnAwake()
     {
@@ -153,52 +128,62 @@ public class OpenAILanguageModel(
         if (string.IsNullOrWhiteSpace(Configuration.apiKey))
             throw new Exception("语言模型的key为空，请检查你的“OpenAI语言模型”插件配置是否正确。");
 
-        chatCompletionsUri = AlifeChatProtocol.CreateChatCompletionsUri(Configuration.endpoint);
-
-        // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
-        SocketsHttpHandler handler = new() {
-            SslOptions = new System.Net.Security.SslClientAuthenticationOptions {
-                RemoteCertificateValidationCallback = delegate {
-                    return true;
-                }
-            },
-            PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-        };
-
-        // 直接使用原生处理器，思考/正文由 AlifeSseParser 原生字段解析
-        httpClient = new HttpClient(handler) {
-            DefaultRequestVersion = HttpVersion.Version11,
-            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
-        };
-
-        if (!string.IsNullOrWhiteSpace(Configuration.extraHeaders))
+        //构建专用httpClient
         {
-            try
+            // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
+            SocketsHttpHandler httpHandler = new() {
+                SslOptions = new System.Net.Security.SslClientAuthenticationOptions {
+                    RemoteCertificateValidationCallback = delegate {
+                        return true;
+                    }
+                },
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            };
+
+            // 直接使用原生处理器，思考/正文由 AlifeSseParser 原生字段解析
+            httpClient = new HttpClient(httpHandler) {
+                DefaultRequestVersion = HttpVersion.Version11,
+                DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
+            };
+
+            //附加请求头
+            if (!string.IsNullOrWhiteSpace(Configuration.extraHeaders))
             {
-                var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(Configuration.extraHeaders);
-                if (headers != null)
+                try
                 {
-                    foreach (var header in headers)
+                    var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(Configuration.extraHeaders);
+                    if (headers != null)
                     {
-                        httpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
+                        foreach (var header in headers)
+                        {
+                            httpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "解析自定义请求头失败");
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "解析自定义请求头失败");
+                }
             }
         }
 
+        //默认思考功能
+        if (Configuration.defaultThinking)
+            thinkingRequester.Rent("默认思考");
+
+        //多模态功能
         if (Configuration.enabledContentTypes.Count > 0)
         {
             XmlFunctionCaller functionCaller = (XmlFunctionCaller)await ChatActivity.Container
-                .RequireInstance(typeof(XmlFunctionCaller));
-            RegisterMultimodalInputHandler(functionCaller);
-        }
+                .RequireInstance(typeof(XmlFunctionCaller), true);
 
-        if (Configuration.defaultThinking)
-            thinkingRequester.Rent("默认思考");
+            XmlHandler? handler = AlifeContentRegistry.BuildHandler(ChatBot,
+                Configuration.enabledContentTypes,
+                Configuration.enabledPersistentContentTypes
+            );
+            if (handler != null)
+                functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
+        }
     }
 
     protected override Task OnDestroy()
@@ -239,19 +224,11 @@ public class OpenAILanguageModel(
             }
         }
 
+        Uri chatCompletionsUri = AlifeChatProtocol.CreateChatCompletionsUri(Configuration.endpoint);
         HttpRequestMessage request = new(HttpMethod.Post, chatCompletionsUri) {
             Content = JsonContent.Create(payload)
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Configuration.apiKey);
         return request;
-    }
-
-    void RegisterMultimodalInputHandler(XmlFunctionCaller functionCaller)
-    {
-        if (Configuration.enabledContentTypes.Count == 0)
-            return;
-
-        XmlHandler handler = AlifeContentRegistry.BuildHandler(ChatBot, Configuration, this);
-        functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
     }
 }

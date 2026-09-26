@@ -87,7 +87,8 @@ public class PrivateMessageSource(long id, QChatServiceConfig config) : MessageS
     """
     连接 OneBot v11 WebSocket 服务器，实现 QQ 消息收发及文件传输。
     可用于搭建服务器QQ机器人平台应用：
-    - https://luckylillia.com（推荐）
+    - https://snowluma.github.io/zh
+    - https://luckylillia.com
     - https://napneko.github.io
     """,
     defaultCategory: "Alife 官方/交互方式",

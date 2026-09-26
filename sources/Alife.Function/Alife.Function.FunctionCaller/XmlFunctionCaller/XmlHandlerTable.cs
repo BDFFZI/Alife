@@ -46,7 +46,7 @@ public class XmlHandlerTable
             foreach (XmlParameter parameter in xmlFunction.Parameters)
             {
                 if (parameter.IsXmlForm)
-                    xmlForms.Add(parameter.Name.ToLower());
+                    xmlForms.Add(parameter.Name);
             }
         }
     }
@@ -79,7 +79,6 @@ public class XmlHandlerTable
 
     public async Task Handle(string name, XmlContext tagContext, CancellationToken cancellationToken = default)
     {
-        name = name.ToLower();
         SortedSet<XmlFunction>? xmlFunctionGroup = xmlFunctions.GetValueOrDefault(name);
         if (xmlFunctionGroup == null || xmlFunctionGroup.Count == 0)
         {

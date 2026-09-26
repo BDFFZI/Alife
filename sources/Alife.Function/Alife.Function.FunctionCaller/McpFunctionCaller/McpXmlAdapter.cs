@@ -50,7 +50,7 @@ public static class McpXmlAdapter
 
     static XmlFunction McpClientToolToXmlFunction(McpClientTool tool, McpClient client, Action<string, string>? resultCallback)
     {
-        string name = tool.Name.ToLower();
+        string name = tool.Name;
         string description = tool.Description;
         (List<XmlParameter> parameters, var typeMap) = ParseInputSchema(tool);
 
@@ -265,7 +265,7 @@ public static class McpXmlAdapter
 
         foreach (JsonProperty prop in properties.EnumerateObject())
         {
-            string paramName = prop.Name.ToLower();
+            string paramName = prop.Name;
             string jsonType = ResolveType(prop.Value);
             string? paramDescription = null;
 

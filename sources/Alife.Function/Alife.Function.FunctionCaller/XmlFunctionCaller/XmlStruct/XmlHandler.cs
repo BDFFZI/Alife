@@ -76,7 +76,7 @@ public class XmlHandler
             if (parameterInfo.Name == null)
                 continue;
 
-            string parameterName = parameterInfo.Name.ToLower();
+            string parameterName = parameterInfo.Name;
             string? parameterDescription = parameterInfo.GetCustomAttribute<DescriptionAttribute>()?.Description;
 
             //特殊参数
@@ -164,7 +164,7 @@ public class XmlHandler
                     if (converter.CanConvertFrom(typeof(string)))
                     {
                         //可以由字符串转换
-                        if (parameterInfo.Name != null && context.Parameters.TryGetValue(parameterInfo.Name.ToLower(), out string? value))
+                        if (parameterInfo.Name != null && context.Parameters.TryGetValue(parameterInfo.Name, out string? value))
                         {
                             //有传入的字符串参数
                             try
@@ -206,7 +206,7 @@ public class XmlHandler
         }
 
         return new XmlFunction {
-            Name = functionAttribute.Name ?? method.Name.ToLower(),
+            Name = functionAttribute.Name ?? method.Name,
             Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
             ContentName = contentName ?? (functionAttribute.Mode != FunctionMode.Content ? null :
                 normalParameters.Any(parameter => parameter.IsXmlForm) ? "" : "Content"),

@@ -24,7 +24,7 @@ public class XmlFunctionAttribute(FunctionMode mode, string? name = null, int or
 
 public class XmlFunction : IComparable<XmlFunction>
 {
-    public required string Name { get; init => field = value.ToLower(); }
+    public required string Name { get; init; }
     public int Order { get; init; }
     public FunctionMode Mode { get; init; }
     public string? Description { get; init; }

@@ -100,7 +100,7 @@ public partial class XmlFunctionCaller(
     public void AddPlainAreas(params IEnumerable<string> plainAreas)
     {
         foreach (var plainArea in plainAreas)
-            this.plainAreas.Add(plainArea.ToLower());
+            this.plainAreas.Add(plainArea);
     }
 
     readonly XmlHandlerTable handlerTable = new();
@@ -269,7 +269,7 @@ public partial class XmlFunctionCaller(
     {
         XmlHandler xmlHandler = new(source.Name + "_Trigger");
         xmlHandler.Functions.Add(new XmlFunction {
-            Name = source.Name.ToLower(),
+            Name = source.Name,
             Invoker = (_, _) => {
                 interactor.Poke(GetExplicitDocument(source));
                 thinkingReasons.Add("即将使用隐式功能");
@@ -294,13 +294,13 @@ public partial class XmlFunctionCaller(
              当你的函数足够丰富后，你可以尝试用如下的方式使用他们，这是官方最佳示例（注意，示例中的函数不一定存在）：
              ```
              (可选，未被标签包裹的文字，用户看不到，所以可以在此实现空消息、自言自语、思考等动作)
-             <speak> <!-- 默认采用语音方式对外输出，并在文本中穿插表情动作，来实现动态的交互效果 -->
-             主人你看我画的好不好看，<expression option="开心" />今天特意给你画的噢！<motion option="摆摆手"/>
+             <Speak> <!-- 默认采用语音方式对外输出，并在文本中穿插表情动作，来实现动态的交互效果 -->
+             主人你看我画的好不好看，<Expression option="开心" />今天特意给你画的噢！<Motion option="摆摆手"/>
              看你每天那么累，给你打打气。
-             </speak>
-             <python> <!-- 因为python执行需要时间，在结尾调用比较合适。 -->
+             </Speak>
+             <Python> <!-- 因为python执行需要时间，在结尾调用比较合适。 -->
              show('cheer.png')
-             <python>
+             <Python>
              ```   
 
              ## 原始字符串区域

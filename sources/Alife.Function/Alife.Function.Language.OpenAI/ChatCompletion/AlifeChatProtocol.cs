@@ -12,7 +12,7 @@ namespace Alife.Function.Language.OpenAI;
 /// 以及从响应中提取用量信息。不依赖 IO 与日志，是纯序列化层。
 /// </summary>
 /// <remarks>
-/// 各内容类型的序列化与注册由 <see cref="IAlifeContentType"/> 实现自行提供，
+/// 各内容类型的序列化与注册由 <see cref="AlifeContentRegistrar"/> 实现自行提供，
 /// 通过 <see cref="AlifeContentRegistry"/> 自动发现，本类不持有具体类型的耦合。
 /// </remarks>
 public static class AlifeChatProtocol

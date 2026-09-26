@@ -191,7 +191,7 @@ public class XmlStreamParser
         if (plainAreas == null)
             this.plainAreas = [];
         else
-            this.plainAreas = [..plainAreas.Select(t => t.ToLower())];
+            this.plainAreas = [..plainAreas];
     }
 
     //注释状态
@@ -284,12 +284,12 @@ public class XmlStreamParser
         if (currentTagName == null)//正在解析名称
         {
             if (tagBuffer.Length != 0)
-                currentTagName = ExtractTagContent().ToLower();
+                currentTagName = ExtractTagContent();
         }
         else if (currentTagAttributeName == null)//正在解析属性名
         {
             if (tagBuffer.Length != 0)
-                currentTagAttributeName = ExtractTagContent().ToLower();
+                currentTagAttributeName = ExtractTagContent();
         }
     }
 

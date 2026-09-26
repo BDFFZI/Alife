@@ -37,7 +37,7 @@ configurationSystem.SetConfiguration(typeof(OpenAILanguageModel), new OpenAILang
     defaultThinking = false,
     extraBody = "{}",
     extraBodyNotThinking = "{}",
-    enabledContentTypes = new HashSet<string> { "image_url", "video_url", "file" }
+    enabledContentTypes = new HashSet<string> { "image_url", "video_url", "input_audio" }
 }, character.StorageKey);
 
 ChatActivitySystem activities = provider.GetRequiredService<ChatActivitySystem>();
