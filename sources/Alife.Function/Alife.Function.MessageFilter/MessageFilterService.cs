@@ -45,6 +45,7 @@ public partial class MessageFilterService(
     public MessageFilterServiceConfig Configuration { get; set; } = null!;
     public IReadOnlyList<MessageReplyRule> MessageReplyRules => messageReplyRules;
 
+    public bool IsEnabledTimestamp => Configuration.EnableTimestamp;
     public void AddMessageReplyRule(MessageReplyRule messageReplyRule, CancellationToken cancellationToken = default)
     {
         messageReplyRules.Add(messageReplyRule);
