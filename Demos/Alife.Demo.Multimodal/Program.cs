@@ -10,7 +10,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 const string apiKeyEnvironmentVariable = "ALIFE_GLM_API_KEY";
 string apiKey = Environment.GetEnvironmentVariable(apiKeyEnvironmentVariable)
-    ?? throw new InvalidOperationException($"请设置 {apiKeyEnvironmentVariable} 后再运行此 Demo。");
+                ?? throw new InvalidOperationException($"请设置 {apiKeyEnvironmentVariable} 后再运行此 Demo。");
 
 string imagePath = Path.Combine(Path.GetTempPath(), "alife-multimodal-demo.png");
 await File.WriteAllBytesAsync(imagePath, Convert.FromBase64String(
@@ -37,12 +37,13 @@ configurationSystem.SetConfiguration(typeof(OpenAILanguageModel), new OpenAILang
     defaultThinking = false,
     extraBody = "{}",
     extraBodyNotThinking = "{}",
-    enabledContentTypes = new HashSet<string> { "image_url", "video_url", "input_audio" }
+    enabledContentTypes = ["image_url", "video_url", "input_audio"],
+    enabledPersistentContentTypes = ["image_url", "video_url", "input_audio"],
 }, character.StorageKey);
 
 ChatActivitySystem activities = provider.GetRequiredService<ChatActivitySystem>();
 ChatActivity activity = await activities.Activate(character)
-    ?? throw new InvalidOperationException("无法激活多模态 Demo 对话。");
+                        ?? throw new InvalidOperationException("无法激活多模态 Demo 对话。");
 
 try
 {
