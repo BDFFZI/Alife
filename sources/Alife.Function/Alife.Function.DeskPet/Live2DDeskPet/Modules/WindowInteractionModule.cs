@@ -33,7 +33,10 @@ public class WindowInteractionModule : IPetModule
         detector.WindowShaken += () => Play("window_shake", "大幅晃动");
         detector.WindowMoved += () => Play("window_move", "快速移动");
         detector.MouseShaken += () => Play("mouse_shake", "鼠标快速转圈");
+    }
 
+    public void OnStart()
+    {
         Play("startup", "启动");
     }
     void OnMouseMoved()

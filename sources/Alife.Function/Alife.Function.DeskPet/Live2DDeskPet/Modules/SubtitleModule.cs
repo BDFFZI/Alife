@@ -46,19 +46,36 @@ messageBus.on('hide-bubble', () => {
 });
 ";
 
+    public event Action? Showed;
+    public event Action? Hid;
+
     public void Show(string text)
     {
         bridge.SendMessage("bubble", new { text });
         lastShowingTime = DateTime.Now;
         maxShowingTime = Math.Max(text.Length * 200, 1500);
+        if (isShowing == false)
+        {
+            isShowing = true;
+            Showed?.Invoke();
+        }
     }
 
-    public void Hide() => bridge.SendMessage("hide-bubble");
+    public void Hide()
+    {
+        bridge.SendMessage("hide-bubble");
+        if (isShowing)
+        {
+            isShowing = false;
+            Hid?.Invoke();
+        }
+    }
 
     readonly PetBridge bridge;
     readonly CancellationTokenSource? cancellationTokenSource;
     DateTime? lastShowingTime;
     int maxShowingTime;
+    bool isShowing;
 
     public SubtitleModule(PetBridge bridge)
     {

@@ -26,13 +26,14 @@ else
                         <SelectOptions>
                             @foreach (var folder in modelFolders)
                             {
-                                <SelectOption TItem="string" TItemValue="string" Value="@folder" Label="@folder" />
+                                <SelectOption TItem="string" TItemValue="string" Value="@folder" Label="@folder"/>
                             }
                         </SelectOptions>
                     </Select>
                     <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                        从存储目录 <code>Storage/DeskPet/Live2D/model/</code> 下的模型文件夹中选择。
-                        将按 <code>{名称}/{名称}.model3.json</code> 或 <code>{名称}/{名称}.model.json</code> 规则加载。留空则使用默认角色 "Mao"。
+                        从模型文件夹中选择。
+                        将按 <code>{名称}/{名称}.model3.json</code> 或 <code>{名称}/{名称}.model.json</code>
+                        规则加载。留空则使用默认角色 "Mao"。
                     </Text>
                 </FormItem>
             </Form>
@@ -48,7 +49,7 @@ else
             <Card Size="CardSize.Small" Title="自定义模型说明" Style="border-radius: 8px;">
                 <div style="padding: 8px 0; font-size: 13px; line-height: 1.8;">
                     <Text Type="TextElementType.Secondary">
-                        1. 将 Live2D Cubism 模型文件夹放入存储目录 <code>Storage/DeskPet/Live2D/model/</code> 中。<br/>
+                        1. 通过上面的“打开模型文件夹”按钮，打开模型存储目录，将你的 Live2D Cubism 模型放入其中。<br/>
                         2. 输入文件夹名即可加载，系统自动按 <code>{{名称}}/{{名称}}.model3.json</code> 或 <code>{{名称}}/{{名称}}.model.json</code>
                         定位。<br/>
                         3. 本系统额外支持 <code>Interaction</code> 扩展字段，定义点击/晃动/启动等交互反馈。

@@ -15,23 +15,35 @@ public class GazeModule : IPetModule, IDisposable
     readonly CancellationTokenSource? cancellationTokenSource;
     DateTime? lastMouseMoveTime;
 
-    public GazeModule(PetBridge bridge, PetWindow window)
+    public GazeModule(PetBridge bridge, PetWindow window, SubtitleModule subtitleModule)
     {
         this.bridge = bridge;
         this.window = window;
 
         window.MouseMoved += OnMouseMoved;
+        subtitleModule.Showed += OnSubtitleShowed;
+        subtitleModule.Hid += OnSubtitleHid;
+
         cancellationTokenSource = new CancellationTokenSource();
         FocusResetLoop(cancellationTokenSource.Token);
     }
 
     public void Dispose()
     {
-        window.MouseMoved -= OnMouseMoved;
         cancellationTokenSource?.Cancel();
         cancellationTokenSource?.Dispose();
     }
 
+
+    void OnSubtitleShowed()
+    {
+        window.MouseMoved -= OnMouseMoved;
+        LookCenter();
+    }
+    void OnSubtitleHid()
+    {
+        window.MouseMoved += OnMouseMoved;
+    }
     void OnMouseMoved()
     {
         Point point = window.CursorScreenPoint;
@@ -41,6 +53,8 @@ public class GazeModule : IPetModule, IDisposable
         });
         lastMouseMoveTime = DateTime.Now;
     }
+
+
     async void FocusResetLoop(CancellationToken cancellationToken)
     {
         try
@@ -53,11 +67,7 @@ public class GazeModule : IPetModule, IDisposable
 
                 if (DateTime.Now - lastMouseMoveTime.Value > TimeSpan.FromSeconds(3))
                 {
-                    bridge.SendMessage("look", new {
-                        x = window.Bounds.Width / 2,
-                        y = window.Bounds.Height / 2,
-                        instant = false
-                    });
+                    LookCenter();
                     lastMouseMoveTime = null;
                 }
             }
@@ -67,5 +77,14 @@ public class GazeModule : IPetModule, IDisposable
         {
             AlifeLog.LogError(e);
         }
+    }
+
+    void LookCenter()
+    {
+        bridge.SendMessage("look", new {
+            x = window.Bounds.Width / 2,
+            y = window.Bounds.Height / 2,
+            instant = false
+        });
     }
 }

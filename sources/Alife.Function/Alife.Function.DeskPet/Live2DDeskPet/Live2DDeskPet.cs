@@ -248,5 +248,8 @@ public partial class Live2DDeskPet(
         {
             await bridge.ExecuteJavaScriptAsync(module.JsCode!);
         }
+
+        foreach (IPetModule petModule in modules)
+            petModule.OnStart();
     }
 }

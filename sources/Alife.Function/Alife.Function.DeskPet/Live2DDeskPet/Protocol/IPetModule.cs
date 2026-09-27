@@ -8,4 +8,6 @@ public interface IPetModule
     string? CssCode => null;
     string? HtmlCode => null;
     string? JsCode => null;
+
+    void OnStart() { }
 }
