@@ -131,7 +131,6 @@ public class XmlHandlerTable
                     else
                     {
                         parallelTaskPool[name] = parallelTaskPool[source].ContinueWith(async _ => {
-                            Console.WriteLine($"{name} {tagContext.CallMode} {tagContext.Content}");
                             await xmlFunction.Invoker(tagContext, cancellationToken);
                         }, CancellationToken.None).Unwrap();
                     }
