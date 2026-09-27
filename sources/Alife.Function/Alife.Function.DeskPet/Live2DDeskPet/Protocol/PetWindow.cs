@@ -161,12 +161,16 @@ public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) :
             {
                 await Task.Delay(30, cancellationToken);
 
-                Point newCursorPoint = await Electron.Screen.GetCursorScreenPointAsync();
-                if (cursorScreenPoint.X != newCursorPoint.X || cursorScreenPoint.Y != newCursorPoint.Y)
+                try
                 {
-                    cursorScreenPoint = newCursorPoint;
-                    MouseMoved?.Invoke();
+                    Point newCursorPoint = await Electron.Screen.GetCursorScreenPointAsync();
+                    if (cursorScreenPoint.X != newCursorPoint.X || cursorScreenPoint.Y != newCursorPoint.Y)
+                    {
+                        cursorScreenPoint = newCursorPoint;
+                        MouseMoved?.Invoke();
+                    }
                 }
+                catch (TimeoutException) { }
             }
         }
         catch (OperationCanceledException) { }
