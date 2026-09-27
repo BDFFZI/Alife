@@ -38,22 +38,9 @@ public class DeskPetService(
             switch (context.CallMode)
             {
                 case CallMode.Opening:
-                    lastBubbleEndTime = 0;
                     break;
                 case CallMode.Closing:
-                {
-                    try
-                    {
-                        if (DateTimeOffset.Now.ToUnixTimeMilliseconds() < lastBubbleEndTime)
-                            await Task.Delay(TimeSpan.FromMilliseconds(lastBubbleEndTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()),
-                                cancellationToken);
-                    }
-                    finally
-                    {
-                        await pet.ShowSubtitle(null);
-                    }
                     break;
-                }
                 case CallMode.Content:
                 {
                     content = content.Trim();
@@ -153,6 +140,14 @@ public class DeskPetService(
             CorrectionMessage = () => $"{nameof(DeskPetService)}消息必须用{nameof(Speak)}标签回复。如果不想发送消息，也请发送空标签。"
         }, DestroyCancellationToken);
 
+        ChatBot.ChatSent += OnChatSent;
+
+        return Task.CompletedTask;
+    }
+    protected override Task OnDestroy()
+    {
+        ChatBot.ChatSent -= OnChatSent;
+
         return Task.CompletedTask;
     }
     protected override Task OnStart()
@@ -172,5 +167,10 @@ public class DeskPetService(
         }
 
         return Task.CompletedTask;
+    }
+
+    void OnChatSent(string _)
+    {
+        lastBubbleEndTime = 0; //新对话开始，可以直接打断老气泡
     }
 }

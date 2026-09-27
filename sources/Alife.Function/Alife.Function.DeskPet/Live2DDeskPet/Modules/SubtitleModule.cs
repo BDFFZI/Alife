@@ -50,6 +50,7 @@ messageBus.on('hide-bubble', () => {
     {
         bridge.SendMessage("bubble", new { text });
         lastShowingTime = DateTime.Now;
+        maxShowingTime = Math.Max(text.Length * 200, 1500);
     }
 
     public void Hide() => bridge.SendMessage("hide-bubble");
@@ -57,6 +58,7 @@ messageBus.on('hide-bubble', () => {
     readonly PetBridge bridge;
     readonly CancellationTokenSource? cancellationTokenSource;
     DateTime? lastShowingTime;
+    int maxShowingTime;
 
     public SubtitleModule(PetBridge bridge)
     {
@@ -82,8 +84,9 @@ messageBus.on('hide-bubble', () => {
                 if (lastShowingTime == null)
                     continue;
 
-                if (DateTime.Now - lastShowingTime > TimeSpan.FromSeconds(6))
+                if (DateTime.Now - lastShowingTime > TimeSpan.FromMilliseconds(maxShowingTime))
                 {
+                    Console.WriteLine("自动关闭");
                     Hide();
                     lastShowingTime = null;
                 }
