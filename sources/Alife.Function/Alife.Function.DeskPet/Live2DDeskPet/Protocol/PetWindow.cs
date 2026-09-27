@@ -54,7 +54,7 @@ public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) :
         //获取基础属性
         Display primary = await Electron.Screen.GetPrimaryDisplayAsync();
         defaultBounds = new Rectangle {
-            X = primary.WorkArea.X + primary.WorkArea.Width - 600,
+            X = primary.WorkArea.X + primary.WorkArea.Width - 700,
             Y = primary.WorkArea.Y + primary.WorkArea.Height - 210,
             Width = 320,
             Height = 480,

@@ -215,6 +215,17 @@ body:hover #pet-btn { opacity:1; }
         }
     }
 
+    /// <summary>重置模型缩放与偏移到默认值，并立即同步到渲染进程。</summary>
+    public void Reset()
+    {
+        lock (persistLock)
+        {
+            state = new MoveScaleState();
+            storage.SetObject(stateKey, state);
+        }
+        bridge.SendMessage("pet_state", new { scale = state.Scale, offsetX = state.OffsetX, offsetY = state.OffsetY });
+    }
+
     void OnBridgeMessage(string type, JsonElement data)
     {
         switch (type)

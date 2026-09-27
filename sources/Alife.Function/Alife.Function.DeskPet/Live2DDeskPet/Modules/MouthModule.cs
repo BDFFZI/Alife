@@ -6,8 +6,9 @@ namespace Alife.Function.DeskPet;
 
 /// <summary>
 /// 说话口型模块：字幕气泡显示期间按时间噪声连续张合，气泡消失后停下。
+/// 开关见 <see cref="Live2DDeskPetConfig.MouthEnabled"/>（默认打开），运行时切换下次说话生效；
 /// 只认模型配置里声明的口型参数（model3.json Groups 中 Target=Parameter、Name=LipSync 的 Ids），
-/// 没有声明的模型不会注入口型脚本，也不会发送口型消息。
+/// 没有声明的模型不会发送口型消息。
 /// 写入点选在模型每帧送渲染之前（beforeModelUpdate）：此时待机动作/表情/物理都已写完，
 /// 我们的写入是本帧最后一次，不会被盖掉。ticker 写入仅作兜底。
 /// 字幕的显示/隐藏状态由 SubtitleModule 判定（Show 刷新计时、超时自动 Hid），这里直接跟随。
@@ -124,13 +125,15 @@ public class MouthModule : IPetModule, IDisposable
 
     readonly PetBridge bridge;
     readonly PetModelMetadata metadata;
+    readonly Live2DDeskPetConfig config;
     readonly SubtitleModule subtitleModule;
     bool speaking;
 
-    public MouthModule(PetBridge bridge, PetModelMetadata metadata, SubtitleModule subtitleModule)
+    public MouthModule(PetBridge bridge, PetModelMetadata metadata, Live2DDeskPetConfig config, SubtitleModule subtitleModule)
     {
         this.bridge = bridge;
         this.metadata = metadata;
+        this.config = config;
         this.subtitleModule = subtitleModule;
         subtitleModule.Showed += StartSpeaking;
         subtitleModule.Hid += StopSpeaking;
@@ -145,7 +148,7 @@ public class MouthModule : IPetModule, IDisposable
 
     void StartSpeaking()
     {
-        if (metadata.LipSyncParameterIds.Count == 0 || speaking)
+        if (config.MouthEnabled == false || metadata.LipSyncParameterIds.Count == 0 || speaking)
             return;
         speaking = true;
         bridge.SendMessage("mouth_speaking", new { on = true, ids = metadata.LipSyncParameterIds });

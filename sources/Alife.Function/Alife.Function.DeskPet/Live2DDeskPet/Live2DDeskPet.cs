@@ -131,10 +131,11 @@ public partial class Live2DDeskPet(
         }
     }
 
-    /// <summary>将桌宠窗口恢复到默认位置与大小（用于桌宠意外跑出屏幕后重置）。</summary>
+    /// <summary>将桌宠窗口恢复到默认位置与大小，并重置模型缩放与偏移（用于桌宠意外跑出屏幕后重置）。</summary>
     public void ResetWindow()
     {
         window.ResetBounds();
+        moveScaleModule?.Reset();
     }
 
     PetModelMetadata metadata = null!;
@@ -143,6 +144,7 @@ public partial class Live2DDeskPet(
     SubtitleModule subtitleModule = null!;
     ExpressionModule expressionModule = null!;
     UsingModule usingModule = null!;
+    MoveScaleModule? moveScaleModule;
 
     protected override async Task OnAwake()
     {
@@ -172,6 +174,7 @@ public partial class Live2DDeskPet(
             subtitleModule = provider.GetRequiredService<SubtitleModule>();
             expressionModule = provider.GetRequiredService<ExpressionModule>();
             usingModule = provider.GetRequiredService<UsingModule>();
+            moveScaleModule = provider.GetRequiredService<MoveScaleModule>();
         }
         catch
         {
@@ -193,6 +196,7 @@ public partial class Live2DDeskPet(
         ServiceCollection services = new();
         services.AddSingleton(logger);
         services.AddSingleton(metadata);
+        services.AddSingleton(Configuration);
         services.AddSingleton(storageSystem);
         services.AddSingleton(new PetStorageKey(Character.StorageKey));
         services.AddSingleton<PetWindow>();

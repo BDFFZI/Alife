@@ -36,6 +36,12 @@ else
                         规则加载。留空则使用默认角色 "Mao"。
                     </Text>
                 </FormItem>
+                <FormItem Label="说话口型">
+                    <Switch @bind-Value="@Configuration.MouthEnabled"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                        字幕出现时角色张嘴。仅模型声明了口型参数时生效。
+                    </Text>
+                </FormItem>
             </Form>
 
             <Button Type="@ButtonType.Default" Icon="folder-open" OnClick="OpenModelFolder">
@@ -43,7 +49,7 @@ else
             </Button>
 
             <Button Type="@ButtonType.Default" Icon="reload" OnClick="ResetWindow">
-                重置窗口位置大小
+                重置桌宠位置大小
             </Button>
 
             <Card Size="CardSize.Small" Title="自定义模型说明" Style="border-radius: 8px;">
