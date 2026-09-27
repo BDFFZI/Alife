@@ -15,11 +15,12 @@ public enum FunctionMode
 }
 
 [AttributeUsage(AttributeTargets.Method)]
-public class XmlFunctionAttribute(FunctionMode mode, string? name = null, int order = 0) : Attribute
+public class XmlFunctionAttribute(FunctionMode mode, string? name = null, int order = 0, bool parallel = false) : Attribute
 {
     public string? Name { get; } = name;
     public int Order { get; } = order;
     public FunctionMode Mode { get; } = mode;
+    public bool Parallel { get; } = parallel;
 }
 
 public class XmlFunction : IComparable<XmlFunction>
@@ -27,6 +28,7 @@ public class XmlFunction : IComparable<XmlFunction>
     public required string Name { get; init; }
     public int Order { get; init; }
     public FunctionMode Mode { get; init; }
+    public bool Parallel { get; init; }
     public string? Description { get; init; }
     public string? ContentName { get; init; }
     public string? ContentDescription { get; init; }

@@ -17,7 +17,7 @@ public class SubtitleModule : IPetModule, IDisposable
 }
 #bubble-container.show { opacity:1; }
 #bubble {
-    background:rgba(255,255,255,0.95);
+    background:rgba(255,255,255,0.9);
     backdrop-filter:blur(8px); border-radius:18px;
     padding:12px 16px; font-family:'Microsoft YaHei',sans-serif;
     font-size:14px; color:#444;
@@ -30,7 +30,7 @@ public class SubtitleModule : IPetModule, IDisposable
     transform:translateX(-50%);
     border-left:8px solid transparent;
     border-right:8px solid transparent;
-    border-top:8px solid rgba(255,255,255,0.95);
+    border-top:8px solid rgba(255,255,255,0.9);
 }
 ";
 
@@ -103,7 +103,6 @@ messageBus.on('hide-bubble', () => {
 
                 if (DateTime.Now - lastShowingTime > TimeSpan.FromMilliseconds(maxShowingTime))
                 {
-                    Console.WriteLine("自动关闭");
                     Hide();
                     lastShowingTime = null;
                 }

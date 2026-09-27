@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -9,9 +10,8 @@ namespace Alife.Function.FunctionCaller;
 
 public class XmlStreamParser
 {
-    public IEnumerable<string> PlainAreas => plainAreas;
-    public IReadOnlyList<string> TagStack => tagStack;
-    public IReadOnlyDictionary<string, string> TagParameters => parsedAttributes;
+    public ImmutableList<string> TagStack => tagStack;
+    public ImmutableDictionary<string, string> TagParameters => parsedAttributes;
     public Func<Task>? TagOpened { get; set; }
     public Func<Task>? TagClosed { get; set; }
     public Func<Task>? TagShotted { get; set; }
@@ -177,13 +177,13 @@ public class XmlStreamParser
         {
             if (TagClosed != null)
                 await TagClosed.Invoke();
-            tagStack.RemoveAt(tagStack.Count - 1);
+            tagStack = tagStack.RemoveAt(tagStack.Count - 1);
         }
 
         ClearAnnotation();
         ClearEscaping();
         ClearTag();
-        parsedAttributes.Clear();
+        parsedAttributes = parsedAttributes.Clear();
     }
 
     public XmlStreamParser(IEnumerable<string>? plainAreas = null)
@@ -210,14 +210,14 @@ public class XmlStreamParser
     string? currentTagAttributeName;
     bool isValueParsing;
     char attributeQuoteChar;
-    readonly Dictionary<string, string> parsedAttributes = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> plainAreas = new(StringComparer.OrdinalIgnoreCase);
     readonly StringBuilder contentBuffer = new();
 
     /// 0：开标签；1：闭标签；2：自闭合标签
     int tagMode;
 
-    readonly List<string> tagStack = new();
+    ImmutableList<string> tagStack = ImmutableList<string>.Empty;
+    ImmutableDictionary<string, string> parsedAttributes = ImmutableDictionary<string, string>.Empty;
 
     async Task HandleContentChar(char ch)
     {
@@ -300,7 +300,7 @@ public class XmlStreamParser
             throw new Exception("缺少属性名！请检查调用顺序。");
 
         string currentTagAttributeValue = ExtractTagContent();
-        parsedAttributes[currentTagAttributeName] = currentTagAttributeValue;
+        parsedAttributes = parsedAttributes.SetItem(currentTagAttributeName, currentTagAttributeValue);
         currentTagAttributeName = null;
         isValueParsing = false;
     }
@@ -313,7 +313,7 @@ public class XmlStreamParser
             {
                 case 0:
                     contentBuffer.Clear();
-                    tagStack.Add(currentTagName);
+                    tagStack = tagStack.Add(currentTagName);
                     if (TagOpened != null)
                         await TagOpened.Invoke();
                     break;
@@ -330,20 +330,20 @@ public class XmlStreamParser
                         Error?.Invoke(tagStack.Last(), new Exception($"检测到无效的孤儿开标签：{tagStack.Last()}"));
                         if (TagClosed != null)
                             await TagClosed.Invoke(); //因为入栈且调用过函数，所以要回调
-                        tagStack.RemoveAt(tagStack.Count - 1);
+                        tagStack = tagStack.RemoveAt(tagStack.Count - 1);
                     }
 
                     if (TagClosed != null)
                         await TagClosed.Invoke();
-                    tagStack.RemoveAt(tagStack.Count - 1);
-                    parsedAttributes[currentTagName] = contentBuffer.ToString();
+                    tagStack = tagStack.RemoveAt(tagStack.Count - 1);
+                    parsedAttributes = parsedAttributes.SetItem(currentTagName, contentBuffer.ToString());
                     contentBuffer.Clear();
                     break;
                 case 2:
-                    tagStack.Add(currentTagName);
+                    tagStack = tagStack.Add(currentTagName);
                     if (TagShotted != null)
                         await TagShotted.Invoke();
-                    tagStack.RemoveAt(tagStack.Count - 1);
+                    tagStack = tagStack.RemoveAt(tagStack.Count - 1);
                     break;
             }
         }
@@ -351,8 +351,8 @@ public class XmlStreamParser
         isTagParsing = false;
         currentTagName = null;
         currentTagAttributeName = null;
-        if (tagStack.Count == 0) //TODO 缺少正确的Xml参数环境，目前等于不清除，虽然确保闭标签时也能拿到参数，但可能污染其他标签。
-            parsedAttributes.Clear();
+        if (tagStack.Count == 0) //由于没有记录每层级下的参数信息，所以没法进行参数的按层推入推出，存在污染其他标签参数的问题
+            parsedAttributes = parsedAttributes.Clear();
         tagMode = 0;
     }
 

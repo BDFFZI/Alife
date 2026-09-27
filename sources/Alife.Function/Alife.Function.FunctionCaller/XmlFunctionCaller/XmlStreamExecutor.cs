@@ -1,17 +1,17 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
+using Alife.Foundation;
 
 namespace Alife.Function.FunctionCaller;
 
 public class XmlExecutorContext : XmlContext
 {
-    public required IReadOnlyList<string> CallChain { get; init; }
-
     public string AboveContent { get; init; } = "";
     public string? AboveSeparator { get; init; }
     public string FullContent => AboveContent + Content;
@@ -27,33 +27,46 @@ public class XmlStreamExecutor : IAsyncDisposable
     /// 接收意图调用的函数（函数可能不存在）
     /// </summary>
     public event Action<string, XmlContext>? Handling;
+    public event Action<string>? HandlingUpdated;
 
-    public bool IsInactive =>
-        commandChannel.Reader.TryPeek(out _) == false &&
-        lastTask is null or { IsCompleted: true } || processingTokenSource.IsCancellationRequested;
+    public bool IsFeeding => fedCompletionSource.Task.IsCompleted;
 
+    public void StartFeeding()
+    {
+        fedCompletionSource = new TaskCompletionSource();
+    }
+
+    /// <summary>
+    /// 向解析队列中推入字符并可能的触发事件
+    /// </summary>
+    /// <param name="text"></param>
     public void Feed(string text)
     {
         foreach (char ch in text)
-            commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Feed, ch));
+            commandChannel.Add(new StreamCommand(CommandType.Feed, ch));
     }
-    public void Flush()
+
+    /// <summary>
+    /// 向解析队列中推入flash信号，使解析器在收到后立即结算缓存的所有字符并触发相应事件
+    /// </summary>
+    public Task EndFeeding()
     {
-        commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Flush));
+        commandChannel.Add(new StreamCommand(CommandType.Flush));
+        return fedCompletionSource.Task;
     }
-    public async Task CancelAndClearAsync()
+
+    /// <summary>
+    /// 排空还未解析的字符，并对已触发的事件发送取消信号，然后等待解析队列完全空出
+    /// </summary>
+    public async Task CancelFeeding()
     {
-        while (commandChannel.Reader.TryRead(out _)) { }
+        //取消未进入的
+        while (commandChannel.TryTake(out _)) { }
+        //取消已进入的
         await handleTokenSource.CancelAsync();
-        Flush();
-        await WaitToInactive();
-    }
-    public async Task WaitToInactive(CancellationToken cancellationToken = default)
-    {
-        while (IsInactive == false)
-        {
-            await Task.Delay(100, cancellationToken);
-        }
+        handleTokenSource = new CancellationTokenSource();
+        //等待Flush完成
+        await EndFeeding();
     }
 
     enum CommandType
@@ -68,18 +81,15 @@ public class XmlStreamExecutor : IAsyncDisposable
     readonly XmlHandlerTable handler;
     readonly string[] sentenceBreakers;
     readonly int minBreakingLength;
+
     readonly CancellationTokenSource processingTokenSource;
-
-    readonly Channel<StreamCommand> commandChannel = Channel.CreateUnbounded<StreamCommand>(new UnboundedChannelOptions {
-        SingleReader = true,
-        SingleWriter = false,
-    });
-
+    readonly BlockingCollection<StreamCommand> commandChannel = new();
+    TaskCompletionSource fedCompletionSource = new();
 
     readonly List<StringBuilder> aboveContentBuffer = new();
     readonly StringBuilder contentBuffer = new();
-    Task? lastTask;
     CancellationTokenSource handleTokenSource = new();
+    readonly Dictionary<string, Task> parallelTaskPool = new(StringComparer.OrdinalIgnoreCase);
 
     public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handler, string[]? sentenceBreakers = null,
         int minBreakingLength = 0)
@@ -103,35 +113,31 @@ public class XmlStreamExecutor : IAsyncDisposable
         await processingTokenSource.CancelAsync();
     }
 
-    async void LoopProcessInput(CancellationToken cancellationToken = default)
+    void LoopProcessInput(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            while (await commandChannel.Reader.WaitToReadAsync(cancellationToken))
+        Task.Run(async () => {
+            try
             {
-                while (commandChannel.Reader.TryRead(out StreamCommand cmd))
+                while (cancellationToken.IsCancellationRequested == false)
                 {
+                    StreamCommand cmd = commandChannel.Take(cancellationToken);
                     switch (cmd.Type)
                     {
                         case CommandType.Feed:
-                            // Console.Write(cmd.Data);
-                            await (lastTask = parser.Feed(cmd.Data));
+                            await parser.Feed(cmd.Data);
                             break;
                         case CommandType.Flush:
-                            // Console.Write("[Flush]");
-                            await (lastTask = parser.Flush(true));
-                            ClearContentBuffer();
-                            handleTokenSource = new CancellationTokenSource();
+                            await OnCommandFlush();
                             break;
                     }
                 }
             }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
+            catch (OperationCanceledException) { }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        }, cancellationToken);
     }
 
     async Task OnTagOpened()
@@ -200,11 +206,13 @@ public class XmlStreamExecutor : IAsyncDisposable
         if (content == string.Empty)
             return;
 
+        ImmutableList<string> callChain = parser.TagStack;
+        if (skipTop) callChain = callChain.RemoveAt(callChain.Count - 1);
+
         for (int index = parser.TagStack.Count - (skipTop ? 2 : 1); index >= 0; index--)
         {
             string tagName = parser.TagStack[index];
             string aboveContent = aboveContentBuffer[index].ToString();
-            IReadOnlyList<string> callChain = parser.TagStack.Take(index + 1).ToList();
             XmlExecutorContext context = new() {
                 CallChain = callChain,
                 CallMode = CallMode.Content,
@@ -223,6 +231,8 @@ public class XmlStreamExecutor : IAsyncDisposable
 
             //缓存内容
             aboveContentBuffer[index].Append(content);
+            //隔离调用链
+            callChain = callChain.RemoveAt(callChain.Count - 1);
         }
     }
 
@@ -237,14 +247,18 @@ public class XmlStreamExecutor : IAsyncDisposable
     {
         try
         {
+            if (tagContext.CallMode == CallMode.Opening || tagContext.CallMode == CallMode.OneShot)
+                HandlingUpdated?.Invoke(name);
+
             Handling?.Invoke(name, tagContext);
+
             if (tagContext.Parameters.TryGetValue("#parallel", out string? parallel) == false || parallel != "true")
             {
-                await handler.Handle(name, tagContext, handleTokenSource.Token);
+                await handler.Handle(name, tagContext, parallelTaskPool, handleTokenSource.Token);
             }
             else
             {
-                Task task = handler.Handle(name, tagContext, processingTokenSource.Token);
+                Task task = handler.Handle(name, tagContext, parallelTaskPool, processingTokenSource.Token);
                 _ = task.ContinueWith(task => {
                     if (task.IsFaulted)
                         Error?.Invoke(name, task.Exception);
@@ -255,5 +269,31 @@ public class XmlStreamExecutor : IAsyncDisposable
         {
             Error?.Invoke(name, e.InnerException ?? e);
         }
+    }
+
+    async Task OnCommandFlush()
+    {
+        await parser.Flush(true);
+
+        foreach ((string name, Task task) in parallelTaskPool)
+        {
+            if (task.IsCompleted == false)
+                HandlingUpdated?.Invoke(name);
+
+            try
+            {
+                await task;
+            }
+            catch (Exception e)
+            {
+                Error?.Invoke(name, e.InnerException ?? e);
+            }
+        }
+
+        parallelTaskPool.Clear();
+        ClearContentBuffer();
+
+        if (fedCompletionSource.Task.IsCompleted == false)
+            fedCompletionSource.SetResult();
     }
 }

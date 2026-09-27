@@ -213,6 +213,7 @@ public class XmlHandler
             ContentDescription = contentDescription,
             Parameters = normalParameters,
             Order = functionAttribute.Order,
+            Parallel = functionAttribute.Parallel,
             Invoker = Invoker,
         };
     }

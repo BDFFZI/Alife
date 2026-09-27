@@ -38,6 +38,9 @@ public class PetModelMetadata
     public Dictionary<string, (string Group, int Index)> Motions { get; } = new();
     public Dictionary<string, List<InteractionItem>> Interactions { get; } = new();
 
+    /// <summary>模型声明的口型同步参数（model3.json Groups 里 Target=Parameter、Name=LipSync 的 Ids）。</summary>
+    public List<string> LipSyncParameterIds { get; } = new();
+
     /// <summary>从模型目录加载元数据（目录内按规范解析模型描述文件）。</summary>
     public static PetModelMetadata Load(string modelDirectory)
     {
@@ -89,6 +92,33 @@ public class PetModelMetadata
                             : item.Name;
                         if (string.IsNullOrEmpty(name) == false)
                             metadata.Motions[name] = (groupName, index);
+                    }
+                }
+            }
+
+            // 收集模型声明的口型同步参数：只认 Target=Parameter、Name=LipSync 的分组。
+            // 不同模型嘴参数不同（例如 Mao 用 ParamA，lafei_4 用 ParamMouthOpenY），这里不写死参数名。
+            if (root.TryGetProperty("Groups", out JsonElement groupsJson)
+                && groupsJson.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement group in groupsJson.EnumerateArray())
+                {
+                    if (group.TryGetProperty("Target", out JsonElement targetProp) == false
+                        || group.TryGetProperty("Name", out JsonElement nameProp) == false
+                        || group.TryGetProperty("Ids", out JsonElement idsProp) == false
+                        || idsProp.ValueKind != JsonValueKind.Array)
+                        continue;
+
+                    if (string.Equals(targetProp.GetString(), "Parameter", StringComparison.OrdinalIgnoreCase) == false
+                        || string.Equals(nameProp.GetString(), "LipSync", StringComparison.OrdinalIgnoreCase) == false)
+                        continue;
+
+                    foreach (JsonElement id in idsProp.EnumerateArray())
+                    {
+                        string? parameterId = id.GetString();
+                        if (string.IsNullOrEmpty(parameterId) == false
+                            && metadata.LipSyncParameterIds.Contains(parameterId) == false)
+                            metadata.LipSyncParameterIds.Add(parameterId);
                     }
                 }
             }

@@ -23,7 +23,7 @@ public class SpeechService(
 {
     public bool IsSpeaking => playAudioTask is { IsCompleted: false };
 
-    [XmlFunction(FunctionMode.Content, order: -10)]
+    [XmlFunction(FunctionMode.Content, order: -10, parallel: true)]
     [Description("将文本以语音方式输出（这应该是你默认对外的交互方式）")]
     public async Task Speak(XmlExecutorContext context, CancellationToken cancellationToken)
     {
@@ -32,14 +32,14 @@ public class SpeechService(
             switch (context.CallMode)
             {
                 case CallMode.Opening:
+                    break;
+                case CallMode.Closing:
                     try
                     {
                         if (IsSpeaking)
                             await playAudioTask;
                     }
                     catch (OperationCanceledException) { }
-                    break;
-                case CallMode.Closing:
                     break;
                 case CallMode.Content:
                 {

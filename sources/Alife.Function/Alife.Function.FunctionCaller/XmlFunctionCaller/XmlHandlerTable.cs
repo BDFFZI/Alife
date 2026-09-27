@@ -48,15 +48,20 @@ public class XmlHandlerTable
                 if (parameter.IsXmlForm)
                     xmlForms.Add(parameter.Name);
             }
+
+            if (xmlFunction.Parallel)
+                parallelFunctions.Add(xmlFunction.Name);
         }
     }
     public void Unregister(XmlHandler handler)
     {
         xmlHandlers.Remove(handler);
-        foreach (XmlFunction xmlHandlerFunction in handler.Functions)
+        foreach (XmlFunction xmlFunction in handler.Functions)
         {
-            if (xmlFunctions.TryGetValue(xmlHandlerFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
-                xmlFunctionGroup.Remove(xmlHandlerFunction);
+            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
+                xmlFunctionGroup.Remove(xmlFunction);
+
+            parallelFunctions.Remove(xmlFunction.Name);
         }
     }
 
@@ -66,7 +71,7 @@ public class XmlHandlerTable
     /// <param name="function"></param>
     public void EnableFunction(XmlFunction function)
     {
-        functions.Remove(function);
+        disabledFunctions.Remove(function);
     }
     /// <summary>
     /// 被禁用的函数将被跳过执行
@@ -74,10 +79,11 @@ public class XmlHandlerTable
     /// <param name="function"></param>
     public void DisableFunction(XmlFunction function)
     {
-        functions.Add(function);
+        disabledFunctions.Add(function);
     }
 
-    public async Task Handle(string name, XmlContext tagContext, CancellationToken cancellationToken = default)
+    public async Task Handle(string name, XmlContext tagContext, Dictionary<string, Task> parallelTaskPool,
+        CancellationToken cancellationToken = default)
     {
         SortedSet<XmlFunction>? xmlFunctionGroup = xmlFunctions.GetValueOrDefault(name);
         if (xmlFunctionGroup == null || xmlFunctionGroup.Count == 0)
@@ -88,15 +94,56 @@ public class XmlHandlerTable
         }
         foreach (XmlFunction xmlFunction in xmlFunctionGroup)
         {
-            if (functions.Contains(xmlFunction))
+            if (disabledFunctions.Contains(xmlFunction))
                 continue;
-            await xmlFunction.Invoker(tagContext, cancellationToken);
+
+            if (xmlFunction.Parallel)
+            {
+                ContinueParallelTask(name);
+            }
+            else
+            {
+                int index;
+                for (index = tagContext.CallChain.Count - 1; index >= 0; index--)
+                {
+                    string chain = tagContext.CallChain[index];
+                    if (parallelFunctions.Contains(chain))
+                    {
+                        ContinueParallelTask(chain);
+                        break;
+                    }
+                }
+
+                if (index < 0)
+                {
+                    await xmlFunction.Invoker(tagContext, cancellationToken);
+                }
+            }
+
+            void ContinueParallelTask(string source)
+            {
+                lock (parallelTaskPool)
+                {
+                    if (parallelTaskPool.ContainsKey(source) == false)
+                    {
+                        parallelTaskPool[name] = xmlFunction.Invoker(tagContext, cancellationToken);
+                    }
+                    else
+                    {
+                        parallelTaskPool[name] = parallelTaskPool[source].ContinueWith(async _ => {
+                            Console.WriteLine($"{name} {tagContext.CallMode} {tagContext.Content}");
+                            await xmlFunction.Invoker(tagContext, cancellationToken);
+                        }, CancellationToken.None).Unwrap();
+                    }
+                }
+            }
         }
     }
 
     readonly List<XmlHandler> xmlHandlers = new();
     readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, List<XmlHandler>> functionToHandler = new(StringComparer.OrdinalIgnoreCase);
-    readonly HashSet<XmlFunction> functions = new();
+    readonly HashSet<XmlFunction> disabledFunctions = new();
     readonly HashSet<string> xmlForms = new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> parallelFunctions = new(StringComparer.OrdinalIgnoreCase);
 }

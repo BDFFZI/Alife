@@ -15,7 +15,7 @@ namespace Alife.Function.FunctionCaller;
 public class XmlFunctionCallerConfig
 {
     [Description("触发子句分隔的字符标记。调整子句会对字幕、语音生成等流式输出的功能产生影响")]
-    public List<string> Separators { get; set; } = ["，", "。", "！", "？", "......", "~", "…"];
+    public List<string> Separators { get; set; } = ["，", "。", "！", "？", "…", "...", "~", "—", "\n"];
 
     [Description("触发子句分隔的最短文本长度（字符数）")]
     public int MinBreakingLength { get; set; } = 23;
@@ -47,7 +47,7 @@ public partial class XmlFunctionCaller(
 {
     public event Func<Task>? ChatCalledAsync;
     public XmlFunctionCallerConfig Configuration { get; set; } = null!;
-    public bool IsIdle => executor.IsInactive;
+    public bool IsIdle => executor.IsFeeding;
     /// <summary>
     /// 当前系统中的函数调用注册信息。
     /// XmlHandlerTable支持你禁用其中的部分函数，从而实现拦截或手动调用的需求
@@ -153,6 +153,7 @@ public partial class XmlFunctionCaller(
         parser.Error += OnError;
         executor.Error += OnError;
         executor.Handling += OnHandling;
+        executor.HandlingUpdated += OnHandlingUpdated;
 
         //AI输入回调
         ChatBot.ChatSent += OnChatSent;
@@ -161,9 +162,10 @@ public partial class XmlFunctionCaller(
 
         return Task.CompletedTask;
     }
+
     protected override async Task OnDestroy()
     {
-        await executor.CancelAndClearAsync();
+        await executor.CancelFeeding();
         await executor.DisposeAsync();
     }
 
@@ -171,45 +173,11 @@ public partial class XmlFunctionCaller(
     {
         chatOccupationMarker = ChatBot.ResourceOccupiedReason.Rent("函数执行");
         thinkingReasons.Clear();
+        executor.StartFeeding();
     }
     void OnChatReceived(string obj)
     {
         executor.Feed(obj);
-    }
-    void OnHandling(string name, XmlContext context)
-    {
-        chatOccupationMarker!.Reason = $"执行{name}函数";
-
-        if (context.CallMode != CallMode.Opening && context.CallMode != CallMode.OneShot)
-            return;
-
-        //实现当ai调用隐射函数时自动注入对应的隐式文档
-        IReadOnlyList<XmlHandler>? handlers = handlerTable.GetHandlersOfFunction(name);
-        if (handlers != null) //寻找当前函数的调用处理器
-        {
-            foreach (XmlHandler handler in handlers)
-            {
-                if (implicitHandlers.Contains(handler))
-                {
-                    string documentTag = GetDocumentTag(handler);
-                    bool hasDocumentTag = ChatBot.ChatHistory
-                        .Where(content => content.Role == AuthorRole.User)
-                        .Any(content => content.Content?.Contains(documentTag) ?? false);
-
-                    if (hasDocumentTag == false)
-                    {
-                        interactor.Poke(GetExplicitDocument(handler));
-                        thinkingReasons.Add("重新激活隐式功能");
-                    }
-                }
-            }
-        }
-    }
-    void OnError(string tag, Exception exception)
-    {
-        interactor.Poke($"执行{tag}标签出错：{exception.Message}");
-        logger.LogInformation(exception, $"执行{tag}标签出错");
-        thinkingReasons.Add("需要处理函数异常");
     }
     async Task OnChatFinishedAsync(ChatContext chatContext)
     {
@@ -217,13 +185,11 @@ public partial class XmlFunctionCaller(
         {
             try
             {
-                await executor.WaitToInactive(chatContext.CancellationToken);
-                executor.Flush(); //清理缓冲区，内部可能带有残留数据
+                await executor.EndFeeding().WaitAsync(chatContext.CancellationToken);
             }
             catch (OperationCanceledException)
             {
-                //对话被打断，取消执行
-                await executor.CancelAndClearAsync();
+                await executor.CancelFeeding(); //对话被打断，取消执行
             }
 
             ChatBot.ResourceOccupiedReason.Return(chatOccupationMarker!);
@@ -262,6 +228,45 @@ public partial class XmlFunctionCaller(
             thinkingOccupationMarker = null;
         }
     }
+
+    void OnHandling(string name, XmlContext context)
+    {
+        if (context.CallMode != CallMode.Opening && context.CallMode != CallMode.OneShot)
+            return;
+
+        //实现当ai调用隐射函数时自动注入对应的隐式文档
+        IReadOnlyList<XmlHandler>? handlers = handlerTable.GetHandlersOfFunction(name);
+        if (handlers != null) //寻找当前函数的调用处理器
+        {
+            foreach (XmlHandler handler in handlers)
+            {
+                if (implicitHandlers.Contains(handler))
+                {
+                    string documentTag = GetDocumentTag(handler);
+                    bool hasDocumentTag = ChatBot.ChatHistory
+                        .Where(content => content.Role == AuthorRole.User)
+                        .Any(content => content.Content?.Contains(documentTag) ?? false);
+
+                    if (hasDocumentTag == false)
+                    {
+                        interactor.Poke(GetExplicitDocument(handler));
+                        thinkingReasons.Add("重新激活隐式功能");
+                    }
+                }
+            }
+        }
+    }
+    void OnHandlingUpdated(string name)
+    {
+        chatOccupationMarker!.Reason = $"执行{name}函数";
+    }
+    void OnError(string tag, Exception exception)
+    {
+        interactor.Poke($"执行{tag}标签出错：{exception.Message}");
+        logger.LogInformation(exception, $"执行{tag}标签出错");
+        thinkingReasons.Add("需要处理函数异常");
+    }
+
 
     string GetExplicitDocument(XmlHandler handler)
     {
@@ -312,7 +317,7 @@ public partial class XmlFunctionCaller(
              请使用如下方式和用户对话。（注意，示例中的函数不一定存在）
              ```
              <!-- 用户最近有些气馁，我也很难受，我准备给他看我最近发现的一个有趣表情包，来给他加加油！为了展示图片，我需要使用python，并同时配上鼓励的话语-->
-             
+
              <!-- python执行通常需要时间，所以我要先执行python并利用#parallel将其后台运行，从而和后续的说话函数重叠进行 -->
              <Python timeout='7' #parallel='true'>
              import os

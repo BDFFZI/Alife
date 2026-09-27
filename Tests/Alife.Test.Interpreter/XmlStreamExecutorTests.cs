@@ -42,9 +42,9 @@ public class XmlStreamExecutorTests
 
         executor.Feed("<test>Hello. World!</test>");
         executor.Feed("<script timeout=\"20\">if(0 < 1) print(123 > 1)</ script>");
-        executor.Flush();
+        executor.EndFeeding();
 
-        while (executor.IsInactive == false)
+        while (executor.IsFeeding == false)
         {
             await Task.Delay(200);
         }
@@ -67,7 +67,7 @@ public class XmlStreamExecutorTests
         await using XmlStreamExecutor executor = new XmlStreamExecutor(parser, table, [], 100);
 
         executor.Feed("<oneshot />");
-        executor.Flush();
+        executor.EndFeeding();
 
         await Task.Delay(200);
 
@@ -85,7 +85,7 @@ public class XmlStreamExecutorTests
         await using XmlStreamExecutor executor = new XmlStreamExecutor(parser, table, [], 100);
 
         executor.Feed("<test><test>nested</test></test>");
-        executor.Flush();
+        executor.EndFeeding();
 
         await Task.Delay(200);
 
