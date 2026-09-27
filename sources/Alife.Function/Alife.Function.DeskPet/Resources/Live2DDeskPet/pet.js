@@ -136,6 +136,19 @@ function applyTransform() {
     model.position.set(window.innerWidth * 0.5 + userOffsetX, window.innerHeight * 0.48 + userOffsetY);
 }
 
+// 光标是否落在角色身上：按 Live2D 命中的 HitAreas 判定（与双击互动同一套区域）。
+// 放在这里而不是各模块内，是因为命中测试必须和画布坐标对齐，且鼠标穿透状态下
+// 窗口收不到鼠标事件、渲染进程无法自行感知光标，只能由主进程推送坐标后在此判定，
+// 各模块共用同一个入口避免重复实现。
+window.isOverModelAt = function (x, y) {
+    if (!model) return false;
+    try {
+        return model.hitTest(x, y).length > 0;
+    } catch (e) {
+        return false;
+    }
+};
+
 async function loadModel(url) {
     console.log('[Pet] Loading model:', url);
     if (model) app.stage.removeChild(model);
