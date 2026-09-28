@@ -114,7 +114,6 @@ public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) :
 
             TaskCompletionSource tcs = new TaskCompletionSource();
             window.OnReadyToShow += () => {
-                RaiseToTop();
                 window.Show();
                 tcs.SetResult();
             };
@@ -156,17 +155,9 @@ public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) :
     {
         try
         {
-            long nextKeepOnTopAt = 0;
             while (cancellationToken.IsCancellationRequested == false)
             {
                 await Task.Delay(30, cancellationToken);
-
-                //周期性重新声明置顶，把被任务栏压下去的窗口拉回来（详见 KeepOnTopIntervalMs）
-                if (Environment.TickCount64 >= nextKeepOnTopAt)
-                {
-                    RaiseToTop();
-                    nextKeepOnTopAt = Environment.TickCount64 + 500;
-                }
 
                 try
                 {
@@ -185,11 +176,5 @@ public sealed class PetWindow(StorageSystem storage, PetStorageKey storageKey) :
         {
             AlifeLog.LogError(e);
         }
-    }
-
-    /// <summary>把窗口置顶层级提到最高（screen-saver），确保盖过全屏/无边框窗口与任务栏。</summary>
-    void RaiseToTop()
-    {
-        window.SetAlwaysOnTop(true, (OnTopLevel)7, 1);
     }
 }
