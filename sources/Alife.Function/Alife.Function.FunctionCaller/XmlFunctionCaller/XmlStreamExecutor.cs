@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Alife.Foundation;
 
@@ -43,7 +43,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     public void Feed(string text)
     {
         foreach (char ch in text)
-            commandChannel.Add(new StreamCommand(CommandType.Feed, ch));
+            commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Feed, ch));
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     /// </summary>
     public Task EndFeeding()
     {
-        commandChannel.Add(new StreamCommand(CommandType.Flush));
+        commandChannel.Writer.TryWrite(new StreamCommand(CommandType.Flush));
         return fedCompletionSource.Task;
     }
 
@@ -61,7 +61,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     public async Task CancelFeeding()
     {
         //取消未进入的
-        while (commandChannel.TryTake(out _)) {}
+        while (commandChannel.Reader.TryRead(out _)) { }
         //取消已进入的
         await handleTokenSource.CancelAsync();
         handleTokenSource = new CancellationTokenSource();
@@ -83,7 +83,11 @@ public class XmlStreamExecutor : IAsyncDisposable
     readonly int minBreakingLength;
 
     readonly CancellationTokenSource processingTokenSource;
-    readonly BlockingCollection<StreamCommand> commandChannel = new();
+    readonly Channel<StreamCommand> commandChannel = Channel.CreateUnbounded<StreamCommand>(new UnboundedChannelOptions() {
+        SingleWriter = true,
+        SingleReader = true,
+        AllowSynchronousContinuations = true
+    });
     TaskCompletionSource fedCompletionSource = new();
 
     readonly List<StringBuilder> aboveContentBuffer = new();
@@ -113,14 +117,14 @@ public class XmlStreamExecutor : IAsyncDisposable
         await processingTokenSource.CancelAsync();
     }
 
-    void LoopProcessInput(CancellationToken cancellationToken = default)
+    async void LoopProcessInput(CancellationToken cancellationToken = default)
     {
-        Task.Run(async () => {
-            try
+        try
+        {
+            while (await commandChannel.Reader.WaitToReadAsync(cancellationToken))
             {
-                while (cancellationToken.IsCancellationRequested == false)
+                while (commandChannel.Reader.TryRead(out StreamCommand cmd))
                 {
-                    StreamCommand cmd = commandChannel.Take(cancellationToken);
                     switch (cmd.Type)
                     {
                         case CommandType.Feed:
@@ -132,12 +136,12 @@ public class XmlStreamExecutor : IAsyncDisposable
                     }
                 }
             }
-            catch (OperationCanceledException) {}
-            catch (Exception e)
-            {
-                AlifeLog.LogError(e);
-            }
-        }, cancellationToken);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     async Task OnTagOpened()
@@ -145,23 +149,25 @@ public class XmlStreamExecutor : IAsyncDisposable
         if (aboveContentBuffer.Count < parser.TagStack.Count)
             aboveContentBuffer.Add(new StringBuilder());
 
-        await FlushContentBuffer(skipTop: true);//有新的标签要进入，不能让新标签拿到老内容
+        await FlushContentBuffer(skipTop: true); //有新的标签要进入，不能让新标签拿到老内容
         await HandleTag(CallMode.Opening);
     }
 
     async Task OnTagClosed()
     {
-        await FlushContentBuffer();//即使没有触发分词也必须推送了，因为标签即将关闭
+        await FlushContentBuffer(); //即使没有触发分词也必须推送了，因为标签即将关闭
         await HandleTag(CallMode.Closing);
 
         aboveContentBuffer[parser.TagStack.Count - 1].Clear();
     }
 
-    Task OnTagShotted()
+    async Task OnTagShotted()
     {
         if (aboveContentBuffer.Count < parser.TagStack.Count)
             aboveContentBuffer.Add(new StringBuilder());
-        return HandleTag(CallMode.OneShot);
+
+        await FlushContentBuffer(skipTop: true);
+        await HandleTag(CallMode.OneShot);
     }
 
     Task HandleTag(CallMode callMode)
@@ -192,7 +198,7 @@ public class XmlStreamExecutor : IAsyncDisposable
             foreach (string breaker in sentenceBreakers)
             {
                 if (content.EndsWith(breaker))
-                    return FlushContentBuffer(breaker);//提前推送一次content
+                    return FlushContentBuffer(breaker); //提前推送一次content
             }
         }
 
@@ -227,7 +233,7 @@ public class XmlStreamExecutor : IAsyncDisposable
             //获取调用后的内容，这可能被修改
             content = context.Content;
             if (content == "")
-                break;//被彻底拦截
+                break; //被彻底拦截
 
             //缓存内容
             aboveContentBuffer[index].Append(content);
@@ -248,7 +254,9 @@ public class XmlStreamExecutor : IAsyncDisposable
         Handling?.Invoke(name, tagContext);
 
         bool isBackground = tagContext.Parameters.TryGetValue("#background", out string? background) && background == "true";
-        bool isParallel = isBackground || (tagContext.Parameters.TryGetValue("#parallel", out string? parallel) ? parallel == "true" : handler.IsParallelFunction(name));
+        bool isParallel = isBackground || (tagContext.Parameters.TryGetValue("#parallel", out string? parallel)
+            ? parallel == "true"
+            : handler.IsParallelFunction(name));
 
         if (isParallel)
         {
@@ -297,11 +305,11 @@ public class XmlStreamExecutor : IAsyncDisposable
                 {
                     if (parallelTasks.ContainsKey(source) == false)
                     {
-                        parallelTasks[name] = handler.Handle(name, tagContext, cancellationToken);
+                        parallelTasks[source] = handler.Handle(name, tagContext, cancellationToken);
                     }
                     else
                     {
-                        parallelTasks[name] = parallelTasks[source].ContinueWith(async _ => {
+                        parallelTasks[source] = parallelTasks[source].ContinueWith(async _ => {
                             await handler.Handle(name, tagContext, cancellationToken);
                         }, CancellationToken.None).Unwrap();
                     }

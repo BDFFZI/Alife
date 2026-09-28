@@ -102,6 +102,8 @@ public class XmlHandlerTable
 
             await xmlFunction.Invoker(tagContext, cancellationToken);
         }
+
+        Console.WriteLine($"TagHandled {tagContext.CallMode} {name} {tagContext.Content}");
     }
 
     readonly List<XmlHandler> xmlHandlers = new();

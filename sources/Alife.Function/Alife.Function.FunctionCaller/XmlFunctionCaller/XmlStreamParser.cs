@@ -216,8 +216,8 @@ public class XmlStreamParser
     /// 0：开标签；1：闭标签；2：自闭合标签
     int tagMode;
 
-    ImmutableList<string> tagStack = ImmutableList<string>.Empty;
-    ImmutableDictionary<string, string> parsedAttributes = ImmutableDictionary<string, string>.Empty;
+    ImmutableList<string> tagStack = ImmutableList.Create<string>();
+    ImmutableDictionary<string, string> parsedAttributes = ImmutableDictionary.Create<string, string>(StringComparer.OrdinalIgnoreCase);
 
     async Task HandleContentChar(char ch)
     {
