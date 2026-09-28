@@ -247,8 +247,8 @@ public class XmlStreamExecutor : IAsyncDisposable
     {
         Handling?.Invoke(name, tagContext);
 
-        bool isParallel = tagContext.Parameters.TryGetValue("#parallel", out string? parallel) ? parallel == "true" : handler.IsParallelFunction(name);
         bool isBackground = tagContext.Parameters.TryGetValue("#background", out string? background) && background == "true";
+        bool isParallel = isBackground || (tagContext.Parameters.TryGetValue("#parallel", out string? parallel) ? parallel == "true" : handler.IsParallelFunction(name));
 
         if (isParallel)
         {
