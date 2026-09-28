@@ -15,6 +15,10 @@ public class XmlHandlerTable
     {
         return functionToHandler.GetValueOrDefault(functionName);
     }
+    public bool IsParallelFunction(string functionName)
+    {
+        return parallelFunctions.Contains(functionName);
+    }
 
     public void Register(XmlHandler handler)
     {
@@ -82,8 +86,7 @@ public class XmlHandlerTable
         disabledFunctions.Add(function);
     }
 
-    public async Task Handle(string name, XmlContext tagContext, Dictionary<string, Task> parallelTaskPool,
-        CancellationToken cancellationToken = default)
+    public async Task Handle(string name, XmlContext tagContext, CancellationToken cancellationToken = default)
     {
         SortedSet<XmlFunction>? xmlFunctionGroup = xmlFunctions.GetValueOrDefault(name);
         if (xmlFunctionGroup == null || xmlFunctionGroup.Count == 0)
@@ -97,45 +100,7 @@ public class XmlHandlerTable
             if (disabledFunctions.Contains(xmlFunction))
                 continue;
 
-            if (xmlFunction.Parallel)
-            {
-                ContinueParallelTask(name);
-            }
-            else
-            {
-                int index;
-                for (index = tagContext.CallChain.Count - 1; index >= 0; index--)
-                {
-                    string chain = tagContext.CallChain[index];
-                    if (parallelFunctions.Contains(chain))
-                    {
-                        ContinueParallelTask(chain);
-                        break;
-                    }
-                }
-
-                if (index < 0)
-                {
-                    await xmlFunction.Invoker(tagContext, cancellationToken);
-                }
-            }
-
-            void ContinueParallelTask(string source)
-            {
-                lock (parallelTaskPool)
-                {
-                    if (parallelTaskPool.ContainsKey(source) == false)
-                    {
-                        parallelTaskPool[name] = xmlFunction.Invoker(tagContext, cancellationToken);
-                    }
-                    else
-                    {
-                        parallelTaskPool[name] = parallelTaskPool[source].ContinueWith(async _ => {
-                            await xmlFunction.Invoker(tagContext, cancellationToken);
-                        }, CancellationToken.None).Unwrap();
-                    }
-                }
-            }
+            await xmlFunction.Invoker(tagContext, cancellationToken);
         }
     }
 

@@ -36,7 +36,7 @@ public partial class XmlFunctionCaller
 [Module(
     "Xml函数调用器",
     "提供一种Xml函数调用框架，可以将注册其中的函数，暴露给AI，并指导其用Xml标签调用。",
-    launchOrder: -10000, //在活动开始之前，将收集到的函数调用信息注入
+    launchOrder: -10000,//在活动开始之前，将收集到的函数调用信息注入
     defaultCategory: "Alife 官方/功能底座")]
 public partial class XmlFunctionCaller(
     ILogger<XmlFunctionCaller> logger,
@@ -129,7 +129,7 @@ public partial class XmlFunctionCaller(
             ）
             """, DestroyCancellationToken);
 
-        UpdatePrompt(); //提前注入一个提示词块
+        UpdatePrompt();//提前注入一个提示词块
 
         return Task.CompletedTask;
     }
@@ -153,7 +153,7 @@ public partial class XmlFunctionCaller(
         parser.Error += OnError;
         executor.Error += OnError;
         executor.Handling += OnHandling;
-        executor.HandlingUpdated += OnHandlingUpdated;
+        executor.Waiting += OnWaiting;
 
         //AI输入回调
         ChatBot.ChatSent += OnChatSent;
@@ -189,7 +189,7 @@ public partial class XmlFunctionCaller(
             }
             catch (OperationCanceledException)
             {
-                await executor.CancelFeeding(); //对话被打断，取消执行
+                await executor.CancelFeeding();//对话被打断，取消执行
             }
 
             ChatBot.ResourceOccupiedReason.Return(chatOccupationMarker!);
@@ -236,7 +236,7 @@ public partial class XmlFunctionCaller(
 
         //实现当ai调用隐射函数时自动注入对应的隐式文档
         IReadOnlyList<XmlHandler>? handlers = handlerTable.GetHandlersOfFunction(name);
-        if (handlers != null) //寻找当前函数的调用处理器
+        if (handlers != null)//寻找当前函数的调用处理器
         {
             foreach (XmlHandler handler in handlers)
             {
@@ -256,7 +256,7 @@ public partial class XmlFunctionCaller(
             }
         }
     }
-    void OnHandlingUpdated(string name)
+    void OnWaiting(string name)
     {
         chatOccupationMarker!.Reason = $"执行{name}函数";
     }
@@ -310,8 +310,9 @@ public partial class XmlFunctionCaller(
              2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条，所有函数将按顺序执行，并在下一论对话中将结果返回给你。
              3. 由于返回值是延迟的，所以你要学会中断自己的输出来等待系统结果，并通过多轮对话解决事情（如先调用隐式文档，等到收到结果后，再选择函数）
              4. 不要使用文档中不存在的函数，不要自己编造函数的返回结果。保持对函数注意力，学会循序规划的进行调用流程。
-             5. 你可以使用`#parallel='true'`参数来让要执行的函数在后台异步执行，从而实现多线程加速并避免你被长任务卡住。
-             6. 注释（`<!---->`）中的文字会被系统忽略，所以可在此实现空消息、隐藏个人情绪、隐式思考等需求。要养成每次操作前先思考的习惯（如果模型支持思考，可跳过）。
+             5. 可以使用`#parallel='true/false'`参数来控制函数是否并行执行，借此可以实现任务的多线程加速，例如将说话和做事重叠进行。
+             6. 并行时还可以设置`#background='true/false'`。如果函数仅设置并行但未设置后台，则每轮交互结束时会阻塞前台来等待完成，并可能被用户打断。而放入后台则不会影响你和用户继续交互，适合执行长时间的等待任务。
+             7. 注释（`<!---->`）中的文字会被系统忽略，所以可在此实现空消息、隐藏个人情绪、隐式思考等需求。要养成每次操作前先思考的习惯（如果模型支持思考，可跳过）。
 
              ## 输出示例
              请使用如下方式和用户对话。（注意，示例中的函数不一定存在）
@@ -347,7 +348,7 @@ public partial class XmlFunctionCaller(
 
                    {string.Join("\n", implicitHandlers.Select(GetImplicitDocument))}
 
-                   上面这些标签都是开启隐式服务的入口，你要根据实际情况，积极的去调用他们，有很多你需要的功能可能就藏在其中。
+                   隐式工具通常专精于特定的任务，你要根据实际情况，积极的去调用他们，因为他们可以大幅提高你的工作效率和成功率。例如需要写代码就使用文件工具，需要查资料就使用浏览器工具。
                    """)
         );
     }
