@@ -1,6 +1,3 @@
-@inject IAlifeClient AlifeClient
-@inject IJSRuntime JsRuntime
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -33,17 +30,6 @@
             overflow: hidden;
         }
     </style> @* 实现置顶弹窗 *@
-
-    @* 自定义关闭事件 *@
-    <script>
-        window.alifeRegisterCloseHandler = (dotNetRef) => {
-            console.log("alifeRegisterCloseHandler")
-            window.addEventListener('beforeunload', (e) => {
-                e.returnValue = false;
-                dotNetRef.invokeMethodAsync('Quit');
-            });
-        };
-    </script>
 </head>
 
 <body>
@@ -51,17 +37,3 @@
 <script src="@Assets["_framework/blazor.server.js"]"></script> @* Blazor 前端框架 *@
 </body>
 </html>
-
-@code
-{
-    DotNetObjectReference<App>? selfRef;
-
-    protected override void OnInitialized()
-    {
-        selfRef = DotNetObjectReference.Create(this);
-        JsRuntime.InvokeVoidAsync("alifeRegisterCloseHandler", selfRef);
-    }
-
-    [JSInvokable]
-    public void Quit() => AlifeClient.Quit();
-}

@@ -1,7 +1,8 @@
 @inject IAlifeClient AlifeClient
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
-@inject ClientConfigStore ClientConfigStore 
+@inject ClientConfigStore ClientConfigStore
+@implements IAsyncDisposable
 
 @if (isAppInitialized)
 {
@@ -30,16 +31,31 @@ else
 <AntContainer/>
 <ErrorWindowUI @bind-Value="@exception" Title="系统初始化异常"/>
 
+@* 自定义关闭事件 *@
+<script>
+    window.alifeRegisterCloseHandler = (dotNetRef) => {
+        window.addEventListener('beforeunload', (e) => {
+            e.returnValue = false;
+            dotNetRef.invokeMethodAsync('Quit');
+        });
+    };
+</script>
+
 @code
 {
     string? launchingProgress;
     bool isAppInitialized;
     Exception? exception;
+    DotNetObjectReference<Routes>? selfRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender == false)
             return;
+
+        //注册自定义关闭事件（JS互操作必须在交互式渲染的OnAfterRenderAsync中调用，写在App.razor的静态渲染里不会生效）
+        selfRef = DotNetObjectReference.Create(this);
+        await JsRuntime.InvokeVoidAsync("alifeRegisterCloseHandler", selfRef);
 
         //业务环境初始化（故意放在UI中初始化以便获得通过UI展示进度的能力）
         try
@@ -66,4 +82,15 @@ else
 
         StateHasChanged();
     }
+
+    public ValueTask DisposeAsync()
+    {
+        selfRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    [JSInvokable]
+    public void Quit() => AlifeClient.Quit();
+
+
 }

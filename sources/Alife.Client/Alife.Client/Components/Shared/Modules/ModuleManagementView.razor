@@ -25,10 +25,13 @@
         @if (selectedModuleId != null && ModuleSystem.GetModule(selectedModuleId) != null)
         {
             <div style="flex: 1; padding: 32px; max-width: 1200px; min-height: 0; height: 100%;">
-                <ModuleDetailView
-                    ModuleType="@(ModuleSystem.GetModule(selectedModuleId)!)"
-                    Character="@Character"
-                    ChatActivity="@ChatActivity"/>
+                @* @key：切换模块时强制重建详情视图。
+                   否则 ModuleDetailView 实例会被复用，切换过程中一旦 OnParametersSet/渲染抛异常，
+                   Blazor 会丢弃整个 render batch，右侧面板就会停留在上一个模块的 UI 上（表现为“UI 没清空”）。 *@
+                <ModuleDetailView @key="@(ModuleSystem.GetModule(selectedModuleId)!)"
+                                  ModuleType="@(ModuleSystem.GetModule(selectedModuleId)!)"
+                                  Character="@Character"
+                                  ChatActivity="@ChatActivity"/>
             </div>
         }
         else
