@@ -1,9 +1,8 @@
-﻿using Alife.Client.Core;
-using ElectronNET.API;
+﻿using ElectronNET.API;
 using ElectronNET.API.Entities;
 using MessageBoxOptions = ElectronNET.API.Entities.MessageBoxOptions;
 
-namespace Alife;
+namespace Alife.Client;
 
 public class WindowsAlifeClient : IAlifeClient
 {

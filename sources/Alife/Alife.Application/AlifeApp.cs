@@ -16,7 +16,7 @@ public static class AlifeApp
     public static async Task InitAlife(this IServiceProvider provider, IProgress<string>? progress = null)
     {
         {
-            progress?.Report("正在初始化软件环境...");
+            progress?.Report("正在初始化基础功能...");
             AlifeLog.Initialize(); //激活静态日志功能
             AlifeMirror.Initialize(); //激活网络镜像功能
         }

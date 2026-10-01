@@ -1,6 +1,7 @@
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 @inject NavigationManager Navigation
+@inject ClientConfigStore ClientConfigStore
 @implements IDisposable
 
 <Flex Direction="FlexDirection.Vertical" Gap="@("12")" Style="width: 100%; align-items: center;">
@@ -25,7 +26,9 @@
     {
         bool isActive = ChatActivitySystem.IsActivated(character);
         <Tooltip Title="@(character.Name)" Placement="@Placement.Right">
-            <NavLink href="@($"/agent/{character.Name}")" Class="nav-item-icon character-item" ActiveClass="active">
+            <NavLink href="@($"/agent/{character.Name}")" Class="nav-item-icon character-item"
+                     ActiveClass="active"
+                     @onclick="() => ClientConfigStore.SetLastCharacter(character)">
                 <div style="position: relative; display: flex; align-items: center; justify-content: center;">
                     <Avatar Size="@AvatarSize.Large" Style="background: #1890ff; color: #fff; font-weight: bold;">
                         @(character.Name.FirstOrDefault())
@@ -87,28 +90,35 @@
 
     protected override void OnInitialized()
     {
-        CharacterSystem.CharacterListChanged += Refresh;
+        CharacterSystem.CharacterListChanged += OnCharacterListChanged;
         ChatActivitySystem.Activated += OnActivityChanged;
         ChatActivitySystem.Deactivated += OnActivityChanged;
     }
-
-    void OnActivityChanged(ChatActivity _) => Refresh();
-    void Refresh() => InvokeAsync(StateHasChanged);
-
-    void OnConfirmCreate()
-    {
-        if (string.IsNullOrWhiteSpace(newCharacterName)) return;
-        Character character = CharacterSystem.CreateCharacter(newCharacterName);
-        CharacterSystem.SaveCharacter(character);
-        isCreating = false;
-        Navigation.NavigateTo($"/agent/{newCharacterName}");
-        newCharacterName = "";
-    }
-
     public void Dispose()
     {
-        CharacterSystem.CharacterListChanged -= Refresh;
+        CharacterSystem.CharacterListChanged -= OnCharacterListChanged;
         ChatActivitySystem.Activated -= OnActivityChanged;
         ChatActivitySystem.Deactivated -= OnActivityChanged;
+    }
+
+    void OnActivityChanged(ChatActivity _) => OnCharacterListChanged();
+    void OnCharacterListChanged() => InvokeAsync(StateHasChanged);
+
+    async void OnConfirmCreate()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(newCharacterName)) return;
+            Character character = CharacterSystem.CreateCharacter(newCharacterName);
+            await CharacterSystem.SaveCharacter(character);
+            isCreating = false;
+            Navigation.NavigateTo($"/agent/{newCharacterName}");
+            ClientConfigStore.SetLastCharacter(character);
+            newCharacterName = "";
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 }

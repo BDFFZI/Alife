@@ -1,12 +1,11 @@
 using System.Text;
-using Alife.Client.Core;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Web.WebView2.WinForms;
 using MenuItem = ElectronNET.API.Entities.MenuItem;
 
-namespace Alife;
+namespace Alife.Client;
 
 public static class Program
 {
@@ -49,7 +48,7 @@ public static class Program
 
         app.UseAntiforgery();
         app.MapStaticAssets(); //使用blazor的系统文件（同时为 @Assets 提供带指纹的资源路由）
-        app.MapRazorComponents<Alife.Client.UI.App>()
+        app.MapRazorComponents<Alife.Client.Components.App>()
             .AddInteractiveServerRenderMode(); //Alife前端
 
         app.Run();

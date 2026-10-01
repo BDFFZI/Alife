@@ -1,5 +1,6 @@
 @inject INotificationService NotificationService
 @inject IAlifeClient AlifeClient
+@inject ClientConfigStore ClientConfigStore
 
 <div style="padding: 24px; height: 100%; overflow-y: auto;">
     <Title Level="4" Style="margin-bottom: 24px;">系统配置</Title>
@@ -22,19 +23,83 @@
             <Button Icon="@IconType.Outline.FolderOpen" OnClick="@PickRuntimeFolderAsync"></Button>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
-            存放浏览器数据、模型文件等运行时数据。重启后生效。
+            存放浏览器缓存、运行环境等可再生数据。重启后生效。
         </Text>
     </div>
-
-    <Title Level="5" Style="margin-bottom: 12px;">系统设置</Title>
+    
     <div style="margin-bottom: 24px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <Text Strong>开机自启</Text>
-            <Switch Checked="autoStartOnBoot" OnChange="@ChangeAutoStartOnBoot"/>
+            <Switch Checked="autoStartOnBoot" OnChange="@OnAutoStartChanged"/>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             开启后，系统启动时自动运行 Alife。
         </Text>
+    </div>
+
+    <Divider Style="margin: 16px 0;"/>
+
+    <Title Level="5" Style="margin-bottom: 4px;">启动配置</Title>
+    <Text Type="@TextElementType.Secondary" Style="font-size: 12px; display: block;">
+        控制客户端启动时执行的初始化步骤，按需调整后可加速启动速度。重启后生效。
+    </Text>
+
+    <div style="display: flex; flex-direction: column; gap: 20px; margin: 16px 0 24px 0;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <Text Strong>拉取云端信息</Text>
+                <Switch Checked="fetchOnlineInfo" CheckedChanged="OnFetchOnlineInfoChanged"/>
+            </div>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+                启动时从云端拉取客户端版本和插件清单。部分老插件依赖云端清单判断环境依赖，若已确保插件环境正常，可以关闭。
+            </Text>
+        </div>
+
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <Text Strong>加载本地插件</Text>
+                <Switch Checked="loadLocalPlugins" CheckedChanged="OnLoadLocalPluginsChanged"/>
+            </div>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+                启动时加载插件文件夹中的插件。若所有功能都已内置在客户端中，可以关闭。
+            </Text>
+        </div>
+
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <Text Strong>检查插件环境</Text>
+                <Switch Checked="ensureEnvironment" 
+                        CheckedChanged="OnEnsureEnvironmentChanged"
+                        Disabled="loadLocalPlugins == false"/>
+            </div>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+                启动时尝试补全插件环境，可确保环境完整，但会降低启动速度。环境出问题时仍可在插件环境页面手动重载。
+            </Text>
+        </div>
+
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <Text Strong>启用 MCP 服务</Text>
+                <Switch Checked="mcpServer" CheckedChanged="OnMcpServerChanged"/>
+            </div>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+                开放 MCP 服务，让外部程序（或AI）可以调用 Alife 的系统能力。不需要此功能时可以关闭。
+            </Text>
+        </div>
+
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <Text Strong>MCP 服务端口</Text>
+                <AntDesign.InputNumber TValue="int" Value="mcpServerPort"
+                                       ValueChanged="OnMcpServerPortChanged"
+                                       Min="1" Max="65535"
+                                       Disabled="mcpServer == false"
+                                       Style="width: 120px;"/>
+            </div>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+                MCP 服务监听的本地端口。仅在启用 MCP 服务时有效，修改端口后需同步修改外部程序的连接配置。
+            </Text>
+        </div>
     </div>
 
     <Divider Style="margin: 16px 0;"/>
@@ -73,70 +138,81 @@
             <Button Size="@ButtonSize.Small" OnClick="@CheckClientUpdate">检查更新</Button>
         }
     </div>
-
-    <Divider Style="margin: 16px 0;"/>
-
-    <Title Level="5" Style="margin-bottom: 12px;">路径一览</Title>
-    <Descriptions Column="1" Size="@DescriptionsSize.Small" Bordered>
-        <DescriptionsItem Title="StorageFolderPath">
-            <Text Code Style="font-size: 12px;">@AlifePath.StorageFolderPath</Text>
-        </DescriptionsItem>
-        <DescriptionsItem Title="RuntimeFolderPath">
-            <Text Code Style="font-size: 12px;">@AlifePath.RuntimeFolderPath</Text>
-        </DescriptionsItem>
-        <DescriptionsItem Title="TempFolderPath">
-            <Text Code Style="font-size: 12px;">@AlifePath.TempFolderPath</Text>
-        </DescriptionsItem>
-    </Descriptions>
 </div>
 
 @code {
     bool isUpgradeChecking;
     bool isUpgradeDownloading;
     int upgradeDownloadProgress;
-    bool autoStartOnBoot;
 
+    //路径配置
     string storageFolderPath = AlifePath.StorageFolderPath;
     string runtimeFolderPath = AlifePath.RuntimeFolderPath;
+    //启动配置
+    bool fetchOnlineInfo;
+    bool loadLocalPlugins;
+    bool ensureEnvironment;
+    bool mcpServer;
+    int mcpServerPort;
+    //其他配置
+    bool autoStartOnBoot;
 
     protected override void OnInitialized()
     {
-        autoStartOnBoot = CheckIsAutoStart();
+        AlifeClient.InitConfig initConfig = ClientConfigStore.GetInitConfig();
+        fetchOnlineInfo = initConfig.FetchOnlineInfo;
+        loadLocalPlugins = initConfig.LoadLocalPlugins;
+        ensureEnvironment = initConfig.EnsureEnvironment;
+        mcpServer = initConfig.McpServer;
+        mcpServerPort = initConfig.McpServerPort;
 
-        static bool CheckIsAutoStart()
-        {
-            try
-            {
-                string result = AlifeUtility.Command("schtasks", "/query /tn \"Alife\" /fo csv /nh").StandardOutput;
-                return result.Contains("Alife");
-            }
-            catch
-            {
-                return false;
-            }
-        }
+        autoStartOnBoot = ClientConfigStore.GetAutoStart();
     }
 
-    async Task ChangeAutoStartOnBoot(bool value)
+    void OnFetchOnlineInfoChanged(bool value)
     {
-        try
-        {
-            AlifeUtility.Command("schtasks", value
-                ? $"/create /tn \"Alife\" /tr \"\\\"{AlifePath.AppPath}\\\"\" /sc onlogon /rl highest /f"
-                : "/delete /tn \"Alife\" /f");
+        fetchOnlineInfo = value;
+        SaveStartupConfig();
+    }
+    void OnLoadLocalPluginsChanged(bool value)
+    {
+        loadLocalPlugins = value;
+        SaveStartupConfig();
+    }
+    void OnEnsureEnvironmentChanged(bool value)
+    {
+        ensureEnvironment = value;
+        SaveStartupConfig();
+    }
+    void OnMcpServerChanged(bool value)
+    {
+        mcpServer = value;
+        SaveStartupConfig();
+    }
+    void OnMcpServerPortChanged(int value)
+    {
+        mcpServerPort = value;
+        SaveStartupConfig();
+    }
+    void SaveStartupConfig()
+    {
+        ClientConfigStore.SetInitConfig(new AlifeClient.InitConfig {
+            FetchOnlineInfo = fetchOnlineInfo,
+            LoadLocalPlugins = loadLocalPlugins,
+            EnsureEnvironment = ensureEnvironment,
+            McpServer = mcpServer,
+            McpServerPort = mcpServerPort,
+        });
 
-            autoStartOnBoot = value;
+        _ = NotificationService.Success(new NotificationConfig { Message = "启动配置已保存！重启后生效喵~" });
+    }
 
-            await NotificationService.Success(new NotificationConfig {
-                Message = value ? "已开启开机自启" : "已关闭开机自启"
-            });
-        }
-        catch (Exception ex)
-        {
-            await NotificationService.Error(new NotificationConfig {
-                Message = $"设置开机自启失败: {ex.Message}"
-            });
-        }
+    void OnAutoStartChanged(bool value)
+    {
+        autoStartOnBoot = value;
+        ClientConfigStore.SetAutoStart(value);
+
+        _ = NotificationService.Success(new NotificationConfig { Message = value ? "已开启开机自启" : "已关闭开机自启" });
     }
 
     async Task CheckClientUpdate()

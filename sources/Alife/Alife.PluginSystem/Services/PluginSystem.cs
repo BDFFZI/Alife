@@ -20,9 +20,9 @@ public class PluginSystem
     /// 刷新本地插件。
     /// 安装卸载插件时会自动同步，因此默认情况下无需调用，只有手动修改插件清单等数据后，才会用到此函数来主动同步。
     /// </summary>
-    public async Task SyncLocalPluginEnvironment()
+    public async Task SyncLocalPluginEnvironment(bool reloadEnvironment = true)
     {
-        await pluginContext.SyncPluginEnvironment();
+        await pluginContext.SyncPluginEnvironment(reloadEnvironment);
     }
 
     public IReadOnlyDictionary<string, PluginPackage> GetAllOnlinePlugins()

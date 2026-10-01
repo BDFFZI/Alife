@@ -1,6 +1,7 @@
 @inject IAlifeClient AlifeClient
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
+@inject ClientConfigStore ClientConfigStore 
 
 @if (isAppInitialized)
 {
@@ -50,13 +51,8 @@ else
                     launchingProgress = state;
                     InvokeAsync(StateHasChanged);
                 });
-                AlifeClientCore.InitConfig config = new() {
-                    FetchOnlineInfo = true,
-                    LoadLocalPlugins = true,
-                    EnsureEnvironment = true,
-                    McpServer = true,
-                    McpServerPort = 18765,
-                };
+                //启动配置可在系统配置页面修改，此处读取用户保存的配置（未修改过的项取客户端默认值）
+                AlifeClient.InitConfig config = ClientConfigStore.GetInitConfig();
                 await ServiceProvider.InitAlifeClient(config, progress);
             });
         }

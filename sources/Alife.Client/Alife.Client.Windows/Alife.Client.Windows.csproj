@@ -14,9 +14,9 @@
         <PublishSelfContained>true</PublishSelfContained>
         <Version>4.5.0</Version>
         <!-- 对外名称：与重构前保持一致，产物与 Electron 包仍为 Alife.Client（Alife.Client.exe） -->
-        <AssemblyName>Alife.Client</AssemblyName>
-        <Title>Alife.Client</Title>
-        <ElectronPackageId>alife-client</ElectronPackageId>
+        <AssemblyName>Alife</AssemblyName>
+        <Title>Alife</Title>
+        <ElectronPackageId>alife</ElectronPackageId>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,8 +26,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Alife.Client.Core\Alife.Client.Core.csproj" />
-        <ProjectReference Include="..\Alife.Client.UI\Alife.Client.UI.csproj" />
+        <ProjectReference Include="..\Alife.Client\Alife.Client.csproj" />
     </ItemGroup>
 
     <ItemGroup>

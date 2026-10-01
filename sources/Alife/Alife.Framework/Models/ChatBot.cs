@@ -92,9 +92,6 @@ public class ChatBot : IAsyncDisposable
 
     public async Task<ChatResult> ChatAsync(ChatMessageContent message, bool breakLast = true)
     {
-        if (languageModel == null)
-            throw new Exception("未检测到可用的语言模型");
-
         CancellationToken cancellationToken;
 
         lock (this)
@@ -110,6 +107,11 @@ public class ChatBot : IAsyncDisposable
         {
             using (ResourceOccupiedReason.Rent("发送消息"))
             {
+                //附加Poke消息
+                string? poke = FlushPokeMessage();
+                if (poke != null)
+                    message.Content += "\n\n" + poke;
+
                 //预处理用户消息
                 if (ChatSend != null)
                 {
@@ -152,39 +154,42 @@ public class ChatBot : IAsyncDisposable
             //装载AI消息
             await EditChatHistoryAsync(async thread =>
             {
-                aiMessage = await languageModel.ChatStreamingAsync(
-                    thread,
-                    text =>
-                    {
-                        try
+                if (languageModel == null)
+                    error = new Exception("未检测到可用的语言模型");
+                else
+                    aiMessage = await languageModel.ChatStreamingAsync(
+                        thread,
+                        text =>
                         {
-                            ChatReceived?.Invoke(text);
-                        }
-                        catch (Exception e)
+                            try
+                            {
+                                ChatReceived?.Invoke(text);
+                            }
+                            catch (Exception e)
+                            {
+                                AlifeLog.LogError(e);
+                            }
+                        },
+                        think =>
                         {
-                            AlifeLog.LogError(e);
-                        }
-                    },
-                    think =>
-                    {
-                        try
+                            try
+                            {
+                                aiThinking.Append(think);
+                                ReasoningReceived?.Invoke(think);
+                            }
+                            catch (Exception e)
+                            {
+                                AlifeLog.LogError(e);
+                            }
+                        },
+                        usage => { tokenUsage += usage; },
+                        exception =>
                         {
-                            aiThinking.Append(think);
-                            ReasoningReceived?.Invoke(think);
-                        }
-                        catch (Exception e)
-                        {
-                            AlifeLog.LogError(e);
-                        }
-                    },
-                    usage => { tokenUsage += usage; },
-                    exception =>
-                    {
-                        if (exception is not OperationCanceledException)
-                            error = exception;
-                    },
-                    cancellationToken
-                );
+                            if (exception is not OperationCanceledException)
+                                error = exception;
+                        },
+                        cancellationToken
+                    );
                 ChaseChatHistory(thread);
             }, "接收回复");
 
@@ -301,15 +306,14 @@ public class ChatBot : IAsyncDisposable
     }
     public void Poke(string message)
     {
-        if (messageCache.Any(s => s == message))
-            return;
-        if (messageCache.Count > 11)
-            messageCache.TryDequeue(out _);
+        if (pokeMessageQueue.Any(s => s == message))
+            return; //去除重复消息
+        if (pokeMessageQueue.Count > 11)
+            pokeMessageQueue.TryDequeue(out _); //消息过多，丢失早期消息
 
-        messageCache.Enqueue(message);
+        pokeMessageQueue.Enqueue(message);
         lastPokeTime = DateTime.Now; //重新计时，防止后续还有Poke
     }
-
 
     ILanguageModel? languageModel;
     //上下文
@@ -318,7 +322,7 @@ public class ChatBot : IAsyncDisposable
     List<ChatMessageContent> chatHistorySnapshot = new();
     int lastContentIndex;
     //对话
-    readonly ConcurrentQueue<string> messageCache = new();
+    readonly ConcurrentQueue<string> pokeMessageQueue = new();
     readonly SemaphoreSlim chatSemaphore = new(1, 1);
     CancellationTokenSource chatBreakSource = new();
     //计时器
@@ -338,19 +342,17 @@ public class ChatBot : IAsyncDisposable
         cancelTimerSource.Dispose();
     }
 
-    void TryFlushMessageCache()
+    string? FlushPokeMessage()
     {
-        if (messageCache.Count == 0)
-            return;
-        if (IsChatOccupied)
-            return;
+        if (pokeMessageQueue.Count == 0)
+            return null;
 
         //组合消息
         StringBuilder stringBuilder = new();
-        foreach (string message in messageCache)
+        foreach (string message in pokeMessageQueue)
             stringBuilder.AppendLine(message);
         string poke = stringBuilder.ToString().Trim();
-        messageCache.Clear();
+        pokeMessageQueue.Clear();
 
         if (PokeSend != null)
         {
@@ -362,7 +364,7 @@ public class ChatBot : IAsyncDisposable
         }
 
         //发送消息
-        Chat($"{PokeMessageTag}\n{poke}");
+        return $"{PokeMessageTag}\n{poke}";
     }
     async void StartPokePusher(float debounceTime, CancellationToken cancellationToken = default)
     {
@@ -371,8 +373,13 @@ public class ChatBot : IAsyncDisposable
             TimeSpan timeSpan = TimeSpan.FromSeconds(debounceTime);
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (DateTime.Now - lastPokeTime > timeSpan)
-                    TryFlushMessageCache();
+                if (!IsChatOccupied && DateTime.Now - lastPokeTime > timeSpan)
+                {
+                    string? poke = FlushPokeMessage();
+                    if (poke != null)
+                        Chat(poke);
+                }
+
                 await Task.Delay(timeSpan, cancellationToken);
             }
         }

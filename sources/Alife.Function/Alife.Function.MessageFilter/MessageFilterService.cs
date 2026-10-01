@@ -37,7 +37,8 @@ public partial class MessageFilterService
     LaunchOrder = 10000, //在后期创建，以获得靠后的事件注册顺序
     EditorUI = typeof(MessageFilterServiceUI))]
 public partial class MessageFilterService(
-    Interactor<MessageFilterService> interactor) :
+    Interactor<MessageFilterService> interactor,
+    ILanguageModel languageModel) :
     ChatBehaviour,
     IConfigurable<MessageFilterServiceConfig>,
     IMessageFilterService
@@ -92,6 +93,7 @@ public partial class MessageFilterService(
                 continue;
             AddMessageReplyRule(regexMessageReplyRule);
         }
+
         AddMessageReplyRule(new RegexMessageReplyRuleConfig() {
             Name = "调用丢失验证",
             Enabled = true,
@@ -108,6 +110,15 @@ public partial class MessageFilterService(
 
                           此外你所有发送的消息都必须包含xml函数调用。如果你不想使用，也请在输出中包含`<!---->`来显式表示本次输出不调用函数。
                           """);
+
+        return Task.CompletedTask;
+    }
+
+    protected override Task OnDestroy()
+    {
+        ChatBot.ChatSend -= OnChatSend;
+        ChatBot.PokeSend -= OnPokeSend;
+        ChatBot.ChatFinished -= OnChatFinished;
 
         return Task.CompletedTask;
     }
@@ -132,11 +143,11 @@ public partial class MessageFilterService(
 
         if (needThinking && thinkingOccupationMarker == null)
         {
-            thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("消息回复格式出错");
+            thinkingOccupationMarker = languageModel.GetThinkingRequester().Rent("消息回复格式出错");
         }
         else if (thinkingOccupationMarker != null)
         {
-            ChatBot.LanguageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
+            languageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
             thinkingOccupationMarker = null;
         }
     }

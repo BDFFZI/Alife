@@ -54,7 +54,7 @@ public static class AlifeContext
 #if DEBUG
         TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.ClientDebug");
 #else
-        TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.Client.Core");
+        TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.Client");
 #endif
 
         string configRuntime = AlifeConfig.GetString("runtime_path");

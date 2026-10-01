@@ -1,7 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>Alife.Client</RootNamespace>
+        <AssemblyName>Alife.Client</AssemblyName>
+        <PackageId>Alife.Client</PackageId>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj" />

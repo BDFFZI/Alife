@@ -40,6 +40,7 @@ public class ChatBehaviour : IAsyncDisposable
 
         try
         {
+            Console.WriteLine($"{GetType().Name}::OnAwake");
             await OnAwake();
             IsAwaked = true;
         }

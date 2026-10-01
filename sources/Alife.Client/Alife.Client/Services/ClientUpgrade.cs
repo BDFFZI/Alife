@@ -3,7 +3,7 @@ using Alife.Foundation;
 using Newtonsoft.Json.Linq;
 using Process = System.Diagnostics.Process;
 
-namespace Alife.Client.Core;
+namespace Alife.Client;
 
 public record UpdateInfo(string Version, string? ReleaseNotes, string DownloadUrl);
 

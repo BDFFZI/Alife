@@ -1,7 +1,7 @@
 using System.Collections;
 using Alife.Foundation;
 
-namespace Alife.Client.Core;
+namespace Alife.Client;
 
 /// <summary>
 /// 客户端功能，可以实现自动帮用户配置软件运行环境。

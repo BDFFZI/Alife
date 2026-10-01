@@ -50,9 +50,14 @@
     {
         @* ═══ JSON模式（点击按钮应用） ═══ *@
         <div style="display: flex; flex-direction: column; gap: 16px;">
+            @* 注意：AutoSize 的 TextArea 不能传 Style —— AntDesign 会用 JS（styleHelper.css）在
+               OnAfterRenderAsync 里补样式，若那时元素已被移除（本 TextArea 位于模式分支里，
+               切回表单模式或面板重建都会移除它）就会抛
+               "Cannot read properties of null (reading 'style')" 并被 ErrorBoundary 捕获。
+               所以等宽字体用 Class + 样式表实现，见文件末尾 .json-editor-textarea。 *@
             <TextArea AutoSize="true"
                       MinRows="10"
-                      Style="font-family: monospace;"
+                      Class="json-editor-textarea"
                       @bind-Value="jsonText"
                       OnInput="@(() => isJsonDirty = true)">
             </TextArea>
@@ -73,6 +78,19 @@
         </div>
     }
 </div>
+
+<style>
+    /* 等宽字体的 JSON 编辑器。不能用 TextArea 的 Style 参数（见上方注释），
+       这里以 Class 命中 textarea 元素本身，样式表在 AntDesign 的样式之后加载，故生效。 */
+    .json-editor-textarea {
+        font-family: monospace;
+    }
+
+    /* 列表项字符串编辑器同样不能用 Style（AutoSize 的 TextArea 会把 Style 交给 JS 后置设置） */
+    .list-item-textarea {
+        flex: 1;
+    }
+</style>
 
 @code {
     [Parameter] public object Configuration { get; set; } = null!;
@@ -357,7 +375,7 @@
                                                             list[index] = v;
                                                             NotifyChanged();
                                                         })"
-                                          AutoSize="true" MinRows="1" Style="flex: 1;"/>
+                                          AutoSize="true" MinRows="1" Class="list-item-textarea"/>
                             }
                             else if (elementType == typeof(int))
                             {

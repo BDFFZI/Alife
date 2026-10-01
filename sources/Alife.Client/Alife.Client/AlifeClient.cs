@@ -1,9 +1,9 @@
 ﻿using Alife.Framework;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Alife.Client.Core;
+namespace Alife.Client;
 
-public static class AlifeClientCore
+public static class AlifeClient
 {
     public class InitConfig
     {
@@ -40,12 +40,14 @@ public static class AlifeClientCore
     {
         services.AddAlife();
         services.AddSingleton<IAlifeClient, T>();
+        services.AddSingleton<ClientConfigStore>();
     }
     public static async Task InitAlifeClient(this IServiceProvider provider, InitConfig? config = null, IProgress<string>? progress = null)
     {
         config ??= new InitConfig();
 
         //alife客户端会提供自己的运行环境（如python）
+        progress?.Report("正在同步客户端环境...");
         ClientEnvironment.Initialize();
 
         await provider.InitAlife();
@@ -63,8 +65,14 @@ public static class AlifeClientCore
         {
             progress?.Report("正在加载本地插件...");
 
+            if (config.EnsureEnvironment == false)
+            {
+                NuGetEnvironmentInstaller nuGetEnvironmentInstaller = provider.GetRequiredService<NuGetEnvironmentInstaller>();
+                await nuGetEnvironmentInstaller.LoadResolvedEnvironment(); //nuget比较特殊，插件依赖他的dll运行时环境，所以必须加载
+            }
+
             PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
-            await pluginSystem.SyncLocalPluginEnvironment();
+            await pluginSystem.SyncLocalPluginEnvironment(config.EnsureEnvironment);
         }
 
         if (config.McpServer) //客户端默认激活MCP，因为其一般都是图形化界面，无法基于CLI交互

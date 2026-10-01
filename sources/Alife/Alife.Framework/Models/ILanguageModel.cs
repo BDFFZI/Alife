@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel.Agents;
@@ -23,6 +24,7 @@ public record struct TokenUsage
     }
 }
 
+[Description("语言模型")]
 public interface ILanguageModel
 {
     static readonly OccupationNotepad DefaultThinkingRequester = new();

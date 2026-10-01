@@ -1,6 +1,6 @@
 using Alife.Framework;
 
-namespace Alife.Client.Core;
+namespace Alife.Client;
 
 public class ChatSettings
 {
@@ -115,11 +115,14 @@ public static class ClientChatStatistics
                 messages.Add(new ChatMessage { Content = message, IsUser = true });
                 string? thinkingReason = null;
 
-                activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list =>
+                if (activity.ChatBot.LanguageModel != null)
                 {
-                    if (list.Count > 0)
-                        thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
-                });
+                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list =>
+                    {
+                        if (list.Count > 0)
+                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                    });
+                }
 
                 messages.Add(new ChatMessage { IsUser = false, IsInputting = true, ThinkingReason = thinkingReason });
                 TrimMessages(name);

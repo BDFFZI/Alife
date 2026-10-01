@@ -1,4 +1,4 @@
-namespace Alife.Client.Core;
+namespace Alife.Client;
 
 public static class ClientNavigation
 {

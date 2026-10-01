@@ -15,6 +15,10 @@ public class NuGetEnvironmentInstaller(string packagesResolverOutput) : IEnviron
         DependencyResolver resolver = new();
         resolver.AddDependencies(environment);
         ResolvePackages(resolver);
+        await LoadResolvedEnvironment();
+    }
+    public async Task LoadResolvedEnvironment()
+    {
         if (GrabPackageList())
         {
             if (PackagesUpdatedAsync != null)

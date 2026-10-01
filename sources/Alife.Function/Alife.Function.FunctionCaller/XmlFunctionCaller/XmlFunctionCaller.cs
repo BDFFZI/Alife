@@ -17,8 +17,7 @@ public class XmlFunctionCallerConfig
     [Description("触发子句分隔的字符标记。调整子句会对字幕、语音生成等流式输出的功能产生影响")]
     public List<string> Separators { get; set; } = ["，", "。", "！", "？", "…", "...", "~", "—", "\n"];
 
-    [Description("触发子句分隔的最短文本长度（字符数）")]
-    public int MinBreakingLength { get; set; } = 23;
+    [Description("触发子句分隔的最短文本长度（字符数）")] public int MinBreakingLength { get; set; } = 23;
 }
 
 public partial class XmlFunctionCaller
@@ -36,18 +35,20 @@ public partial class XmlFunctionCaller
 [Module(
     "Xml函数调用器",
     "提供一种Xml函数调用框架，可以将注册其中的函数，暴露给AI，并指导其用Xml标签调用。",
-    launchOrder: -10000,//在活动开始之前，将收集到的函数调用信息注入
+    launchOrder: -10000, //在活动开始之前，将收集到的函数调用信息注入
     defaultCategory: "Alife 官方/功能底座")]
 public partial class XmlFunctionCaller(
     ILogger<XmlFunctionCaller> logger,
     Interactor<XmlFunctionCaller> interactor,
-    IMessageFilterService messageFilterService) :
+    IMessageFilterService messageFilterService,
+    ILanguageModel languageModel) :
     ChatBehaviour,
     IConfigurable<XmlFunctionCallerConfig>
 {
     public event Func<Task>? ChatCalledAsync;
     public XmlFunctionCallerConfig Configuration { get; set; } = null!;
     public bool IsIdle => executor.IsFeeding;
+
     /// <summary>
     /// 当前系统中的函数调用注册信息。
     /// XmlHandlerTable支持你禁用其中的部分函数，从而实现拦截或手动调用的需求
@@ -73,6 +74,7 @@ public partial class XmlFunctionCaller(
             default:
                 throw new ArgumentOutOfRangeException(nameof(documentMode), documentMode, null);
         }
+
         if (cancellationToken != CancellationToken.None)
             cancellationToken.Register(() => UnregisterHandler(handler));
 
@@ -129,7 +131,7 @@ public partial class XmlFunctionCaller(
             ）
             """, DestroyCancellationToken);
 
-        UpdatePrompt();//提前注入一个提示词块
+        UpdatePrompt(); //提前注入一个提示词块
 
         return Task.CompletedTask;
     }
@@ -165,6 +167,10 @@ public partial class XmlFunctionCaller(
 
     protected override async Task OnDestroy()
     {
+        ChatBot.ChatSent -= OnChatSent;
+        ChatBot.ChatReceived -= OnChatReceived;
+        ChatBot.ChatFinishedAsync -= OnChatFinishedAsync;
+        
         await executor.CancelFeeding();
         await executor.DisposeAsync();
     }
@@ -189,7 +195,7 @@ public partial class XmlFunctionCaller(
             }
             catch (OperationCanceledException)
             {
-                await executor.CancelFeeding();//对话被打断，取消执行
+                await executor.CancelFeeding(); //对话被打断，取消执行
             }
 
             ChatBot.ResourceOccupiedReason.Return(chatOccupationMarker!);
@@ -218,13 +224,13 @@ public partial class XmlFunctionCaller(
         if (thinkingReasons.Count != 0)
         {
             if (thinkingOccupationMarker == null)
-                thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent(string.Join(" | ", thinkingReasons));
+                thinkingOccupationMarker = languageModel.GetThinkingRequester().Rent(string.Join(" | ", thinkingReasons));
             else
                 thinkingOccupationMarker.Reason = string.Join(" | ", thinkingReasons);
         }
         else if (thinkingOccupationMarker != null)
         {
-            ChatBot.LanguageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
+            languageModel.GetThinkingRequester().Return(thinkingOccupationMarker);
             thinkingOccupationMarker = null;
         }
     }
@@ -236,7 +242,7 @@ public partial class XmlFunctionCaller(
 
         //实现当ai调用隐射函数时自动注入对应的隐式文档
         IReadOnlyList<XmlHandler>? handlers = handlerTable.GetHandlersOfFunction(name);
-        if (handlers != null)//寻找当前函数的调用处理器
+        if (handlers != null) //寻找当前函数的调用处理器
         {
             foreach (XmlHandler handler in handlers)
             {
@@ -289,7 +295,8 @@ public partial class XmlFunctionCaller(
         XmlHandler xmlHandler = new(source.Name + "_Trigger");
         xmlHandler.Functions.Add(new XmlFunction {
             Name = source.Name,
-            Invoker = (_, _) => {
+            Invoker = (_, _) =>
+            {
                 interactor.Poke(GetExplicitDocument(source));
                 thinkingReasons.Add("即将使用隐式功能");
                 return Task.CompletedTask;

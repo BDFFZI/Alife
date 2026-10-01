@@ -72,9 +72,8 @@
 
   <Folder Name="/Sources/" />
   <Folder Name="/Sources/Alife.Client/">
-    <Project Path="sources/Alife.Client/Alife.Client.App.Windows/Alife.Client.App.Windows.csproj" />
-    <Project Path="sources/Alife.Client/Alife.Client.Core/Alife.Client.Core.csproj" />
-    <Project Path="sources/Alife.Client/Alife.Client.UI/Alife.Client.UI.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client.Windows/Alife.Client.Windows.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client/Alife.Client.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Framework/">
     <Project Path="sources/Alife/Alife.Application/Alife.Application.csproj" />

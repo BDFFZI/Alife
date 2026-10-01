@@ -14,7 +14,7 @@ public static class AlifePluginSystem
 
         string pluginContextDirectory = Path.Combine(AlifePath.RuntimeFolderPath, "PluginContext");
 #if DEBUG
-        //开发模式下，将插件根目录指向 Alife.Function 源码目录（Alife.Client.Core 与 Alife.Function 的相对目录），
+        //开发模式下，将插件根目录指向 Alife.Function 源码目录（Alife.Client 与 Alife.Function 的相对目录），
         //以便直接以插件项目目录作为热更新源码加载。
         string pluginDirectory = Path.GetFullPath(@"..\..\Alife.Function");
 #else
