@@ -9,9 +9,4 @@ var character = new Character {
     ]
 };
 
-await DemoSuite.Run(character, provider => {
-    StorageSystem storageSystem = provider.GetRequiredService<StorageSystem>();
-    storageSystem.SetProperty("endpoint", "https://opencode.ai/zen/v1");
-    storageSystem.SetProperty("apiKey", "sk-12cuQtqJ5gx71aL0NjwU5GYuBv1xG7BMOOAjyXw21e3EeuFhsLiibLVgN3HRhaRi");
-    storageSystem.SetProperty("modelId", "deepseek-v4-flash-free");
-});
+await DemoSuite.Run(character);

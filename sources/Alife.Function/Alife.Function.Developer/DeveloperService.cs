@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,10 @@ public class DeveloperService(
 
     protected override async Task OnAwake()
     {
-        mcpClient = await McpUtility.ConnectHttpAsync("AlifeMcp", AlifeMcp.Endpoint, loggerFactory);
+        if (AlifeMcp.Server == null)
+            throw new Exception("必须确保开启了 AlifeMcp 才可以使用开发者工具");
+
+        mcpClient = await McpUtility.ConnectHttpAsync("AlifeMcp", AlifeMcp.Server, loggerFactory);
         XmlHandler xmlHandler = await McpXmlAdapter.McpClientToXmlHandler(
             mcpClient,
             "DeveloperTools",

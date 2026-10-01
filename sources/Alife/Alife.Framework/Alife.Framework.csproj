@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <RootNamespace>Alife.Framework</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
+        <PackageReference Include="AntDesign" Version="1.6.2"/>
+        <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0"/>
+        <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0"/>
+        <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="AntDesign" Version="1.6.2" />
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0" />
-    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Alife.Foundation\Alife.Foundation.csproj" />
-    <ProjectReference Include="..\Alife.PluginMarket\Alife.PluginMarket.csproj" />
-    <ProjectReference Include="..\Alife.PluginContext\Alife.PluginContext.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Alife.Foundation\Alife.Foundation.csproj"/>
+    </ItemGroup>
 </Project>

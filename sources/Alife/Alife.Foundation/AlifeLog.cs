@@ -41,7 +41,9 @@ public class AlifeLogger(string categoryName) : ILogger
     {
         public static readonly NullScope Instance = new();
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 }
 
@@ -52,7 +54,9 @@ public class AlifeLogProvider : ILoggerProvider
         return new AlifeLogger(categoryName);
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+    }
 }
 
 class AlifeConsoleWriter(TextWriter inner, Action<string> lineWrote) : TextWriter
@@ -100,17 +104,17 @@ class AlifeConsoleWriter(TextWriter inner, Action<string> lineWrote) : TextWrite
 
 public static class AlifeLog
 {
+    public static void Initialize()
+    {
+        Console.SetOut(new AlifeConsoleWriter(Console.Out, OnLogLineWrote));
+        Console.SetError(new AlifeConsoleWriter(Console.Error, OnLogLineWrote));
+    }
+    
     public static string LogFilePath { get; } = Path.Combine(AlifePath.TempFolderPath, "alife.log");
     public static int LogLineCount { get; private set; }
     public static event Action<string>? WarningLogged;
     public static event Action<string>? ErrorLogged;
     public static event Action<string>? Logging;
-
-    public static void SetupConsoleCapture()
-    {
-        Console.SetOut(new AlifeConsoleWriter(Console.Out, OnLogLineWrote));
-        Console.SetError(new AlifeConsoleWriter(Console.Error, OnLogLineWrote));
-    }
 
     public static void LogInformation(object message)
     {

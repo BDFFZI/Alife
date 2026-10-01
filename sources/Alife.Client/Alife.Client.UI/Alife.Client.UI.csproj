@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Alife.Client.UI</RootNamespace>
+        <AssemblyName>Alife.Client.UI</AssemblyName>
+        <PackageId>Alife.Client.UI</PackageId>
+    </PropertyGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Alife.Client.Core\Alife.Client.Core.csproj" />
+    </ItemGroup>
+</Project>

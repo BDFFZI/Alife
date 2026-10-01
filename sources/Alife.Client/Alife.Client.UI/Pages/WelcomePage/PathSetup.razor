@@ -1,0 +1,300 @@
+@using System.IO
+@inject IJSRuntime JSRuntime
+
+<div class="step-content">
+    <div class="step-icon" style="background:rgba(255,165,0,.1);color:#ffa500;">
+        <Icon Type="@IconType.Outline.FolderOpen" Style="font-size:28px;"/>
+    </div>
+    <h2 class="step-title">路径配置</h2>
+    <p class="step-desc">检测并配置关键路径，确保路径不包含中文字符</p>
+
+    @if (hasNonAsciiPath)
+    {
+        <div class="path-error">
+            <Icon Type="@IconType.Outline.CloseCircle" Style="color:#ff4d4f;"/>
+            <div>
+                <div style="font-weight:500;">检测到以下路径包含中文字符</div>
+                <div style="margin-top:4px;">请修改为纯英文路径，否则部分功能将无法正常使用！</div>
+            </div>
+        </div>
+    }
+
+    <div class="path-list">
+        <div class="path-item">
+            <div class="path-header">
+                <span class="path-label">运行时路径</span>
+                <span class="path-status @(HasNonAscii(runtimePath) ? "error" : "ok")">
+                    @(HasNonAscii(runtimePath) ? "包含中文" : "正常")
+                </span>
+            </div>
+            <div class="path-value">@runtimePath</div>
+            @if (HasNonAscii(runtimePath))
+            {
+                <div class="path-edit">
+                    <Input @bind-Value="newRuntimePath" Placeholder="输入新的运行时路径"/>
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveRuntimePath())">
+                        保存
+                    </Button>
+                </div>
+            }
+        </div>
+
+        <div class="path-item">
+            <div class="path-header">
+                <span class="path-label">存储路径</span>
+                <span class="path-status @(HasNonAscii(storagePath) ? "error" : "ok")">
+                    @(HasNonAscii(storagePath) ? "包含中文" : "正常")
+                </span>
+            </div>
+            <div class="path-value">@storagePath</div>
+            @if (HasNonAscii(storagePath))
+            {
+                <div class="path-edit">
+                    <Input @bind-Value="newStoragePath" Placeholder="输入新的存储路径"/>
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveStoragePath())">
+                        保存
+                    </Button>
+                </div>
+            }
+        </div>
+
+        <div class="path-item">
+            <div class="path-header">
+                <span class="path-label">ModelScope 缓存路径</span>
+                <span class="path-status @(HasNonAscii(modelScopePath) ? "error" : "ok")">
+                    @(HasNonAscii(modelScopePath) ? "包含中文" : "正常")
+                </span>
+            </div>
+            <div class="path-value">@modelScopePath</div>
+            @if (HasNonAscii(modelScopePath))
+            {
+                <div class="path-edit">
+                    <Input @bind-Value="newModelScopePath" Placeholder="输入新的 ModelScope 缓存路径"/>
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveModelScopePath())">
+                        保存
+                    </Button>
+                </div>
+            }
+        </div>
+
+
+    </div>
+
+    <div class="step-actions">
+        <Button Size="@ButtonSize.Large" OnClick="@OnPrev">
+            <Icon Type="@IconType.Outline.ArrowLeft"/>
+            上一步
+        </Button>
+        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@hasNonAsciiPath" OnClick="@OnNext">
+            下一步
+            <Icon Type="@IconType.Outline.ArrowRight"/>
+        </Button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnPrevStep { get; set; }
+    [Parameter] public EventCallback OnNextStep { get; set; }
+
+    string runtimePath = "";
+    string storagePath = "";
+    string modelScopePath = "";
+    string newRuntimePath = "";
+    string newStoragePath = "";
+    string newModelScopePath = "";
+
+    bool hasNonAsciiPath = false;
+
+    protected override void OnInitialized()
+    {
+        LoadPaths();
+    }
+
+    void LoadPaths()
+    {
+        runtimePath = AlifePath.RuntimeFolderPath;
+        storagePath = AlifePath.StorageFolderPath;
+
+        // ModelScope 缓存路径：先检查进程环境变量，再检查用户环境变量，最后检查系统环境变量
+        string modelScopeCache = Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.Process) ??
+                                 Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.User) ??
+                                 Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.Machine) ??
+                                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "modelscope", "hub");
+        modelScopePath = modelScopeCache;
+
+        newRuntimePath = runtimePath;
+        newStoragePath = storagePath;
+        newModelScopePath = modelScopePath;
+
+        CheckAllPaths();
+    }
+
+    void CheckAllPaths()
+    {
+        hasNonAsciiPath = HasNonAscii(runtimePath) || HasNonAscii(storagePath) ||
+                          HasNonAscii(modelScopePath);
+    }
+
+    bool HasNonAscii(string path)
+    {
+        return path.Any(c => c > 127);
+    }
+
+    void SaveRuntimePath()
+    {
+        if (!HasNonAscii(newRuntimePath))
+        {
+            AlifeContext.SetRuntimeFolderPath(newRuntimePath);
+            runtimePath = newRuntimePath;
+            CheckAllPaths();
+        }
+    }
+
+    void SaveStoragePath()
+    {
+        if (!HasNonAscii(newStoragePath))
+        {
+            AlifeContext.SetStorageFolderPath(newStoragePath);
+            storagePath = newStoragePath;
+            CheckAllPaths();
+        }
+    }
+
+    void SaveModelScopePath()
+    {
+        if (!HasNonAscii(newModelScopePath))
+        {
+            // 永久修改用户环境变量
+            Environment.SetEnvironmentVariable("MODELSCOPE_CACHE", newModelScopePath, EnvironmentVariableTarget.User);
+            // 同时修改当前进程的环境变量，确保立即生效
+            Environment.SetEnvironmentVariable("MODELSCOPE_CACHE", newModelScopePath, EnvironmentVariableTarget.Process);
+            modelScopePath = newModelScopePath;
+            CheckAllPaths();
+        }
+    }
+
+    async Task OnPrev()
+    {
+        await OnPrevStep.InvokeAsync();
+    }
+    async Task OnNext()
+    {
+        await OnNextStep.InvokeAsync();
+    }
+}
+
+<style>
+    .step-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .step-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+
+    .step-title {
+        margin: 0 0 8px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a1a1a;
+        text-align: center;
+    }
+
+    .step-desc {
+        margin: 0 0 20px;
+        font-size: 13px;
+        color: rgba(0, 0, 0, .45);
+        text-align: center;
+    }
+
+    .path-error {
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        background: #fff2f0;
+        border: 1px solid #ffccc7;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #a8071a;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .path-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .path-item {
+        padding: 12px;
+        background: rgba(0, 0, 0, .02);
+        border-radius: 8px;
+        border: 1px solid #f0f0f0;
+    }
+
+    .path-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    .path-label {
+        font-weight: 500;
+        font-size: 13px;
+        color: #333;
+    }
+
+    .path-status {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    .path-status.ok {
+        background: #f6ffed;
+        color: #52c41a;
+        border: 1px solid #b7eb8f;
+    }
+
+    .path-status.error {
+        background: #fff2f0;
+        color: #ff4d4f;
+        border: 1px solid #ffccc7;
+    }
+
+    .path-value {
+        font-size: 12px;
+        color: rgba(0, 0, 0, .65);
+        word-break: break-all;
+        margin-bottom: 8px;
+    }
+
+    .path-edit {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .path-edit .ant-input {
+        flex: 1;
+    }
+
+    .step-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: auto;
+        padding-top: 16px;
+        gap: 12px;
+    }
+</style>

@@ -8,10 +8,16 @@ namespace Alife.Foundation;
 /// </summary>
 public static class AlifeMirror
 {
+    public static void Initialize()
+    {
+        SetupEnvironment();
+    }
+
     /// <summary>
     /// URL 替换映射表。Key 为原始 URL 前缀，Value 为镜像 URL 前缀。
     /// </summary>
     public static IReadOnlyDictionary<string, string> MirrorUrlMap { get; private set; }
+
     /// <summary>
     /// 环境变量配置表。启动 Python 进程时会自动设置这些环境变量。
     /// </summary>
@@ -22,7 +28,7 @@ public static class AlifeMirror
     /// </summary>
     public static void SetMirrorUrlMap(Dictionary<string, string> urlMap)
     {
-        MirrorUrlMap = urlMap;  
+        MirrorUrlMap = urlMap;
         Save();
     }
     /// <summary>

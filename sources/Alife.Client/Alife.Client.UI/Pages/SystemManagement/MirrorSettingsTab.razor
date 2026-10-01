@@ -1,0 +1,161 @@
+@inject INotificationService NotificationService
+
+<div style="padding: 24px; height: 100%; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <Title Level="4" Style="margin: 0;">镜像配置</Title>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">
+                配置国内镜像源以加速下载。修改后重启生效。
+            </Text>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <Button Danger OnClick="OnDeleteMirror">清空镜像</Button>
+        </div>
+    </div>
+
+    <Divider Style="margin: 16px 0;"/>
+
+    <Title Level="5" Style="margin-bottom: 12px;">URL 镜像映射</Title>
+    <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-bottom: 12px; display: block;">
+        左侧为原始地址，右侧为镜像地址。进行简单的字符串替换。
+    </Text>
+
+    <div style="margin-bottom: 24px;">
+        @foreach (var item in MirrorUrlMap.ToList())
+        {
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <Input Value="@item.Key" Style="flex: 1; font-size: 12px;" 
+                       Placeholder="原始地址"
+                       OnChange="(string value) => OnKeyChanged(item.Key, value)"/>
+                <Icon Type="@IconType.Outline.ArrowRight" Style="flex-shrink: 0;"/>
+                <Input Value="@item.Value" Style="flex: 1; font-size: 12px;" 
+                       Placeholder="镜像地址"
+                       OnChange="(string value) => OnValueChanged(item.Key, value)"/>
+                <Button Danger Size="@ButtonSize.Small" Icon="@IconType.Outline.Delete" 
+                        OnClick="() => OnRemoveUrlMap(item.Key)"/>
+            </div>
+        }
+        <Button Type="@ButtonType.Dashed" Block Icon="@IconType.Outline.Plus" 
+                OnClick="OnAddUrlMap" Style="margin-top: 8px;">
+            添加映射
+        </Button>
+    </div>
+
+    <Divider Style="margin: 16px 0;"/>
+
+    <Title Level="5" Style="margin-bottom: 12px;">环境变量</Title>
+    <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-bottom: 12px; display: block;">
+        启动 Python 进程时会自动设置这些环境变量。
+    </Text>
+
+    <div style="margin-bottom: 24px;">
+        @foreach (var item in MirrorEnvironmentVariables.ToList())
+        {
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <Input Value="@item.Key" Style="flex: 1; font-size: 12px;" 
+                       Placeholder="变量名"
+                       OnChange="(string value) => OnEnvKeyChanged(item.Key, value)"/>
+                <Icon Type="@IconType.Outline.ArrowRight" Style="flex-shrink: 0;"/>
+                <Input Value="@item.Value" Style="flex: 2; font-size: 12px;" 
+                       Placeholder="变量值"
+                       OnChange="(string value) => OnEnvValueChanged(item.Key, value)"/>
+                <Button Danger Size="@ButtonSize.Small" Icon="@IconType.Outline.Delete" 
+                        OnClick="() => OnRemoveEnvVar(item.Key)"/>
+            </div>
+        }
+        <Button Type="@ButtonType.Dashed" Block Icon="@IconType.Outline.Plus" 
+                OnClick="OnAddEnvVar" Style="margin-top: 8px;">
+            添加环境变量
+        </Button>
+    </div>
+</div>
+
+@code {
+    Dictionary<string, string> MirrorUrlMap = new();
+    Dictionary<string, string> MirrorEnvironmentVariables = new();
+
+    protected override void OnInitialized()
+    {
+        MirrorUrlMap = AlifeMirror.MirrorUrlMap.ToDictionary(x => x.Key, x => x.Value);
+        MirrorEnvironmentVariables = AlifeMirror.MirrorEnvironmentVariables.ToDictionary(x => x.Key, x => x.Value);
+    }
+
+    void OnKeyChanged(string oldKey, string newKey)
+    {
+        if (string.IsNullOrEmpty(newKey) || oldKey == newKey) return;
+        if (MirrorUrlMap.ContainsKey(oldKey))
+        {
+            var value = MirrorUrlMap[oldKey];
+            MirrorUrlMap.Remove(oldKey);
+            MirrorUrlMap[newKey] = value;
+            SaveUrlMap();
+        }
+    }
+
+    void OnValueChanged(string key, string value)
+    {
+        MirrorUrlMap[key] = value;
+        SaveUrlMap();
+    }
+
+    void OnRemoveUrlMap(string key)
+    {
+        MirrorUrlMap.Remove(key);
+        SaveUrlMap();
+    }
+
+    void OnAddUrlMap()
+    {
+        MirrorUrlMap["https://example.com"] = "https://mirror.example.com";
+        SaveUrlMap();
+    }
+
+    void SaveUrlMap()
+    {
+        AlifeMirror.SetMirrorUrlMap(MirrorUrlMap);
+    }
+
+    void OnEnvKeyChanged(string oldKey, string newKey)
+    {
+        if (string.IsNullOrEmpty(newKey) || oldKey == newKey) return;
+        if (MirrorEnvironmentVariables.ContainsKey(oldKey))
+        {
+            var value = MirrorEnvironmentVariables[oldKey];
+            MirrorEnvironmentVariables.Remove(oldKey);
+            MirrorEnvironmentVariables[newKey] = value;
+            SaveEnvVars();
+        }
+    }
+
+    void OnEnvValueChanged(string key, string value)
+    {
+        MirrorEnvironmentVariables[key] = value;
+        SaveEnvVars();
+    }
+
+    void OnRemoveEnvVar(string key)
+    {
+        MirrorEnvironmentVariables.Remove(key);
+        SaveEnvVars();
+    }
+
+    void OnAddEnvVar()
+    {
+        MirrorEnvironmentVariables["NEW_VARIABLE"] = "value";
+        SaveEnvVars();
+    }
+
+    void SaveEnvVars()
+    {
+        AlifeMirror.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
+    }
+
+    void OnDeleteMirror()
+    {
+        MirrorUrlMap.Clear();
+        MirrorEnvironmentVariables.Clear();
+        AlifeMirror.SetMirrorUrlMap(MirrorUrlMap);
+        AlifeMirror.SetMirrorEnvironmentVariables(MirrorEnvironmentVariables);
+        _ = NotificationService.Success(new NotificationConfig { Message = "镜像配置已清空" });
+    }
+}

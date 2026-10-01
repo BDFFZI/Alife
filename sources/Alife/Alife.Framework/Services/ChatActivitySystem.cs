@@ -1,0 +1,132 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Alife.Framework;
+
+public class ChatActivitySystem
+{
+    public HashSet<object> InjectedObjects => injectedObjects;
+
+    /// <summary>
+    /// 开始激活角色
+    /// </summary>
+    public event Action<Character>? Activating;
+
+    /// <summary>
+    /// 活动创建并调用Awake后
+    /// </summary>
+    public event Action<ChatActivity>? ActivatingCreated;
+
+    /// <summary>
+    /// 活动调用Start并正式加入统计，即完成创建后
+    /// </summary>
+    public event Action<ChatActivity>? Activated;
+
+    /// <summary>
+    /// 激活中的进度回调
+    /// </summary>
+    public event Action<Character, (string Step, float Progress)>? ActivatingProcess;
+
+    /// <summary>
+    /// 激活过程发生报错（生命周期事件不会引发该错误）
+    /// </summary>
+    public event Action<Character, Exception>? ActivationFailed;
+
+    /// <summary>
+    /// 活动即将销毁
+    /// </summary>
+    public event Action<ChatActivity>? Deactivating;
+
+    /// <summary>
+    /// 活动销毁并移出全局统计后
+    /// </summary>
+    public event Action<ChatActivity>? Deactivated;
+
+    public bool IsActivated(Character character)
+    {
+        return activities.ContainsKey(character.Name);
+    }
+
+    public IEnumerable<ChatActivity> GetAllChatActivities()
+    {
+        return activities.Values;
+    }
+    public ChatActivity? GetChatActivity(Character character)
+    {
+        return activities.GetValueOrDefault(character.Name);
+    }
+
+    /// <summary>
+    /// 激活角色。UI 应通过订阅 Activating/Activated/ActivationFailed 事件来感知流程。
+    /// </summary>
+    public async Task<ChatActivity?> Activate(Character character)
+    {
+        try
+        {
+            if (activities.TryGetValue(character.Name, out var activate))
+                return activate;
+
+            ChatActivity chatActivity = new(character, configurationSystem, moduleSystem, characterSystem, injectedObjects.ToArray());
+            activities.Add(character.Name, chatActivity);
+
+            Progress<(string, float)> progress = new(tuple => { ActivatingProcess?.Invoke(character, tuple); });
+
+            Activating?.Invoke(character);
+            await chatActivity.Awake(progress);
+            ActivatingCreated?.Invoke(chatActivity);
+            await chatActivity.Start(progress);
+
+            Activated?.Invoke(chatActivity);
+            return chatActivity;
+        }
+        catch (Exception ex)
+        {
+            activities.Remove(character.Name);
+
+            ActivationFailed?.Invoke(character, ex);
+            throw;
+        }
+    }
+    /// <summary>
+    /// 销毁角色。UI 应通过订阅 Destroying/Destroyed 事件来感知流程。
+    /// </summary>
+    public async Task Deactivate(Character character)
+    {
+        if (!activities.TryGetValue(character.Name, out ChatActivity? chatActivity))
+            return;
+
+        Deactivating?.Invoke(chatActivity);
+        await chatActivity.Destroy();
+        activities.Remove(character.Name);
+        Deactivated?.Invoke(chatActivity);
+    }
+
+    public ChatActivitySystem(
+        StorageSystem storageSystem,
+        ConfigurationSystem configurationSystem,
+        CharacterSystem characterSystem,
+        ModuleSystem moduleSystem,
+        IServiceProvider serviceProvider)
+    {
+        injectedObjects = [
+            characterSystem,
+            this,
+            configurationSystem,
+            moduleSystem,
+            storageSystem,
+            serviceProvider
+        ];
+
+        this.moduleSystem = moduleSystem;
+        this.configurationSystem = configurationSystem;
+        this.characterSystem = characterSystem;
+    }
+
+    readonly ModuleSystem moduleSystem;
+    readonly ConfigurationSystem configurationSystem;
+    readonly CharacterSystem characterSystem;
+    readonly HashSet<object> injectedObjects;
+    readonly Dictionary<string, ChatActivity> activities = new();
+}

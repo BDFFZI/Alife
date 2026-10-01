@@ -1,3 +1,4 @@
+using Alife;
 using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -19,7 +20,7 @@ public static class DemoSuite
         ServiceCollection serviceCollection = new();
         serviceCollection.AddAlife();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
-        provider.InitAlife();
+        await provider.InitAlife();
 
         systemCreated?.Invoke(provider);
 

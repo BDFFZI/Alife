@@ -1,0 +1,67 @@
+@inject IAlifeClient AlifeClient
+@inject IJSRuntime JsRuntime
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Alife</title>
+    <meta charset="utf-8"/>
+    <base href="/"/>
+    <link rel="icon" type="image/png" href="images/alife-icon.png"/>
+
+    @* Blazor-AntDesgin 组件库 *@
+    <meta no-antblazor-js no-antblazor-css/>
+    <link href="@Assets["_content/AntDesign/css/ant-design-blazor.css"]" rel="stylesheet">
+    <script src="@Assets["_content/AntDesign/js/ant-design-blazor.js"]"></script>
+
+    @* 组件自定义样式 *@
+    <link rel="stylesheet" href="@Assets["_content/Alife.Client.UI/Alife.Client.UI.bundle.scp.css"]"/>
+    <style>
+        .modal-top.ant-modal-wrap {
+            z-index: 99999 !important;
+        }
+
+        .ant-notification {
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+    </style> @* 实现置顶弹窗 *@
+
+    @* 自定义关闭事件 *@
+    <script>
+        window.alifeRegisterCloseHandler = (dotNetRef) => {
+            console.log("alifeRegisterCloseHandler")
+            window.addEventListener('beforeunload', (e) => {
+                e.returnValue = false;
+                dotNetRef.invokeMethodAsync('Quit');
+            });
+        };
+    </script>
+</head>
+
+<body>
+<Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))"/>
+<script src="@Assets["_framework/blazor.server.js"]"></script> @* Blazor 前端框架 *@
+</body>
+</html>
+
+@code
+{
+    DotNetObjectReference<App>? selfRef;
+
+    protected override void OnInitialized()
+    {
+        selfRef = DotNetObjectReference.Create(this);
+        JsRuntime.InvokeVoidAsync("alifeRegisterCloseHandler", selfRef);
+    }
+
+    [JSInvokable]
+    public void Quit() => AlifeClient.Quit();
+}

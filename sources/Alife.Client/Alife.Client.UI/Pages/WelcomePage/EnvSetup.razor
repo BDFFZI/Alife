@@ -1,0 +1,307 @@
+<div class="step-content">
+    <ErrorWindowUI @bind-Value="@installException"/>
+    <div class="step-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+        <Icon Type="@IconType.Outline.CloudDownload" Style="font-size:28px;"/>
+    </div>
+    <h2 class="step-title">配置运行环境</h2>
+    <p class="step-desc">VC++、Python、.NET SDK（必需）及 CUDA（可选）</p>
+
+    <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
+           Message="下载时间取决于网络情况，如果是 CUDA 额外还需要下载 2-3GB 内容。可查看任务管理器的磁盘或网络波动来确认是否正常下载中。"></Alert>
+
+    <div class="env-grid">
+        @RenderEnv("VC++ 运行库", ClientEnvironment.IsVCRedistReady)
+        @RenderEnv("Python 3.12", ClientEnvironment.IsPythonReady)
+        @RenderEnv(".NET SDK 10", ClientEnvironment.IsDotNetSdkReady)
+        @RenderEnv("CUDA (本地模型GPU加速)", ClientEnvironment.IsCudaReady, true)
+    </div>
+
+    @if (isInstallingEnv && !string.IsNullOrEmpty(envProgressMsg))
+    {
+        <div class="progress-tip">
+            <Icon Type="loading"/>@envProgressMsg</div>
+    }
+    else if (!string.IsNullOrEmpty(envProgressMsg))
+    {
+        <div class="progress-tip">@envProgressMsg</div>
+    }
+
+    <div class="step-actions">
+        <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload" Loading="@isEnvRefreshing"
+                OnClick="@RefreshEnvironment">
+            检测
+        </Button>
+        <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Icon="@IconType.Outline.Thunderbolt"
+                Loading="@isInstallingEnv" OnClick="@InstallAllRequired">一键安装必要环境
+        </Button>
+        <Button Size="@ButtonSize.Small" OnClick="@OnInstallCuda" Loading="@isInstallingCuda">
+            安装 CUDA 环境（需显卡支持，否则不要装）
+        </Button>
+    </div>
+
+
+    <div class="step-next">
+        <Button Size="@ButtonSize.Large" OnClick="@OnPrev">
+            <Icon Type="@IconType.Outline.ArrowLeft"/>
+            上一步
+        </Button>
+        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(!EnvAllReady)" OnClick="@OnNext">
+            下一步
+            <Icon Type="@IconType.Outline.ArrowRight"/>
+        </Button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnPrevStep { get; set; }
+    [Parameter] public EventCallback OnNextStep { get; set; }
+
+    bool isEnvRefreshing, isInstallingEnv, isInstallingCuda;
+    string envProgressMsg = "";
+    Exception? installException;
+
+    bool EnvAllReady =>
+        ClientEnvironment.IsVCRedistReady
+        && ClientEnvironment.IsPythonReady
+        && ClientEnvironment.IsDotNetSdkReady;
+
+    RenderFragment RenderEnv(string label, bool isReady, bool optional = false) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "ev" + (optional ? " ev-opt" : ""));
+
+        builder.OpenElement(2, "span");
+        builder.AddAttribute(3, "class", "ev-icon " + (isReady ? "ev-ok" : ""));
+        if (isReady)
+            builder.AddMarkupContent(4, "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/></svg>");
+        else
+            builder.AddMarkupContent(4, "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"15\" y1=\"9\" x2=\"9\" y2=\"15\"/><line x1=\"9\" y1=\"9\" x2=\"15\" y2=\"15\"/></svg>");
+        builder.CloseElement();
+
+        builder.OpenElement(5, "span");
+        builder.AddAttribute(6, "class", "ev-name");
+        builder.AddContent(7, label);
+        builder.CloseElement();
+
+        if (optional)
+        {
+            builder.OpenElement(8, "span");
+            builder.AddAttribute(9, "class", "ev-tag");
+            builder.AddContent(10, "可选");
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(11, "span");
+        builder.AddAttribute(12, "class", "ev-msg");
+        builder.AddContent(13, isReady ? "已就绪" : "未安装");
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    async Task RefreshEnvironment()
+    {
+        isEnvRefreshing = true;
+        await Task.Run(ClientEnvironment.SyncEnvironment);
+        isEnvRefreshing = false;
+    }
+
+    async Task InstallAllRequired()
+    {
+        isInstallingEnv = true;
+        envProgressMsg = "";
+        installException = null;
+        StateHasChanged();
+        try
+        {
+            IProgress<string> p = new Progress<string>(msg =>
+            {
+                envProgressMsg = msg;
+                InvokeAsync(StateHasChanged);
+            });
+            await Task.Run(async () =>
+            {
+                if (!ClientEnvironment.IsVCRedistReady) await ClientEnvironment.InstallVCppRedistAsync(p);
+                if (!ClientEnvironment.IsPythonReady) await ClientEnvironment.InstallPythonAsync(p);
+                if (!ClientEnvironment.IsDotNetSdkReady) await ClientEnvironment.InstallDotNetSdkAsync(p);
+            });
+            p.Report("验证环境");
+            await RefreshEnvironment();
+            envProgressMsg = "必要环境配置完成！";
+        }
+        catch (Exception ex)
+        {
+            installException = ex;
+            envProgressMsg = "";
+        }
+        finally
+        {
+            isInstallingEnv = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task OnInstallCuda()
+    {
+        isInstallingCuda = true;
+        envProgressMsg = "";
+        installException = null;
+        StateHasChanged();
+        try
+        {
+            IProgress<string> p = new System.Progress<string>(msg =>
+            {
+                envProgressMsg = msg;
+                InvokeAsync(StateHasChanged);
+            });
+            await Task.Run(() => ClientEnvironment.InstallCuda(p));
+            p.Report("验证环境");
+            await RefreshEnvironment();
+            envProgressMsg = $"CUDA安装{(ClientEnvironment.IsCudaReady ? "成功" : "失败")}！";
+        }
+        catch (Exception ex)
+        {
+            installException = ex;
+        }
+        finally
+        {
+            isInstallingCuda = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task OnNext()
+    {
+        await OnNextStep.InvokeAsync();
+    }
+
+    async Task OnPrev()
+    {
+        await OnPrevStep.InvokeAsync();
+    }
+
+
+}
+
+<style>
+    .step-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+
+    .step-title {
+        margin: 0 0 8px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a1a1a;
+        text-align: center;
+    }
+
+    .step-desc {
+        margin: 0 0 20px;
+        font-size: 13px;
+        color: rgba(0, 0, 0, .45);
+        text-align: center;
+    }
+
+    .step-hint {
+        margin: -12px 0 16px;
+        font-size: 11px;
+        color: #faad14;
+        text-align: center;
+    }
+
+    .env-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .ev {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, .02);
+        border-radius: 8px;
+        font-size: 13px;
+    }
+
+    .ev-opt {
+        opacity: .7;
+    }
+
+    .ev-icon {
+        display: flex;
+        align-items: center;
+        width: 16px;
+        justify-content: center;
+        flex-shrink: 0;
+        color: rgba(0, 0, 0, .2);
+    }
+
+    .ev-ok {
+        color: #52c41a;
+    }
+
+    .ev-err {
+        color: #ff4d4f;
+    }
+
+    .ev-name {
+        font-weight: 500;
+        color: #333;
+    }
+
+    .ev-tag {
+        font-size: 10px;
+        background: #f0f0f0;
+        color: rgba(0, 0, 0, .35);
+        padding: 2px 6px;
+        border-radius: 4px;
+        line-height: 16px;
+    }
+
+    .ev-msg {
+        margin-left: auto;
+        font-size: 11px;
+        color: rgba(0, 0, 0, .3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 160px;
+    }
+
+    .progress-tip {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(24, 144, 255, .04);
+        border: 1px solid rgba(24, 144, 255, .1);
+        border-radius: 8px;
+        font-size: 12px;
+        color: #1890ff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .step-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: auto;
+    }
+
+    .step-next {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 16px;
+        gap: 12px;
+    }
+</style>

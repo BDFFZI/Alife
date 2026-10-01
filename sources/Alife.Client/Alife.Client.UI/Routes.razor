@@ -1,0 +1,73 @@
+@inject IAlifeClient AlifeClient
+@inject IJSRuntime JsRuntime
+@inject IServiceProvider ServiceProvider
+
+@if (isAppInitialized)
+{
+    <ErrorBoundary>
+        <ChildContent>
+            <Router AppAssembly="typeof(App).Assembly">
+                <Found Context="routeData">
+                    <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)"/>
+                    <FocusOnNavigate RouteData="routeData" Selector="h1"/>
+                </Found>
+            </Router>
+        </ChildContent>
+        <ErrorContent Context="ex">
+            @{
+                <ErrorWindowUI Value="ex" Title="系统崩溃" ValueChanged="@(() => AlifeClient.Exit())"/>
+            }
+        </ErrorContent>
+    </ErrorBoundary>
+}
+else
+{
+    <Launching SubTitle="@launchingProgress"/>
+}
+
+<LogOverlay/>
+<AntContainer/>
+<ErrorWindowUI @bind-Value="@exception" Title="系统初始化异常"/>
+
+@code
+{
+    string? launchingProgress;
+    bool isAppInitialized;
+    Exception? exception;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender == false)
+            return;
+
+        //业务环境初始化（故意放在UI中初始化以便获得通过UI展示进度的能力）
+        try
+        {
+            await Task.Run(async () =>
+            {
+                Progress<string> progress = new Progress<string>(state =>
+                {
+                    launchingProgress = state;
+                    InvokeAsync(StateHasChanged);
+                });
+                AlifeClientCore.InitConfig config = new() {
+                    FetchOnlineInfo = true,
+                    LoadLocalPlugins = true,
+                    EnsureEnvironment = true,
+                    McpServer = true,
+                    McpServerPort = 18765,
+                };
+                await ServiceProvider.InitAlifeClient(config, progress);
+            });
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+        }
+
+        isAppInitialized = true;
+        await JsRuntime.InvokeVoidAsync("alifeLaunching.complete");
+
+        StateHasChanged();
+    }
+}

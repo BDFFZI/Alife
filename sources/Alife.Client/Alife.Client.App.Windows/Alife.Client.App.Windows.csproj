@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <!-- 编码环境 -->
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Alife.Client</RootNamespace>
+        <!-- 发布设置-->
+        <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
+        <ApplicationIcon>alife-icon.ico</ApplicationIcon>
+        <ElectronIcon>alife-icon.ico</ElectronIcon>
+        <SelfContained>true</SelfContained>
+        <PublishSelfContained>true</PublishSelfContained>
+        <Version>4.5.0</Version>
+        <!-- 对外名称：与重构前保持一致，产物与 Electron 包仍为 Alife.Client（Alife.Client.exe） -->
+        <AssemblyName>Alife.Client</AssemblyName>
+        <Title>Alife.Client</Title>
+        <ElectronPackageId>alife-client</ElectronPackageId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ElectronNET.Core" Version="0.5.2" />
+        <PackageReference Include="ElectronNET.Core.AspNet" Version="0.5.2" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Alife.Client.Core\Alife.Client.Core.csproj" />
+        <ProjectReference Include="..\Alife.Client.UI\Alife.Client.UI.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- 窗口/托盘图标：Program.cs 从 AppContext.BaseDirectory 读取，electron-builder 需要 bin/alife-icon.ico -->
+        <Content Include="alife-icon.ico">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="Properties\custom_main.js">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>.electron\custom_main.js</TargetPath>
+        </None>
+    </ItemGroup>
+
+</Project>

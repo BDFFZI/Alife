@@ -1,0 +1,60 @@
+<div id="loadingScreen" class="loading-screen">
+    <div id="starsContainer" class="stars-container"></div>
+
+    <div class="glow-orb glow-orb--1"></div>
+    <div class="glow-orb glow-orb--2"></div>
+    <div class="glow-orb glow-orb--3"></div>
+
+    <div class="loading-logo-wrapper">
+        <img class="loading-logo" src="images/alife-icon.png" alt="Alife"/>
+        <div class="loading-title">ALIFE</div>
+        @if (!string.IsNullOrEmpty(SubTitle))
+        {
+            <div class="loading-subtitle">@SubTitle</div>
+        }
+    </div>
+
+    <div class="loading-bar-container">
+        <div class="loading-bar">
+            <div class="loading-bar-fill"></div>
+        </div>
+    </div>
+
+    <div class="loading-tip">正在进入赛博生命的世界...</div>
+
+    <div class="cloud-decoration">
+        <div class="cloud cloud--1"></div>
+        <div class="cloud cloud--2"></div>
+        <div class="cloud cloud--3"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? SubTitle { get; set; }
+}
+
+<style>
+    :root {
+        --alife-deep-blue: #2a3db8;
+        --alife-mid-blue: #5061E0;
+        --alife-light-purple: #7A83EE;
+        --alife-pink-white: #D8CADB;
+        --alife-star: #fff;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+</style>
+
+<script type="module" src="@Assets["_content/Alife.Client.UI/Layout/Launching.razor.js"]"></script>

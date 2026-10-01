@@ -1,0 +1,677 @@
+@implements IDisposable
+@inject IJSRuntime JsRuntime
+
+<Flex Style="height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden;"
+      Direction="@FlexDirection.Vertical">
+
+    <!-- 顶部操作栏 -->
+    <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
+          Style="padding: 8px 16px; background: rgba(0,0,0,0.02); border-bottom: 1px solid #f0f0f0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">消息前缀:</AntDesign.Text>
+            <Input @bind-Value="ClientChatStatistics.MessageTag" Placeholder=""
+                   Size="@InputSize.Small"
+                   Style="width: 200px; border-radius: 4px;"/>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">最大条数:</AntDesign.Text>
+            <AntDesign.InputNumber @bind-Value="ClientChatStatistics.MaxMessageCount" Min="10" Max="10000"
+                                   Size="@InputSize.Small" Style="width: 80px; border-radius: 4px;"/>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">展开思考:</AntDesign.Text>
+            <Switch @bind-Value="ClientChatStatistics.ShowReasoning"/>
+        </div>
+        <Button Icon="@IconType.Outline.Clear"
+                Type="@ButtonType.Link"
+                Danger
+                OnClick="@(OnClear)">清理对话日志
+        </Button>
+    </Flex>
+
+    <!-- 消息区域 -->
+    <div style="flex: 1 1 auto; overflow-y: auto; padding: 24px; min-height: 100px;"
+         id="messageArea">
+        @if (messages != null)
+        {
+            @if (messages.Count == 0)
+            {
+                <Empty Style="margin-top: 100px" Description="@("暂无聊天信息，开始对话吧喵！")"/>
+            }
+            else
+            {
+                @lock (messages)
+                {
+                    @foreach (ChatMessage message in messages)
+                    {
+                        <div
+                            style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
+                            <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
+                                <Flex Direction="@FlexDirection.Vertical" Gap="@("small")">
+                                    <div class="chat-message-content">
+                                        @if (!string.IsNullOrEmpty(message.Reasoning))
+                                        {
+                                            <details class="chat-reasoning" open="@ClientChatStatistics.ShowReasoning">
+                                                <summary class="chat-reasoning-title">
+                                                    <Icon
+                                                        Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
+                                                    思考过程
+                                                </summary>
+                                                @if (!string.IsNullOrEmpty(message.ThinkingReason))
+                                                {
+                                                    <div class="chat-reasoning-reason">
+                                                        思考原因：@message.ThinkingReason
+                                                    </div>
+                                                }
+                                                <div class="chat-reasoning-content">
+                                                    @message.Reasoning
+                                                </div>
+                                            </details>
+                                        }
+                                        <AntDesign.Text Style="white-space: pre-wrap; font-size: 15px;">
+                                            @message.Content
+                                        </AntDesign.Text>
+                                    </div>
+
+                                    @if (message.IsInputting)
+                                    {
+                                        <AntDesign.Text Style="color: rgba(0,0,0,0.45); font-size: 12px">
+                                            输入中
+                                            <Icon Type="@IconType.Outline.Loading"/>
+                                        </AntDesign.Text>
+                                    }
+                                </Flex>
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        }
+        else
+        {
+            <Empty Description="@("消息存储不存在！")"/>
+        }
+    </div>
+
+    <!-- 输入区域 -->
+    @if (ChatActivity != null)
+    {
+        <div id="chatSplitter" class="chat-splitter"></div>
+        <div class="chat-input-container">
+            <Flex Gap="@("12")" Align="@FlexAlign.End" Style="flex: 1; min-height: 0;">
+                <div style="flex: 1; align-self: stretch; position: relative; min-height: 0;">
+                    <TextArea Id="chatInput"
+                              @key="inputVersion"
+                              Class="chat-input"
+                              Placeholder="@("输入消息... (Enter 发送，Shift+Enter 换行，Ctrl+V 粘贴文本或文件)")"
+                              @bind-Value="inputText"
+                              BindOnInput="true"
+                              Rows="3"></TextArea>
+
+                    @if (isWorking)
+                    {
+                        <div class="input-busy-tag">
+                            <Icon Type="@IconType.Outline.Loading" Style="font-size: 14px; color: #1890ff;"/>
+                            <span
+                                style="color: #1890ff; font-size: 12px; font-weight: 500;">@(string.IsNullOrEmpty(occupiedReasonText) ? "对话占用中" : occupiedReasonText)</span>
+                        </div>
+                    }
+                </div>
+                <Button Type="@ButtonType.Primary"
+                        Icon="@(IconType.Outline.Send)"
+                        OnClick="@(async () => await OnSend())"
+                        Style="border-radius: 8px; padding: 0 24px; box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);">
+                    @("发送")
+                </Button>
+            </Flex>
+        </div>
+    }
+</Flex>
+
+<ErrorWindowUI @bind-Value="@chatException" Title="聊天出错喵！"/>
+
+<style>
+    .chat-input-container {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 24px;
+        background: #fff;
+        border-top: 1px solid #f0f0f0;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.02);
+        min-height: 100px;
+    }
+
+    .chat-input {
+        height: 100% !important;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 14px;
+        line-height: 1.6;
+        min-height: 60px;
+        background: #fcfcfc;
+        resize: none;
+    }
+
+    .chat-input:hover,
+    .chat-input:focus {
+        background: #fff;
+    }
+
+    .chat-splitter {
+        height: 5px;
+        cursor: row-resize;
+        background: transparent;
+        position: relative;
+        flex-shrink: 0;
+        z-index: 10;
+    }
+
+    .chat-splitter::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 2px;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 2px;
+        background: #d9d9d9;
+        border-radius: 2px;
+        transition: background 0.2s;
+    }
+
+    .chat-splitter:hover::before {
+        background: #40a9ff;
+    }
+
+    .chat-splitter:active::before {
+        background: #1890ff;
+    }
+
+    .input-busy-tag {
+        position: absolute;
+        bottom: 8px;
+        right: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        background: rgba(24, 144, 255, 0.05);
+        border: 1px solid rgba(24, 144, 255, 0.2);
+        border-radius: 20px;
+        z-index: 10;
+        pointer-events: none;
+        animation: pulse-tag 2s infinite;
+    }
+
+    @@keyframes pulse-tag {
+        0% {
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0.6;
+        }
+    }
+
+    .chat-bubble {
+        max-width: 80%;
+        padding: 8px 16px;
+        border-radius: 12px;
+        position: relative;
+    }
+
+    .chat-bubble-user {
+        background: #95ec69; /* 经典的清新绿 */
+        color: #000;
+        border-bottom-right-radius: 2px;
+    }
+
+    .chat-bubble-ai {
+        background: #ffffff;
+        border: 1px solid #f0f0f0;
+        color: rgba(0, 0, 0, 0.85);
+        border-bottom-left-radius: 2px;
+    }
+
+    .chat-reasoning {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.03);
+        border-left: 3px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .chat-reasoning-title {
+        color: rgba(0, 0, 0, 0.45);
+        font-weight: 500;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .chat-reasoning-title::-webkit-details-marker {
+        display: none;
+    }
+
+    .chat-reasoning:not([open]) .chat-reasoning-title {
+        margin-bottom: 0;
+    }
+
+    .chat-reasoning .chat-reasoning-title::after {
+        content: " ▼";
+        font-size: 11px;
+        color: rgba(0, 0, 0, 0.35);
+    }
+
+    .chat-reasoning:not([open]) .chat-reasoning-title::after {
+        content: " ▶";
+    }
+
+    .chat-reasoning-content {
+        color: rgba(0, 0, 0, 0.65);
+        white-space: pre-wrap;
+        font-style: italic;
+    }
+
+    .chat-reasoning-reason {
+        color: #1890ff;
+        background: rgba(24, 144, 255, 0.06);
+        border: 1px solid rgba(24, 144, 255, 0.2);
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+    }
+</style>
+
+<script type="text/javascript">
+    window.setupChatScroll = () => {
+        const element = document.getElementById("messageArea");
+        if (!element || element.dataset.scrollSetup) return;
+        element.dataset.scrollSetup = "true";
+
+        // 只有用户主动滚动意图（滚轮/拖动滚动条/触摸）才会更新锚定状态，
+        // 内容新增(流式输出等)永远不会改变用户当前的阅读位置
+        let isAtBottom = true;
+
+        const updateAnchor = () => {
+            isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+        };
+
+        element.addEventListener('wheel', () => {
+            requestAnimationFrame(updateAnchor);
+        }, {passive: true});
+
+        element.addEventListener('pointerdown', (e) => {
+            // 滚动条拖拽：pointermove时持续更新
+            const onMove = () => requestAnimationFrame(updateAnchor);
+            const onUp = () => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+            };
+            if (e.offsetX > element.clientWidth) { // 命中滚动条区域
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+            } else {
+                requestAnimationFrame(updateAnchor);
+            }
+        });
+
+        element.addEventListener('touchmove', () => {
+            requestAnimationFrame(updateAnchor);
+        }, {passive: true});
+
+        const observer = new MutationObserver(() => {
+            if (isAtBottom) {
+                element.scrollTop = element.scrollHeight;
+                // 补偿性滚动
+                setTimeout(() => {
+                    if (isAtBottom) element.scrollTop = element.scrollHeight;
+                }, 10);
+            }
+        });
+        observer.observe(element, {childList: true, subtree: true, characterData: true});
+
+        // 页面重新可见时回到上次位置：底部锚定则去底部，否则保持原位
+        const visibilityObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setTimeout(() => {
+                    if (isAtBottom) element.scrollTop = element.scrollHeight;
+                }, 10);
+            }
+        });
+        visibilityObserver.observe(element);
+    }
+
+    window.forceScrollBottom = () => {
+        const element = document.getElementById("messageArea");
+        if (element) {
+            setTimeout(() => {
+                element.scrollTop = element.scrollHeight;
+            }, 10);
+        }
+    }
+
+    window.setupSplitter = () => {
+        const splitter = document.getElementById('chatSplitter');
+        if (!splitter || splitter.dataset.setup) return;
+        splitter.dataset.setup = 'true';
+        const container = splitter.parentElement;
+        const messageArea = document.getElementById('messageArea');
+        if (!container || !messageArea) return;
+
+        let isDragging = false;
+
+        const MIN_MSG = 100;
+        const MIN_INPUT = 100;
+
+        splitter.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            document.body.style.cursor = 'row-resize';
+            document.body.style.userSelect = 'none';
+
+            const startY = e.clientY;
+            const startHeight = messageArea.offsetHeight;
+            const maxMsg = container.clientHeight - splitter.offsetHeight - MIN_INPUT;
+
+            const onMove = (e) => {
+                if (!isDragging) return;
+                const newHeight = Math.min(maxMsg, Math.max(MIN_MSG, startHeight + e.clientY - startY));
+                messageArea.style.flex = 'none';
+                messageArea.style.height = newHeight + 'px';
+            };
+
+            const onUp = () => {
+                isDragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    };
+
+    window.insertTextAtCursor = (elementId, text) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const val = el.value;
+        el.value = val.substring(0, start) + text + val.substring(end);
+        el.selectionStart = el.selectionEnd = start + text.length;
+        el.focus();
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+    };
+
+    window.getElementValue = (elementId) => {
+        const el = document.getElementById(elementId);
+        return el?.value ?? "";
+    };
+
+    window.setupChatInputEnter = (elementId, dotNetRef) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        if (el._chatEnterHandler) {
+            el.removeEventListener('keydown', el._chatEnterHandler);
+        }
+
+        el._chatEnterHandler = (event) => {
+            const shouldSend = event.key === 'Enter' && !event.shiftKey && !event.isComposing;
+            if (!shouldSend) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            dotNetRef.invokeMethodAsync('OnNativeEnterAsync', el.value);
+        };
+
+        el.addEventListener('keydown', el._chatEnterHandler);
+    };
+
+    window.setupChatInputPaste = (elementId, dotNetRef) => {
+        const el = document.getElementById(elementId);
+        if (!el || el._pasteHandlerSetup) return;
+        el._pasteHandlerSetup = true;
+
+        const readAsBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const handleImageItems = async (imageItems) => {
+            const paths = [];
+            for (const item of imageItems) {
+                const file = item.getAsFile();
+                if (!file) continue;
+                try {
+                    const base64 = await readAsBase64(file);
+                    const ext = (item.type.split('/')[1] || 'png').replace(/[^\w]/g, '');
+                    const path = dotNetRef ? await dotNetRef.invokeMethodAsync('CreateTempImageAsync', base64, ext) : null;
+                    if (path) paths.push(path);
+                } catch (e) {
+                    console.error('粘贴图片失败:', e);
+                }
+            }
+            if (paths.length > 0) {
+                window.insertTextAtCursor(elementId, paths.join('\n'));
+            }
+        };
+
+        el.addEventListener('paste', (event) => {
+            event.preventDefault();
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return;
+
+            // 1. 粘贴的是文件（带真实路径），直接插入路径
+            const files = clipboardData.files;
+            if (files && files.length > 0) {
+                const paths = Array.from(files).map(f => f.path).filter(p => p);
+                if (paths.length > 0) {
+                    window.insertTextAtCursor(elementId, paths.join('\n'));
+                    return;
+                }
+            }
+
+            // 2. 粘贴的是图片数据，写入临时文件后插入路径
+            const imageItems = clipboardData.items
+                ? Array.from(clipboardData.items).filter(i => i.kind === 'file' && i.type.startsWith('image/'))
+                : [];
+            if (imageItems.length > 0) {
+                handleImageItems(imageItems);
+                return;
+            }
+
+            // 3. 纯文本
+            const text = clipboardData.getData('text') ?? '';
+            if (text) {
+                window.insertTextAtCursor(elementId, text);
+            }
+        });
+    };
+
+    window.focusElementById = (elementId) => {
+        requestAnimationFrame(() => {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            el.focus({preventScroll: true});
+            if (typeof el.setSelectionRange === 'function') {
+                const position = el.value?.length ?? 0;
+                el.setSelectionRange(position, position);
+            }
+        });
+    };
+</script>
+
+@code {
+    [Parameter] public Character Character { get; set; } = null!;
+    [Parameter] public ChatActivity? ChatActivity { get; set; }
+
+    string inputText = "";
+    bool isWorking;
+    List<ChatMessage>? messages;
+    string? occupiedReasonText = "";
+    Exception? chatException;
+    bool isDisposed;
+    int inputVersion;
+    DotNetObjectReference<ChatWindowUI>? dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        messages = ClientChatStatistics.GetMessages(Character.Name);
+        inputText = ClientChatStatistics.GetDraft(Character.Name);
+        ClientChatStatistics.MessageChanged += OnMessageChanged;
+        ClientChatStatistics.UserMessageSent += OnUserMessageSent;
+        ClientChatStatistics.ChatExceptionThrew += OnChatExceptionThrew;
+        ClientChatStatistics.ChatbotMapUpdated += OnChatbotMapUpdated;
+
+        StartUpdateLoop();
+
+        async void StartUpdateLoop()
+        {
+            try
+            {
+                while (!isDisposed)
+                {
+                    if (ChatActivity != null)
+                    {
+                        ChatBot chatBot = ChatActivity.ChatBot;
+
+                        bool working = isWorking;
+                        string? occupiedReason = occupiedReasonText;
+                        chatBot.ResourceOccupiedReason.Query(list => {
+                            working = chatBot.IsChatOccupied || chatBot.IsChatHistoryOccupied || list.Count != 0;
+                            occupiedReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                        });
+
+                        if (working != isWorking || occupiedReasonText != occupiedReason)
+                        {
+                            isWorking = working;
+                            occupiedReasonText = occupiedReason;
+                            await InvokeAsync(StateHasChanged);
+                        }
+                    }
+                    await Task.Delay(200);
+                }
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JsRuntime.InvokeVoidAsync("setupChatScroll");
+            dotNetRef = DotNetObjectReference.Create(this);
+        }
+
+        await JsRuntime.InvokeVoidAsync("setupSplitter");
+        if (dotNetRef != null)
+            await JsRuntime.InvokeVoidAsync("setupChatInputEnter", "chatInput", dotNetRef);
+        if (dotNetRef != null)
+            await JsRuntime.InvokeVoidAsync("setupChatInputPaste", "chatInput", dotNetRef);
+    }
+    public void Dispose()
+    {
+        isDisposed = true;
+        ClientChatStatistics.SetDraft(Character.Name, inputText);
+        ClientChatStatistics.MessageChanged -= OnMessageChanged;
+        ClientChatStatistics.UserMessageSent -= OnUserMessageSent;
+        ClientChatStatistics.ChatExceptionThrew -= OnChatExceptionThrew;
+        ClientChatStatistics.ChatbotMapUpdated -= OnChatbotMapUpdated;
+        dotNetRef?.Dispose();
+        dotNetRef = null;
+    }
+
+
+    [JSInvokable]
+    public Task OnNativeEnterAsync(string rawInputText)
+    {
+        return OnSend(rawInputText);
+    }
+
+    [JSInvokable]
+    public Task<string?> CreateTempImageAsync(string base64Data, string extension)
+    {
+        try
+        {
+            byte[] data = Convert.FromBase64String(base64Data);
+            string filePath = Path.Combine(AlifePath.TempFolderPath, $"pasted_{DateTime.Now:HHmmss}_{Guid.NewGuid():N}.{extension}");
+            Directory.CreateDirectory(AlifePath.TempFolderPath);
+            File.WriteAllBytes(filePath, data);
+            return Task.FromResult<string?>(filePath);
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+            return Task.FromResult<string?>(null);
+        }
+    }
+    void OnMessageChanged(string name)
+    {
+        if (name == Character.Name)
+            InvokeAsync(StateHasChanged);
+    }
+    void OnUserMessageSent(string name)
+    {
+        if (name == Character.Name)
+            InvokeAsync(StateHasChanged);
+    }
+    void OnChatExceptionThrew(string name, Exception exception)
+    {
+        if (name == Character.Name)
+        {
+            chatException = exception;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+    void OnChatbotMapUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    void OnClear()
+    {
+        ClientChatStatistics.ClearMessages(Character.Name);
+
+        StateHasChanged();
+    }
+    async Task OnSend(string? providedInputText = null)
+    {
+        string rawInputText = providedInputText ?? await JsRuntime.InvokeAsync<string>("getElementValue", "chatInput");
+        if (string.IsNullOrEmpty(rawInputText))
+            rawInputText = inputText;
+
+        inputText = string.Empty;
+        inputVersion++;
+
+        if (string.IsNullOrWhiteSpace(rawInputText))
+        {
+            await InvokeAsync(StateHasChanged);
+            await JsRuntime.InvokeVoidAsync("focusElementById", "chatInput");
+            return;
+        }
+
+        ClientChatStatistics.SendMessage(Character.Name, rawInputText.Trim());
+        ClientChatStatistics.SetDraft(Character.Name, ""); // 发送成功后清空草稿
+        await InvokeAsync(StateHasChanged);
+
+        await JsRuntime.InvokeVoidAsync("forceScrollBottom");
+        await JsRuntime.InvokeVoidAsync("focusElementById", "chatInput");
+    }
+}

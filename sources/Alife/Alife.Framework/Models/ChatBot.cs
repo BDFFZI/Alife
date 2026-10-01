@@ -53,7 +53,7 @@ public class ChatBot : IAsyncDisposable
     public OccupationNotepad ResourceOccupiedReason { get; set; } = new();
     public IReadOnlyList<ChatMessageContent> ChatHistory => chatHistorySnapshot;
     public CancellationTokenSource ChatBreakTokenSource => chatBreakSource;
-    public ILanguageModel LanguageModel => languageModel;
+    public ILanguageModel? LanguageModel { get => languageModel; set => languageModel = value; }
 
     public async Task EditChatHistoryAsync(Func<ChatHistoryAgentThread, Task> action, string reason)
     {
@@ -92,6 +92,9 @@ public class ChatBot : IAsyncDisposable
 
     public async Task<ChatResult> ChatAsync(ChatMessageContent message, bool breakLast = true)
     {
+        if (languageModel == null)
+            throw new Exception("未检测到可用的语言模型");
+
         CancellationToken cancellationToken;
 
         lock (this)
@@ -124,7 +127,8 @@ public class ChatBot : IAsyncDisposable
                 }
 
                 //装载用户消息
-                await EditChatHistoryAsync(thread => {
+                await EditChatHistoryAsync(thread =>
+                {
                     thread.ChatHistory.Add(message);
                     ChaseChatHistory(thread);
                     return Task.CompletedTask;
@@ -146,10 +150,12 @@ public class ChatBot : IAsyncDisposable
             string aiMessage = "";
             StringBuilder aiThinking = new();
             //装载AI消息
-            await EditChatHistoryAsync(async thread => {
+            await EditChatHistoryAsync(async thread =>
+            {
                 aiMessage = await languageModel.ChatStreamingAsync(
                     thread,
-                    text => {
+                    text =>
+                    {
                         try
                         {
                             ChatReceived?.Invoke(text);
@@ -159,7 +165,8 @@ public class ChatBot : IAsyncDisposable
                             AlifeLog.LogError(e);
                         }
                     },
-                    think => {
+                    think =>
+                    {
                         try
                         {
                             aiThinking.Append(think);
@@ -170,10 +177,9 @@ public class ChatBot : IAsyncDisposable
                             AlifeLog.LogError(e);
                         }
                     },
-                    usage => {
-                        tokenUsage += usage;
-                    },
-                    exception => {
+                    usage => { tokenUsage += usage; },
+                    exception =>
+                    {
                         if (exception is not OperationCanceledException)
                             error = exception;
                     },
@@ -205,6 +211,7 @@ public class ChatBot : IAsyncDisposable
                         AlifeLog.LogError(ex);
                     }
                 }
+
                 try
                 {
                     AlifeLog.LogInformation("[ChatBot] " + tokenUsage);
@@ -284,7 +291,9 @@ public class ChatBot : IAsyncDisposable
         {
             await ChatAsync(content);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             AlifeLog.LogError(e);
@@ -302,7 +311,7 @@ public class ChatBot : IAsyncDisposable
     }
 
 
-    readonly ILanguageModel languageModel;
+    ILanguageModel? languageModel;
     //上下文
     readonly ChatHistoryAgentThread chatHistoryAgentThread = new();
     readonly SemaphoreSlim chatHistorySemaphore = new(1, 1);
@@ -316,10 +325,8 @@ public class ChatBot : IAsyncDisposable
     readonly CancellationTokenSource cancelTimerSource = new();
     DateTime lastPokeTime;
 
-    public ChatBot(ILanguageModel languageModel)
+    public ChatBot()
     {
-        this.languageModel = languageModel;
-
         StartPokePusher(0.5f, cancelTimerSource.Token);
     }
     public async ValueTask DisposeAsync()
@@ -369,7 +376,9 @@ public class ChatBot : IAsyncDisposable
                 await Task.Delay(timeSpan, cancellationToken);
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Console.WriteLine(e);

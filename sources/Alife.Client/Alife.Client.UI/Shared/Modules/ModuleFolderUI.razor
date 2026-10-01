@@ -1,0 +1,250 @@
+@using System.Reflection
+@inject ModuleSystem ModuleSystem
+
+<div class="module-tree-container" @onmouseup="OnGlobalMouseUp">
+    <Tree TItem="object"
+          BlockNode Selectable
+          DefaultExpandedKeys="@([Context.GetHashCode().ToString()])">
+        @RenderFolder(Context, null)
+    </Tree>
+
+    <Modal Title="重命名"
+           @bind-Visible="renameVisible"
+           OnOk="OnConfirmRename"
+           OnCancel="@(() => renameVisible = false)">
+        <Input @bind-Value="renamingName"/>
+    </Modal>
+</div>
+
+<style>
+    .node-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding-bottom: 4px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        user-select: none;
+    }
+
+    .node-item-editable {
+        cursor: grab;
+    }
+
+    .node-item-editable:active {
+        cursor: grabbing;
+    }
+
+    .node-dragging {
+        opacity: 0.5;
+        background: #e6f7ff;
+        border: 1px dashed #1890ff;
+    }
+
+    .node-drop-target {
+        background: #f6ffed;
+        border: 1px solid #52c41a;
+    }
+
+    .node-actions {
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .node-item:hover .node-actions {
+        opacity: 1;
+    }
+</style>
+
+@code {
+    [Parameter] public StringFolder Context { get; set; } = null!;
+    [Parameter] public bool IsReadOnly { get; set; }
+    [Parameter] public Func<string, bool>? ModuleFilter { get; set; }
+    [Parameter] public EventCallback<Type> OnModuleSelected { get; set; }
+
+    object? draggingData;
+    StringFolder? draggingParent;
+    StringFolder? hoveringFolder;
+    bool renameVisible;
+    string renamingName = "";
+    StringFolder? editingFolder;
+
+    // --- 渲染片段 ---
+
+    RenderFragment RenderFolder(StringFolder folder, StringFolder? parent) => __builder => {
+        <TreeNode TItem="object"
+                  Expanded="true"
+                  key="@folder.GetHashCode().ToString()"
+                  DataItem="@((object)folder)"
+                  Selectable="false">
+            <TitleTemplate>
+                @{
+                    bool dragging = IsDragging(folder);
+                    bool dropTarget = IsDropTarget(folder);
+                }
+                <div
+                    class="node-item @(!IsReadOnly ? "node-item-editable" : "") @(dragging ? "node-dragging" : "") @(dropTarget ? "node-drop-target" : "")"
+                    @onmousedown="@(() => OnStartDrag(folder, parent))"
+                    @onmouseup="@(() => OnEndDrag(folder))"
+                    @onmouseenter="@(() => OnMouseEnter(folder))">
+                    <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center" Style="width: 100%;">
+                        <Space Size="SpaceSize.Small">
+                            <SpaceItem>
+                                <Icon Type="folder"/>
+                            </SpaceItem>
+                            <SpaceItem>
+                                <Text Strong>@folder.Name</Text>
+                            </SpaceItem>
+                        </Space>
+
+                        @if (!IsReadOnly)
+                        {
+                            <div class="node-actions" @onmousedown:stopPropagation @onmouseup:stopPropagation>
+                                <Space Size="SpaceSize.Small">
+                                    <SpaceItem>
+                                        <Button Icon="@IconType.Outline.Plus" Size="@ButtonSize.Small"
+                                                Type="@ButtonType.Text" OnClick="@(() => OnCreateSub(folder))"></Button>
+                                    </SpaceItem>
+                                    @if (parent != null)
+                                    {
+                                        <SpaceItem>
+                                            <Button Icon="@IconType.Outline.Edit" Size="@ButtonSize.Small"
+                                                    Type="@ButtonType.Text"
+                                                    OnClick="@(() => OnStartRename(folder))"></Button>
+                                        </SpaceItem>
+                                        <SpaceItem>
+                                            <Button Icon="@IconType.Outline.Delete" Size="@ButtonSize.Small"
+                                                    Type="@ButtonType.Text" Danger
+                                                    OnClick="@(() => OnDeleteFolder(folder, parent))"></Button>
+                                        </SpaceItem>
+                                    }
+                                </Space>
+                            </div>
+                        }
+                    </Flex>
+                </div>
+            </TitleTemplate>
+            <ChildContent>
+                @foreach (StringFolder subFolder in folder.Folders)
+                {
+                    @RenderFolder(subFolder, folder)
+                }
+                @foreach (string moduleID in folder.Strings)
+                {
+                    if (ModuleFilter != null && !ModuleFilter(moduleID)) continue;
+                    Type? type = ModuleSystem.GetModule(moduleID);
+                    if (type != null)
+                    {
+                        @RenderModule(type, folder)
+                    }
+                }
+            </ChildContent>
+        </TreeNode>
+    };
+
+    RenderFragment RenderModule(Type type, StringFolder parent) => __builder => {
+        ModuleAttribute? attr = type.GetCustomAttribute<ModuleAttribute>();
+        string moduleName = attr?.Name ?? type.Name;
+        <TreeNode TItem="object"
+                  @key="@type"
+                  DataItem="@((object)type)">
+            <TitleTemplate>
+                <div
+                    class="node-item @(!IsReadOnly ? "node-item-editable" : "") @(IsDragging(type) ? "node-dragging" : "")"
+                    @onmousedown="@(() => OnStartDrag(type, parent))"
+                    @onclick="() => OnModuleSelected.InvokeAsync(type)"
+                    @onclick:stopPropagation>
+                    <Icon Type="build"/>
+                    <Text>@moduleName</Text>
+                </div>
+            </TitleTemplate>
+        </TreeNode>
+    };
+
+    // --- 模拟拖拽逻辑 ---
+
+    void OnStartDrag(object data, StringFolder? parent)
+    {
+        if (IsReadOnly || parent == null) return;
+        draggingData = data;
+        draggingParent = parent;
+    }
+
+    void OnMouseEnter(StringFolder folder)
+    {
+        if (IsReadOnly || draggingData == null) return;
+        if (draggingData == folder) return;
+        hoveringFolder = folder;
+    }
+
+    void OnEndDrag(StringFolder target)
+    {
+        if (draggingData == null || draggingParent == null) return;
+        if (target == draggingData) return;
+
+        if (draggingData is StringFolder folder)
+        {
+            draggingParent.Folders.Remove(folder);
+            target.Folders.Add(folder);
+        }
+        else if (draggingData is Type type)
+        {
+            string id = ModuleSystem.GetModuleId(type);
+            draggingParent.Strings.Remove(id);
+            target.Strings.Add(id);
+        }
+
+        CleanupDrag();
+        ModuleSystem.SaveModuleFolder();
+        StateHasChanged();
+    }
+
+    void OnGlobalMouseUp()
+    {
+        CleanupDrag();
+    }
+
+    void CleanupDrag()
+    {
+        draggingData = null;
+        draggingParent = null;
+        hoveringFolder = null;
+    }
+
+    bool IsDragging(object data) => draggingData == data;
+    bool IsDropTarget(StringFolder folder) => draggingData != null && hoveringFolder == folder && draggingData != folder;
+
+    // --- 文件夹操作 ---
+
+    void OnCreateSub(StringFolder parent)
+    {
+        parent.Folders.Add(new StringFolder("未命名分类"));
+        ModuleSystem.SaveModuleFolder();
+    }
+
+    void OnStartRename(StringFolder folder)
+    {
+        editingFolder = folder;
+        renamingName = folder.Name;
+        renameVisible = true;
+    }
+
+    void OnConfirmRename()
+    {
+        if (editingFolder != null && !string.IsNullOrWhiteSpace(renamingName))
+        {
+            editingFolder.Name = renamingName;
+            ModuleSystem.SaveModuleFolder();
+        }
+        renameVisible = false;
+    }
+
+    void OnDeleteFolder(StringFolder folder, StringFolder parent)
+    {
+        foreach (StringFolder sub in folder.Folders) parent.Folders.Add(sub);
+        foreach (string s in folder.Strings) parent.Strings.Add(s);
+        parent.Folders.Remove(folder);
+        ModuleSystem.SaveModuleFolder();
+    }
+}

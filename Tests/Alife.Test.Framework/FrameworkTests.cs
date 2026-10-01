@@ -1,6 +1,4 @@
 ﻿using Alife.Framework;
-using Alife.PluginContext;
-using Alife.PluginMarket;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 
@@ -15,7 +13,7 @@ public class FrameworkTests
         ServiceCollection serviceCollection = new();
         serviceCollection.AddAlife();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
-        provider.InitAlife();
+        await provider.InitAlife();
 
         PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
         await pluginSystem.SyncOnlinePluginPackages();

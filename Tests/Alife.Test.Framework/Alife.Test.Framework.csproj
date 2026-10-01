@@ -13,7 +13,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Sources\Alife\Alife.Application\Alife.Application.csproj" />
     <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\..\Sources\Alife\Alife.PluginSystem\Alife.PluginSystem.csproj" />
   </ItemGroup>
 
 </Project>

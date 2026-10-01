@@ -1,0 +1,111 @@
+@page "/system"
+@implements IDisposable
+
+<div
+    style="height: calc(100vh - 24px); margin: 12px; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; animation: fadeIn 0.5s ease-out;">
+    <div
+        style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+        <Title Level="3" Style="margin: 0;">系统管理中心</Title>
+    </div>
+
+    <div style="flex: 1; overflow: hidden;">
+        <Tabs @bind-ActiveKey="activeKey" TabPosition="@TabPosition.Left" Style="height: 100%;">
+            <TabPane Key="overview">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.Home"/>
+                        <span style="font-size: 12px">系统配置</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <OverviewTab/>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="mirror">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.CloudDownload"/>
+                        <span style="font-size: 12px">镜像配置</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <MirrorSettingsTab/>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="module">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.AppstoreAdd"/>
+                        <span style="font-size: 12px">功能管理</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <ModuleCenterTab/>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="plugin">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.Shop"/>
+                        <span style="font-size: 12px">插件市场</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <PluginMarketTab/>
+                </ChildContent>
+            </TabPane>
+
+            <TabPane Key="pluginContext">
+                <TabTemplate>
+                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                        <Icon Type="@IconType.Outline.Api"/>
+                        <span style="font-size: 12px">插件环境</span>
+                    </Flex>
+                </TabTemplate>
+                <ChildContent>
+                    <PluginContextTab/>
+                </ChildContent>
+            </TabPane>
+        </Tabs>
+    </div>
+</div>
+
+<style>
+    .ant-tabs-content-holder {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .ant-tabs-content {
+        height: 100%;
+    }
+
+    .ant-tabs-tabpane {
+        height: 100%;
+        overflow: hidden;
+    }
+</style>
+
+@code {
+    string activeKey = "overview";
+
+    protected override void OnInitialized()
+    {
+        ClientNavigation.RegisterNavigator(OnNavigationRequested);
+    }
+    public void Dispose()
+    {
+        ClientNavigation.UnregisterNavigator(OnNavigationRequested);
+    }
+
+    void OnNavigationRequested(string path)
+    {
+        activeKey = path;
+        InvokeAsync(StateHasChanged);
+    }
+}

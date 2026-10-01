@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Alife.PluginContext;
+using Alife.Framework;
 using Newtonsoft.Json.Linq;
 
 namespace BDFFZI.VibeCode.GameCompanion;

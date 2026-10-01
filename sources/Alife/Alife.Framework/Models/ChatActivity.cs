@@ -45,6 +45,7 @@ public class ChatActivity(
             progress?.Report(($"构造 {TypeUtility.GetReadableName(typeof(ChatBot))} 模块", 0));
             container.RegisterBuilder(typeof(ChatBot));
             ChatBot = (ChatBot)await container.RequireInstance(typeof(ChatBot));
+            await ResetLanguageModel();
 
             //填充人设
             ResetCharacterPrompt();
@@ -162,7 +163,9 @@ public class ChatActivity(
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -178,6 +181,7 @@ public class ChatActivity(
 
             foreach (Type moduleType in enabledModuleTypes)
                 await container.RequireInstance(moduleType);
+            await ResetLanguageModel();
         }
         finally
         {
@@ -198,6 +202,7 @@ public class ChatActivity(
 
             foreach (object instance in invalidModules.Reverse())
                 await container.RemoveInstance(instance);
+            await ResetLanguageModel();
         }
         finally
         {
@@ -248,7 +253,8 @@ public class ChatActivity(
         {
             //logger功能
             container.RegisterBuilder(typeof(LoggerFactory), _ =>
-                Task.FromResult<object>(LoggerFactory.Create(builder => {
+                Task.FromResult<object>(LoggerFactory.Create(builder =>
+                {
                     builder.SetMinimumLevel(LogLevel.Information);
                     builder.AddProvider(new AlifeLogProvider());
                 }))
@@ -290,11 +296,23 @@ public class ChatActivity(
                          {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
                          """;
 
-        ChatBot.EditChatHistory(thread => {
+        ChatBot.EditChatHistory(thread =>
+        {
             if (thread.ChatHistory.Count == 0)
                 thread.ChatHistory.AddSystemMessage(prompt);
             else
                 thread.ChatHistory[0].Content = prompt;
         }, "注入初始人设");
+    }
+    async Task ResetLanguageModel()
+    {
+        try
+        {
+            ChatBot.LanguageModel = (ILanguageModel)await container.RequireInstance(typeof(ILanguageModel), true);
+        }
+        catch
+        {
+            ChatBot.LanguageModel = null;
+        }
     }
 }

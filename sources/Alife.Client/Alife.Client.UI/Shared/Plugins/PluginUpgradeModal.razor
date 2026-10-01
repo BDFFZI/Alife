@@ -1,0 +1,113 @@
+
+@inject PluginSystem PluginSystem
+@inject IMessageService MessageService
+
+<Modal Title="一键升级"
+       Visible="Visible"
+       OnCancel="@(() => VisibleChanged.InvokeAsync(false))"
+       Footer="null"
+       Width="520"
+       Centered="true">
+    <div style="max-height: 400px; overflow-y: auto;">
+        @HeaderContent
+        @foreach (var item in UpgradeList)
+        {
+            <div
+                style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                <Checkbox @bind-Value="item.IsSelected" Disabled="@item.IsLocked">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; font-size: 14px;">@item.PluginPackage.Name</div>
+                        <div style="font-size: 12px; color: #999;">
+                            v@(item.OldVersion) → v@(item.NewVersion)
+                        </div>
+                    </div>
+                </Checkbox>
+            </div>
+        }
+        @if (UpgradeList.Count == 0)
+        {
+            <Empty Description="@("暂无可用升级")"/>
+        }
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+        <Button OnClick="@(() => VisibleChanged.InvokeAsync(false))">取消</Button>
+        <Button Type="@ButtonType.Primary" Loading="isUpgrading" Disabled="@(!UpgradeList.Any(x => x.IsSelected))"
+                OnClick="@UpgradeSelected">
+            @(isUpgrading && isRollingBack ? "回滚中" : "一键升级")
+        </Button>
+    </div>
+</Modal>
+
+<ErrorWindowUI @bind-Value="@operException"/>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public List<UpgradeItem> UpgradeList { get; set; } = new();
+    [Parameter] public EventCallback OnUpgradeComplete { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+
+    bool isUpgrading;
+    bool isRollingBack;
+    Exception? operException;
+
+    async Task UpgradeSelected()
+    {
+        var toUpgrade = UpgradeList
+            .Where(x => x is { IsSelected: true, })
+            .ToList();
+
+        if (toUpgrade.Count == 0) return;
+
+        isUpgrading = true;
+        StateHasChanged();
+
+        try
+        {
+            var pluginDict = toUpgrade
+                .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.NewVersion))
+                .ToList();
+            await Task.Run(() => PluginSystem.InstallPlugins(pluginDict));
+            _ = MessageService.SuccessAsync($"已升级 {toUpgrade.Count} 个插件");
+            foreach (var item in toUpgrade)
+                UpgradeList.Remove(item);
+            await VisibleChanged.InvokeAsync(false);
+            await OnUpgradeComplete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+            isRollingBack = true;
+            StateHasChanged();
+
+            try
+            {
+                var rollbackDict = toUpgrade
+                    .Select(item => new KeyValuePair<PluginPackage, string>(item.PluginPackage, item.OldVersion))
+                    .ToList();
+                await Task.Run(() => PluginSystem.InstallPlugins(rollbackDict));
+                _ = MessageService.WarningAsync($"已回滚 {toUpgrade.Count} 个插件");
+                await OnUpgradeComplete.InvokeAsync();
+            }
+            catch (Exception rollbackEx)
+            {
+                operException = rollbackEx;
+            }
+
+            isRollingBack = false;
+        }
+
+        isUpgrading = false;
+        StateHasChanged();
+    }
+
+    public class UpgradeItem
+    {
+        public PluginPackage PluginPackage { get; init; } = null!;
+        public string NewVersion { get; init; } = "";
+        public string OldVersion { get; init; } = "";
+        public bool IsLocked { get; init; }
+        public bool IsSelected { get; set; } = true;
+    }
+
+}

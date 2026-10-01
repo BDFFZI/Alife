@@ -8,7 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Language.OpenAI\Alife.Function.Language.OpenAI.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife\Alife.Framework\Alife.Framework.csproj" />
+    <ProjectReference Include="..\..\sources\Alife\Alife.Application\Alife.Application.csproj" />
   </ItemGroup>
 
 

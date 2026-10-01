@@ -31,13 +31,6 @@
     <Project Path="Sources/Alife.Function/Alife.Function.McAgent/Alife.Function.McAgent.csproj" />
     <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
   </Folder>
-  <Folder Name="/Sources/Alife/">
-    <Project Path="Sources/Alife/Alife.Client/Alife.Client.csproj" />
-    <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
-    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginContext/Alife.PluginContext.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginMarket/Alife.PluginMarket.csproj" />
-  </Folder>
   <Folder Name="/Sources/Alife.Function/Environment/">
     <Project Path="Sources/Alife.Function/Alife.Function.Memory/Alife.Function.Memory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.MessageFilter/Alife.Function.MessageFilter.csproj" />
@@ -78,5 +71,16 @@
   </Folder>
 
   <Folder Name="/Sources/" />
+  <Folder Name="/Sources/Alife.Client/">
+    <Project Path="sources/Alife.Client/Alife.Client.App.Windows/Alife.Client.App.Windows.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client.Core/Alife.Client.Core.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client.UI/Alife.Client.UI.csproj" />
+  </Folder>
+  <Folder Name="/Sources/Alife.Framework/">
+    <Project Path="sources/Alife/Alife.Application/Alife.Application.csproj" />
+    <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
+    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
+    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
+  </Folder>
   <Folder Name="/Sources/Alife.Function/" />
 </Solution>

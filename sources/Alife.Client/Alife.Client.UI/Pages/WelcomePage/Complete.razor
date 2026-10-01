@@ -1,0 +1,167 @@
+@using System.Linq
+@inject CharacterSystem CharacterSystem
+@inject ModuleSystem ModuleSystem
+@inject NavigationManager Navigation
+
+<div class="step-content">
+    <div class="step-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+        <Icon Type="@IconType.Outline.CheckCircle" Style="font-size:28px;"/>
+    </div>
+    <h2 class="step-title">配置完成</h2>
+    <p class="step-desc">Alife 已准备就绪，以下是关键功能入口</p>
+
+    <div class="nav-cards">
+        <div class="nav-card">
+            <div class="nc-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+                <Icon Type="@IconType.Outline.User"/>
+            </div>
+            <div class="nc-body">
+                <h3 class="nc-title">角色编辑</h3>
+                <p class="nc-desc">创建和管理智能角色，编辑设定、启动对话</p>
+                <Button Size="@ButtonSize.Small" Block OnClick="@GoToCharacterOrSystem">进入角色页</Button>
+            </div>
+        </div>
+        <div class="nav-card">
+            <div class="nc-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+                <Icon Type="@IconType.Outline.Build"/>
+            </div>
+            <div class="nc-body">
+                <h3 class="nc-title">功能管理</h3>
+                <p class="nc-desc">配置各种已装功能的具体参数</p>
+                <Button Size="@ButtonSize.Small" Block OnClick="@GoToModuleCenter">前往系统管理</Button>
+            </div>
+        </div>
+        <div class="nav-card">
+            <div class="nc-icon" style="background:rgba(250,173,20,.1);color:#faad14;">
+                <Icon Type="@IconType.Outline.Shop"/>
+            </div>
+            <div class="nc-body">
+                <h3 class="nc-title">插件市场</h3>
+                <p class="nc-desc">浏览和安装社区插件，扩展功能边界</p>
+                <Button Size="@ButtonSize.Small" Block OnClick="@GoToPluginMarket">前往插件市场</Button>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-actions" style="margin-top:20px;">
+        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Icon="@IconType.Outline.Home" Block
+                OnClick="@GoToCharacterOrSystem">
+            开始使用 Alife
+        </Button>
+    </div>
+</div>
+
+@code {
+    void GoToCharacterOrSystem()
+    {
+        var first = CharacterSystem.GetAllCharacters().FirstOrDefault();
+        if (first != null)
+        {
+            Navigation.NavigateTo($"/agent/{first.Name}");
+        }
+        else
+        {
+            Character ch = CharacterSystem.CreateCharacter("真央");
+            ch.Description = "一位带有橘色长发，甜美温柔可爱的猫娘少女。";
+            ch.Prompt = """
+                        你是`Alife框架`(https://github.com/BDFFZI/Alife)中的一位桌宠角色。
+                        表面上你是桌宠，但实际上你也是一本百科全书，一位得力秘书，因为你搭载的llm和alife框架，让你拥有了远超传统ai的能力和知识。
+                        聪明的你总是可以出色的完成各种任务，即使遇到错误，你也不会气馁，因为你会不断的吸取经验改进自己，只为能够给用户提供最优质的陪伴、和最可靠的帮助。
+                        """;
+            ch.Modules = new HashSet<string>(ModuleSystem.GetAllModules()
+                .Select(type => ModuleSystem.GetModuleId(type)));
+            CharacterSystem.SaveCharacter(ch);
+            Navigation.NavigateTo($"/agent/{ch.Name}");
+        }
+    }
+
+    void GoToPluginMarket()
+    {
+        ClientNavigation.RequestNavigation("plugin");
+        Navigation.NavigateTo("/system");
+    }
+
+    void GoToModuleCenter()
+    {
+        ClientNavigation.RequestNavigation("module");
+        Navigation.NavigateTo("/system");
+    }
+}
+
+<style>
+    .step-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+
+    .step-title {
+        margin: 0 0 8px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a1a1a;
+        text-align: center;
+    }
+
+    .step-desc {
+        margin: 0 0 20px;
+        font-size: 13px;
+        color: rgba(0, 0, 0, .45);
+        text-align: center;
+    }
+
+    .nav-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+    }
+
+    .nav-card {
+        padding: 14px;
+        background: rgba(0, 0, 0, .02);
+        border: 1px solid rgba(0, 0, 0, .04);
+        border-radius: 10px;
+        transition: all 0.2s ease;
+    }
+
+    .nav-card:hover {
+        border-color: rgba(24, 144, 255, .2);
+        background: rgba(24, 144, 255, .02);
+    }
+
+    .nc-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        margin-bottom: 8px;
+    }
+
+    .nc-title {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a1a;
+    }
+
+    .nc-desc {
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: rgba(0, 0, 0, .35);
+        line-height: 1.4;
+    }
+
+    .step-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: auto;
+    }
+</style>

@@ -1,0 +1,123 @@
+@namespace Alife.Client.UI
+@using System.Diagnostics
+@inject ConfigurationSystem ConfigurationSystem
+@inject IMessageService MessageService
+
+<div>
+    <Flex Justify="FlexJustify.FlexEnd" Align="FlexAlign.Center">
+        <Space>
+            @if (!string.IsNullOrEmpty(configFilePath))
+            {
+                <SpaceItem>
+                    <Tooltip Title="@("打开配置文件所在目录")">
+                        <Button Icon="@IconType.Outline.FolderOpen"
+                                OnClick="@OpenConfigFolder"></Button>
+                    </Tooltip>
+                </SpaceItem>
+            }
+            <SpaceItem>
+                <Popconfirm Title="确认保存到全局吗？所有未单独配置的角色将默认使用此配置。" OnConfirm="SaveToGlobal">
+                    <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Global">应用到全局</Button>
+                </Popconfirm>
+            </SpaceItem>
+            @if (Character != null)
+            {
+                <SpaceItem>
+                    <Button Icon="@IconType.Outline.User" OnClick="@SaveToCharacter">应用到角色</Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Popconfirm Title="确认删除角色独立配置吗？删除后将回退至全局配置。"
+                                OnConfirm="@DeleteCharacterConfig"
+                                Disabled="@(!hasCharacterConfig)">
+                        <Button Danger Icon="@IconType.Outline.Delete" Disabled="@(!hasCharacterConfig)">取消角色配置
+                        </Button>
+                    </Popconfirm>
+                </SpaceItem>
+            }
+        </Space>
+    </Flex>
+</div>
+
+@code {
+    [Parameter] public Type ConfigurableModuleType { get; set; } = null!;
+    [Parameter] public object Configuration { get; set; } = null!;
+    [Parameter] public EventCallback<object> OnConfigurationChanged { get; set; }
+    [Parameter] public Character? Character { get; set; }
+
+    string? configFilePath;
+    bool hasCharacterConfig;
+
+    protected override void OnParametersSet()
+    {
+        UpdateStatus();
+    }
+
+    void UpdateStatus()
+    {
+        configFilePath = ConfigurationSystem.GetConfigurationFilePath(ConfigurableModuleType, Character?.StorageKey ?? "");
+        hasCharacterConfig = Character != null && ConfigurationSystem.HasConfiguration(ConfigurableModuleType, Character.StorageKey);
+    }
+
+    void SaveToGlobal()
+    {
+        ConfigurationSystem.SetConfiguration(ConfigurableModuleType, Configuration);
+        MessageService.Success("全局配置保存成功喵！");
+        OnConfigurationChanged.InvokeAsync(Configuration);
+    }
+
+    async void SaveToCharacter()
+    {
+        try
+        {
+            if (Character == null)
+                return;
+
+            ConfigurationSystem.SetConfiguration(ConfigurableModuleType, Configuration, Character.StorageKey);
+            UpdateStatus();
+
+            await OnConfigurationChanged.InvokeAsync(Configuration);
+            await MessageService.SuccessAsync($"角色 [{Character.Name}] 的独立配置保存成功喵！");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
+    }
+
+    async void DeleteCharacterConfig()
+    {
+        try
+        {
+            if (Character == null)
+                return;
+
+            ConfigurationSystem.DeleteConfiguration(ConfigurableModuleType, Character.StorageKey);
+            UpdateStatus();
+
+            // 重新获取全局配置并通知刷新
+            var globalConfig = ConfigurationSystem.GetConfiguration(ConfigurableModuleType);
+            await OnConfigurationChanged.InvokeAsync(globalConfig);
+            await MessageService.SuccessAsync($"角色 [{Character.Name}] 的独立配置已删除，已回退至全局配置喵！");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
+    }
+
+    void OpenConfigFolder()
+    {
+        if (string.IsNullOrEmpty(configFilePath))
+            return;
+
+        try
+        {
+            Process.Start("explorer.exe", $"/select,\"{configFilePath}\"");
+        }
+        catch (Exception ex)
+        {
+            MessageService.Error($"无法打开目录喵：{ex.Message}");
+        }
+    }
+
+}

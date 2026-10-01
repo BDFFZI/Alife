@@ -1,6 +1,5 @@
 using Alife.Foundation;
 using Alife.Framework;
-using Alife.PluginContext;
 using NUnit.Framework;
 
 namespace Alife.Test.Framework;
@@ -93,7 +92,7 @@ public class ChatActivityReloadTests
     {
         string name = $"ChainReload_{Guid.NewGuid():N}";
         character = characterSystem.CreateCharacter(name);
-        character.Modules = enabledModuleTypes.Select(type => ModuleSystem.GetModuleID(type)).ToHashSet();
+        character.Modules = enabledModuleTypes.Select(type => ModuleSystem.GetModuleId(type)).ToHashSet();
 
         activity = new ChatActivity(character, configurationSystem, moduleSystem, characterSystem,
             [storageSystem, configurationSystem, characterSystem, moduleSystem]);
@@ -103,7 +102,7 @@ public class ChatActivityReloadTests
 
     async Task Reload(Character character, params Type[] enabledModuleTypes)
     {
-        character.Modules = enabledModuleTypes.Select(type => ModuleSystem.GetModuleID(type)).ToHashSet();
+        character.Modules = enabledModuleTypes.Select(type => ModuleSystem.GetModuleId(type)).ToHashSet();
         await characterSystem.SaveCharacter(character);
     }
 
@@ -177,10 +176,6 @@ public class ChatActivityReloadTests
         storageSystem = new StorageSystem();
         configurationSystem = new ConfigurationSystem(storageSystem);
         characterSystem = new CharacterSystem(storageSystem);
-
-        string tempRoot = Path.Combine(Path.GetTempPath(), $"Alife.Test.ChainReload_{Guid.NewGuid():N}");
-        PluginContext.PluginContext pluginContext = new(tempRoot, Path.Combine(tempRoot, "CompiledPlugins"),
-            new Dictionary<string, IEnvironmentInstaller>(), new CSharpCompiler());
-        moduleSystem = new ModuleSystem(pluginContext, storageSystem);
+        moduleSystem = new ModuleSystem(storageSystem);
     }
 }

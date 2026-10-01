@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.Text;
 using Alife.Function.FunctionCaller;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 
 [TestFixture]
@@ -18,10 +20,9 @@ public class XmlHandlerTableTests
 
         XmlContext speak = new()
         {
-            Parameters = new Dictionary<string, string>
-            {
-                ["text"] = "异常参数"
-            },
+            Parameters = ImmutableDictionary<string, string>.Empty
+                .Add("text", "异常参数"),
+            CallChain = ["speak"],
             Content = "测试文本",
             CallMode = CallMode.Content
         };
@@ -29,12 +30,11 @@ public class XmlHandlerTableTests
 
         XmlContext petmove = new()
         {
-            Parameters = new Dictionary<string, string>
-            {
-                ["text"] = "多余参数",
-                ["x"] = "12.34",
-                ["y"] = "异常参数",
-            },
+            Parameters = ImmutableDictionary<string, string>.Empty
+                .Add("text", "多余参数")
+                .Add("x", "12.34")
+                .Add("y", "异常参数"),
+            CallChain = ["petmove"],
             Content = "测试文本",
             CallMode = CallMode.OneShot
         };
@@ -49,7 +49,10 @@ MockSpeechHandler.Speak
   ""Content"": ""测试文本"",
   ""Parameters"": {
     ""text"": ""异常参数""
-  }
+  },
+  ""CallChain"": [
+    ""speak""
+  ]
 }
 ========
 MockPetHandler.Speak
@@ -59,7 +62,10 @@ MockPetHandler.Speak
   ""Content"": ""测试文本[已语音]"",
   ""Parameters"": {
     ""text"": ""异常参数""
-  }
+  },
+  ""CallChain"": [
+    ""speak""
+  ]
 }
 ========
 MockPetHandler.PetMove
@@ -71,7 +77,10 @@ x=12.34, y=1, duration=1000
     ""text"": ""多余参数"",
     ""x"": ""12.34"",
     ""y"": ""异常参数""
-  }
+  },
+  ""CallChain"": [
+    ""petmove""
+  ]
 }
 ";
 
@@ -124,6 +133,12 @@ x=12.34, y=1, duration=1000
         XmlHandleLog.AppendLine(source);
         XmlHandleLog.AppendLine(text);
         if (context != null)
-            XmlHandleLog.AppendLine(JsonConvert.SerializeObject(context, Formatting.Indented));
+        {
+            //参数是不可变哈希字典，遍历顺序不稳定，这里按 key 排序后序列化以便断言
+            JObject json = JObject.FromObject(context);
+            if (json["Parameters"] is JObject parameters)
+                json["Parameters"] = new JObject(parameters.Properties().OrderBy(property => property.Name, StringComparer.Ordinal));
+            XmlHandleLog.AppendLine(json.ToString(Formatting.Indented));
+        }
     }
 }
