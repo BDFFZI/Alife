@@ -13,10 +13,6 @@
         <SelfContained>true</SelfContained>
         <PublishSelfContained>true</PublishSelfContained>
         <Version>4.6.0</Version>
-        <!-- 对外名称：与重构前保持一致，产物与 Electron 包仍为 Alife.Client（Alife.Client.exe） -->
-        <AssemblyName>Alife</AssemblyName>
-        <Title>Alife</Title>
-        <ElectronPackageId>alife</ElectronPackageId>
     </PropertyGroup>
 
     <ItemGroup>
