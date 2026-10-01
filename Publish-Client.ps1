@@ -3,14 +3,15 @@
 .SYNOPSIS
     Builds the Alife Client for a platform.
 .DESCRIPTION
-    Resolves the platform project by convention ("Alife.Client.App.<Platform>"),
-    publishes it and packages the distribution into "$OutputDir\Alife.Client".
+    Resolves the platform project by convention, publishes it and packages the
+    distribution into "$OutputDir\Alife.Client".
     The product name is always "Alife.Client" ("Alife.Client.exe" on Windows,
     "Alife.Client.app" on macOS) no matter what the project folder is called.
 .PARAMETER Platform
     Platform name. The project is looked up as
-    "sources\Alife.Client\Alife.Client.App.<Platform>\Alife.Client.App.<Platform>.csproj",
-    for example Windows -> Alife.Client.App.Windows.
+    "sources\Alife.Client\Alife.Client.<Platform>\Alife.Client.<Platform>.csproj",
+    falling back to the legacy "Alife.Client.App.<Platform>" folder, for example
+    Windows -> Alife.Client.Windows.
     Packaging strategy per platform:
       Windows -> Electron package ("win-unpacked"), RID win-x64.
       Android -> plain dotnet publish (Electron is not involved).
@@ -37,7 +38,7 @@ $ClientRoot = Join-Path $Src "Alife.Client"
 $ElectronStagingRoot = Join-Path $Root ".build-validation\Publish-Electron"
 
 # The product name comes from the platform project (Title/AssemblyName in
-# Alife.Client.App.Windows.csproj), not from the project folder name.
+# Alife.Client.Windows.csproj), not from the project folder name.
 $ProductName = "Alife.Client"
 
 # Packaging strategy per platform.
@@ -61,18 +62,28 @@ if (-not $Platforms.ContainsKey($Platform)) {
 }
 $PlatformInfo = $Platforms[$Platform]
 
-# Locate the platform project by its suffix: Alife.Client.App.<Platform>
-$PlatformProjectName = "Alife.Client.App.$Platform"
-$ClientProject = Join-Path $ClientRoot "$PlatformProjectName\$PlatformProjectName.csproj"
-if (-not (Test-Path -LiteralPath $ClientProject)) {
+# Locate the platform host project by convention. It was renamed from
+# "Alife.Client.App.<Platform>" to "Alife.Client.<Platform>", so try the
+# current name first and only then fall back to the legacy one.
+$ClientProject = ""
+$PlatformProjectName = ""
+foreach ($candidate in @("Alife.Client.$Platform", "Alife.Client.App.$Platform")) {
+    $candidateProject = Join-Path $ClientRoot "$candidate\$candidate.csproj"
+    if (Test-Path -LiteralPath $candidateProject) {
+        $ClientProject = $candidateProject
+        $PlatformProjectName = $candidate
+        break
+    }
+}
+if (-not $ClientProject) {
     $existingProjects = @(Get-ChildItem -LiteralPath $ClientRoot -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -like "Alife.Client.App.*" } |
-        ForEach-Object { $_.Name.Substring("Alife.Client.App.".Length) })
+        Where-Object { $_.Name -like "Alife.Client.*" } |
+        ForEach-Object { $_.Name })
     $existingText = "none"
     if ($existingProjects.Count -gt 0) {
         $existingText = $existingProjects -join ", "
     }
-    throw "Platform project not found: $ClientProject (platforms that have a project: $existingText)."
+    throw "Platform project not found for '$Platform' under $ClientRoot (project folders present: $existingText)."
 }
 
 if (-not $OutputDir) {

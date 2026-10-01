@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <!-- 编码环境 -->
@@ -12,7 +12,7 @@
         <ElectronIcon>alife-icon.ico</ElectronIcon>
         <SelfContained>true</SelfContained>
         <PublishSelfContained>true</PublishSelfContained>
-        <Version>4.5.0</Version>
+        <Version>4.6.0</Version>
         <!-- 对外名称：与重构前保持一致，产物与 Electron 包仍为 Alife.Client（Alife.Client.exe） -->
         <AssemblyName>Alife</AssemblyName>
         <Title>Alife</Title>
