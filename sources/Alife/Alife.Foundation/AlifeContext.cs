@@ -7,7 +7,6 @@ namespace Alife.Foundation;
 public static class AlifeContext
 {
     public static string AppVersion { get; } = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
-    public static string AppFolderPath { get; } = AppContext.BaseDirectory;
     public static string StorageFolderPath { get; private set; }
     public static string RuntimeFolderPath { get; private set; }
     public static string TempFolderPath { get; }

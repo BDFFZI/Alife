@@ -106,7 +106,7 @@ public class AlifeMcpTools(
 
                  ### 提供路径
 
-                 - 应用目录（客户端本身的安装目录）：`AlifePath.AppFolderPath` > {{AlifePath.AppFolderPath}}
+                 - 应用目录：`AppContext.BaseDirectory` > {{AppContext.BaseDirectory}}
                  - 存储目录（存储角色数据、插件配置等）：`AlifePath.StorageFolderPath` > {{AlifePath.StorageFolderPath}}
                  - 环境目录（存储python等运行时环境）：`AlifePath.RuntimeFolderPath` > {{AlifePath.RuntimeFolderPath}}
                  - 缓存目录（存储运行期间产生的临时文件，每次启动时清空）：`AlifePath.TempFolderPath` > {{AlifePath.TempFolderPath}}
