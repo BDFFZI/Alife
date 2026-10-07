@@ -16,6 +16,44 @@ public class WindowsAlifeClient : IAlifeClient
     /// <summary>Electron 启动器文件名，位于安装根目录，由 electron-builder 的 executableName 决定。</summary>
     const string LauncherFileName = "Alife.Client.exe";
 
+    /// <summary>开机自启使用的计划任务名。</summary>
+    const string AutoStartTaskName = "Alife";
+
+    /// <summary>
+    /// 安装根目录。ElectronNET 布局下当前进程（.NET 宿主）位于 &lt;安装根&gt;\resources\bin\，
+    /// 而用户启动的 Electron 启动器在安装根目录，两者不在同一层，
+    /// 所以按目录层级直接推算，不依赖进程自身 exe 的名字。
+    /// </summary>
+    static string InstallRoot
+    {
+        get
+        {
+            string binDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+            return Path.GetDirectoryName(Path.GetDirectoryName(binDir)) ?? binDir;
+        }
+    }
+
+    public string LauncherPath => Path.Combine(InstallRoot, LauncherFileName);
+
+    public bool GetAutoStart()
+    {
+        try
+        {
+            string result = AlifeUtility.Command("schtasks", $"/query /tn \"{AutoStartTaskName}\" /fo csv /nh").StandardOutput;
+            return result.Contains(AutoStartTaskName);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    public void SetAutoStart(bool value)
+    {
+        AlifeUtility.Command("schtasks", value
+            ? $"/create /tn \"{AutoStartTaskName}\" /tr \"\\\"{LauncherPath}\\\"\" /sc onlogon /rl highest /f"
+            : $"/delete /tn \"{AutoStartTaskName}\" /f");
+    }
+
     public void Quit()
     {
         var options = new MessageBoxOptions("是否直接关闭应用？") {
@@ -61,12 +99,8 @@ public class WindowsAlifeClient : IAlifeClient
                 onProgress?.Invoke((int)(read * 100 / total));
         });
 
-        // ElectronNET 布局：当前进程（.NET 宿主）位于 <安装根>\resources\bin\，
-        // 而用户启动的是安装根目录下的 Electron 启动器，两者不在同一层，
-        // 所以这里按目录层级直接推算安装根，不依赖进程自身 exe 的名字。
-        string binDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        string installRoot = Path.GetDirectoryName(Path.GetDirectoryName(binDir)) ?? binDir;
-        string launcherPath = Path.Combine(installRoot, LauncherFileName);
+        string installRoot = InstallRoot;
+        string launcherPath = LauncherPath;
         string processName = Path.GetFileNameWithoutExtension(launcherPath);
         string psPath = Path.Combine(updateDir, "update.ps1");
 

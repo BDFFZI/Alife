@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
@@ -8,8 +7,7 @@ namespace Alife.Foundation;
 public static class AlifeContext
 {
     public static string AppVersion { get; } = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
-    public static string AppPath { get; private set; }
-    public static string AppFolderPath { get; private set; }
+    public static string AppFolderPath { get; } = AppContext.BaseDirectory;
     public static string StorageFolderPath { get; private set; }
     public static string RuntimeFolderPath { get; private set; }
     public static string TempFolderPath { get; }
@@ -27,19 +25,6 @@ public static class AlifeContext
 
     static AlifeContext()
     {
-        string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule!.FileName);
-        string realLaunchPath = AppContext.BaseDirectory;
-        string? parentDirectory = Path.GetDirectoryName(realLaunchPath);
-        while (parentDirectory != null)
-        {
-            if (File.Exists(Path.Combine(parentDirectory, exeName)))
-                realLaunchPath = parentDirectory;
-            parentDirectory = Path.GetDirectoryName(parentDirectory);
-        }
-
-        AppFolderPath = realLaunchPath;
-        AppPath = Path.Combine(realLaunchPath, exeName);
-
         //老路径兼容
         string outputsFolderPath = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)) ?? "";
         string rootFolderPath = Path.GetDirectoryName(outputsFolderPath) ?? "";

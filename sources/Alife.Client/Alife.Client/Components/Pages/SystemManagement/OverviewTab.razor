@@ -166,7 +166,7 @@
         mcpServer = initConfig.McpServer;
         mcpServerPort = initConfig.McpServerPort;
 
-        autoStartOnBoot = ClientConfigStore.GetAutoStart();
+        autoStartOnBoot = AlifeClient.GetAutoStart();
     }
 
     void OnFetchOnlineInfoChanged(bool value)
@@ -210,7 +210,7 @@
     void OnAutoStartChanged(bool value)
     {
         autoStartOnBoot = value;
-        ClientConfigStore.SetAutoStart(value);
+        AlifeClient.SetAutoStart(value);
 
         _ = NotificationService.Success(new NotificationConfig { Message = value ? "已开启开机自启" : "已关闭开机自启" });
     }
