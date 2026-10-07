@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 using Alife.Framework;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -41,6 +42,7 @@ public partial class McpFunctionCaller
             if (thread.ChatHistory[i].Role == AuthorRole.System)
                 return i + 1;
         }
+
         return 0;
     }
 }
@@ -89,9 +91,7 @@ public partial class McpFunctionCaller(
         }
 
         if (cancellationToken != CancellationToken.None)
-            cancellationToken.Register(() => {
-                _ = UnregisterMcpClientAsync(client);
-            });
+            cancellationToken.Register(() => { _ = UnregisterMcpClientAsync(client); });
 
         await UpdatePromptAsync();
     }
@@ -101,7 +101,7 @@ public partial class McpFunctionCaller(
         clients.Remove(client);
         explicitClients.Remove(client);
         if (implicitClients.Remove(client))
-            RemoveJsonRpcDocument(GetServerName(client));
+            await RemoveJsonRpcDocument(GetServerName(client));
         await UpdatePromptAsync();
     }
 
@@ -118,6 +118,7 @@ public partial class McpFunctionCaller(
                 return true;
             }
         }
+
         client = null;
         return false;
     }
@@ -162,34 +163,50 @@ public partial class McpFunctionCaller(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("加载指定 JsonRpc 服务的工具文档，了解如何调用其工具")]
-    public async Task LoadJsonRpcDocument(
+    public async void LoadJsonRpcDocument(
         [Description("服务名称（即 server 参数）")] string server,
         CancellationToken cancellationToken)
     {
-        McpClient client = ResolveClient(server);
-        string document = await McpUtility.BuildToolsJsonDocumentAsync(client);
+        try
+        {
+            McpClient client = ResolveClient(server);
+            string document = await McpUtility.BuildToolsJsonDocumentAsync(client);
 
-        string head = GetDocumentTag(server);
-        ChatBot.EditChatHistory(thread => {
-                // 已存在则先移除旧文档，避免重复注入
-                ChatMessageContent? old = thread.ChatHistory.FirstOrDefault(c => c.Content?.StartsWith(head) ?? false);
-                if (old != null)
-                    thread.ChatHistory.Remove(old);
+            string head = GetDocumentTag(server);
+            await ChatBot.EditChatHistoryAsync(thread =>
+                {
+                    // 已存在则先移除旧文档，避免重复注入
+                    ChatMessageContent? old = thread.ChatHistory.FirstOrDefault(c => c.Content?.StartsWith(head) ?? false);
+                    if (old != null)
+                        thread.ChatHistory.Remove(old);
 
-                var message = new ChatMessageContent(AuthorRole.System, head + "\n" + document);
-                thread.ChatHistory.Insert(GetSystemInsertIndex(thread), message);
-            }, $"加载 JsonRpc 文档({server})");
+                    var message = new ChatMessageContent(AuthorRole.System, head + "\n" + document);
+                    thread.ChatHistory.Insert(GetSystemInsertIndex(thread), message);
+                    return Task.CompletedTask;
+                }, $"加载 JsonRpc 文档({server})");
 
-        interactor.Poke($"JsonRpc 服务「{server}」的工具文档已加载");
+            interactor.Poke($"JsonRpc 服务「{server}」的工具文档已加载");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("卸载指定 JsonRpc 服务的工具文档，释放上下文空间")]
-    public void UnloadJsonRpcDocument(
+    public async void UnloadJsonRpcDocument(
         [Description("服务名称（即 server 参数）")] string server)
     {
-        RemoveJsonRpcDocument(server);
-        interactor.Poke($"JsonRpc 服务「{server}」的工具文档已卸载");
+        try
+        {
+            await RemoveJsonRpcDocument(server);
+            interactor.Poke($"JsonRpc 服务「{server}」的工具文档已卸载");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
     }
 
     readonly Dictionary<McpClient, DocumentMode> clients = new();
@@ -245,19 +262,22 @@ public partial class McpFunctionCaller(
             if (GetServerName(key) == server)
                 return key;
         }
+
         throw new Exception($"未找到 MCP 客户端 {server}，可用：{string.Join(", ", clients.Keys.Select(GetServerName))}");
     }
 
     /// <summary>
     /// 从对话历史中移除指定服务的 JsonRpc 文档（按文档头识别）。
     /// </summary>
-    void RemoveJsonRpcDocument(string server)
+    async Task RemoveJsonRpcDocument(string server)
     {
         string head = GetDocumentTag(server);
-        ChatBot.EditChatHistory(thread => {
+        await ChatBot.EditChatHistoryAsync(thread =>
+            {
                 ChatMessageContent? old = thread.ChatHistory.FirstOrDefault(c => c.Content?.StartsWith(head) ?? false);
                 if (old != null)
                     thread.ChatHistory.Remove(old);
+                return Task.CompletedTask;
             }, $"卸载 JsonRpc 文档({server})");
     }
 }

@@ -1,4 +1,5 @@
-﻿using Alife.Framework;
+﻿using Alife.Foundation;
+using Alife.Framework;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Client;
@@ -55,10 +56,16 @@ public static class AlifeClient
         if (config.FetchOnlineInfo) //自动拉取云端插件，防呆的同时确保兼容老插件编译
         {
             progress?.Report("正在拉取云端内容...");
-
-            PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
-            await ClientUpgrade.FetchNewVersion();
-            await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境，所以要放在加载插件之前
+            try
+            {
+                PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
+                await ClientUpgrade.FetchNewVersion();
+                await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境，所以要放在加载插件之前
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError("云端内容拉取失败：" + e);
+            }
         }
 
         if (config.LoadLocalPlugins) //自动加载本地插件，客户端通常是全插件而非内置功能，所以默认加载
@@ -78,14 +85,20 @@ public static class AlifeClient
         if (config.McpServer) //客户端默认激活MCP，因为其一般都是图形化界面，无法基于CLI交互
         {
             progress?.Report("正在激活MCP服务...");
-
-            //激活 MCP 服务，使外部程序可以通过 MCP 调用 Alife 系统能力
-            await AlifeMcp.StartAsync(provider, $"http://127.0.0.1:{config.McpServerPort}");
+            try
+            {
+                //激活 MCP 服务，使外部程序可以通过 MCP 调用 Alife 系统能力
+                await AlifeMcp.StartAsync(provider, $"http://127.0.0.1:{config.McpServerPort}");
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError("激活MCP服务失败：" + e);
+            }
         }
 
         //额外的客户端功能
         {
-            progress?.Report("初始化即将完成...");
+            progress?.Report("初始化客户端功能...");
 
             ChatActivitySystem chatActivitySystem = provider.GetRequiredService<ChatActivitySystem>();
             StorageSystem storageSystem = provider.GetRequiredService<StorageSystem>();

@@ -70,8 +70,10 @@ public class MemoryService(
 
     [XmlFunction(FunctionMode.OneShot)]
     public async Task SearchMemoryArchive(
-        [Description("精准匹配关键词（仅支持一个，不要太具体避免搜不到）")] string? keyword = null,
-        [Description("向量搜索提示词（仅用于排序，为空则基于时间排序）")] string? prompt = null,
+        [Description("精准匹配关键词（仅支持一个，不要太具体避免搜不到）")]
+        string? keyword = null,
+        [Description("向量搜索提示词（仅用于排序，为空则基于时间排序）")]
+        string? prompt = null,
         [Description("页码，从1开始")] int page = 1,
         [Description("每页条数")] int count = 5,
         [Description("存档层级（推荐3级，信息冗余少，损耗适中）")] int level = 3,
@@ -143,36 +145,44 @@ public class MemoryService(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("移除一个永久记忆")]
-    public void Forget([Description("存档索引")] string index)
+    public async void Forget([Description("存档索引")] string index)
     {
-        index = index.Trim();
-        ChatMessageContent? target = ChatBot.ChatHistory.FirstOrDefault(c => memoryManager.GetMemoryMetaData(c).Name == index);
-        if (target == null)
+        try
         {
-            interactor.Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
-            return;
-        }
+            index = index.Trim();
+            ChatMessageContent? target = ChatBot.ChatHistory.FirstOrDefault(c => memoryManager.GetMemoryMetaData(c).Name == index);
+            if (target == null)
+            {
+                interactor.Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
+                return;
+            }
 
-        MemoryMeta memoryMeta = memoryManager.GetMemoryMetaData(target);
-        if (memoryMeta.Level < Configuration.MaxCompressionLevel)
+            MemoryMeta memoryMeta = memoryManager.GetMemoryMetaData(target);
+            if (memoryMeta.Level < Configuration.MaxCompressionLevel)
+            {
+                interactor.Poke($"仅支持删除层级大于等于 {Configuration.MaxCompressionLevel} 的记忆");
+                return;
+            }
+
+            await ChatBot.EditChatHistoryAsync(thread =>
+            {
+                memoryManager.RemoveMemory(thread.ChatHistory, target);
+                return Task.CompletedTask;
+            }, "删除永久记忆");
+
+            interactor.Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
+        }
+        catch (Exception e)
         {
-            interactor.Poke($"仅支持删除层级大于等于 {Configuration.MaxCompressionLevel} 的记忆");
-            return;
+            AlifeLog.LogError(e);
         }
-
-        ChatBot.EditChatHistory(thread => {
-            memoryManager.RemoveMemory(thread.ChatHistory, target);
-        }, "删除永久记忆");
-
-        interactor.Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
     }
 
     public async Task<string> InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)
     {
         string? name = null;
-        await ChatBot.EditChatHistoryAsync(async thread => {
-            name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime);
-        }, "插入永久记忆");
+        await ChatBot.EditChatHistoryAsync(
+            async thread => { name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime); }, "插入永久记忆");
         if (name == null)
             throw new Exception("永久记忆插入失败。");
 
@@ -222,8 +232,10 @@ public class MemoryService(
             Configuration.MaxCompressionLevel);
 
         //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
-        ChatBot.EditChatHistory(thread => {
+        await ChatBot.EditChatHistoryAsync(thread =>
+        {
             memoryManager.LoadHistory(thread.ChatHistory);
+            return Task.CompletedTask;
         }, "装载记忆");
 
         ChatBot.ChatSend += OnChatSend;
@@ -281,6 +293,7 @@ public class MemoryService(
                 return $"{message}\n(提示：如有需要，可以使用<{nameof(MemoryService)}>来尝试回忆往事)";
             }
         }
+
         return message;
     }
     async void OnChatHistoryAdd(ChatMessageContent content)
@@ -296,7 +309,8 @@ public class MemoryService(
             //阶段一：先落盘历史并取出快照，随后在快照副本上完成压缩检测与LLM归纳，避免长时间占用真实上下文
             MemoryCompressionPlan? plan;
             ChatHistory snapshot = new();
-            await ChatBot.EditChatHistoryAsync(thread => {
+            await ChatBot.EditChatHistoryAsync(thread =>
+            {
                 memoryManager.SaveHistory(thread.ChatHistory);
                 foreach (var message in thread.ChatHistory)
                     snapshot.Add(message);
@@ -318,7 +332,8 @@ public class MemoryService(
             //阶段二：归纳完成后，原子替换真实上下文
             if (plan != null)
             {
-                await ChatBot.EditChatHistoryAsync(async thread => {
+                await ChatBot.EditChatHistoryAsync(async thread =>
+                {
                     await memoryManager.Apply(thread.ChatHistory, plan);
                     memoryManager.SaveHistory(thread.ChatHistory);
                 }, "应用记忆压缩");
@@ -376,9 +391,7 @@ class AlifeHistoryCompressor(
             string response = await languageModel.ChatStreamingAsync(
                 chatHistoryAgentThread,
                 exceptionThrow: e => exception = e,
-                tokenUsed: usage => {
-                    tokenUsage += usage;
-                });
+                tokenUsed: usage => { tokenUsage += usage; });
             AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
 
             if (exception != null)

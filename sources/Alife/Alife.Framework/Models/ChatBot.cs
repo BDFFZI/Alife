@@ -72,6 +72,12 @@ public class ChatBot : IAsyncDisposable
             AlifeUtility.SafeInvoke(() => ChatHistoryEdited?.Invoke());
         }
     }
+
+    /// <summary>
+    /// 除非你明确的知道当前没有在嵌套的编辑对话历史，否则不要使用此函数，因为这容易造成死锁。建议使用async版本。
+    /// </summary>
+    /// <param name="action"></param>
+    /// <param name="reason"></param>
     public void EditChatHistory(Action<ChatHistoryAgentThread> action, string reason)
     {
         chatHistorySemaphore.Wait();
@@ -235,15 +241,6 @@ public class ChatBot : IAsyncDisposable
                         CancellationToken = cancellationToken,
                     };
 
-                    try
-                    {
-                        ChatFinished?.Invoke(chatContext);
-                    }
-                    catch (Exception ex)
-                    {
-                        AlifeLog.LogError(ex);
-                    }
-
                     if (ChatFinishedAsync != null)
                     {
                         try
@@ -256,6 +253,15 @@ public class ChatBot : IAsyncDisposable
                         {
                             AlifeLog.LogError(e);
                         }
+                    }
+
+                    try
+                    {
+                        ChatFinished?.Invoke(chatContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        AlifeLog.LogError(ex);
                     }
 
                     return new ChatResult {
