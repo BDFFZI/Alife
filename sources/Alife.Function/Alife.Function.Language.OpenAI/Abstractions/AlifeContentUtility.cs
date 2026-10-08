@@ -9,7 +9,6 @@ using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Function.Language.OpenAI;
 
@@ -27,7 +26,7 @@ public static class AlifeContentUtility
                 ("pathOrUrl", "", "String"),
                 ("persistent", "将内容常驻上下文以持续分析", "bool"),
             ],
-            async (context, cancellationToken) => {
+            async (context, _) => {
                 bool persistent = IsPersistentRequested(context);
                 if (persistent && allowPersistent == false)
                     throw new Exception("persistent模式未授权，无法使用。");
@@ -36,26 +35,10 @@ public static class AlifeContentUtility
                 bool isUrl = IsUrl(pathOrUrl);
                 string path = isUrl ? await UrlToPath(pathOrUrl) : pathOrUrl;
                 KernelContent content = fileToContent(path);
-                if (isUrl) //url被转换为了本地临时路径，故删除
+                if (isUrl) //url被转换为了本地临时路径，然后数据又加载到KC中，所以临时文件可以删除
                     File.Delete(path);
 
-                ChatMessageContent chatMessageContent = new(AuthorRole.User, [content]) {
-                    Content = $"[多模态内容({content.GetType().Name})]"
-                };
-                _ = chatBot.ChatAsync(chatMessageContent, false).ContinueWith(async task => {
-                    ChatResult result = task.Result;
-
-                    if (result.Exception != null || persistent == false)
-                    {
-                        await chatBot.EditChatHistoryAsync(thread => {
-                            thread.ChatHistory.Remove(chatMessageContent);
-                            return Task.CompletedTask;
-                        }, "移除多模态资源");
-                    }
-
-                    if (result.Exception != null)
-                        chatBot.Poke("多模态内容加载失败：" + result.Exception.Message);
-                }, cancellationToken);
+                AlifeContentQueue.Add(content, !persistent);
             });
 
         static bool IsPersistentRequested(XmlContext context)

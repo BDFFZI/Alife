@@ -184,12 +184,21 @@ public class OpenAILanguageModel(
             if (handler != null)
                 functionCaller.RegisterHandler(handler, DocumentMode.Explicit, DestroyCancellationToken);
         }
+
+        ChatBot.ChatFinished += OnChatFinished;
     }
 
     protected override Task OnDestroy()
     {
+        ChatBot.ChatFinished -= OnChatFinished;
+
         httpClient.Dispose();
         return Task.CompletedTask;
+    }
+
+    void OnChatFinished(ChatContext obj)
+    {
+        AlifeContentQueue.Flash(ChatBot);
     }
 
     HttpRequestMessage BuildRequest(ChatHistory history, bool thinking)

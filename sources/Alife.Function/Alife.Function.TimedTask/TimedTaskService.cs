@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -22,13 +23,13 @@ public class TimedTaskService(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("让自己等待几秒再继续（通常仅用于主动追问或等待外部进程，因为内部工具通常支持回调，所以不需要使用）")]
-    public async Task Await(int second)
+    public async Task Await(int second, CancellationToken cancellationToken)
     {
         if (second > 60)
             throw new Exception($"不支持等待超过60秒，长时间等待请使用<{nameof(Awake)}>模拟");
 
-        await Task.Delay(second * 1000);
-        
+        await Task.Delay(second * 1000, cancellationToken);
+
         interactor.Poke("AWait已完成");
     }
 
