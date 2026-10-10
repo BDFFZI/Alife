@@ -23,10 +23,11 @@ public partial class VirtualWorldService
         {
             foreach (Character character in targets)
             {
-                if (BroadcastMailbox.TryGetValue(character, out string? value))
-                    BroadcastMailbox[character] = value + "\n" + message;
+                BroadcastSlot? broadcastSlot = BroadcastMailbox.Find(slot => slot.Character == character);
+                if (broadcastSlot != null)
+                    broadcastSlot.Message += "\n" + message;
                 else
-                    BroadcastMailbox[character] = message;
+                    BroadcastMailbox.Add(new BroadcastSlot() { Character = character, Message = message });
             }
         }
 
@@ -42,22 +43,28 @@ public partial class VirtualWorldService
                             return; //排空后退出
                     }
 
-                    ChatActivity? target;
+                    (ChatBot chatBot, string msg)? target = null;
                     lock (BroadcastMailbox)
                     {
                         //移除不在线的角色
-                        foreach (Character character in BroadcastMailbox.Keys
-                                     .Where(character => chatActivitySystem.GetChatActivity(character) == null)
-                                     .ToArray())
-                            BroadcastMailbox.Remove(character);
+                        for (int i = 0; i < BroadcastMailbox.Count; i++)
+                        {
+                            BroadcastSlot slot = BroadcastMailbox[i];
+                            ChatActivity? chatActivity = chatActivitySystem.GetChatActivity(slot.Character);
+                            if (chatActivity == null)
+                            {
+                                BroadcastMailbox.RemoveAt(i);
+                                i--;
+                                continue;
+                            }
 
-                        //获取空闲在线角色
-                        ChatActivity[] chatActivities = BroadcastMailbox.Keys
-                            .Select(chatActivitySystem.GetChatActivity)
-                            .Where(activity => activity is { ChatBot.IsChatOccupied: false })
-                            .Cast<ChatActivity>().ToArray();
+                            if (chatActivity.ChatBot.IsChatOccupied)
+                                continue;
 
-                        target = chatActivities.FirstOrDefault();
+                            target = (chatActivity.ChatBot, slot.Message);
+                            BroadcastMailbox.Remove(slot);
+                            break;
+                        }
                     }
 
                     if (target == null)
@@ -66,16 +73,9 @@ public partial class VirtualWorldService
                         continue; //等1秒空闲后再试
                     }
 
-                    string msg;
-                    lock (BroadcastMailbox)
-                    {
-                        msg = BroadcastMailbox[target.Character];
-                        BroadcastMailbox.Remove(target.Character);
-                    }
-
                     try
                     {
-                        await target.ChatBot.ChatAsync(msg + $"\n(广播消息建议用<{nameof(Broadcast)}>回复)");
+                        await target.Value.chatBot.ChatAsync(target.Value.msg + $"\n(广播消息建议用<{nameof(Broadcast)}>回复)");
                     }
                     catch (Exception e)
                     {
@@ -86,8 +86,14 @@ public partial class VirtualWorldService
         }
     }
 
-    static readonly Dictionary<Character, string> BroadcastMailbox = new();
+    static readonly List<BroadcastSlot> BroadcastMailbox = new();
     static Task broadcaster = Task.CompletedTask;
+
+    class BroadcastSlot
+    {
+        public required Character Character { get; init; }
+        public required string Message { get; set; }
+    }
 }
 
 [Module("虚拟世界",
