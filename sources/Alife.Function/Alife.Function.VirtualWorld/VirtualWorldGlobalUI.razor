@@ -1,0 +1,436 @@
+@namespace Alife.Function.VirtualWorld
+@using Alife.Framework
+@using AntDesign
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject ChatActivitySystem ChatActivitySystem
+@inject StorageSystem StorageSystem
+@inject IMessageService MessageService
+@inject IJSRuntime JsRuntime
+
+<span id="vwGroupIconSource" style="display: none;">
+    <Icon Type="@IconType.Outline.Comment" Style="font-size: 24px"/>
+</span>
+
+<div style="pointer-events: auto">
+    <Drawer Visible="@visible"
+            OnClose="@OnDrawerClose"
+            Placement="@DrawerPlacement.Right"
+            Title="@("世界群聊")"
+            Width="560"
+            BodyStyle="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="vw-group-toolbar">
+            <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center">
+                <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">共 @(messages.Count) 条群聊消息</AntDesign.Text>
+                <Button Icon="@IconType.Outline.Clear"
+                        Type="@ButtonType.Link"
+                        Danger
+                        OnClick="@OnClear">清空</Button>
+            </Flex>
+        </div>
+        <div id="vwGroupMessageArea" class="vw-group-message-area">
+            @if (messages.Count == 0)
+            {
+                <Empty Style="margin-top: 80px" Description="@("暂无群聊消息，发送一条吧！")"/>
+            }
+            else
+            {
+                @foreach (WorldGroupMessage message in messages)
+                {
+                    <div class="vw-group-message-row @(message.FromUser ? "user" : "ai")">
+                        <div class="vw-group-bubble @(message.FromUser ? "vw-group-bubble-user" : "vw-group-bubble-ai")">
+                            <div class="vw-group-bubble-header">
+                                <span class="vw-group-sender">@message.Sender</span>
+                                <span class="vw-group-time">@message.Time.ToString("HH:mm")</span>
+                            </div>
+                            <div class="vw-group-content">@message.Content</div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="vw-group-input-bar">
+            <Flex Align="@FlexAlign.Center" Gap="@("8")" Style="margin-bottom: 8px;">
+                <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">消息前缀:</AntDesign.Text>
+                <Input @bind-Value="GroupChatLog.MessagePrefix"
+                       BindOnInput="true"
+                       Size="@InputSize.Small"
+                       Style="flex: 1; min-width: 0;"/>
+            </Flex>
+            <Flex Gap="@("12")" Align="@FlexAlign.Center">
+                <TextArea @key="inputVersion"
+                          Id="vwGroupInput"
+                          @bind-Value="inputText"
+                          BindOnInput="true"
+                          Style="flex: 1; min-width: 0;"
+                          Placeholder="@("输入消息... (Enter 发送，Shift+Enter 换行)")"
+                          Rows="3"
+                          OnKeyDown="@OnKeyDown"/>
+                <Button Type="@ButtonType.Primary"
+                        Icon="@IconType.Outline.Send"
+                        OnClick="@SendAsync">群发</Button>
+            </Flex>
+        </div>
+    </Drawer>
+</div>
+
+<style>
+    .vw-group-nav-entry.active {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+    }
+
+    .vw-group-message-area {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px;
+        background: #f7f9fc;
+    }
+
+    .vw-group-toolbar {
+        flex: 0 0 auto;
+        padding: 6px 16px;
+        background: #fff;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .vw-group-message-row {
+        display: flex;
+        margin-bottom: 16px;
+        width: 100%;
+    }
+
+    .vw-group-message-row.user {
+        flex-direction: row-reverse;
+    }
+
+    .vw-group-message-row.ai {
+        flex-direction: row;
+    }
+
+    .vw-group-bubble {
+        max-width: 80%;
+        padding: 8px 16px;
+        border-radius: 12px;
+    }
+
+    .vw-group-bubble-user {
+        background: #95ec69;
+        color: #000;
+        border-bottom-right-radius: 2px;
+    }
+
+    .vw-group-bubble-ai {
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        color: rgba(0, 0, 0, 0.85);
+        border-bottom-left-radius: 2px;
+    }
+
+    .vw-group-bubble-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 4px;
+        font-size: 12px;
+        opacity: 0.65;
+    }
+
+    .vw-group-content {
+        white-space: pre-wrap;
+        font-size: 15px;
+        overflow-wrap: anywhere;
+    }
+
+    .vw-group-input-bar {
+        flex: 0 0 auto;
+        padding: 12px 16px;
+        background: #fff;
+        border-top: 1px solid #f0f0f0;
+    }
+
+    .vw-group-input-bar textarea {
+        resize: vertical;
+    }
+</style>
+
+<script type="text/javascript">
+    window.vwGroupSetupNav = (dotNetRef) => {
+        const bind = () => {
+            const entry = document.querySelector('.vw-group-nav-entry');
+            if (!entry) return false;
+            if (entry._vwClick) entry.removeEventListener('click', entry._vwClick);
+            entry._vwClick = () => { dotNetRef.invokeMethodAsync('OnNavClick'); };
+            entry.addEventListener('click', entry._vwClick);
+            return true;
+        };
+        const create = () => {
+            if (document.querySelector('.vw-group-nav-entry')) return true;
+            const systemLink = document.querySelector('a[href="/system"]');
+            if (!systemLink) return false;
+            const flex = systemLink.closest('.ant-flex');
+            if (!flex) return false;
+            const entry = document.createElement('div');
+            entry.className = 'nav-item-icon vw-group-nav-entry';
+            entry.title = '世界群聊';
+            const source = document.getElementById('vwGroupIconSource');
+            const icon = source ? source.querySelector('.anticon') : null;
+            if (icon) entry.appendChild(icon.cloneNode(true));
+            else entry.textContent = '群';
+            let marker = systemLink;
+            while (marker.parentElement && marker.parentElement !== flex) marker = marker.parentElement;
+            flex.insertBefore(entry, marker.nextSibling);
+            return true;
+        };
+        if (create() && bind()) {
+            if (window.__vwGroupNavRetry) {
+                clearTimeout(window.__vwGroupNavRetry);
+                window.__vwGroupNavRetry = null;
+            }
+            return;
+        }
+        if (window.__vwGroupNavRetry) return;
+        let attempt = 0;
+        const tick = () => {
+            window.__vwGroupNavRetry = null;
+            if (create() && bind()) return;
+            if (++attempt < 80) window.__vwGroupNavRetry = setTimeout(tick, 250);
+        };
+        window.__vwGroupNavRetry = setTimeout(tick, 250);
+    };
+
+    window.vwGroupRemoveNav = () => {
+        if (window.__vwGroupNavRetry) {
+            clearTimeout(window.__vwGroupNavRetry);
+            window.__vwGroupNavRetry = null;
+        }
+        const entry = document.querySelector('.vw-group-nav-entry');
+        if (entry) entry.remove();
+    };
+
+    window.vwGroupSetNavActive = (active) => {
+        const entry = document.querySelector('.vw-group-nav-entry');
+        if (entry) entry.classList.toggle('active', !!active);
+    };
+
+    window.vwGroupSetupScroll = () => {
+        const trySetup = (attempt) => {
+            const element = document.getElementById("vwGroupMessageArea");
+            if (!element) {
+                if (attempt < 60) requestAnimationFrame(() => trySetup(attempt + 1));
+                return;
+            }
+            if (element.dataset.scrollSetup) return;
+            element.dataset.scrollSetup = "true";
+
+            let isAtBottom = true;
+            const updateAnchor = () => {
+                isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+            };
+            element.addEventListener('wheel', () => requestAnimationFrame(updateAnchor), {passive: true});
+            element.addEventListener('pointerdown', (e) => {
+                const onMove = () => requestAnimationFrame(updateAnchor);
+                const onUp = () => {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                };
+                if (e.offsetX > element.clientWidth) {
+                    document.addEventListener('pointermove', onMove);
+                    document.addEventListener('pointerup', onUp);
+                } else {
+                    requestAnimationFrame(updateAnchor);
+                }
+            });
+            element.addEventListener('touchmove', () => requestAnimationFrame(updateAnchor), {passive: true});
+
+            const observer = new MutationObserver(() => {
+                if (isAtBottom) {
+                    element.scrollTop = element.scrollHeight;
+                    setTimeout(() => {
+                        if (isAtBottom) element.scrollTop = element.scrollHeight;
+                    }, 10);
+                }
+            });
+            observer.observe(element, {childList: true, subtree: true, characterData: true});
+        };
+        trySetup(0);
+    };
+
+    window.vwGroupForceScrollBottom = () => {
+        const element = document.getElementById("vwGroupMessageArea");
+        if (element) setTimeout(() => { element.scrollTop = element.scrollHeight; }, 10);
+    };
+
+    window.vwGroupFocusInput = () => {
+        setTimeout(() => {
+            const el = document.getElementById("vwGroupInput");
+            if (!el) return;
+            el.focus({preventScroll: true});
+            if (typeof el.setSelectionRange === 'function') {
+                const position = el.value?.length ?? 0;
+                el.setSelectionRange(position, position);
+            }
+        }, 60);
+    };
+</script>
+
+@code {
+    bool visible;
+    bool scrollPending;
+    string inputText = "";
+    int inputVersion;
+    List<WorldGroupMessage> messages = [];
+    readonly List<(string Full, string Clean, DateTime Time)> ownPending = [];
+    DotNetObjectReference<VirtualWorldGlobalUI>? dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        GroupChatLog.Initialize(StorageSystem);
+        messages = GroupChatLog.GetAll();
+        VirtualWorldService.BroadcastSent += OnBroadcastSent;
+        dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JsRuntime.InvokeVoidAsync("vwGroupSetupNav", dotNetRef);
+        await JsRuntime.InvokeVoidAsync("vwGroupSetNavActive", visible);
+
+        if (!visible)
+            return;
+
+        await JsRuntime.InvokeVoidAsync("vwGroupSetupScroll");
+        if (scrollPending)
+        {
+            scrollPending = false;
+            await JsRuntime.InvokeVoidAsync("vwGroupForceScrollBottom");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnNavClick()
+    {
+        visible = !visible;
+        if (visible)
+            scrollPending = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnDrawerClose()
+    {
+        visible = false;
+    }
+
+    void OnClear()
+    {
+        GroupChatLog.Clear();
+        lock (ownPending)
+            ownPending.Clear();
+        messages = GroupChatLog.GetAll();
+        StateHasChanged();
+    }
+
+    void OnBroadcastSent(string broadcastText)
+    {
+        _ = InvokeAsync(() => {
+            string sender = "";
+            string content = broadcastText;
+            bool fromUser = false;
+            lock (ownPending)
+            {
+                int index = ownPending.FindIndex(entry => entry.Full == broadcastText && (DateTime.Now - entry.Time).TotalSeconds < 10);
+                if (index >= 0)
+                {
+                    (sender, _) = ParseBroadcastText(broadcastText);
+                    content = ownPending[index].Clean;
+                    fromUser = true;
+                    ownPending.RemoveAt(index);
+                }
+                else
+                {
+                    (sender, content) = ParseBroadcastText(broadcastText);
+                }
+                ownPending.RemoveAll(entry => (DateTime.Now - entry.Time).TotalSeconds >= 10);
+            }
+            GroupChatLog.Add(sender, content, fromUser);
+            messages = GroupChatLog.GetAll();
+            StateHasChanged();
+        });
+    }
+
+    static (string Sender, string Content) ParseBroadcastText(string broadcastText)
+    {
+        const string head = "[来自";
+        const string tail = "的广播消息]";
+        if (broadcastText.StartsWith(head))
+        {
+            int end = broadcastText.IndexOf(tail, head.Length, StringComparison.Ordinal);
+            if (end > head.Length)
+                return (broadcastText.Substring(head.Length, end - head.Length), broadcastText.Substring(end + tail.Length));
+        }
+        return ("", broadcastText);
+    }
+
+    async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key != "Enter" || args.ShiftKey || args.IsComposing)
+            return;
+        await SendAsync();
+    }
+
+    async Task SendAsync()
+    {
+        string text = inputText.Trim();
+        if (text.Length == 0)
+        {
+            await InvokeAsync(StateHasChanged);
+            await JsRuntime.InvokeVoidAsync("vwGroupFocusInput");
+            return;
+        }
+
+        inputText = "";
+        inputVersion++;
+
+        try
+        {
+            Character[] targets = ChatActivitySystem.GetAllChatActivities()
+                .Select(activity => activity.Character)
+                .Where(character => character.Modules.Contains(ModuleSystem.GetModuleId(typeof(VirtualWorldService))))
+                .ToArray();
+            if (targets.Length == 0)
+            {
+                inputText = text;
+                inputVersion++;
+                await MessageService.WarningAsync("当前没有其他在线角色接收群发消息");
+            }
+            else
+            {
+                string fullText = GroupChatLog.MessagePrefix + text;
+                lock (ownPending)
+                    ownPending.Add((fullText, text, DateTime.Now));
+                VirtualWorldService.BroadcastMessage(fullText, targets, ChatActivitySystem);
+            }
+        }
+        catch (Exception e)
+        {
+            inputText = text;
+            inputVersion++;
+            await MessageService.ErrorAsync($"发送失败：{e.Message}");
+        }
+
+        await InvokeAsync(StateHasChanged);
+        await JsRuntime.InvokeVoidAsync("vwGroupForceScrollBottom");
+        await JsRuntime.InvokeVoidAsync("vwGroupFocusInput");
+    }
+
+    public void Dispose()
+    {
+        VirtualWorldService.BroadcastSent -= OnBroadcastSent;
+        _ = JsRuntime.InvokeVoidAsync("vwGroupRemoveNav");
+        dotNetRef?.Dispose();
+        dotNetRef = null;
+    }
+}

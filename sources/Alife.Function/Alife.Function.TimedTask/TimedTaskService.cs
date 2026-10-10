@@ -14,7 +14,7 @@ namespace Alife.Function.SystemEvent;
     EditorUI = typeof(TimedTaskServiceUI))]
 public class TimedTaskService(
     XmlFunctionCaller functionCaller,
-    SystemEventService systemEvent,
+    ISystemEventService systemEvent,
     Interactor<TimedTaskService> interactor) :
     ChatBehaviour
 {

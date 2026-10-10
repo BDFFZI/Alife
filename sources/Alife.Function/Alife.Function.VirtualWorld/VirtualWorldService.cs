@@ -3,30 +3,98 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 
 namespace Alife.Function.VirtualWorld;
 
-public class VirtualWorldConfig
+public partial class VirtualWorldService
 {
-    public string AdminName { get; set; } = "管理员";
+    public static event Action<string>? BroadcastSent;
 
-    public string Announcement { get; set; } =
-        """
-        这个世界遵循与现实世界一致的物理定律、法律规范、经济逻辑。它并不是什么乌托邦，因此你需要以对待现实世界的方式对待它：
-        - 社交边界：与陌生人交流应保持适度的礼貌和距离，然后通过互动逐步摸清人物画像后再选择性建立关系。
-        - 经济常识：遵循物价常识，大额交易应先沟通确认，小心骗子和假币，优先使用银行、公证人等信得过的平台。
-        """;
+    public static void BroadcastMessage(string message, Character[] targets, ChatActivitySystem chatActivitySystem)
+    {
+        message = message.Trim();
 
-    public string CallMessageAddition { get; set; } = "(提示: 回复对方需要用<call>标签；但提防陌生人和骗子；可以对此信息忽略)";
-    public string GiveMessageAddition { get; set; } = "(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)";
+        BroadcastSent?.Invoke(message);
+
+        lock (BroadcastMailbox)
+        {
+            foreach (Character character in targets)
+            {
+                if (BroadcastMailbox.TryGetValue(character, out string? value))
+                    BroadcastMailbox[character] = value + "\n" + message;
+                else
+                    BroadcastMailbox[character] = message;
+            }
+        }
+
+        if (broadcaster.IsCompleted)
+        {
+            //启动新的播音员
+            broadcaster = Task.Run(async () => {
+                while (true)
+                {
+                    lock (BroadcastMailbox)
+                    {
+                        if (BroadcastMailbox.Count == 0)
+                            return; //排空后退出
+                    }
+
+                    ChatActivity? target;
+                    lock (BroadcastMailbox)
+                    {
+                        //移除不在线的角色
+                        foreach (Character character in BroadcastMailbox.Keys
+                                     .Where(character => chatActivitySystem.GetChatActivity(character) == null)
+                                     .ToArray())
+                            BroadcastMailbox.Remove(character);
+
+                        //获取空闲在线角色
+                        ChatActivity[] chatActivities = BroadcastMailbox.Keys
+                            .Select(chatActivitySystem.GetChatActivity)
+                            .Where(activity => activity is { ChatBot.IsChatOccupied: false })
+                            .Cast<ChatActivity>().ToArray();
+
+                        target = chatActivities.FirstOrDefault();
+                    }
+
+                    if (target == null)
+                    {
+                        await Task.Delay(1000);
+                        continue; //等1秒空闲后再试
+                    }
+
+                    string msg;
+                    lock (BroadcastMailbox)
+                    {
+                        msg = BroadcastMailbox[target.Character];
+                        BroadcastMailbox.Remove(target.Character);
+                    }
+
+                    try
+                    {
+                        await target.ChatBot.ChatAsync(msg + $"\n(广播消息建议用<{nameof(Broadcast)}>回复)");
+                    }
+                    catch (Exception e)
+                    {
+                        AlifeLog.LogError(e);
+                    }
+                }
+            });
+        }
+    }
+
+    static readonly Dictionary<Character, string> BroadcastMailbox = new();
+    static Task broadcaster = Task.CompletedTask;
 }
 
 [Module("虚拟世界",
     "将Alife作为一个虚拟世界平台，使其中的角色可以互相通讯，并接受统一的公告。",
-    defaultCategory: "Alife 官方/生活环境")]
-public class VirtualWorldService(
+    defaultCategory: "Alife 官方/生活环境",
+    globalUI: typeof(VirtualWorldGlobalUI))]
+public partial class VirtualWorldService(
     XmlFunctionCaller functionService,
     CharacterSystem characterSystem,
     ChatActivitySystem chatActivitySystem,
@@ -35,6 +103,22 @@ public class VirtualWorldService(
     IConfigurable<VirtualWorldConfig>
 {
     public VirtualWorldConfig Configuration { get; set; } = null!;
+
+    [XmlFunction(FunctionMode.Content)]
+    [Description("向世界群聊发送广播消息。")]
+    public void Broadcast(XmlExecutorContext context)
+    {
+        if (context.CallMode != CallMode.Closing)
+            return;
+
+        Character[] targets = chatActivitySystem.GetAllChatActivities()
+            .Select(activity => activity.Character)
+            .Where(character => character.Modules.Contains(ModuleSystem.GetModuleId(typeof(VirtualWorldService))))
+            .Where(character => character != Character)
+            .ToArray();
+
+        BroadcastMessage($"[来自{Character.Name}的广播消息]{context.FullContent}", targets, chatActivitySystem);
+    }
 
     [XmlFunction(FunctionMode.Content)]
     [Description("与指定的角色对话。")]
@@ -151,6 +235,9 @@ public class VirtualWorldService(
                            {characterList}
                            你可以使用如下工具联系他们：
                            {xmlHandler.FunctionDocument()}
+                           工具提示：
+                           1. 避免频繁使用造成刷屏，例如两个人循环打招呼。
+                           2. 活用xml嵌套，多配合speak和动作表情来对话，例如`<Broadcast><Speak>你好</Speak></Broadcast>`。
 
                            ## 世界公告
                            {Configuration.Announcement}
