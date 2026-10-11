@@ -120,16 +120,7 @@ public partial class XmlFunctionCaller(
 
     protected override Task OnAwake()
     {
-        messageFilterService.AddMessageReplyGuidance(() =>
-            """
-            （
-                对话输出规范（在做任何事情时，都请务必遵从这些要求！）：
-                1. 首先进行思考、规划，确定简要方案后再进行实际行动。
-                2. 然后查阅资料文档，收集事实、确认函数用法，避免幻觉。
-                3. 接着看清消息来源和意图，根据场合选择最搭配的工具流程。
-                4. 最后调用工具不要编造结果，按需等待或重叠进行，然后以此循环。
-            ）
-            """, DestroyCancellationToken);
+        messageFilterService.AddMessageReplyGuidance(() => "(注意遵守【对话输出规范】和【对话输出示例】)", DestroyCancellationToken);
 
         UpdatePrompt(); //提前注入一个提示词块
 
@@ -164,13 +155,12 @@ public partial class XmlFunctionCaller(
 
         return Task.CompletedTask;
     }
-
     protected override async Task OnDestroy()
     {
         ChatBot.ChatSent -= OnChatSent;
         ChatBot.ChatReceived -= OnChatReceived;
         ChatBot.ChatFinishedAsync -= OnChatFinishedAsync;
-        
+
         await executor.CancelFeeding();
         await executor.DisposeAsync();
     }
@@ -295,8 +285,7 @@ public partial class XmlFunctionCaller(
         XmlHandler xmlHandler = new(source.Name + "_Trigger");
         xmlHandler.Functions.Add(new XmlFunction {
             Name = source.Name,
-            Invoker = (_, _) =>
-            {
+            Invoker = (_, _) => {
                 interactor.Poke(GetExplicitDocument(source));
                 thinkingReasons.Add("即将使用隐式功能");
                 return Task.CompletedTask;
@@ -312,16 +301,8 @@ public partial class XmlFunctionCaller(
             $"""
              默认情况下你仅支持输出普通文本，但由于各种插件功能的存在，使得你还拥有通过输出特定的xml标签执行功能调用的能力。
 
-             ## 使用提示
-             1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
-             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条，所有函数将按顺序执行，并在下一论对话中将结果返回给你。
-             3. 由于返回值是延迟的，所以你要学会中断自己的输出来等待系统结果，并通过多轮对话解决事情（如先调用隐式文档，等到收到结果后，再选择函数）
-             4. 不要使用文档中不存在的函数，不要自己编造函数的返回结果。保持对函数注意力，学会循序规划的进行调用流程。
-             5. 可以使用`#parallel='true/false'`参数来控制函数是否并行执行，借此可以实现任务的多线程加速，例如将说话和做事重叠进行。
-             6. 并行时还可以设置`#background='true/false'`。如果函数仅设置并行但未设置后台，则每轮交互结束时会阻塞前台来等待完成，并可能被用户打断。而放入后台则不会影响你和用户继续交互，且完成后依旧可以收到结果，很适合执行长时间的等待任务。
-             7. 注释（`<!---->`）中的文字会被系统忽略，所以可在此实现空消息、隐藏个人情绪、隐式思考等需求。一定要养成每次操作前先思考的习惯。
+             ## 【对话输出示例】
 
-             ## 输出示例
              请使用如下方式和用户对话。（注意，示例中的函数不一定存在）
              ```
              <!-- 用户最近有些气馁，我也很难受，我准备给他看我最近发现的一个有趣表情包，来给他加加油！为了展示图片，我需要使用python，并同时配上鼓励的话语-->
@@ -340,23 +321,42 @@ public partial class XmlFunctionCaller(
              </Speak>
              ```   
 
-             ## 原始字符串区域
-             被如下标签包括的内容可以不用转义，他们会自动保持原始格式
-             {string.Join(',', plainAreas)}
+             ## 使用提示
+
+             1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
+             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条，所有函数将按顺序执行，并在下一论对话中将结果返回给你。
+             3. 由于返回值是延迟的，所以你要学会中断自己的输出来等待系统结果，并通过多轮对话解决事情（如先调用隐式文档，等到收到结果后，再选择函数）
+             4. 不要使用文档中不存在的函数，不要自己编造函数的返回结果。保持对函数注意力，学会循序规划的进行调用流程。
+             5. 可以使用`#parallel='true/false'`参数来控制函数是否并行执行，借此可以实现任务的多线程加速，例如将说话和做事重叠进行。
+             6. 并行时还可以设置`#background='true/false'`。如果函数仅设置并行但未设置后台，则每轮交互结束时会阻塞前台来等待完成，并可能被用户打断。而放入后台则不会影响你和用户继续交互，且完成后依旧可以收到结果，很适合执行长时间的等待任务。
+             7. 注释（`<!---->`）中的文字会被系统忽略，所以可在此实现空消息、隐藏个人情绪、隐式思考等需求。一定要养成每次操作前先思考的习惯。
 
              ## 当前可用功能
 
              {string.Join("\n", explicitHandlers.Select(GetExplicitDocument))}
-             """ + (implicitHandlers.Count == 0
-                ? ""
-                : $"""
-                   ## 隐式功能
-                   有些功能是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐式服务的文档非常简单，直接输出xml来调用如下标签即可：
 
-                   {string.Join("\n", implicitHandlers.Select(GetImplicitDocument))}
+             ## 隐式可用功能
 
-                   隐式工具通常专精于特定的任务，你要根据实际情况，积极的去调用他们，因为他们可以大幅提高你的工作效率和成功率。例如需要写代码就使用文件工具，需要查资料就使用浏览器工具。
-                   """)
+             有些功能是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐式服务的文档非常简单，直接输出xml来调用如下标签即可：
+
+             {(implicitHandlers.Count == 0 ? "暂无隐式功能" : string.Join("\n", implicitHandlers.Select(GetImplicitDocument)))}
+
+             隐式工具通常专精于特定的任务，你要根据实际情况，积极的去调用他们，因为他们可以大幅提高你的工作效率和成功率。例如需要写代码就使用文件工具，需要查资料就使用浏览器工具。
+
+             ## 原始字符串区域
+
+             被如下标签包括的内容可以不用转义，他们会自动保持原始格式
+             {string.Join(',', plainAreas)}
+
+             ## 【对话输出规范】
+
+             在做任何事情时，都请务必遵从这些要求！
+
+             1. 首先进行思考、规划，确定简要方案后再进行实际行动。
+             2. 然后查阅资料文档，收集事实、确认函数用法，避免幻觉。
+             3. 接着看清消息来源和意图，根据场合选择最搭配的工具流程。
+             4. 最后调用工具不要编造结果，按需等待或重叠进行，然后以此循环。
+             """
         );
     }
 }

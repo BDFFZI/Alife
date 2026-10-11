@@ -17,7 +17,7 @@ public record SearchResult(string Name, int Level, string Summary, string Conten
 /// </summary>
 public class MemoryStorage
 {
-    public MemoryStorage(string rootPath, TextVectorizer vectorizer)
+    public MemoryStorage(string rootPath, TextVectorizer? vectorizer)
     {
         this.rootPath = rootPath;
         this.vectorizer = vectorizer;
@@ -56,8 +56,10 @@ public class MemoryStorage
         await using DuckDBConnection connection = new DuckDBConnection($"Data Source={dbPath}");
         connection.Open();
 
-        //向量化概述，便于实现语义搜索
-        float[] vector = await vectorizer.VectorizeAsync(summary);
+        //向量化概述，便于实现语义搜索；未启用向量器时用零向量占位（DuckDB 数组列不允许随意为空）
+        float[] vector = vectorizer != null
+            ? await vectorizer.VectorizeAsync(summary)
+            : new float[VectorDimension];
         string vectorLiteral = "[" + string.Join(",", vector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
         await using DuckDBCommand command = connection.CreateCommand();
@@ -71,7 +73,7 @@ public class MemoryStorage
             StartTime = excluded.StartTime, 
             EndTime = excluded.EndTime, 
             Vector = excluded.Vector;
-        ";//由于是先保存后压缩，且是异步执行，所以如果程序中断，第二次启动时可能重复压缩
+        "; //由于是先保存后压缩，且是异步执行，所以如果程序中断，第二次启动时可能重复压缩
         command.Parameters.Add(new DuckDBParameter(name));
         command.Parameters.Add(new DuckDBParameter(level));
         command.Parameters.Add(new DuckDBParameter(summary));
@@ -88,18 +90,18 @@ public class MemoryStorage
 
             string filePath = Path.Combine(dir, $"{name}.txt");
             await File.WriteAllTextAsync(filePath,
-            $"""
-             压缩级别：{level}
-             时间范围：{startTime} 到 {endTime}
-             内容概述：
-             ```
-             {summary}
-             ```
-             原始内容：
-             ```
-             {content}
-             ```
-             """);
+                $"""
+                 压缩级别：{level}
+                 时间范围：{startTime} 到 {endTime}
+                 内容概述：
+                 ```
+                 {summary}
+                 ```
+                 原始内容：
+                 ```
+                 {content}
+                 ```
+                 """);
         }
     }
 
@@ -119,8 +121,12 @@ public class MemoryStorage
     /// 功能3：原生的 DuckDB 侧全库综合高能搜索。直接下推余弦计算并依靠索引剪枝！
     /// 当 question 为空时，退化为纯关键词搜索并按时间从早到晚排序。
     /// </summary>
-    public async Task<(List<SearchResult> Results, int Total)> SearchAsync(int level, string keyword, string? question, int topK = 5, int offset = 0, DateTimeOffset? minTime = null, DateTimeOffset? maxTime = null)
+    public async Task<(List<SearchResult> Results, int Total)> SearchAsync(int level, string keyword, string? question, int topK = 5, int offset = 0,
+        DateTimeOffset? minTime = null, DateTimeOffset? maxTime = null)
     {
+        if (!string.IsNullOrEmpty(question) && vectorizer == null)
+            throw new InvalidOperationException("当前未启用向量功能，不支持语义搜索（question 参数）！请先开启 EnableVector，或仅使用关键词搜索。");
+
         await using DuckDBConnection connection = new DuckDBConnection($"Data Source={dbPath}");
         connection.Open();
 
@@ -135,8 +141,9 @@ public class MemoryStorage
 
         if (!string.IsNullOrEmpty(question))
         {
-            float[] queryVector = await vectorizer.VectorizeAsync(question);
-            string vectorLiteral = "[" + string.Join(",", queryVector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
+            float[] queryVector = await vectorizer!.VectorizeAsync(question);
+            string vectorLiteral =
+                "[" + string.Join(",", queryVector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
             command.CommandText = $@"
                 SELECT Name, Level, Summary, Content, StartTime, EndTime, 
                        (
@@ -183,13 +190,14 @@ public class MemoryStorage
             float score = reader.GetFloat(6);
             total = reader.GetInt32(7);
             results.Add(new SearchResult(name, level, summary, content,
-            DateTimeOffset.FromUnixTimeMilliseconds(startMs),
-            DateTimeOffset.FromUnixTimeMilliseconds(endMs), score));
+                DateTimeOffset.FromUnixTimeMilliseconds(startMs),
+                DateTimeOffset.FromUnixTimeMilliseconds(endMs), score));
         }
         return (results, total);
     }
 
     readonly string rootPath;
     readonly string dbPath;
-    readonly TextVectorizer vectorizer;
+    readonly TextVectorizer? vectorizer;
+    const int VectorDimension = 512;
 }

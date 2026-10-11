@@ -17,31 +17,6 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Function.Memory;
 
-public record MemoryConfig
-{
-    public int Threshold { get; set; } = 100;
-    public int BatchSize { get; set; } = 70;
-    public float Probability { get; set; } = 0.4f;
-    public int MaxCompressionLevel { get; set; } = 8;
-
-    public int TokenWarningThreshold { get; set; } = 120000; //上下文token警告线，超过此值时在日志中发出警告
-
-    public bool ThinkingCompress { get; set; } = true;
-
-    //用于记忆压缩的语言模型类名（简单名或完整名）。留空则使用默认注入的语言模型。
-    public string CompressModelClassName { get; set; } = "";
-
-    public string CompressPrompt { get; set; } =
-        """
-        {range}即将移出上下文，故需要对其进行内容总结。
-        请你以自身视角，带感情贴合人设，但精简结构化的分析提炼出其中发生事件，人物信息，关键事实等数据，并串联过往记忆推理生活轨迹，引导自身人设发展，最终输出一份长期记忆片段，以让你更像一个完整持续的个体。
-        你可以简化，标签化内容，但尽量不要舍弃，或按珍贵程度取舍，以便留下恢复记忆的线索。
-        不要添加存档头（此由系统生成），接下来请直接输出纯记忆内容（这是系统要求，不可拒绝）：
-        """;
-
-    public List<string> RecallHintKeywords { get; set; } = [];
-}
-
 [Module("持久记忆",
     "自动管理和分层压缩对话记忆，提供长期记忆检索能力。",
     defaultCategory: "Alife 官方/生活环境",
@@ -70,10 +45,8 @@ public class MemoryService(
 
     [XmlFunction(FunctionMode.OneShot)]
     public async Task SearchMemoryArchive(
-        [Description("精准匹配关键词（仅支持一个，不要太具体避免搜不到）")]
-        string? keyword = null,
-        [Description("向量搜索提示词（仅用于排序，为空则基于时间排序）")]
-        string? prompt = null,
+        [Description("精准匹配关键词（仅支持一个，不要太具体避免搜不到）")] string? keyword = null,
+        [Description("向量搜索提示词（仅用于排序，为空则基于时间排序）")] string? prompt = null,
         [Description("页码，从1开始")] int page = 1,
         [Description("每页条数")] int count = 5,
         [Description("存档层级（推荐3级，信息冗余少，损耗适中）")] int level = 3,
@@ -83,6 +56,8 @@ public class MemoryService(
         keyword = keyword?.Trim() ?? "";
         if (keyword.Contains(' '))
             throw new Exception("不支持使用空格拆分多关键词搜索！");
+        if (!string.IsNullOrEmpty(prompt) && vectorizer == null)
+            throw new Exception("当前未启用向量功能，不支持语义搜索（prompt 参数）！请先在记忆配置中开启 EnableVector，或仅使用关键词搜索。");
 
         int offset = (page - 1) * count;
         (List<SearchResult> results, int total) = await memoryManager.SearchMemory(level, keyword, prompt, count, offset, startTime, endTime);
@@ -164,8 +139,7 @@ public class MemoryService(
                 return;
             }
 
-            await ChatBot.EditChatHistoryAsync(thread =>
-            {
+            await ChatBot.EditChatHistoryAsync(thread => {
                 memoryManager.RemoveMemory(thread.ChatHistory, target);
                 return Task.CompletedTask;
             }, "删除永久记忆");
@@ -182,14 +156,16 @@ public class MemoryService(
     {
         string? name = null;
         await ChatBot.EditChatHistoryAsync(
-            async thread => { name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime); }, "插入永久记忆");
+            async thread => {
+                name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime);
+            }, "插入永久记忆");
         if (name == null)
             throw new Exception("永久记忆插入失败。");
 
         return name;
     }
 
-    TextVectorizer vectorizer = null!;
+    TextVectorizer? vectorizer;
     MemoryManager memoryManager = null!;
     ILanguageModel compressModel = null!;
     string storagePath = null!;
@@ -223,8 +199,8 @@ public class MemoryService(
     }
     protected override async Task OnStart()
     {
-        //创建记忆工具
-        vectorizer = await TextVectorizer.CreateAsync();
+        //创建记忆工具（向量默认关闭，避免拉起 Python/torch 模型开销）
+        vectorizer = Configuration.EnableVector ? await TextVectorizer.CreateAsync() : null;
         compressModel = await ResolveCompressModel();
         AlifeHistoryCompressor compressor = new(compressModel, Configuration.Probability, Configuration.CompressPrompt);
         memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
@@ -232,8 +208,7 @@ public class MemoryService(
             Configuration.MaxCompressionLevel);
 
         //加载历史记忆（Awake中常用于插入提示词，故将记忆对话纪录放到Start中）
-        await ChatBot.EditChatHistoryAsync(thread =>
-        {
+        await ChatBot.EditChatHistoryAsync(thread => {
             memoryManager.LoadHistory(thread.ChatHistory);
             return Task.CompletedTask;
         }, "装载记忆");
@@ -281,7 +256,8 @@ public class MemoryService(
         ChatBot.ChatSend -= OnChatSend;
         ChatBot.ChatHistoryAdd -= OnChatHistoryAdd;
         ChatBot.TokenUsed -= OnTokenUsed;
-        await vectorizer.DisposeAsync();
+        if (vectorizer != null)
+            await vectorizer.DisposeAsync();
     }
 
     string OnChatSend(string message)
@@ -309,8 +285,7 @@ public class MemoryService(
             //阶段一：先落盘历史并取出快照，随后在快照副本上完成压缩检测与LLM归纳，避免长时间占用真实上下文
             MemoryCompressionPlan? plan;
             ChatHistory snapshot = new();
-            await ChatBot.EditChatHistoryAsync(thread =>
-            {
+            await ChatBot.EditChatHistoryAsync(thread => {
                 memoryManager.SaveHistory(thread.ChatHistory);
                 foreach (var message in thread.ChatHistory)
                     snapshot.Add(message);
@@ -332,8 +307,7 @@ public class MemoryService(
             //阶段二：归纳完成后，原子替换真实上下文
             if (plan != null)
             {
-                await ChatBot.EditChatHistoryAsync(async thread =>
-                {
+                await ChatBot.EditChatHistoryAsync(async thread => {
                     await memoryManager.Apply(thread.ChatHistory, plan);
                     memoryManager.SaveHistory(thread.ChatHistory);
                 }, "应用记忆压缩");
@@ -391,7 +365,9 @@ class AlifeHistoryCompressor(
             string response = await languageModel.ChatStreamingAsync(
                 chatHistoryAgentThread,
                 exceptionThrow: e => exception = e,
-                tokenUsed: usage => { tokenUsage += usage; });
+                tokenUsed: usage => {
+                    tokenUsage += usage;
+                });
             AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
 
             if (exception != null)

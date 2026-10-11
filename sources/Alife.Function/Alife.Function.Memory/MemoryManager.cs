@@ -36,7 +36,7 @@ public record MemoryCompressionPlan(
 /// </summary>
 public class MemoryManager
 {
-    public MemoryManager(HistoryCompressor compressor, TextVectorizer vectorizer, string storagePath,
+    public MemoryManager(HistoryCompressor compressor, TextVectorizer? vectorizer, string storagePath,
         int compressionThreshold, int compressionCount, int maxCompressionLevel)
     {
         this.compressionThreshold = compressionThreshold;

@@ -8,8 +8,6 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Function.SystemEvent;
 
-
-
 [Module(
     "系统事件",
     "让AI可以获取到各种系统事件的提醒，包括周期性的主动唤醒。",
@@ -18,6 +16,7 @@ namespace Alife.Function.SystemEvent;
     EditorUI = typeof(SystemEventServiceUI))]
 public class SystemEventService(
     XmlFunctionCaller functionService,
+    ILanguageModel languageModel,
     Interactor<SystemEventService> interactor) :
     ChatBehaviour,
     IConfigurable<SystemEventServiceConfig>,
@@ -43,7 +42,7 @@ public class SystemEventService(
     {
         //发送系统启动消息
         {
-            OccupationMarker occupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("程序启动");
+            OccupationMarker occupationMarker = languageModel.GetThinkingRequester().Rent("程序启动");
 
             if (ChatBot.ChatHistory.All(content => content.Role != AuthorRole.Assistant))
             {
@@ -62,6 +61,10 @@ public class SystemEventService(
         }
 
         ChatBot.ChatSent += OnChatSent;
+        interactor.Prompt($"""
+                           【闲时行动建议】
+                           {Configuration.UpdatePrompt}
+                           """);
 
         //设置定时
         NextTimer();
@@ -75,10 +78,9 @@ public class SystemEventService(
             if (functionService.IsIdle)
             {
                 StringBuilder stringBuilder = new();
-                stringBuilder.Append("系统周期报点。");
-                stringBuilder.AppendLine(Configuration.UpdatePrompt);
+                stringBuilder.Append("系统周期报点(请参考【闲时行动建议】)");
                 if (currentReportCount >= Configuration.UpdateIntervalMaxPowerCount)
-                    stringBuilder.Append("(系统周期报点已达最大间隔时间，如果你想重新活跃，请与主人进行任意一次对话)");
+                    stringBuilder.Append("(系统周期报点已达最大间隔时间，与主人进行任意聊天后可重新活跃)");
 
                 interactor.Poke(stringBuilder.ToString());
 
