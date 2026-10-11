@@ -8,7 +8,7 @@ public class SystemEventServiceConfig
     public string? UpdatePrompt { get; set; } =
         "(如果你手头还有事情，请继续。否则当你空闲时，你可以自由活动，比如主动找主人玩，或看新闻学知识、发起新话题、偷窥主人屏幕、去Q群找人聊天玩耍，等各种你能想象到的事)";
 
-    public int UpdateInterval { get; set; } = 40;
+    public int UpdateInterval { get; set; } = 30;
     public int UpdateRandomOffset { get; set; } = 10;
     public int UpdateIntervalMultiplier { get; set; } = 4;
     public int UpdateIntervalMaxPowerCount { get; set; } = 5;

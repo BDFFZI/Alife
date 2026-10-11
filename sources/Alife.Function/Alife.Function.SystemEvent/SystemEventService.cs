@@ -23,7 +23,7 @@ public class SystemEventService(
     ISystemEventService
 {
     public SystemEventServiceConfig Configuration { get; set; } = null!;
-    public DateTime NextReportTime => nextReportTime;
+    public DateTime NextReportTime => DateTime.Now.AddSeconds(nextTime - deltaTime);
     public int CurrentReportCount => currentReportCount;
 
     /// <summary>
@@ -35,8 +35,9 @@ public class SystemEventService(
         NextTimer();
     }
 
-    DateTime nextReportTime = DateTime.MaxValue;
     int currentReportCount;
+    float deltaTime;
+    float nextTime;
 
     protected override Task OnStart()
     {
@@ -73,7 +74,9 @@ public class SystemEventService(
     }
     protected override Task OnUpdate()
     {
-        if (DateTime.Now > nextReportTime)
+        deltaTime += UpdateContext.DeltaTime;
+
+        if (deltaTime > nextTime)
         {
             if (functionService.IsIdle)
             {
@@ -102,10 +105,10 @@ public class SystemEventService(
 
     void OnChatSent(string message)
     {
-        if (message.Contains(ChatBot.PokeMessageTag) == false)
-        {
+        if (message.Contains(ChatBot.PokeMessageTag) == false || message.Contains("\n\n" + ChatBot.PokeMessageTag))
             ResetTimer();
-        }
+
+        deltaTime = 0;
     }
 
 
@@ -113,8 +116,8 @@ public class SystemEventService(
     {
         int shake = Random.Shared.Next(-Configuration.UpdateRandomOffset, Configuration.UpdateRandomOffset);
         int currentInterval = GetNextInterval(currentReportCount, shake);
-        nextReportTime = DateTime.Now.AddSeconds(currentInterval);
-
+        deltaTime = 0;
+        nextTime = currentInterval;
         int GetNextInterval(int power, int shake)
         {
             int baseInterval = Configuration.UpdateInterval + shake;
