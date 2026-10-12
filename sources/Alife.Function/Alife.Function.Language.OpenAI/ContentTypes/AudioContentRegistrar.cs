@@ -39,21 +39,41 @@ public sealed class AudioContentRegistrar : AlifeContentRegistrar
 
     static KernelContent AudioFileToContentAsync(string file)
     {
+        byte[] bytes = File.ReadAllBytes(file);
         AudioContent audioContent = new() {
-            Data = File.ReadAllBytes(file),
-            Format = GetFormat(file)
+            Data = bytes,
+            Format = GetFormat(file, bytes)
         };
         return audioContent;
 
-        static string GetFormat(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
-            ".mp3" => "mp3",
-            ".wav" => "wav",
-            ".m4a" => "m4a",
-            ".flac" => "flac",
-            ".ogg" or ".opus" => "ogg",
-            ".aac" => "aac",
-            ".webm" => "webm",
-            _ => "mp3"
-        };
+        static string GetFormat(string path, byte[] data)
+        {
+            string? sniffed = SniffAudioFormat(data);
+            if (sniffed != null)
+                return sniffed;
+
+            return Path.GetExtension(path).ToLowerInvariant() switch {
+                ".mp3" => "mp3",
+                ".wav" => "wav",
+                ".m4a" => "m4a",
+                ".flac" => "flac",
+                ".ogg" or ".opus" => "ogg",
+                ".aac" => "aac",
+                ".webm" => "webm",
+                _ => "mp3"
+            };
+        }
+
+        static string? SniffAudioFormat(byte[] data)
+        {
+            if (data.Length >= 12 && data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46
+                && data[8] == 0x57 && data[9] == 0x41 && data[10] == 0x56 && data[11] == 0x45)
+                return "wav";
+            if (data.Length >= 4 && data[0] == 0x66 && data[1] == 0x4C && data[2] == 0x61 && data[3] == 0x43)
+                return "flac";
+            if (data.Length >= 4 && data[0] == 0x4F && data[1] == 0x67 && data[2] == 0x67 && data[3] == 0x53)
+                return "ogg";
+            return null;
+        }
     }
 }
