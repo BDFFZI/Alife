@@ -53,4 +53,25 @@ public class SpeechSilenceTrimmer : ISampleProvider
         }
         return toCopy;
     }
+
+    /// <summary>按 windowMs 分帧计算 RMS 音量包络（含增益，范围 0..1），供口型同步按时钟查表。</summary>
+    public float[] GetEnvelope(int windowMs)
+    {
+        if (samples.Length == 0)
+            return Array.Empty<float>();
+        int step = Math.Max(1, WaveFormat.SampleRate * WaveFormat.Channels * windowMs / 1000);
+        int count = (samples.Length + step - 1) / step;
+        float[] result = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            int start = i * step;
+            int end = Math.Min(samples.Length, start + step);
+            double sum = 0;
+            for (int j = start; j < end; j++)
+                sum += (double)samples[j] * samples[j];
+            double rms = end > start ? Math.Sqrt(sum / (end - start)) : 0;
+            result[i] = (float)Math.Min(1.0, Math.Sqrt(rms) * 2.2);
+        }
+        return result;
+    }
 }

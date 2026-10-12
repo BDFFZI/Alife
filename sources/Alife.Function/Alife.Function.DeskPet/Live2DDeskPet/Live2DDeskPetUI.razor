@@ -42,6 +42,12 @@ else
                         字幕出现时角色张嘴。仅模型声明了口型参数时生效。
                     </Text>
                 </FormItem>
+                <FormItem Label="音频驱动口型">
+                    <Switch @bind-Value="@Configuration.SpeechLipSyncEnabled"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                        配合语音说话插件，按真实音量驱动口型。否则使用基于字幕的伪噪声口型。
+                    </Text>
+                </FormItem>
             </Form>
 
             <Button Type="@ButtonType.Default" Icon="folder-open" OnClick="OpenModelFolder">

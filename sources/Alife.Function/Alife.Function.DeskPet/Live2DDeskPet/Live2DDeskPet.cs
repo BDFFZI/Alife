@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
+using Alife.Function.Speech;
 using ElectronNET.API.Entities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -58,7 +59,8 @@ public partial class Live2DDeskPet
 public partial class Live2DDeskPet(
     PluginSystem pluginSystem,
     StorageSystem storageSystem,
-    ILogger<Live2DDeskPet> logger) :
+    ILogger<Live2DDeskPet> logger,
+    ISpeechService? speechService = null) :
     ChatBehaviour,
     IConfigurable<Live2DDeskPetConfig>,
     IDeskPet
@@ -203,6 +205,9 @@ public partial class Live2DDeskPet(
         services.AddSingleton<PetBridge>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));
         services.AddSingleton<InteractedEventCallback>(text => OnInteracted?.Invoke(text));
+        // 语音服务是可选依赖：开启真音量口型且装有语音插件时注入，供 MouthModule 订阅真音频事件；否则不注入，纯噪声口型
+        if (speechService != null && Configuration.SpeechLipSyncEnabled)
+            services.AddSingleton(speechService);
 
         moduleTypes = typeof(IPetModule).Assembly.GetTypes()
             .Where(type => type is { IsClass: true, IsAbstract: false } && typeof(IPetModule).IsAssignableFrom(type))

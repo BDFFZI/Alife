@@ -82,6 +82,17 @@
                             </div>
                         </Alert>
 
+                        <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center">
+                            <div>
+                                <Text Strong>更新提示预注入</Text>
+                                <br/>
+                                <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                                    开：预注入到【闲时行动建议】，省 token 但引导较弱；关：每次报点时内联全文，引导更强但更费 token
+                                </Text>
+                            </div>
+                            <Switch @bind-Checked="@Configuration.UpdatePromptPreInject"/>
+                        </Flex>
+
                         <GridRow Gutter="16">
                             <GridCol Span="12">
                                 <div>

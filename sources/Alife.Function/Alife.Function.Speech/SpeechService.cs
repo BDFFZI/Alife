@@ -19,8 +19,12 @@ public class SpeechService(
     XmlFunctionCaller functionService,
     AIModelUtility.ISpeechModel speechModel,
     ILogger<SpeechService> logger) :
-    ChatBehaviour
+    ChatBehaviour,
+    ISpeechService
 {
+    public event Action<SpeechAudioContext>? AudioStarted;
+    public event Action? AudioStopped;
+
     public bool IsSpeaking => playAudioTask is { IsCompleted: false };
 
     [XmlFunction(FunctionMode.Content, order: -10, parallel: true)]
@@ -56,6 +60,7 @@ public class SpeechService(
 
     Task<string?> audioSynthesizingTask = Task.FromResult<string?>(null);
     Task playAudioTask = Task.CompletedTask;
+    const int AudioWindowMs = 40;
 
     protected override Task OnAwake()
     {
@@ -116,10 +121,24 @@ public class SpeechService(
 
         await using AudioFileReader reader = new(filePath); //音频读取
         SpeechSilenceTrimmer silenceTrimmer = new(reader); //音频预处理
+        // 预计算整段音量包络，出声后再连同起跑时间戳一起发布，前端按本机时钟查表驱动口型
+        float[] envelope = silenceTrimmer.GetEnvelope(AudioWindowMs);
         using WaveOutEvent speaker = new();
         speaker.Init(silenceTrimmer);
         speaker.PlaybackStopped += OnPlaybackStopped;
         speaker.Play();
+        try
+        {
+            AudioStarted?.Invoke(new SpeechAudioContext {
+                Envelope = envelope,
+                WindowMs = AudioWindowMs,
+                StartUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "发布语音包络失败");
+        }
 
         // ReSharper disable once AccessToDisposedClosure
         await using CancellationTokenRegistration registration = cancellationToken.Register(() => speaker.Stop());
@@ -127,6 +146,14 @@ public class SpeechService(
 
         void OnPlaybackStopped(object? _, StoppedEventArgs e)
         {
+            try
+            {
+                AudioStopped?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "发布语音停止事件失败");
+            }
             if (e.Exception != null)
                 tcs.TrySetException(e.Exception);
             else
