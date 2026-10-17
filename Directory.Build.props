@@ -1,16 +1,11 @@
 <Project>
-  <PropertyGroup>
-    <!-- C#功能 -->
-    <Nullable>enable</Nullable>
-    <!-- 打包选项 -->
-    <TargetFramework>net10.0</TargetFramework>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
-    <!-- 打包目录 -->
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <OutputPath Condition="'$(OutputPath)' == ''">$(MSBuildThisFileDirectory)Outputs\$(Configuration)\$(MSBuildProjectName)\</OutputPath>
-    <OutDir>$(OutputPath)</OutDir>
-  </PropertyGroup>
+    <PropertyGroup>
+        <!-- C#环境 -->
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <!-- 打包目录 -->
+        <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(MSBuildThisFileDirectory)Outputs\$(MSBuildProjectName)\</BaseOutputPath>
+        <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>true</AppendRuntimeIdentifierToOutputPath>
+    </PropertyGroup>
 </Project>

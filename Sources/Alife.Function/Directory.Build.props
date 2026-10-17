@@ -1,0 +1,9 @@
+<Project>
+    <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props"/>
+    <PropertyGroup>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles><!--要求生成g.cs以便插件可以携带UI-->
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Alife.Client\Alife.Client\Alife.Client.csproj"/>
+    </ItemGroup>
+</Project>

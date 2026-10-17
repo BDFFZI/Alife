@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
     <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Language.OpenAI\Alife.Function.Language.OpenAI.csproj" />
     <ProjectReference Include="..\..\sources\Alife\Alife.Application\Alife.Application.csproj" />
+    <ProjectReference Include="..\..\sources\Alife.Client\Alife.Client\Alife.Client.csproj" />
   </ItemGroup>
 
 

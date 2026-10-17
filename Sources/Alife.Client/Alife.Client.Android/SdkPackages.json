@@ -1,0 +1,72 @@
+[
+  {
+    "Name": "aspnetcore-runtime-10.0",
+    "File": "pool/main/a/aspnetcore-runtime-10.0/aspnetcore-runtime-10.0_10.0.13_aarch64.deb",
+    "Sha256": "d7fc3a566a8425489064c34717dd429383110271ce59bae54fbfd004939ad5e8"
+  },
+  {
+    "Name": "aspnetcore-targeting-pack-10.0",
+    "File": "pool/main/a/aspnetcore-targeting-pack-10.0/aspnetcore-targeting-pack-10.0_10.0.13_aarch64.deb",
+    "Sha256": "4ae7b893e45df918923d79d5ffe78a35be770edef2e06cb348bc1d2a967425d0"
+  },
+  {
+    "Name": "ca-certificates",
+    "File": "pool/main/c/ca-certificates/ca-certificates_1:2026.09.25_all.deb",
+    "Sha256": "57fab24bf4561bfdd35afe71bc1929914e51c35458cfd1fca2b15e54bc8df7af"
+  },
+  {
+    "Name": "dotnet-apphost-pack-10.0",
+    "File": "pool/main/d/dotnet-apphost-pack-10.0/dotnet-apphost-pack-10.0_10.0.13_aarch64.deb",
+    "Sha256": "65f69de16be51e72810e6176840ed4daae6bda1c3793bf59d7d1b2153b783d38"
+  },
+  {
+    "Name": "dotnet-host-10.0",
+    "File": "pool/main/d/dotnet-host-10.0/dotnet-host-10.0_10.0.13_aarch64.deb",
+    "Sha256": "11b5034da49295a815e158d7f2212ffd104e48339bd184ea282bf4a4e4891359"
+  },
+  {
+    "Name": "dotnet-hostfxr-10.0",
+    "File": "pool/main/d/dotnet-hostfxr-10.0/dotnet-hostfxr-10.0_10.0.13_aarch64.deb",
+    "Sha256": "f215af5e6c37ec6b926515477cbcb84d61c46cc787180e0261168a04c7b22602"
+  },
+  {
+    "Name": "dotnet-runtime-10.0",
+    "File": "pool/main/d/dotnet-runtime-10.0/dotnet-runtime-10.0_10.0.13_aarch64.deb",
+    "Sha256": "b2c2c481c8b42166e4bd2bb92dc81f737022048b1df9887b812f1c28aabab1d2"
+  },
+  {
+    "Name": "dotnet-sdk-10.0",
+    "File": "pool/main/d/dotnet-sdk-10.0/dotnet-sdk-10.0_10.0.13_aarch64.deb",
+    "Sha256": "5f47112b5a8b36b1aad9ec1fc3823edbf46ba1620ea20c44cd03252d469b64c9"
+  },
+  {
+    "Name": "dotnet-targeting-pack-10.0",
+    "File": "pool/main/d/dotnet-targeting-pack-10.0/dotnet-targeting-pack-10.0_10.0.13_aarch64.deb",
+    "Sha256": "fc5bdf614305720c61441931d2bfdc4e426d6a67632ca8dcb3edd5b7487ebaf1"
+  },
+  {
+    "Name": "dotnet-templates-10.0",
+    "File": "pool/main/d/dotnet-templates-10.0/dotnet-templates-10.0_10.0.13_aarch64.deb",
+    "Sha256": "f474c018f2572105e9f41a2d7eaf003bc2751c1f01b9e16532b0804decbf485d"
+  },
+  {
+    "Name": "libc++",
+    "File": "pool/main/libc/libc++/libc++_30_aarch64.deb",
+    "Sha256": "53d0b84a7ba7459024257cb94d5b136fe13ef858567f65a8064b35950799f2ca"
+  },
+  {
+    "Name": "libicu",
+    "File": "pool/main/libi/libicu/libicu_78.3_aarch64.deb",
+    "Sha256": "f536403f65a08fe0df6e7304184e902d54def77d5c3bd5edfd9109d57601d276"
+  },
+  {
+    "Name": "openssl",
+    "File": "pool/main/o/openssl/openssl_1:3.6.5_aarch64.deb",
+    "Sha256": "a2fb7856875e63ef6b90442752e05974813372c3ca86d2513a78ea43c67a0f8b"
+  },
+  {
+    "Name": "zlib",
+    "File": "pool/main/z/zlib/zlib_1.3.2_aarch64.deb",
+    "Sha256": "75e7d0af17fcc3b40004309fdc00a1ddb9ae08346dce5e269902c34ac3966ac9"
+  }
+]

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RootNamespace>Alife.Framework</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
+        <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0"/>
+        <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Alife.Foundation\Alife.Foundation.csproj"/>
+    </ItemGroup>
+</Project>

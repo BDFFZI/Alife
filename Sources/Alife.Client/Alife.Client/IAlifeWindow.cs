@@ -1,0 +1,47 @@
+﻿using System.Drawing;
+
+namespace Alife.Client;
+
+public class AlifeWindowOptions
+{
+    public required string Title { get; init; }
+    public required string Url { get; init; }
+    public Rectangle? Bounds { get; init; }
+    public bool TopMost { get; init; } //是否置于其他窗口顶部？如果需要再任务栏之上还需要每次都设置一下
+    public bool Resizable { get; init; } = true;
+    public bool Transparent { get; init; } //影响窗口绘制模式，边框样式等
+}
+
+/// <summary>
+/// 窗口采用 dpi 坐标，可以通过 <see cref="IAlifeClient.GetDpiScale" /> 来与物理坐标转换
+/// </summary>
+public interface IAlifeWindow : IAsyncDisposable
+{
+    Task Launch();
+
+    Task ShowAsync();
+    Task HideAsync();
+
+    Task SetBoundsAsync(Rectangle bounds) => throw new NotSupportedException();
+    Task SetTopMostAsync(bool topMost) => throw new NotSupportedException();
+    /// <summary>
+    /// 设置窗口穿透（可以利用后端显式获取鼠标位置，再传入前端来进行命中测试切换穿透，从而实现部分UI穿透的效果）
+    /// </summary>
+    /// <param name="ignore"></param>
+    /// <returns></returns>
+    /// <exception cref="NotSupportedException"></exception>
+    Task SetIgnoreMouseEventsAsync(bool ignore) => throw new NotSupportedException();
+
+    /// <summary>
+    /// 接受前端消息（需让前端支持用 window.alifeWindow.postMessage(obj | string) 发消息）
+    /// </summary>
+    event Action<string>? MessageReceived;
+    /// <summary>
+    /// 向前端发送消息（需让前端支持用 window.alifeWindow.onMessage 注册消息处理器 handler(obj)）
+    /// </summary>
+    /// <param name="messageJson"></param>
+    /// <returns></returns>
+    /// <exception cref="NotSupportedException"></exception>
+    Task PostMessageAsync(string messageJson) => throw new NotSupportedException();
+    Task<string?> ExecuteScriptAsync(string script) => throw new NotSupportedException();
+}

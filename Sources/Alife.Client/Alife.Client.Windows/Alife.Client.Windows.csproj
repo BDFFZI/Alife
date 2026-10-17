@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <!-- 编译环境 -->
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Alife.Client.Windows</RootNamespace>
+        <!-- 发布设置 -->
+        <OutputType>WinExe</OutputType>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <PublishSelfContained>true</PublishSelfContained>
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <ApplicationIcon>alife-icon.ico</ApplicationIcon>
+        <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages><!--消除webview和net10的库冲突警告-->
+        <!-- 版本号 -->
+        <Version>5.0.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Alife.Client/Alife.Client.csproj"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="9.0.120"/>
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="alife-icon.ico"
+                 CopyToOutputDirectory="PreserveNewest"
+                 CopyToPublishDirectory="PreserveNewest"/>
+    </ItemGroup>
+</Project>

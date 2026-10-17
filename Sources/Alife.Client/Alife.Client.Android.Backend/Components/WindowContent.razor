@@ -1,0 +1,6 @@
+@namespace Alife.Client.Android.Backend.Components
+@inject IAlifeClient Client
+<DynamicComponent Type="@(((LauncherAlifeClient)Client).GetWindowComponent(Id))" />
+@code {
+    [Parameter] public string Id { get; set; } = "";
+}

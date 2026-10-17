@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Alife.Client</RootNamespace>
+        <!--不禁用的话会生成一段前缀导致资源路径不固定，进而导致引用项目无法导入静态资源-->
+        <StaticWebAssetFingerprintingEnabled>false</StaticWebAssetFingerprintingEnabled>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AntDesign" Version="1.6.2"/>
+    </ItemGroup>
+</Project>

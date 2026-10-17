@@ -1,4 +1,6 @@
 using Alife;
+using Alife.Client;
+using Alife.Client.Windows;
 using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -18,15 +20,19 @@ public static class DemoSuite
         Console.WriteLine("导入:" + typeof(XmlFunctionCaller));
 
         ServiceCollection serviceCollection = new();
-        serviceCollection.AddAlife();
+        serviceCollection.AddAlifeClient<>();<WindowsPluginRuntime>();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
         await provider.InitAlife();
 
         systemCreated?.Invoke(provider);
 
         ChatActivitySystem chatActivitySystem = provider.GetRequiredService<ChatActivitySystem>();
-        chatActivitySystem.ActivatingProcess += (_, progress) => { DemeLog.LogInfo(progress.Step); };
-        chatActivitySystem.ActivationFailed += (_, exception) => { DemeLog.LogError(exception.ToString()); };
+        chatActivitySystem.ActivatingProcess += (_, progress) => {
+            DemeLog.LogInfo(progress.Step);
+        };
+        chatActivitySystem.ActivationFailed += (_, exception) => {
+            DemeLog.LogError(exception.ToString());
+        };
 
         //进行活动
         {
@@ -56,14 +62,12 @@ public static class DemoSuite
         bool isFirstMessage = false;
         bool isFirstReasoning = false;
 
-        chatBot.ChatSent += msg =>
-        {
+        chatBot.ChatSent += msg => {
             LogSent("USER", msg);
             isFirstMessage = true;
             isFirstReasoning = true;
         };
-        chatBot.ReasoningReceived += msg =>
-        {
+        chatBot.ReasoningReceived += msg => {
             if (isFirstReasoning)
             {
                 isFirstReasoning = false;
@@ -72,8 +76,7 @@ public static class DemoSuite
 
             LogReceivedContent(msg, ConsoleColor.Gray);
         };
-        chatBot.ChatReceived += msg =>
-        {
+        chatBot.ChatReceived += msg => {
             if (isFirstMessage)
             {
                 isFirstMessage = false;

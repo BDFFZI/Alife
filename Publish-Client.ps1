@@ -3,18 +3,19 @@
 .SYNOPSIS
     Builds the Alife Client for a platform.
 .DESCRIPTION
-    Resolves the platform project by convention, publishes it and packages the
-    distribution into "$OutputDir\Alife.Client".
-    The product name is always "Alife.Client" ("Alife.Client.exe" on Windows,
-    "Alife.Client.app" on macOS) no matter what the project folder is called.
+    Resolves the platform project by convention, publishes it with dotnet publish
+    and packages the distribution into "$OutputDir\Alife.Client".
+    The distribution folder is always "Alife.Client" no matter what the project
+    folder is called. The launcher executable keeps the project's own name
+    (Windows -> "Alife.Client.Windows.exe").
 .PARAMETER Platform
     Platform name. The project is looked up as
     "sources\Alife.Client\Alife.Client.<Platform>\Alife.Client.<Platform>.csproj",
     falling back to the legacy "Alife.Client.App.<Platform>" folder, for example
     Windows -> Alife.Client.Windows.
     Packaging strategy per platform:
-      Windows -> Electron package ("win-unpacked"), RID win-x64.
-      Android -> plain dotnet publish (Electron is not involved).
+      Windows -> self-contained dotnet publish (net10.0-windows), RID win-x64.
+      Android -> dotnet publish with the Android build parameters.
 .PARAMETER OutputDir
     Distribution root. The client is emitted to "$OutputDir\Alife.Client".
 .EXAMPLE
@@ -28,31 +29,32 @@
 param(
     [string]$Platform = "Windows",
 
-    [string]$OutputDir = ""
+    [string]$OutputDir = "",
+
+    # Android 打包需要 JDK 与 NDK clang（编 sdk-launcher），默认读环境变量，可显式覆盖。
+    [string]$JavaSdkDirectory = $env:JAVA_HOME,
+
+    [string]$AlifeAndroidClang = $env:ALIFE_ANDROID_CLANG
 )
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $Src = Join-Path $Root "sources"
 $ClientRoot = Join-Path $Src "Alife.Client"
-$ElectronStagingRoot = Join-Path $Root ".build-validation\Publish-Electron"
+$StagingRoot = Join-Path $Root ".build-validation\Publish-Client"
 
-# The product name comes from the platform project (Title/AssemblyName in
-# Alife.Client.Windows.csproj), not from the project folder name.
+# The distribution folder is always "Alife.Client"; the launcher keeps the
+# platform project's assembly name (see the platform csproj).
 $ProductName = "Alife.Client"
 
 # Packaging strategy per platform.
 $Platforms = @{
     "Windows" = @{
         RuntimeIdentifier = "win-x64"
-        Electron          = $true
-        UnpackedDir       = "win-unpacked"
-        Launcher          = "$ProductName.exe"
+        Launcher          = "Alife.Client.Windows.exe"
     }
     "Android" = @{
         RuntimeIdentifier = ""
-        Electron          = $false
-        UnpackedDir       = ""
         Launcher          = ""
     }
 }
@@ -150,54 +152,40 @@ New-Item -ItemType Directory -Path $ClientTarget -Force | Out-Null
 Write-Host "  Cleaned: $ClientTarget" -ForegroundColor Green
 Write-Host ""
 
-if ($PlatformInfo.Electron) {
-    Write-Host "[2/2] Packaging $ProductName with Electron ($Platform)..." -ForegroundColor Yellow
-} else {
-    Write-Host "[2/2] Publishing $ProductName for $Platform..." -ForegroundColor Yellow
-}
+Write-Host "[2/2] Publishing $ProductName for $Platform..." -ForegroundColor Yellow
 
-if (Test-Path -LiteralPath $ElectronStagingRoot) {
-    Remove-Item -LiteralPath $ElectronStagingRoot -Recurse -Force
+if (Test-Path -LiteralPath $StagingRoot) {
+    Remove-Item -LiteralPath $StagingRoot -Recurse -Force
 }
-New-Item -ItemType Directory -Path $ElectronStagingRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $StagingRoot -Force | Out-Null
 
-$ClientBuildOutput = Join-Path $ElectronStagingRoot $PlatformProjectName
+$ClientBuildOutput = Join-Path $StagingRoot $PlatformProjectName
 $PublishArguments = @("-c", "Release")
 if ($PlatformInfo.RuntimeIdentifier) {
     $PublishArguments += @("-r", $PlatformInfo.RuntimeIdentifier)
 }
 $PublishArguments += @("-p:OutputPath=$ClientBuildOutput\", "-nologo", "--verbosity", "minimal")
+if ($JavaSdkDirectory) {
+    $PublishArguments += @("-p:JavaSdkDirectory=$JavaSdkDirectory")
+}
+if ($AlifeAndroidClang) {
+    $PublishArguments += @("-p:AlifeAndroidClang=$AlifeAndroidClang")
+}
 Invoke-DotnetPublish -Project $ClientProject -Arguments $PublishArguments
 
-if ($PlatformInfo.Electron) {
-    $ElectronPackage = Find-PackageDirectory -Root $ClientBuildOutput -RelativePath "publish\$($PlatformInfo.UnpackedDir)" -LeafName $PlatformInfo.UnpackedDir
-    if (-not $ElectronPackage) {
-        throw "Electron package directory '$($PlatformInfo.UnpackedDir)' was not found under $ClientBuildOutput (platform: $Platform)."
-    }
-
-    $ElectronLauncher = Join-Path $ElectronPackage $PlatformInfo.Launcher
-    if (-not (Test-Path -LiteralPath $ElectronLauncher)) {
-        throw "Electron package was not created: '$ElectronLauncher' is missing (platform: $Platform)."
-    }
-
-    Get-ChildItem -LiteralPath $ElectronPackage -Force | Copy-Item -Destination $ClientTarget -Recurse -Force
-
-    # Safe mode launcher (Windows only).
-    $safeModeScript = Join-Path $ClientTarget "$ProductName.exe (DisableGPU).cmd"
-    @"
-@echo off
-chcp 65001 >nul
-$ProductName.exe --no-sandbox --disable-gpu
-pause
-"@ | Set-Content -Path $safeModeScript -Encoding ASCII
-} else {
-    $PublishOutput = Find-PackageDirectory -Root $ClientBuildOutput -RelativePath "publish" -LeafName "publish"
-    if (-not $PublishOutput) {
-        throw "Publish output directory was not found under $ClientBuildOutput (platform: $Platform)."
-    }
-
-    Get-ChildItem -LiteralPath $PublishOutput -Force | Copy-Item -Destination $ClientTarget -Recurse -Force
+$PublishOutput = Find-PackageDirectory -Root $ClientBuildOutput -RelativePath "publish" -LeafName "publish"
+if (-not $PublishOutput) {
+    throw "Publish output directory was not found under $ClientBuildOutput (platform: $Platform)."
 }
+
+if ($PlatformInfo.Launcher) {
+    $Launcher = Join-Path $PublishOutput $PlatformInfo.Launcher
+    if (-not (Test-Path -LiteralPath $Launcher)) {
+        throw "Publish output is missing the launcher '$($PlatformInfo.Launcher)' (platform: $Platform)."
+    }
+}
+
+Get-ChildItem -LiteralPath $PublishOutput -Force | Copy-Item -Destination $ClientTarget -Recurse -Force
 
 Write-Host "  Package: $ClientTarget" -ForegroundColor Green
 Write-Host ""

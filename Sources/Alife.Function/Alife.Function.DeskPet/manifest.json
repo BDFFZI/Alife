@@ -1,0 +1,7 @@
+{
+  "Version": "5.0.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": "",
+    "Alife.Function.MessageFilter": ""
+  }
+}

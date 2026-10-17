@@ -72,6 +72,8 @@
 
   <Folder Name="/Sources/" />
   <Folder Name="/Sources/Alife.Client/">
+    <Project Path="sources/Alife.Client/Alife.Client.Android/Alife.Client.Android.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client.Android.Backend/Alife.Client.Android.Backend.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client.Windows/Alife.Client.Windows.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client/Alife.Client.csproj" />
   </Folder>

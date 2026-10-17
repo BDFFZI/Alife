@@ -1,0 +1,12 @@
+{
+  "Version": "4.1.0",
+  "Dependencies": {
+    "Alife.Function.FunctionCaller": "",
+    "Alife.Function.AIModelUtility": ""
+  },
+  "Environments": {
+    "nuget": {
+      "NAudio": ">=2.3.0"
+    }
+  }
+}
