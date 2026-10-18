@@ -1,7 +1,7 @@
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 @inject NavigationManager Navigation
-@inject ClientConfigStore ClientConfigStore
+@inject ClientDataStore ClientDataStore
 @implements IDisposable
 
 <Flex Direction="FlexDirection.Vertical" Gap="@("12")" Style="width: 100%; align-items: center;">
@@ -28,7 +28,7 @@
         <Tooltip Title="@(character.Name)" Placement="@Placement.Right">
             <NavLink href="@($"/agent/{character.Name}")" Class="nav-item-icon character-item"
                      ActiveClass="active"
-                     @onclick="() => ClientConfigStore.SetLastCharacter(character)">
+                     @onclick="@(() => ClientDataStore.SetLastCharacter(character))">
                 <div style="position: relative; display: flex; align-items: center; justify-content: center;">
                     <Avatar Size="@AvatarSize.Large" Style="background: #1890ff; color: #fff; font-weight: bold;">
                         @(character.Name.FirstOrDefault())
@@ -113,7 +113,7 @@
             await CharacterSystem.SaveCharacter(character);
             isCreating = false;
             Navigation.NavigateTo($"/agent/{newCharacterName}");
-            ClientConfigStore.SetLastCharacter(character);
+            ClientDataStore.SetLastCharacter(character);
             newCharacterName = "";
         }
         catch (Exception e)

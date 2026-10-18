@@ -1,5 +1,6 @@
 @page "/"
 @page "/welcome"
+@inject IAlifeClient AlifeClient
 
 <div class="welcome-page">
     <div class="welcome-bubble">
@@ -63,13 +64,30 @@
 
 @code {
     int currentStep = 0;
+    bool? hasEnvironmentItems;
 
     void GoToStep(int step)
     {
-        if (!OperatingSystem.IsWindows() && step == 3)
+        if (step == 3 && HasEnvironmentItems() == false)
             step = currentStep < step ? 4 : 2;
         currentStep = step;
         StateHasChanged();
+    }
+
+    bool HasEnvironmentItems()
+    {
+        if (hasEnvironmentItems.HasValue)
+            return hasEnvironmentItems.Value;
+
+        try
+        {
+            hasEnvironmentItems = AlifeClient.GetEnvironmentItems().Count > 0;
+        }
+        catch
+        {
+            hasEnvironmentItems = true; //让环境页自行展示具体错误
+        }
+        return hasEnvironmentItems.Value;
     }
 }
 

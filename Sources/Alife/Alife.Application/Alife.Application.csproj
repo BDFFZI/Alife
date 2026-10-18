@@ -9,7 +9,4 @@
         <ProjectReference Include="..\Alife.Framework\Alife.Framework.csproj"/>
         <ProjectReference Include="..\Alife.PluginSystem\Alife.PluginSystem.csproj"/>
     </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0"/>
-    </ItemGroup>
 </Project>

@@ -1,72 +1,47 @@
 using Android.App;
 using Android.Content;
+using Android.Content.PM;
 using Android.OS;
-using Android.Webkit;
-using Android.Widget;
-using OperationCanceledException = System.OperationCanceledException;
+using Android.Views;
 
 namespace Alife.Client.Android;
 
 [Activity(Label = "Alife", MainLauncher = true, Exported = true,
-    ConfigurationChanges = global::Android.Content.PM.ConfigChanges.Orientation |
-        global::Android.Content.PM.ConfigChanges.ScreenSize |
-        global::Android.Content.PM.ConfigChanges.KeyboardHidden)]
-public sealed class MainActivity : Activity
+    LaunchMode = LaunchMode.SingleTask,
+    Theme = "@style/Maui.SplashTheme",
+    WindowSoftInputMode = SoftInput.AdjustResize,
+    ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden | ConfigChanges.Density)]
+public class MainActivity : MauiAppCompatActivity
 {
     internal static MainActivity? Current { get; private set; }
-    WebView? webView;
-    readonly CancellationTokenSource lifetime = new();
 
-    protected override async void OnCreate(Bundle? state)
+    protected override void OnCreate(Bundle? savedInstanceState)
     {
-        base.OnCreate(state);
+        base.OnCreate(savedInstanceState);
         Current = this;
-        Window!.AddFlags(global::Android.Views.WindowManagerFlags.KeepScreenOn);
-        TextView loading = new(this) { Text = "Starting Alife..." };
-        SetContentView(loading);
+        Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
+        RequestNotificationPermission();
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
         try
         {
-            StartForegroundService(new Intent(this, typeof(BackendService)));
-            while (BackendService.Current is null) await Task.Delay(100, lifetime.Token);
-            var service = BackendService.Current;
-            service.ProgressChanged += UpdateProgress;
-            try { await service.Ready.Task.WaitAsync(lifetime.Token); }
-            finally
-            {
-                service.ProgressChanged -= UpdateProgress;
-                Window.ClearFlags(global::Android.Views.WindowManagerFlags.KeepScreenOn);
-            }
-            CookieManager.Instance!.SetCookie(service.Address!.ToString(), $"AlifeHost={service.Token}; Path=/; SameSite=Strict");
-            CookieManager.Instance.Flush();
-            webView = CreateWebView(this);
-            SetContentView(webView);
-            webView.LoadUrl(service.Address.ToString());
+            StartForegroundService(new Intent(this, typeof(KeepAliveService)));
         }
-        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
-        catch (Exception error) { loading.Text = error.Message; }
-        void UpdateProgress(string message) => RunOnUiThread(() => loading.Text = message);
+        catch (Exception e)
+        {
+            global::Android.Util.Log.Warn("Alife", "启动保活服务失败：" + e.Message);
+        }
     }
 
-    internal static WebView CreateWebView(Context context)
+    void RequestNotificationPermission()
     {
-#if DEBUG
-        WebView.SetWebContentsDebuggingEnabled(true);
-#endif
-        WebView view = new(context);
-        view.Settings.JavaScriptEnabled = true;
-        view.Settings.DomStorageEnabled = true;
-        view.Settings.AllowFileAccess = false;
-        view.Settings.AllowContentAccess = false;
-        view.SetWebViewClient(new WebViewClient());
-        return view;
-    }
-
-    protected override void OnDestroy()
-    {
-        lifetime.Cancel();
-        if (ReferenceEquals(Current, this)) Current = null;
-        webView?.Destroy();
-        webView?.Dispose();
-        base.OnDestroy();
+        if (OperatingSystem.IsAndroidVersionAtLeast(33) == false)
+            return;
+        if (CheckSelfPermission("android.permission.POST_NOTIFICATIONS") == Permission.Granted)
+            return;
+        RequestPermissions(["android.permission.POST_NOTIFICATIONS"], 0);
     }
 }

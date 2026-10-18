@@ -1,0 +1,19 @@
+using Alife.Foundation;
+using Alife.Framework;
+
+namespace Alife.Client.Windows;
+
+public class WindowsNuGetEnvironmentInstaller(CSharpCompiler csharpCompiler) : NuGetEnvironmentInstaller(csharpCompiler)
+{
+    protected override string GetNuGetPropertyGroup()
+    {
+        return """
+               <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+               <UseWindowsForms>true</UseWindowsForms>
+               """;
+    }
+    protected override void RestoreNuGetPackages(string projectFile)
+    {
+        AlifeUtility.Command("dotnet", $"restore \"{projectFile}\"");
+    }
+}

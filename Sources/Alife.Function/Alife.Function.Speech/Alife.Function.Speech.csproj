@@ -7,7 +7,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.3.0" />
+    <!-- NAudio 仅支持 Windows，Android 上由平台播放器通道代替 -->
+    <PackageReference Include="NAudio" Version="2.3.0" Condition="'$(TargetFramework)' != 'net10.0-android'" />
   </ItemGroup>
 
 </Project>

@@ -20,13 +20,17 @@ public static class Program
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
         ServiceCollection services = new();
-        services.AddWindowsFormsBlazorWebView();
-        services.AddBlazorWebViewDeveloperTools();
         services.AddLogging(builder => {
             builder.AddConsole();
             builder.SetMinimumLevel(LogLevel.Information);
         });
-        services.AddAlifeClient<WinFormsAlifeClient, WindowsPluginRuntime>();
+        //Alife客户端
+        services.AddAlifeClient<WindowsAlifeFoundation, WindowsCSharpCompiler,
+            WindowsNuGetEnvironmentInstaller, WindowsPipEnvironmentInstaller,
+            WindowsAlifeClient, WindowsAlifeMcp>();
+        //呈现框架
+        services.AddWindowsFormsBlazorWebView();
+        services.AddBlazorWebViewDeveloperTools();
         services.AddSingleton<MainForm>();
         ServiceProvider provider = services.BuildServiceProvider();
 

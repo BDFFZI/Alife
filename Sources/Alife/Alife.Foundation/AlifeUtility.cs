@@ -1,22 +1,14 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Foundation;
 
-public struct CommandResult
-{
-    public int ExitCode { get; init; }
-    public string StandardOutput { get; init; }
-    public string StandardError { get; init; }
-}
-
-public class AlifeUtility
+public partial class AlifeUtility
 {
     /// <summary>
     /// 通过 HttpClient 获取报文内容字符串
@@ -118,45 +110,6 @@ public class AlifeUtility
 
         await ZipFile.ExtractToDirectoryAsync(zipPath, rootPath, overwriteFiles: true);
         File.Delete(zipPath);
-    }
-
-    public static CommandResult Command(string fileName, string arguments)
-    {
-        ProcessStartInfo psi = new() {
-            FileName = OperatingSystem.IsWindows() ? "cmd.exe" : fileName,
-            Arguments = OperatingSystem.IsWindows() ? $"/c chcp 65001 > nul && {fileName} {arguments}" : arguments,
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        using Process? process = Process.Start(psi);
-        if (process == null)
-            throw new Exception("进程不存在，无法启动。");
-
-        StringBuilder stdoutBuilder = new();
-        StringBuilder stderrBuilder = new();
-        process.OutputDataReceived += (_, e) => {
-            Console.WriteLine(e.Data);
-            stdoutBuilder.AppendLine(e.Data);
-        };
-        process.ErrorDataReceived += (_, e) => {
-            Console.WriteLine(e.Data);
-            stderrBuilder.AppendLine(e.Data);
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        process.WaitForExit();
-
-        CommandResult commandResult = new() {
-            ExitCode = process.ExitCode,
-            StandardOutput = stdoutBuilder.ToString().Trim(),
-            StandardError = stderrBuilder.ToString().Trim(),
-        };
-
-        return commandResult;
     }
 
     public static bool IsValidDll(string path, out string name)

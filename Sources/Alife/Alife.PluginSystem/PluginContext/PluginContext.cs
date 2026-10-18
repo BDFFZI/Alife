@@ -74,9 +74,7 @@ public class PluginContext(
             Dictionary<string, List<KeyValuePair<string, string>>> allEnvironments = new();
             foreach (PluginManifest dependency in allPluginManifests.Values)
             {
-                if (dependency.Environments == null)
-                    continue;
-                foreach (KeyValuePair<string, Dictionary<string, string>> dependencyEnvironment in dependency.Environments)
+                foreach (KeyValuePair<string, Dictionary<string, string>> dependencyEnvironment in dependency.GetEffectiveEnvironments())
                 {
                     if (allEnvironments.TryGetValue(dependencyEnvironment.Key, out List<KeyValuePair<string, string>>? environment) == false)
                         allEnvironments.Add(dependencyEnvironment.Key, environment = new List<KeyValuePair<string, string>>());

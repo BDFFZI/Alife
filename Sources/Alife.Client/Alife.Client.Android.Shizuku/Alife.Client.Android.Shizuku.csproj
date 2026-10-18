@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AndroidClassParser>class-parse</AndroidClassParser>
+    <AndroidCodegenTarget>XAJavaInterop1</AndroidCodegenTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <AndroidLibrary Include="libs\aidl-13.1.5.aar" />
+    <AndroidLibrary Include="libs\shared-13.1.5.aar" />
+    <AndroidLibrary Include="libs\api-13.1.5.aar" />
+    <AndroidLibrary Include="libs\provider-13.1.5.aar" />
+  </ItemGroup>
+</Project>

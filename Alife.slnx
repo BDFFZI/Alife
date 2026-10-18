@@ -51,6 +51,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.TimedTask/Alife.Function.TimedTask.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Todo/Alife.Function.Todo.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Android/Alife.Function.Android.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Interaction/">
     <Project Path="Sources/Alife.Function/Alife.Function.Auditory/Alife.Function.Auditory.csproj" />
@@ -73,7 +74,7 @@
   <Folder Name="/Sources/" />
   <Folder Name="/Sources/Alife.Client/">
     <Project Path="sources/Alife.Client/Alife.Client.Android/Alife.Client.Android.csproj" />
-    <Project Path="sources/Alife.Client/Alife.Client.Android.Backend/Alife.Client.Android.Backend.csproj" />
+    <Project Path="sources/Alife.Client/Alife.Client.Android.Shizuku/Alife.Client.Android.Shizuku.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client.Windows/Alife.Client.Windows.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client/Alife.Client.csproj" />
   </Folder>

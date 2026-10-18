@@ -1,45 +1,68 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0-android</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Alife.Client.Android</RootNamespace>
-    <Version>4.6.1</Version>
-    <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
-    <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
-    <ApplicationId>com.alife.client</ApplicationId>
-    <ApplicationTitle>Alife</ApplicationTitle>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>4.6.1</ApplicationDisplayVersion>
-    <AndroidManifest>Properties/AndroidManifest.xml</AndroidManifest>
-    <AndroidPackageFormats>apk</AndroidPackageFormats>
-    <PublishTrimmed>false</PublishTrimmed>
-    <RunAOTCompilation>false</RunAOTCompilation>
-    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
-    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
-  </PropertyGroup>
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <TargetFramework>net10.0-android</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Alife.Client.Android</RootNamespace>
+        <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
+        <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
+        <ApplicationId>com.alife.client</ApplicationId>
+        <ApplicationTitle>Alife</ApplicationTitle>
+        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>6.0.0</ApplicationDisplayVersion>
+        <Version>6.0.0</Version>
+        <AndroidManifest>Properties/AndroidManifest.xml</AndroidManifest>
+        <AndroidPackageFormats>apk</AndroidPackageFormats>
+        <PublishTrimmed>false</PublishTrimmed>
+        <RunAOTCompilation>false</RunAOTCompilation>
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+        <StaticWebAssetFingerprintingEnabled>false</StaticWebAssetFingerprintingEnabled>
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <UseMaui>true</UseMaui>
+        <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <!-- 只引用 Foundation：Alife.Client 会带入 ASP.NET Core 框架引用，其没有 android-arm64 运行时包；
-         窗口契约（IAlifeWebWindow.cs）已下沉到 Foundation，命名空间保持 Alife.Client 不变 -->
-    <ProjectReference Include="../../Alife/Alife.Foundation/Alife.Foundation.csproj" />
-    <!-- 与后端共享的宿主协议，避免把 Web 后端引用进 APK -->
-    <Compile Include="..\Alife.Client.Android.Backend\NativeHostCommand.cs" Link="Shared\NativeHostCommand.cs" />
-    <PackageReference Include="SharpCompress" Version="0.48.1" />
-    <EmbeddedResource Include="SdkPackages.json" LogicalName="SdkPackages" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.110" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView" Version="10.0.13" />
+        <PackageReference Include="SharpCompress" Version="0.48.1" />
+        <EmbeddedResource Include="SdkPackages.json" LogicalName="SdkPackages" />
+    </ItemGroup>
 
-  <!-- 发布后端并嵌入 APK，运行时解压到 Runtime/ClientServer 由 sdk-launcher 拉起 -->
-  <Target Name="EmbedBackend" BeforeTargets="AssignTargetPaths">
-    <PropertyGroup><BackendDirectory>$(MSBuildProjectDirectory)/obj/backend-publish</BackendDirectory></PropertyGroup>
-    <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)/../Alife.Client.Android.Backend/Alife.Client.Android.Backend.csproj&quot; -c $(Configuration) --no-self-contained -p:RuntimeIdentifier= -o &quot;$(BackendDirectory)&quot; --nologo -v:q" />
-    <ZipDirectory SourceDirectory="$(BackendDirectory)" DestinationFile="$(IntermediateOutputPath)backend.zip" Overwrite="true" />
-    <ItemGroup><EmbeddedResource Include="$(IntermediateOutputPath)backend.zip" LogicalName="Backend" /></ItemGroup>
-  </Target>
-  <Target Name="BuildSdkLauncher" BeforeTargets="AssignTargetPaths">
-    <Error Condition="'$(AlifeAndroidClang)' == ''" Text="Set AlifeAndroidClang to the Android NDK clang executable." />
-    <MakeDir Directories="$(IntermediateOutputPath)native" />
-    <Exec Command="&quot;$(AlifeAndroidClang)&quot; --target=aarch64-linux-android26 &quot;$(MSBuildProjectDirectory)/Native/sdk-launcher.c&quot; -ldl -o &quot;$(IntermediateOutputPath)native/sdk-launcher&quot;" />
-    <ItemGroup><EmbeddedResource Include="$(IntermediateOutputPath)native/sdk-launcher" LogicalName="SdkLauncher" /></ItemGroup>
-  </Target>
+    <ItemGroup>
+        <ProjectReference Include="../../Alife/Alife.Foundation/Alife.Foundation.csproj" />
+        <ProjectReference Include="../../Alife/Alife.Application/Alife.Application.csproj" />
+        <ProjectReference Include="../Alife.Client/Alife.Client.csproj" />
+        <ProjectReference Include="../Alife.Client.Android.Shizuku/Alife.Client.Android.Shizuku.csproj" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(ANDROID_NDK_ROOT)' != ''">$(ANDROID_NDK_ROOT)</AlifeAndroidNdkRoot>
+        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(ANDROID_NDK_HOME)' != ''">$(ANDROID_NDK_HOME)</AlifeAndroidNdkRoot>
+        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(AndroidNdkDirectory)' != ''">$(AndroidNdkDirectory)</AlifeAndroidNdkRoot>
+        <AlifeAndroidNdkHost Condition="'$(OS)' == 'Windows_NT'">windows-x86_64</AlifeAndroidNdkHost>
+        <AlifeAndroidNdkHost Condition="'$(AlifeAndroidNdkHost)' == ''">linux-x86_64</AlifeAndroidNdkHost>
+        <AlifeAndroidClang Condition="'$(AlifeAndroidClang)' == '' and '$(AlifeAndroidNdkRoot)' != '' and '$(OS)' == 'Windows_NT'">$(AlifeAndroidNdkRoot)/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang.exe</AlifeAndroidClang>
+        <AlifeAndroidClang Condition="'$(AlifeAndroidClang)' == '' and '$(AlifeAndroidNdkRoot)' != '' and '$(OS)' != 'Windows_NT'">$(AlifeAndroidNdkRoot)/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang</AlifeAndroidClang>
+    </PropertyGroup>
+
+    <!-- 插件 NuGet restore 需要在 Android 上以 hostfxr 方式启动 termux .NET，故随 APK 嵌入原生 launcher。 -->
+    <Target Name="BuildSdkLauncher" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
+        <ItemGroup Condition="'$(AlifeAndroidClang)' == ''">
+            <_AlifeNdkClang Include="$(ANDROID_SDK_ROOT)/ndk/*/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang"/>
+            <_AlifeNdkClang Include="$(ANDROID_SDK_ROOT)/ndk/*/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang.exe"/>
+        </ItemGroup>
+        <PropertyGroup>
+            <_AlifeClang Condition="'$(AlifeAndroidClang)' != ''">$(AlifeAndroidClang)</_AlifeClang>
+            <_AlifeClang Condition="'$(_AlifeClang)' == ''">@(_AlifeNdkClang)</_AlifeClang>
+        </PropertyGroup>
+        <Error Condition="'$(_AlifeClang)' == ''" Text="未找到 Android NDK。请设置 AlifeAndroidClang，或设置 ANDROID_NDK_ROOT。"/>
+        <MakeDir Directories="$(IntermediateOutputPath)native"/>
+        <Exec Command="&quot;$(_AlifeClang)&quot; --target=aarch64-linux-android26 &quot;$(MSBuildProjectDirectory)/Native/sdk-launcher.c&quot; -ldl -O2 -o &quot;$(IntermediateOutputPath)native/sdk-launcher&quot;"/>
+        <ItemGroup>
+            <EmbeddedResource Include="$(IntermediateOutputPath)native/sdk-launcher" LogicalName="SdkLauncher"/>
+        </ItemGroup>
+    </Target>
 </Project>

@@ -1,7 +1,7 @@
 @inherits LayoutComponentBase
 @inject CharacterSystem CharacterSystem
 @inject NavigationManager NavigationManager
-@inject ClientConfigStore ClientConfigStore
+@inject ClientDataStore ClientDataStore
 
 <div class="app-container">
     <!-- 侧边栏导航 -->
@@ -66,7 +66,7 @@
         {
             if (CharacterSystem.GetAllCharacters().Count > 0)
             {
-                Character character = ClientConfigStore.GetLastCharacter() ?? CharacterSystem.GetAllCharacters().First();
+                Character character = ClientDataStore.GetLastCharacter() ?? CharacterSystem.GetAllCharacters().First();
                 NavigationManager.NavigateTo($"/agent/{character.Name}");
             }
         }

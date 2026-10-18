@@ -134,6 +134,9 @@ public static class AlifeLog
     static readonly AlifeLogger DefaultLogger = new("");
     static readonly Lock Lock = new();
     static readonly StreamWriter LogFile = new(LogFilePath, false);
+    //Android 等平台没有控制台颜色，设置会抛 PlatformNotSupportedException。
+    static readonly bool SupportsConsoleColor =
+        OperatingSystem.IsAndroid() == false && OperatingSystem.IsIOS() == false;
 
     internal static void Handle<TState>(
         string category,
@@ -162,35 +165,42 @@ public static class AlifeLog
             Exception? exception)
         {
             // 时间
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            SetColor(ConsoleColor.DarkGray);
             Console.Write(
                 $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ");
 
             // Level
-            Console.ForegroundColor = GetColor(logLevel);
+            SetColor(GetColor(logLevel));
             Console.Write(
                 $"[{logLevel}] ");
 
             // Category
             if (string.IsNullOrEmpty(category) == false)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
+                SetColor(ConsoleColor.Cyan);
                 Console.Write(
                     $"{category}: ");
             }
 
             // Message
-            Console.ForegroundColor = ConsoleColor.White;
+            SetColor(ConsoleColor.White);
             Console.WriteLine(message);
 
             // Exception
             if (exception != null)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
+                SetColor(ConsoleColor.Red);
                 Console.WriteLine(exception);
             }
 
-            Console.ResetColor();
+            if (SupportsConsoleColor)
+                Console.ResetColor();
+        }
+
+        static void SetColor(ConsoleColor color)
+        {
+            if (SupportsConsoleColor)
+                Console.ForegroundColor = color;
         }
 
         static ConsoleColor GetColor(

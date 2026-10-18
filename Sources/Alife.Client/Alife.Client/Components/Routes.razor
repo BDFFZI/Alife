@@ -1,7 +1,5 @@
-@inject IAlifeClient AlifeClient
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
-@inject ClientConfigStore ClientConfigStore
 
 @if (isAppInitialized)
 {
@@ -41,7 +39,7 @@ else
         if (firstRender == false)
             return;
 
-        //业务环境初始化（故意放在UI中初始化以便获得通过UI展示进度的能力）
+        //alife初始化（故意放在UI中初始化以便获得通过UI展示进度的能力）
         try
         {
             await Task.Run(async () => {
@@ -49,14 +47,13 @@ else
                     launchingProgress = state;
                     InvokeAsync(StateHasChanged);
                 });
-                //启动配置可在系统配置页面修改，此处读取用户保存的配置（未修改过的项取客户端默认值）
-                AlifeClient.InitConfig config = ClientConfigStore.GetInitConfig();
-                await ServiceProvider.InitAlifeClient(config, progress);
+                await ServiceProvider.InitAlifeClient(progress);
             });
         }
         catch (Exception ex)
         {
             exception = ex;
+            Alife.Foundation.AlifeLog.LogError(ex);
         }
 
         isAppInitialized = true;
@@ -64,6 +61,4 @@ else
 
         StateHasChanged();
     }
-
-
 }

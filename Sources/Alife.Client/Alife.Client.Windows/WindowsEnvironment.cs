@@ -8,6 +8,11 @@ namespace Alife.Client;
 /// </summary>
 public static class WindowsEnvironment
 {
+    public static bool IsVCRedistReady { get; private set; }
+    public static bool IsPythonReady { get; private set; }
+    public static bool IsDotNetSdkReady { get; private set; }
+    public static bool IsCudaReady { get; private set; }
+    
     public static IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
         SyncEnvironment();
@@ -18,7 +23,6 @@ public static class WindowsEnvironment
             new("cuda", "CUDA (需 NVIDIA 显卡支持)", IsCudaReady, false),
         ];
     }
-
     public static Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null) => id switch {
         "vcredist" => InstallVCppRedistAsync(progress),
         "python" => InstallPythonAsync(progress),
@@ -26,17 +30,6 @@ public static class WindowsEnvironment
         "cuda" => Task.Run(() => InstallCuda(progress)),
         _ => throw new ArgumentException("Unknown environment item.", nameof(id)),
     };
-
-    public static void Initialize()
-    {
-        SyncEnvironment();
-    }
-
-    public static bool IsVCRedistReady { get; private set; }
-    public static bool IsPythonReady { get; private set; }
-    public static bool IsDotNetSdkReady { get; private set; }
-    public static bool IsCudaReady { get; private set; }
-
     /// <summary>
     /// 重新计算设置环境信息，在软件启动和环境变动（安装卸载）后应当执行一次
     /// </summary>

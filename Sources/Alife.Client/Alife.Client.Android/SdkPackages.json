@@ -60,6 +60,81 @@
     "Sha256": "f536403f65a08fe0df6e7304184e902d54def77d5c3bd5edfd9109d57601d276"
   },
   {
+    "Name": "gdbm",
+    "File": "pool/main/g/gdbm/gdbm_1.26-1_aarch64.deb",
+    "Sha256": "c378de833aae3cf41f3028491ea11836479d9833ab653edc27d0c0e0e691d5c5"
+  },
+  {
+    "Name": "libandroid-posix-semaphore",
+    "File": "pool/main/liba/libandroid-posix-semaphore/libandroid-posix-semaphore_0.1-4_aarch64.deb",
+    "Sha256": "0efa8677a0166315ba4e685863712eba0ca0a1732827492f38226e2723730c7a"
+  },
+  {
+    "Name": "libandroid-support",
+    "File": "pool/main/liba/libandroid-support/libandroid-support_29-1_aarch64.deb",
+    "Sha256": "f2f145d6135ad4843ac9670153be3e3944dc1e6f1736d46d2306c28f2b86f517"
+  },
+  {
+    "Name": "libbz2",
+    "File": "pool/main/libb/libbz2/libbz2_1.0.8-8_aarch64.deb",
+    "Sha256": "4335d7f060650b0aabef545d1334c2f9f280223d5962e13c24a00ec934b794ba"
+  },
+  {
+    "Name": "libcrypt",
+    "File": "pool/main/libc/libcrypt/libcrypt_0.2-6_aarch64.deb",
+    "Sha256": "6c283eed576b98cc3568f99638156f8588f77d979579d03bef8683d6eb8601e1"
+  },
+  {
+    "Name": "libexpat",
+    "File": "pool/main/libe/libexpat/libexpat_2.9.0_aarch64.deb",
+    "Sha256": "f8a104e8227c9c181f6818658a3ee2fa4c107fac94219b068144fc6591086cdb"
+  },
+  {
+    "Name": "libffi",
+    "File": "pool/main/libf/libffi/libffi_3.8.0_aarch64.deb",
+    "Sha256": "4f255badf74cd31f6a2801c17fa1444199c84c834b517b7c843e2fe9ebe91d77"
+  },
+  {
+    "Name": "liblzma",
+    "File": "pool/main/libl/liblzma/liblzma_5.8.4_aarch64.deb",
+    "Sha256": "44e95e6e60dddb3705e60a344a4f009a1085a210797342b721eaff41b44033c0"
+  },
+  {
+    "Name": "libsqlite",
+    "File": "pool/main/libs/libsqlite/libsqlite_3.54.1_aarch64.deb",
+    "Sha256": "0856cac8cc87f6e112f2eef4fcac6ad5cb08209ecb7cc260f997874fc186a3c0"
+  },
+  {
+    "Name": "ncurses",
+    "File": "pool/main/n/ncurses/ncurses_6.6.20260307+really6.5.20250830_aarch64.deb",
+    "Sha256": "f44bbfdc3d42ec0217bffa978309390e59cea5a48a9a83226d4a496c42ad0b99"
+  },
+  {
+    "Name": "ncurses-ui-libs",
+    "File": "pool/main/n/ncurses-ui-libs/ncurses-ui-libs_6.6.20260307+really6.5.20250830_aarch64.deb",
+    "Sha256": "7393f369009be189b3d4ec1f9b16ebd57621d6a1b22949ae07685573950d1f37"
+  },
+  {
+    "Name": "python",
+    "File": "pool/main/p/python/python_3.14.6-1_aarch64.deb",
+    "Sha256": "3166e56c2b6c03fff41191fbb9d736302978e7c484702814d9f6dc99dd6006bd"
+  },
+  {
+    "Name": "python-pip",
+    "File": "pool/main/p/python-pip/python-pip_26.2.1_all.deb",
+    "Sha256": "92a9cb4b3c99dd20086f90fedc95c604eefc5bd0f88d1862690884474f82de44"
+  },
+  {
+    "Name": "readline",
+    "File": "pool/main/r/readline/readline_8.3.6_aarch64.deb",
+    "Sha256": "616cc73009bc0223f61caed8dd09455714455aa5ea5e180126e2f69c4c775136"
+  },
+  {
+    "Name": "zstd",
+    "File": "pool/main/z/zstd/zstd_1.5.7-1_aarch64.deb",
+    "Sha256": "e1b4a5113648da8de189620ba1fce74c48b2d0833d9043391b9a1c91fb606fd3"
+  },
+  {
     "Name": "openssl",
     "File": "pool/main/o/openssl/openssl_1:3.6.5_aarch64.deb",
     "Sha256": "a2fb7856875e63ef6b90442752e05974813372c3ca86d2513a78ea43c67a0f8b"

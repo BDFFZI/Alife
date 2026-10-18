@@ -1,5 +1,5 @@
 @using System.IO
-@inject IJSRuntime JSRuntime
+@inject IAlifeClient AlifeClient
 
 <div class="step-content">
     <div class="step-icon" style="background:rgba(255,165,0,.1);color:#ffa500;">
@@ -144,7 +144,7 @@
     {
         if (!HasNonAscii(newRuntimePath))
         {
-            AlifeContext.SetRuntimeFolderPath(newRuntimePath);
+            AlifeClient.SetRuntimeFolderPath(newRuntimePath);
             runtimePath = newRuntimePath;
             CheckAllPaths();
         }
@@ -154,7 +154,7 @@
     {
         if (!HasNonAscii(newStoragePath))
         {
-            AlifeContext.SetStorageFolderPath(newStoragePath);
+            AlifeClient.SetStorageFolderPath(newStoragePath);
             storagePath = newStoragePath;
             CheckAllPaths();
         }

@@ -6,9 +6,10 @@
         <StaticWebAssetFingerprintingEnabled>false</StaticWebAssetFingerprintingEnabled>
     </PropertyGroup>
     <ItemGroup>
-        <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj"/>
+        <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="AntDesign" Version="1.6.2"/>
+        <PackageReference Include="AntDesign" Version="1.6.2" />
+        <PackageReference Include="ModelContextProtocol.Core" Version="1.1.0" />
     </ItemGroup>
 </Project>
