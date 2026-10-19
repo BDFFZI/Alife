@@ -16,36 +16,81 @@ using ModelContextProtocol.Server;
 namespace Alife.Client.Android;
 
 /// <summary>
-/// Android 端 MCP 传输：用 TcpListener 实现最小 HTTP 层，协议处理交给
-/// ModelContextProtocol.Core 的 StreamableHttpServerTransport。
+/// Android 平台前端应用：文件对话框（不支持）、自定义窗口，以及基于 TcpListener 的 MCP 服务器。
+/// MCP 使用极小的 HTTP 层，协议处理交给 ModelContextProtocol.Core 的 StreamableHttpServerTransport。
 /// </summary>
-public sealed class AndroidAlifeMcp(IServiceProvider provider) : IAlifeMcp
+public sealed class AndroidAlifeApplication(
+    AlifeClientConfig config,
+    IServiceProvider provider,
+    AndroidWindowManager windowManager) : IAlifeApplication
 {
-    public Uri? Server { get; private set; }
+    #region 文件对话框功能
 
-    public Task StartAsync(string address = "http://127.0.0.1:18765", string path = "/mcp")
+    public Task RevealFolderAsync(string path)
     {
-        Uri uri = new(address);
-        string route = string.IsNullOrWhiteSpace(path) ? "/mcp" : path;
-        McpServerOptions options = CreateOptions(provider);
+        throw new NotSupportedException("Android 客户端不支持打开文件夹。");
+    }
+    public Task RevealFileAsync(string path)
+    {
+        throw new NotSupportedException("Android 客户端不支持定位文件。");
+    }
+    public Task<string?> SelectFolderAsync()
+    {
+        throw new NotSupportedException("Android 客户端不支持选择目录。");
+    }
+
+    #endregion
+
+    #region 自定义窗口功能
+
+    public System.Drawing.Size GetScreenSize() => AndroidDisplay.GetSize();
+    public System.Drawing.Point GetCursorPosition()
+    {
+        AndroidPointerMonitor.EnsureStarted();
+        if (Interlocked.Read(ref AndroidAlifeClient.LastCursor) < 0)
+        {
+            System.Drawing.Size size = GetScreenSize();
+            return new(size.Width / 2, size.Height / 2);
+        }
+        return AndroidAlifeClient.LastCursorPosition;
+    }
+    public float GetDpiScale() => AndroidDisplay.Density;
+
+    public async Task<IAlifeWindow> CreateWindowAsync(AlifeWindowOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return await AndroidWindowManager.RunOnUi(() => windowManager.Create(options));
+    }
+
+    #endregion
+
+    #region AlifeMcp功能
+
+    public Uri? AlifeMcpServer { get; private set; }
+
+    public Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools)
+    {
+        Uri uri = new(config.McpServerAddress);
+        string route = string.IsNullOrWhiteSpace(config.McpServerPath) ? "/mcp" : config.McpServerPath;
+        McpServerOptions options = CreateOptions(provider, alifeMcpTools);
         ILoggerFactory loggerFactory = provider.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
 
         TcpListener listener = new(IPAddress.Loopback, uri.Port);
         listener.Start();
         _ = AcceptLoopAsync(listener, provider, options, loggerFactory, route);
-        Server = new Uri($"http://127.0.0.1:{uri.Port}{route}");
-        AlifeLog.LogInformation($"Android MCP 服务已启动: {Server}");
+        AlifeMcpServer = new Uri($"http://127.0.0.1:{uri.Port}{route}");
+        AlifeLog.LogInformation($"Android MCP 服务器已启动: {AlifeMcpServer}");
         return Task.CompletedTask;
     }
 
-    static McpServerOptions CreateOptions(IServiceProvider provider)
+    static McpServerOptions CreateOptions(IServiceProvider provider, AlifeMcpTools alifeMcpTools)
     {
         McpServerOptions options = new() {
             ServerInfo = new Implementation {
                 Name = "Alife MCP Server",
                 Version = AlifeContext.AppVersion,
                 Title = "Alife MCP Server",
-                Description = "Alife 是一款 AIAgent 软件，而此 MCP 可绕过图形化界面，通过 AI 友好的方式控制它，从而便于开发工作。",
+                Description = "Alife 是一个 AIAgent 智能体，除了 MCP 控制规范图形界面，通过 AI 友好的方式对话或聆听，多端在线可看可开发可设置",
                 WebsiteUrl = "https://github.com/BDFFZI/Alife"
             }
         };
@@ -66,12 +111,11 @@ public sealed class AndroidAlifeMcp(IServiceProvider provider) : IAlifeMcp
 
         options.ToolCollection ??= new McpServerPrimitiveCollection<McpServerTool>();
 
-        AlifeMcpTools tools = ActivatorUtilities.CreateInstance<AlifeMcpTools>(provider);
         foreach (MethodInfo method in typeof(AlifeMcpTools).GetMethods(BindingFlags.Public | BindingFlags.Instance))
         {
             if (method.GetCustomAttribute<McpServerToolAttribute>() == null)
                 continue;
-            options.ToolCollection.Add(McpServerTool.Create(method, tools, new McpServerToolCreateOptions {
+            options.ToolCollection.Add(McpServerTool.Create(method, alifeMcpTools, new McpServerToolCreateOptions {
                 Services = provider
             }));
         }
@@ -336,4 +380,6 @@ public sealed class AndroidAlifeMcp(IServiceProvider provider) : IAlifeMcp
             Cancellation.Dispose();
         }
     }
+
+    #endregion
 }

@@ -4,13 +4,12 @@ using Alife.Framework;
 namespace Alife.Client.Android;
 
 public sealed class AndroidAlifeClient(
-    AndroidWindowManager windowManager,
     AndroidAlifeFoundation foundation,
     IServiceProvider provider) : IAlifeClient
 {
     public Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
-        throw new NotSupportedException("Android 客户端请通过安装新版 APK 更新。");
+        throw new NotSupportedException("Android 客户端只能通过安装新版 APK 更新。");
     }
 
     public void SetStorageFolderPath(string path)
@@ -61,48 +60,21 @@ public sealed class AndroidAlifeClient(
         }
     }
 
-    public Task RevealFolderAsync(string path)
-    {
-        throw new NotSupportedException("Android 客户端不支持打开文件管理器。");
-    }
-    public Task RevealFileAsync(string path)
-    {
-        throw new NotSupportedException("Android 客户端不支持定位文件。");
-    }
-    public Task<string?> SelectFolderAsync()
-    {
-        throw new NotSupportedException("Android 客户端不支持选择目录。");
-    }
-
-    public System.Drawing.Size GetScreenSize() => AndroidDisplay.GetSize();
-
     /// <summary>Last observed touch/hover position in physical SCREEN pixels, never viewport-local pixels.</summary>
-    static long lastCursor = -1;
-    public static System.Drawing.Point LastCursorPosition {
-        get { long value = Interlocked.Read(ref lastCursor); return value < 0 ? default : new((int)(value >> 32), (int)value); }
-        set => Interlocked.Exchange(ref lastCursor, ((long)value.X << 32) | (uint)value.Y);
-    }
+    internal static long LastCursor = -1;
 
-    public System.Drawing.Point GetCursorPosition()
+    public static System.Drawing.Point LastCursorPosition
     {
-        AndroidPointerMonitor.EnsureStarted();
-        if (Interlocked.Read(ref lastCursor) < 0)
+        get
         {
-            var size = GetScreenSize();
-            return new(size.Width / 2, size.Height / 2);
+            long value = Interlocked.Read(ref LastCursor);
+            return value < 0 ? default : new((int)(value >> 32), (int)value);
         }
-        return LastCursorPosition;
-    }
-    public float GetDpiScale() => AndroidDisplay.Density;
-
-    public async Task<IAlifeWindow> CreateWindowAsync(AlifeWindowOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        return await AndroidWindowManager.RunOnUi(() => windowManager.Create(options));
+        set => Interlocked.Exchange(ref LastCursor, ((long)value.X << 32) | (uint)value.Y);
     }
 }
 
-/// <summary>全局路径，自动启动标记等。</summary>
+/// <summary>全局路径与自启动标记等常量。</summary>
 public static class KeepAlivePaths
 {
     public static string AutoStartFile { get; } =

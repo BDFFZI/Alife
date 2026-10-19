@@ -7,7 +7,6 @@ using System.Numerics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Alife.Client;
 using Alife.Foundation;
 using Alife.Framework;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,7 +56,7 @@ public partial class Live2DDeskPet
     defaultCategory: "Alife 官方/模型接入/桌宠模型",
     EditorUI = typeof(Live2DDeskPetUI))]
 public partial class Live2DDeskPet(
-    IAlifeClient alifeClient,
+    IAlifeApplication alifeApplication,
     PluginSystem pluginSystem,
     StorageSystem storageSystem,
     ILogger<Live2DDeskPet> logger) :
@@ -199,7 +198,7 @@ public partial class Live2DDeskPet(
         services.AddSingleton(metadata);
         services.AddSingleton(Configuration);
         services.AddSingleton(storageSystem);
-        services.AddSingleton(alifeClient);
+        services.AddSingleton(alifeApplication);
         services.AddSingleton(new PetStorageKey(Character.StorageKey));
         services.AddSingleton<PetWindow>();
         services.AddSingleton<InputEventCallback>(text => OnInput?.Invoke(text));

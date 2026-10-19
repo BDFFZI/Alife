@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace Alife.Foundation;
 
 public struct CommandResult
@@ -11,7 +9,6 @@ public struct CommandResult
 
 public interface IAlifeFoundation
 {
-    public Task OnInitializedAsync() => Task.CompletedTask;
     public string AppVersion { get; }
     public string StorageFolderPath { get; }
     public string RuntimeFolderPath { get; }

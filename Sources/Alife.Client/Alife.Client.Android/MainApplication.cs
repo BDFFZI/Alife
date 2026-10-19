@@ -47,8 +47,8 @@ public class MainApplication(IntPtr handle, JniHandleOwnership ownership) : Maui
             AndroidCSharpCompiler,
             AndroidNuGetEnvironmentInstaller,
             AndroidPipEnvironmentInstaller,
-            AndroidAlifeClient,
-            AndroidAlifeMcp>();
+            AndroidAlifeApplication,
+            AndroidAlifeClient>();
         builder.Services.AddSingleton<AndroidWindowManager>();
 
         return builder.Build();

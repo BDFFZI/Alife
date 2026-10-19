@@ -4,12 +4,14 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>Alife.Framework</RootNamespace>
     </PropertyGroup>
-
     <ItemGroup>
         <ProjectReference Include="..\Alife.Framework\Alife.Framework.csproj"/>
         <ProjectReference Include="..\Alife.PluginSystem\Alife.PluginSystem.csproj"/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="ModelContextProtocol.Core" Version="1.1.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AntDesign" Version="1.6.2"/>
     </ItemGroup>
 </Project>

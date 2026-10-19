@@ -21,7 +21,7 @@ public record PetStorageKey(string Value);
 /// 并通过 StorageSystem 持久化/恢复窗口位置大小（按角色隔离）。
 /// 网页资源位于插件 Resources/Live2D/（随插件分发或内嵌到客户端输出目录）。
 /// </summary>
-public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, PetStorageKey storageKey, ILogger<Live2DDeskPet> logger)
+public sealed class PetWindow(IAlifeApplication alifeApplication, StorageSystem storage, PetStorageKey storageKey, ILogger<Live2DDeskPet> logger)
     : IAsyncDisposable
 {
     public event Action<string, JsonElement>? OnMessage;
@@ -94,8 +94,8 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
     public async Task CreateAsync(string wwwRoot)
     {
         // Initialize DPI before deriving screen dimensions or the first cursor sample.
-        dpi = alifeClient.GetDpiScale();
-        Size screenSize = (alifeClient.GetScreenSize() / dpi).ToSize();
+        dpi = alifeApplication.GetDpiScale();
+        Size screenSize = (alifeApplication.GetScreenSize() / dpi).ToSize();
         defaultBounds = new Rectangle {
             X = Math.Max(0, screenSize.Width - Math.Min(320, screenSize.Width) - 20),
             Y = Math.Max(0, screenSize.Height - Math.Min(480, screenSize.Height) - 20),
@@ -107,7 +107,7 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
 
         //创建窗口
         string url = $"{new Uri(Path.Combine(wwwRoot, "index.html")).AbsoluteUri}";
-        window = await alifeClient.CreateWindowAsync(new AlifeWindowOptions {
+        window = await alifeApplication.CreateWindowAsync(new AlifeWindowOptions {
             Title = "Live2D 桌宠",
             Bounds = bounds,
             TopMost = true,
@@ -146,7 +146,7 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
         // Android clamps restored/off-screen windows and reflows them on rotation.
         bounds = actualBounds;
         position = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
-        dpi = alifeClient.GetDpiScale();
+        dpi = alifeApplication.GetDpiScale();
     }
 
     public async ValueTask DisposeAsync()
@@ -155,7 +155,8 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
 
         if (cancellationTokenSource != null)
             await cancellationTokenSource.CancelAsync();
-        if (window != null) {
+        if (window != null)
+        {
             window.BoundsChanged -= OnBoundsChanged;
             window.MessageReceived -= OnIpcMessage;
             await window.DisposeAsync();
@@ -224,8 +225,8 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
     }
     Point GetCursorPosition()
     {
-        dpi = alifeClient.GetDpiScale();
-        Point newCursorPoint = alifeClient.GetCursorPosition();
+        dpi = alifeApplication.GetDpiScale();
+        Point newCursorPoint = alifeApplication.GetCursorPosition();
         newCursorPoint.X = (int)(newCursorPoint.X / dpi);
         newCursorPoint.Y = (int)(newCursorPoint.Y / dpi);
         return newCursorPoint;

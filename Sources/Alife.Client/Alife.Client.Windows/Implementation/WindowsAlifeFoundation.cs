@@ -95,10 +95,6 @@ public class WindowsAlifeFoundation : IAlifeFoundation
         Directory.CreateDirectory(storageFolderPath);
         Directory.CreateDirectory(runtimeFolderPath);
     }
-    public async Task OnInitializedAsync()
-    {
-        await Task.Run(WindowsEnvironment.SyncEnvironment); //重定向环境变量，对Command的使用会产生影响
-    }
 
     static string MigrateDirectory(string oldPath, string newPath)
     {

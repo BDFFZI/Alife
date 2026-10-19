@@ -1,6 +1,6 @@
-using Alife;
 using Alife.Client;
 using Alife.Client.Windows;
+using Alife.Demo.Framework;
 using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -20,9 +20,16 @@ public static class DemoSuite
         Console.WriteLine("导入:" + typeof(XmlFunctionCaller));
 
         ServiceCollection serviceCollection = new();
-        serviceCollection.AddAlifeClient<>();<WindowsPluginRuntime>();
+        serviceCollection.AddAlife<WindowsAlifeFoundation, WindowsCSharpCompiler,
+            WindowsNuGetEnvironmentInstaller, WindowsPipEnvironmentInstaller,
+            DemoAlifeApplication>();
         ServiceProvider provider = serviceCollection.BuildServiceProvider();
-        await provider.InitAlife();
+        await provider.InitAlife(new AlifeApplicationConfig() {
+            FetchOnlineInfo = false,
+            LoadLocalPlugins = false,
+            EnsureEnvironment = false,
+            McpServer = false,
+        });
 
         systemCreated?.Invoke(provider);
 

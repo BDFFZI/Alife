@@ -1,24 +1,48 @@
+using System.Drawing;
+using Alife.Client;
 using Alife.Foundation;
 using Alife.Framework;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 
-namespace Alife.Client.Windows;
+namespace Alife.Demo.Framework;
 
-/// <summary>桌面端 MCP 传输：ASP.NET 自托管 HTTP。</summary>
-public sealed class WindowsAlifeMcp(IServiceProvider provider) : IAlifeMcp
+public class DemoAlifeApplication : IAlifeApplication
 {
-    public Uri? Server { get; private set; }
-    public async Task StartAsync(string address = "http://127.0.0.1:18765", string path = "/mcp")
+    public Task RevealFolderAsync(string path)
+    {
+        throw new NotSupportedException();
+    }
+    public Task RevealFileAsync(string path)
+    {
+        throw new NotSupportedException();
+    }
+    public Task<string?> SelectFolderAsync()
+    {
+        throw new NotSupportedException();
+    }
+    public Size GetScreenSize()
+    {
+        throw new NotSupportedException();
+    }
+    public Point GetCursorPosition()
+    {
+        throw new NotSupportedException();
+    }
+    public float GetDpiScale()
+    {
+        throw new NotSupportedException();
+    }
+    public Task<IAlifeWindow> CreateWindowAsync(AlifeWindowOptions options)
+    {
+        throw new NotSupportedException();
+    }
+    public Uri? AlifeMcpServer { get; private set; }
+    public async Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
-        builder.Services.AddSingleton(provider.GetRequiredService<CharacterSystem>());
-        builder.Services.AddSingleton(provider.GetRequiredService<ChatActivitySystem>());
-        builder.Services.AddSingleton(provider.GetRequiredService<PluginSystem>());
-        builder.Services.AddSingleton(provider.GetRequiredService<ModuleSystem>());
-        builder.Services.AddSingleton(provider.GetRequiredService<ConfigurationSystem>());
-        builder.Services.AddSingleton<AlifeMcpTools>();
+        builder.Services.AddSingleton(alifeMcpTools);
         builder.Services.AddMcpServer(options => {
             options.ServerInfo = new Implementation {
                 Name = "Alife MCP Server",
@@ -43,10 +67,10 @@ public sealed class WindowsAlifeMcp(IServiceProvider provider) : IAlifeMcp
         }).WithTools<AlifeMcpTools>().WithHttpTransport();
 
         WebApplication webApp = builder.Build();
-        webApp.MapMcp(path);
-        webApp.Urls.Add(address);
+        webApp.MapMcp("/mcp");
+        webApp.Urls.Add("http://127.0.0.1:18765");
         await webApp.StartAsync();
 
-        Server = new Uri(address + path);
+        AlifeMcpServer = new Uri("http://127.0.0.1:18765/mcp");
     }
 }

@@ -1,4 +1,4 @@
-@inject IAlifeClient AlifeClient
+@inject IAlifeApplication AlifeApplication
 @inject ConfigurationSystem ConfigurationSystem
 @inject IMessageService MessageService
 
@@ -111,7 +111,7 @@
 
         try
         {
-            await AlifeClient.RevealFileAsync(configFilePath);
+            await AlifeApplication.RevealFileAsync(configFilePath);
         }
         catch (Exception ex)
         {

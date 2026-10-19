@@ -27,7 +27,7 @@ public static class Program
         //Alife客户端
         services.AddAlifeClient<WindowsAlifeFoundation, WindowsCSharpCompiler,
             WindowsNuGetEnvironmentInstaller, WindowsPipEnvironmentInstaller,
-            WindowsAlifeClient, WindowsAlifeMcp>();
+            WindowsAlifeApplication, WindowsAlifeClient>();
         //呈现框架
         services.AddWindowsFormsBlazorWebView();
         services.AddBlazorWebViewDeveloperTools();

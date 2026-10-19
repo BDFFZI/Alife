@@ -4,7 +4,7 @@
 @inject ConfirmService ConfirmService
 @inject INotificationService NotificationService
 @inject NavigationManager Navigation
-@inject IAlifeClient AlifeClient
+@inject IAlifeApplication AlifeApplication
 @using System.IO
 @implements IDisposable
 
@@ -187,7 +187,7 @@ else
         try
         {
             string path = Path.GetFullPath($"{AlifePath.StorageFolderPath}/{character.StorageKey}");
-            await AlifeClient.RevealFolderAsync(path);
+            await AlifeApplication.RevealFolderAsync(path);
         }
         catch (Exception ex)
         {

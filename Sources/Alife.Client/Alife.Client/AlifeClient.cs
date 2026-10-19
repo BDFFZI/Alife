@@ -8,71 +8,43 @@ public static class AlifeClient
 {
     public static void AddAlifeClient<TAlifeFoundation, TCSharpCompiler,
         TNuGetEnvironmentInstaller, TPipEnvironmentInstaller,
-        TAlifeClient, TAlifeMcp>(
-        this IServiceCollection services, AlifeClientConfig? config = null)
+        TAlifeApplication, TAlifeClient>(
+        this IServiceCollection services)
         where TAlifeFoundation : class, IAlifeFoundation
         where TCSharpCompiler : CSharpCompiler
         where TNuGetEnvironmentInstaller : NuGetEnvironmentInstaller
         where TPipEnvironmentInstaller : PipEnvironmentInstaller
+        where TAlifeApplication : class, IAlifeApplication
         where TAlifeClient : class, IAlifeClient
-        where TAlifeMcp : class, IAlifeMcp
     {
-        services.AddAlife<TAlifeFoundation, TCSharpCompiler, TNuGetEnvironmentInstaller, TPipEnvironmentInstaller>(); //alife框架
-        services.AddAntDesign(); //前端框架
-        services.AddSingleton(config ?? new AlifeClientConfig());
-        services.AddSingletonChain<IAlifeClient, TAlifeClient>();
-        services.AddSingletonChain<IAlifeMcp, TAlifeMcp>();
+        services.AddAlife<TAlifeFoundation, TCSharpCompiler, TNuGetEnvironmentInstaller, TPipEnvironmentInstaller, TAlifeApplication>(); //alife框架
 
         //客户端功能
+        services.AddSingletonChain<IAlifeClient, TAlifeClient>();
+        services.AddSingleton<AlifeClientConfig>();
         services.AddSingleton<ClientDataStore>();
     }
     public static async Task InitAlifeClient(this IServiceProvider provider, IProgress<string>? progress = null)
     {
-        await provider.InitAlife(progress);
+        //初始化前回调
+        {
+            IAlifeClientInitialize? initialize = provider.GetService<IAlifeClientInitialize>();
+            if (initialize != null) await initialize.OnInitializeAsync(progress);
+        }
 
         AlifeClientConfig config = provider.GetRequiredService<AlifeClientConfig>();
+        await provider.InitAlife(config, progress);
 
-        if (config.FetchOnlineInfo) //自动拉取云端插件，防呆的同时确保兼容老插件编译
+        if (config.FetchOnlineInfo)
         {
-            progress?.Report("正在拉取云端内容...");
+            progress?.Report("正在检测客户端更新...");
             try
             {
-                PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
                 await ClientUpgrade.FetchNewVersion();
-                await pluginSystem.SyncOnlinePluginPackages(); //老版本插件依赖云端包信息来确定编译环境，所以要放在加载插件之前
             }
             catch (Exception e)
             {
-                AlifeLog.LogError("云端内容拉取失败：" + e);
-            }
-        }
-
-        if (config.LoadLocalPlugins) //自动加载本地插件，客户端通常是全插件而非内置功能，所以默认加载
-        {
-            progress?.Report("正在加载本地插件...");
-
-            if (config.EnsureEnvironment == false)
-            {
-                NuGetEnvironmentInstaller nuGetEnvironmentInstaller = provider.GetRequiredService<NuGetEnvironmentInstaller>();
-                await nuGetEnvironmentInstaller.LoadResolvedEnvironment(); //nuget比较特殊，插件依赖他的dll运行时环境，所以必须加载
-            }
-
-            PluginSystem pluginSystem = provider.GetRequiredService<PluginSystem>();
-            await pluginSystem.SyncLocalPluginEnvironment(config.EnsureEnvironment);
-        }
-
-        if (config.McpServer) //客户端默认激活MCP，因为其一般都是图形化界面，无法基于CLI交互
-        {
-            progress?.Report("正在激活MCP服务...");
-            try
-            {
-                //激活 MCP 服务，使外部程序可以通过 MCP 调用 Alife 系统能力
-                IAlifeMcp alifeMcp = provider.GetRequiredService<IAlifeMcp>();
-                await alifeMcp.StartAsync($"http://127.0.0.1:{config.McpServerPort}");
-            }
-            catch (Exception e)
-            {
-                AlifeLog.LogError("激活MCP服务失败：" + e);
+                AlifeLog.LogError("客户端更新检测失败：" + e);
             }
         }
 
@@ -87,6 +59,12 @@ public static class AlifeClient
             ClientChatStatistics.Initialize(chatActivitySystem, storageSystem);
             //增加额外的基于客户端的功能
             chatActivitySystem.InjectedObjects.Add(provider.GetRequiredService<IAlifeClient>());
+        }
+
+        //初始化后回调
+        {
+            IAlifeClientInitialized? initialized = provider.GetService<IAlifeClientInitialized>();
+            if (initialized != null) await initialized.OnInitializedAsync(progress);
         }
     }
 }

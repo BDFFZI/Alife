@@ -4,6 +4,6 @@
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles><!--要求生成g.cs以便插件可以携带UI-->
     </PropertyGroup>
     <ItemGroup>
-        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Alife.Client\Alife.Client\Alife.Client.csproj"/>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Alife\Alife.Application\Alife.Application.csproj"/>
     </ItemGroup>
 </Project>

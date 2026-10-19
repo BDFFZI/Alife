@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace Alife.Client;
 
 public sealed record EnvironmentItem(string Id, string Name, bool IsReady, bool IsRequired);
@@ -37,32 +35,20 @@ public interface IAlifeClient
     Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null);
 
     #endregion
+}
 
-    #region 文件对话框功能
+/// <summary>
+/// 一个特殊回调，其发生在系统初始化前，但UI进度条显示时，可借此实现一些用户友好的额外的初始化工作
+/// </summary>
+public interface IAlifeClientInitialize
+{
+    Task OnInitializeAsync(IProgress<string>? progress);
+}
 
-    Task RevealFolderAsync(string path);
-    Task RevealFileAsync(string path);
-    Task<string?> SelectFolderAsync();
-
-    #endregion
-
-    #region 自定义窗口功能
-
-    /// <summary>
-    /// 主显示器大小（物理像素）
-    /// </summary>
-    Size GetScreenSize();
-    /// <summary>
-    /// 光标屏幕坐标（物理像素）
-    /// </summary>
-    Point GetCursorPosition();
-    float GetDpiScale();
-    /// <summary>
-    /// 创建额外的自定义窗口
-    /// </summary>
-    /// <param name="options"></param>
-    /// <returns></returns>
-    Task<IAlifeWindow> CreateWindowAsync(AlifeWindowOptions options);
-
-    #endregion
+/// <summary>
+/// 一个特殊回调，其发生在系统初始化后，但UI进度条消失前，可借此实现一些用户友好的额外的初始化后工作
+/// </summary>
+public interface IAlifeClientInitialized
+{
+    Task OnInitializedAsync(IProgress<string>? progress);
 }

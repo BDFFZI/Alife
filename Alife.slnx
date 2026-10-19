@@ -14,6 +14,12 @@
     <Project Path="Demos/Alife.Demo.SkillIntegration/Alife.Demo.SkillIntegration.csproj" />
     <Project Path="Demos/Alife.Demo.Vision/Alife.Demo.Vision.csproj" />
   </Folder>
+  <Folder Name="/Sources/Alife/">
+    <Project Path="sources/Alife/Alife.Application/Alife.Application.csproj" />
+    <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
+    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
+    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
+  </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Alife.Test.Browser/Alife.Test.Browser.csproj" />
     <Project Path="Tests/Alife.Test.DeskPet/Alife.Test.DeskPet.csproj" />
@@ -77,12 +83,6 @@
     <Project Path="sources/Alife.Client/Alife.Client.Android.Shizuku/Alife.Client.Android.Shizuku.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client.Windows/Alife.Client.Windows.csproj" />
     <Project Path="sources/Alife.Client/Alife.Client/Alife.Client.csproj" />
-  </Folder>
-  <Folder Name="/Sources/Alife.Framework/">
-    <Project Path="sources/Alife/Alife.Application/Alife.Application.csproj" />
-    <Project Path="Sources/Alife/Alife.Foundation/Alife.Foundation.csproj" />
-    <Project Path="Sources/Alife/Alife.Framework/Alife.Framework.csproj" />
-    <Project Path="Sources/Alife/Alife.PluginSystem/Alife.PluginSystem.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/" />
 </Solution>

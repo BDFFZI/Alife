@@ -1,17 +1,37 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <PropertyGroup>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
-    <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Language.OpenAI\Alife.Function.Language.OpenAI.csproj" />
-    <ProjectReference Include="..\..\sources\Alife\Alife.Application\Alife.Application.csproj" />
-    <ProjectReference Include="..\..\sources\Alife.Client\Alife.Client\Alife.Client.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj"/>
+        <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Language.OpenAI\Alife.Function.Language.OpenAI.csproj"/>
+        <ProjectReference Include="..\..\sources\Alife\Alife.Application\Alife.Application.csproj"/>
 
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="9.0.120"/>
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45"/>
+        <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.1.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Implementation\WindowsAlifeFoundation.cs">
+            <Link>WindowsAlifeFoundation.cs</Link>
+        </Compile>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Implementation\WindowsCSharpCompiler.cs">
+            <Link>WindowsCSharpCompiler.cs</Link>
+        </Compile>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Implementation\WindowsNuGetEnvironmentInstaller.cs">
+            <Link>WindowsNuGetEnvironmentInstaller.cs</Link>
+        </Compile>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Implementation\WindowsPipEnvironmentInstaller.cs">
+            <Link>WindowsPipEnvironmentInstaller.cs</Link>
+        </Compile>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client\AlifeClientConfig.cs">
+            <Link>AlifeClientConfig.cs</Link>
+        </Compile>
+    </ItemGroup>
 
 
 </Project>

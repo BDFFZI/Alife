@@ -8,7 +8,4 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj" />
     </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="AntDesign" Version="1.6.2" />
-    </ItemGroup>
 </Project>

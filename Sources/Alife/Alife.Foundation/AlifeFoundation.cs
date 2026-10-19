@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Foundation;
@@ -13,13 +12,11 @@ public static class AlifeFoundation
     {
         services.AddSingletonChain<IAlifeFoundation, TAlifeFoundation>();
     }
-    public static async Task InitAlifeFoundation(this IServiceProvider provider)
+    public static void InitAlifeFoundation(this IServiceProvider provider)
     {
         AlifeLog.Initialize(); //激活静态日志功能
         AlifeMirror.Initialize(); //激活网络镜像功能
         Instance = provider.GetRequiredService<IAlifeFoundation>();
-
-        await Instance.OnInitializedAsync();
     }
 
     public static void AddSingletonChain<TService, TImplementation>(this IServiceCollection services)

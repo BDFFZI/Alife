@@ -1,5 +1,6 @@
 @inject INotificationService NotificationService
 @inject IAlifeClient AlifeClient
+@inject IAlifeApplication AlifeApplication
 @inject AlifeClientConfig AlifeClientConfig
 
 <div style="padding: 24px; height: 100%; overflow-y: auto;">
@@ -70,7 +71,7 @@
                 <Text Strong>检查插件环境</Text>
                 <Switch Checked="@AlifeClientConfig.EnsureEnvironment"
                         CheckedChanged="OnEnsureEnvironmentChanged"
-                        Disabled="@(!@AlifeClientConfig.LoadLocalPlugins)"/>
+                        Disabled="@(!AlifeClientConfig.LoadLocalPlugins)"/>
             </div>
             <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
                 启动时尝试补全插件环境，可确保环境完整，但会降低启动速度。环境出问题时仍可在插件环境页面手动重载。
@@ -277,7 +278,7 @@
     {
         try
         {
-            return await AlifeClient.SelectFolderAsync();
+            return await AlifeApplication.SelectFolderAsync();
         }
         catch (Exception error)
         {
