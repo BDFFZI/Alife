@@ -1,6 +1,6 @@
 namespace Alife.Client.Android;
 
-public partial class MainPage : ContentPage
+public class MainPage : ContentPage
 {
     public MainPage()
     {
@@ -9,7 +9,7 @@ public partial class MainPage : ContentPage
         };
         webView.RootComponents.Add(new Microsoft.AspNetCore.Components.WebView.Maui.RootComponent {
             Selector = "#app",
-            ComponentType = typeof(Alife.Client.Components.Routes)
+            ComponentType = typeof(Components.Routes)
         });
         Content = webView;
     }

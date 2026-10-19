@@ -31,18 +31,26 @@ body:hover #resize-btn { opacity:1; }
     public string JsCode => @"
 (function() {
     var btn = document.getElementById('resize-btn');
+    var start = null;
     btn.addEventListener('pointerdown', function(e) {
+        if (!e.isPrimary || e.button !== 0) return;
+        start = { id:e.pointerId, x:e.screenX, y:e.screenY };
         btn.setPointerCapture(e.pointerId);
         postMessage({type:'resize_start'});
     });
     btn.addEventListener('pointermove', function(e) {
-        if (btn.hasPointerCapture(e.pointerId)) {
-            postMessage({type:'resize_delta',dx:e.movementX,dy:e.movementY});
+        if (start && start.id === e.pointerId) {
+            postMessage({type:'resize_delta',dx:Math.round(e.screenX-start.x),dy:Math.round(e.screenY-start.y)});
         }
     });
+    function end(e) { if (start && start.id === e.pointerId) start = null; }
     btn.addEventListener('pointerup', function(e) {
-        btn.releasePointerCapture(e.pointerId);
+        if (start && start.id === e.pointerId)
+            postMessage({type:'resize_delta',dx:Math.round(e.screenX-start.x),dy:Math.round(e.screenY-start.y)});
+        end(e);
     });
+    btn.addEventListener('pointercancel', end);
+    btn.addEventListener('lostpointercapture', end);
 })();
 ";
 
@@ -70,11 +78,10 @@ body:hover #resize-btn { opacity:1; }
                 startBounds = window.Bounds;
                 break;
             case "resize_delta":
-                startBounds.Width += data.GetProperty("dx").GetInt32();
-                startBounds.Height += data.GetProperty("dy").GetInt32();
-                startBounds.Width = Math.Max(startBounds.Width, MinSize);
-                startBounds.Height = Math.Max(startBounds.Height, MinSize);
-                _ = window.SetBoundsAsync(startBounds);
+                Rectangle resized = startBounds;
+                resized.Width = Math.Max(startBounds.Width + data.GetProperty("dx").GetInt32(), MinSize);
+                resized.Height = Math.Max(startBounds.Height + data.GetProperty("dy").GetInt32(), MinSize);
+                _ = window.SetBoundsAsync(resized);
                 break;
         }
     }

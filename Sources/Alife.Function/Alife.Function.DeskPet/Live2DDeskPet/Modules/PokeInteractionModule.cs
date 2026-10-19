@@ -7,7 +7,7 @@ namespace Alife.Function.DeskPet;
 
 public class PokeInteractionModule : IPetModule, IDisposable
 {
-    public string JsCode => @"
+        public string JsCode => @"
 window.addEventListener('dblclick', async function(e) {
     if (e.target.tagName !== 'CANVAS') return;
     var areas = await model.hitTest(e.clientX, e.clientY);

@@ -104,7 +104,7 @@ public static class ShizukuBridge
         permissionTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         permissionListener = new PermissionListener();
         ShizukuApi.AddRequestPermissionResultListener(permissionListener);
-        Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() => ShizukuApi.RequestPermission(PermissionRequestCode));
+        MainThread.BeginInvokeOnMainThread(() => ShizukuApi.RequestPermission(PermissionRequestCode));
         return permissionTask.Task;
     }
 
@@ -147,6 +147,23 @@ public static class ShizukuBridge
         {
             process.Destroy();
         }
+    }
+
+    /// <summary>Consume a long-lived shell stream without buffering it until process exit.</summary>
+    internal static async Task ReadLinesAsync(string command, Action<string> onLine, CancellationToken cancellationToken)
+    {
+        if (!HasPermission) throw new InvalidOperationException("Shizuku 未连接或未授权。");
+        var service = IShizukuService.Stub.AsInterface(ShizukuApi.Binder!)!;
+        var process = service.NewProcess(["/system/bin/sh", "-c", command], null, null)
+            ?? throw new InvalidOperationException("无法创建触摸监视进程。");
+        using var cancellation = cancellationToken.Register(() => process.Destroy());
+        try {
+            using var input = new ParcelFileDescriptor.AutoCloseInputStream(process.InputStream!);
+            using var stream = new InputStreamInvoker(input);
+            using var reader = new StreamReader(stream);
+            while (!cancellationToken.IsCancellationRequested && await reader.ReadLineAsync(cancellationToken) is { } line)
+                onLine(line);
+        } finally { process.Destroy(); }
     }
 
     static TaskCompletionSource<bool>? permissionTask;

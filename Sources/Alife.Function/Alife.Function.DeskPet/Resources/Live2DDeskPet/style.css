@@ -9,3 +9,10 @@ body, html {
 }
 :root { --ui-scale: 1; }
 #canvas { width: 100%; height: 100%; display: block; }
+
+/* Prevent browser panning from cancelling native pointer capture during pet gestures. */
+#canvas, #resize-btn, .pet-item { touch-action: none; }
+@media (hover: none) {
+    #lock-btn, #resize-btn, #pet-btn, #input-toggle-btn, #topmost-toggle-btn { opacity: 1; }
+    #pet-menu { opacity: 1; pointer-events: auto; }
+}

@@ -3,6 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Framework;
 
+/// <summary>
+/// 用于构建无头Alife，例如实现通过自编译、CLI、MCP来使用。
+/// </summary>
 public static class AlifeApplication
 {
     public static void AddAlife<TAlifeFoundation, TCSharpCompiler, TNuGetEnvironmentInstaller, TPipEnvironmentInstaller>(

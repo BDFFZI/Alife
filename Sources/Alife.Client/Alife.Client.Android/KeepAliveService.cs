@@ -41,6 +41,7 @@ public sealed class KeepAliveService : Service
 
     public override void OnDestroy()
     {
+        AndroidPointerMonitor.Stop();
         StopForeground(StopForegroundFlags.Remove);
         base.OnDestroy();
     }

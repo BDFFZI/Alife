@@ -10,6 +10,7 @@ namespace Alife.Client.Android;
     LaunchMode = LaunchMode.SingleTask,
     Theme = "@style/Maui.SplashTheme",
     WindowSoftInputMode = SoftInput.AdjustResize,
+    ScreenOrientation = ScreenOrientation.SensorLandscape,
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden | ConfigChanges.Density)]
 public class MainActivity : MauiAppCompatActivity
 {

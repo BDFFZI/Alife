@@ -93,16 +93,16 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
 
     public async Task CreateAsync(string wwwRoot)
     {
-        //设置窗口属性
-        Size screenSize = (alifeClient.GetScreenSize() / Dpi).ToSize();
+        // Initialize DPI before deriving screen dimensions or the first cursor sample.
+        dpi = alifeClient.GetDpiScale();
+        Size screenSize = (alifeClient.GetScreenSize() / dpi).ToSize();
         defaultBounds = new Rectangle {
-            X = screenSize.Width - 700,
-            Y = screenSize.Height - 210,
-            Width = 320,
-            Height = 480,
+            X = Math.Max(0, screenSize.Width - Math.Min(320, screenSize.Width) - 20),
+            Y = Math.Max(0, screenSize.Height - Math.Min(480, screenSize.Height) - 20),
+            Width = Math.Min(320, screenSize.Width),
+            Height = Math.Min(480, screenSize.Height),
         };
         await SetBoundsAsync(storage.GetObject(windowBoundsKey, defaultBounds));
-        dpi = alifeClient.GetDpiScale();
         cursorScreenPoint = GetCursorPosition();
 
         //创建窗口
@@ -116,6 +116,7 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
             Url = url
         });
         window.MessageReceived += OnIpcMessage;
+        window.BoundsChanged += OnBoundsChanged;
 
         //注册 init 监听：必须在窗口创建（开始加载页面）之前完成，避免错过渲染进程在脚本末尾发送的 init 消息
         TaskCompletionSource initTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -140,14 +141,25 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
         cancellationTokenSource = new CancellationTokenSource();
         Loop(cancellationTokenSource.Token);
     }
+    void OnBoundsChanged(Rectangle actualBounds)
+    {
+        // Android clamps restored/off-screen windows and reflows them on rotation.
+        bounds = actualBounds;
+        position = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
+        dpi = alifeClient.GetDpiScale();
+    }
+
     public async ValueTask DisposeAsync()
     {
         storage.SetObject(windowBoundsKey, bounds);
 
         if (cancellationTokenSource != null)
             await cancellationTokenSource.CancelAsync();
-        if (window != null)
+        if (window != null) {
+            window.BoundsChanged -= OnBoundsChanged;
+            window.MessageReceived -= OnIpcMessage;
             await window.DisposeAsync();
+        }
     }
 
     async void Loop(CancellationToken cancellationToken = default)
@@ -212,6 +224,7 @@ public sealed class PetWindow(IAlifeClient alifeClient, StorageSystem storage, P
     }
     Point GetCursorPosition()
     {
+        dpi = alifeClient.GetDpiScale();
         Point newCursorPoint = alifeClient.GetCursorPosition();
         newCursorPoint.X = (int)(newCursorPoint.X / dpi);
         newCursorPoint.Y = (int)(newCursorPoint.Y / dpi);

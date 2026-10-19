@@ -126,17 +126,19 @@ body:hover #pet-btn { opacity:1; }
 
     var moveBtn = document.getElementById('pet-move-btn');
     if (moveBtn) {
-        var moved = false;
+        var moved = false, moveX = 0, moveY = 0;
         moveBtn.addEventListener('pointerdown', function(e) {
             moved = false;
+            moveX = e.clientX; moveY = e.clientY;
             moveBtn.setPointerCapture(e.pointerId);
             document.body.classList.add('pet-dragging');
         });
         moveBtn.addEventListener('pointermove', function(e) {
             if (moveBtn.hasPointerCapture(e.pointerId)) {
                 moved = true;
-                userOffsetX += e.movementX;
-                userOffsetY += e.movementY;
+                userOffsetX += e.clientX - moveX;
+                userOffsetY += e.clientY - moveY;
+                moveX = e.clientX; moveY = e.clientY;
                 applyTransform();
             }
         });
@@ -145,6 +147,7 @@ body:hover #pet-btn { opacity:1; }
             moveBtn.releasePointerCapture(e.pointerId);
             if (moved) sendEnd('pet_move_end');
         });
+        moveBtn.addEventListener('pointercancel', function() { document.body.classList.remove('pet-dragging'); if (moved) sendEnd('pet_move_end'); });
         moveBtn.addEventListener('dblclick', function() {
             userOffsetX = 0; userOffsetY = 0; applyTransform();
             postMessage({type:'pet_move_reset'});
@@ -153,16 +156,18 @@ body:hover #pet-btn { opacity:1; }
 
     var scaleBtn = document.getElementById('pet-scale-btn');
     if (scaleBtn) {
-        var moved = false;
+        var moved = false, scaleX = 0;
         scaleBtn.addEventListener('pointerdown', function(e) {
             moved = false;
+            scaleX = e.clientX;
             scaleBtn.setPointerCapture(e.pointerId);
             document.body.classList.add('pet-dragging');
         });
         scaleBtn.addEventListener('pointermove', function(e) {
             if (scaleBtn.hasPointerCapture(e.pointerId)) {
                 moved = true;
-                userScale = Math.max(0.1, userScale * (1 + e.movementX / 200));
+                userScale = Math.max(0.1, userScale * (1 + (e.clientX - scaleX) / 200));
+                scaleX = e.clientX;
                 applyTransform();
             }
         });
@@ -171,6 +176,7 @@ body:hover #pet-btn { opacity:1; }
             scaleBtn.releasePointerCapture(e.pointerId);
             if (moved) sendEnd('pet_scale_end');
         });
+        scaleBtn.addEventListener('pointercancel', function() { document.body.classList.remove('pet-dragging'); if (moved) sendEnd('pet_scale_end'); });
         scaleBtn.addEventListener('dblclick', function() {
             userScale = 1; applyTransform();
             postMessage({type:'pet_scale_reset'});

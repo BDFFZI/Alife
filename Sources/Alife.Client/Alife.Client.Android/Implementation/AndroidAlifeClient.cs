@@ -1,14 +1,12 @@
 using Alife.Foundation;
 using Alife.Framework;
-using Android.Util;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Client.Android;
 
 public sealed class AndroidAlifeClient(
     AndroidWindowManager windowManager,
     AndroidAlifeFoundation foundation,
-    IServiceProvider provider) : Alife.Client.IAlifeClient
+    IServiceProvider provider) : IAlifeClient
 {
     public Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
@@ -41,7 +39,7 @@ public sealed class AndroidAlifeClient(
             File.Delete(KeepAlivePaths.AutoStartFile);
     }
 
-    public IReadOnlyList<Alife.Client.EnvironmentItem> GetEnvironmentItems()
+    public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
         return AndroidEnvironment.GetEnvironmentItems();
     }
@@ -76,19 +74,31 @@ public sealed class AndroidAlifeClient(
         throw new NotSupportedException("Android 客户端不支持选择目录。");
     }
 
-    public System.Drawing.Size GetScreenSize()
-    {
-        DisplayMetrics? metrics = MainApplication.Instance?.Resources?.DisplayMetrics;
-        return metrics is null ? new(1080, 1920) : new(metrics.WidthPixels, metrics.HeightPixels);
-    }
-    public System.Drawing.Point GetCursorPosition() => System.Drawing.Point.Empty;
-    public float GetDpiScale() => MainApplication.Instance?.Resources?.DisplayMetrics?.Density ?? 2f;
+    public System.Drawing.Size GetScreenSize() => AndroidDisplay.GetSize();
 
-    public Task<Alife.Client.IAlifeWindow> CreateWindowAsync(Alife.Client.AlifeWindowOptions options)
+    /// <summary>Last observed touch/hover position in physical SCREEN pixels, never viewport-local pixels.</summary>
+    static long lastCursor = -1;
+    public static System.Drawing.Point LastCursorPosition {
+        get { long value = Interlocked.Read(ref lastCursor); return value < 0 ? default : new((int)(value >> 32), (int)value); }
+        set => Interlocked.Exchange(ref lastCursor, ((long)value.X << 32) | (uint)value.Y);
+    }
+
+    public System.Drawing.Point GetCursorPosition()
+    {
+        AndroidPointerMonitor.EnsureStarted();
+        if (Interlocked.Read(ref lastCursor) < 0)
+        {
+            var size = GetScreenSize();
+            return new(size.Width / 2, size.Height / 2);
+        }
+        return LastCursorPosition;
+    }
+    public float GetDpiScale() => AndroidDisplay.Density;
+
+    public async Task<IAlifeWindow> CreateWindowAsync(AlifeWindowOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        Alife.Client.IAlifeWindow window = windowManager.Create(options);
-        return Task.FromResult(window);
+        return await AndroidWindowManager.RunOnUi(() => windowManager.Create(options));
     }
 }
 

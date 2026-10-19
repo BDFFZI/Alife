@@ -17,6 +17,9 @@ public class AlifeWindowOptions
 /// </summary>
 public interface IAlifeWindow : IAsyncDisposable
 {
+    /// <summary>实际内容区域变化（DPI 逻辑坐标），包括平台限制、旋转导致的位置/尺寸修正。</summary>
+    event Action<Rectangle>? BoundsChanged { add { } remove { } }
+
     Task Launch();
 
     Task ShowAsync();

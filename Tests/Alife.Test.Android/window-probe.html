@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+html,body {margin:0;width:100%;height:100%;overflow:hidden;background:rgba(20,50,80,.65);color:white;font:16px sans-serif}
+#canvas {position:absolute;inset:0;width:100%;height:100%;touch-action:none;z-index:0}
+#ui {position:relative;z-index:1;pointer-events:none;padding:12px} button,input {pointer-events:auto;font-size:16px;max-width:90%}
+#resize-btn {position:absolute;right:4px;bottom:4px;padding:12px;background:#126;touch-action:none;z-index:2}
+</style></head><body><canvas id="canvas" data-drag></canvas><div id="ui"><h3 id="title"></h3>
+<button id="count">Count: 0</button><br><input id="text" placeholder="Type here"><br><button id="lock">Pass through</button><pre id="facts"></pre></div>
+<div id="resize-btn">Resize</div><script>
+window.events=[];window.messages=[];let count=0;
+function postMessage(value){window.alifeWindow.postMessage(value);}
+window.alifeWindow.onMessage(msg=>messages.push(msg));
+const types=['pointerdown','pointermove','pointerup','pointercancel','mousedown','mouseup','click','dblclick'];
+for(const type of types) window.addEventListener(type,e=>{events.push({type:e.type,x:e.clientX,y:e.clientY,sx:e.screenX,sy:e.screenY,buttons:e.buttons,target:e.target.id});if(events.length>200)events.shift();});
+const facts=()=>({bridge:!!window.alifeWindow,x:screenX,y:screenY,width:innerWidth,height:innerHeight,outerWidth,outerHeight,dpr:devicePixelRatio,screenWidth:screen.width,screenHeight:screen.height});
+window.facts=facts; title.textContent='Window '+location.hash;
+setInterval(()=>document.getElementById('facts').textContent=JSON.stringify(facts(),null,1),500);
+document.getElementById('count').onclick=()=>document.getElementById('count').textContent='Count: '+(++count);
+document.getElementById('lock').onclick=()=>postMessage({probe:'ignore',value:true});
+postMessage({probe:'ready',...facts()});
+
+/* DESKPET_GESTURES */</script></body></html>

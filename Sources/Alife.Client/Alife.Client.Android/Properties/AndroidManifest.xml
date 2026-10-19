@@ -10,7 +10,7 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
-  <application android:allowBackup="false" android:label="Alife" android:networkSecurityConfig="@xml/network_security_config">
+  <application android:allowBackup="false" android:label="Alife" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:networkSecurityConfig="@xml/network_security_config">
     <service android:name="com.alife.client.KeepAliveService" android:exported="false" android:foregroundServiceType="specialUse">
       <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Local Alife runtime and cross-application web windows" />
     </service>

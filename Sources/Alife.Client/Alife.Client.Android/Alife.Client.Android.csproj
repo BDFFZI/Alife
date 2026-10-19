@@ -23,11 +23,18 @@
         <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
     </PropertyGroup>
 
+    <!-- 只保留一张图标母版，构建时由 MAUI 生成各密度资源。 -->
+    <ItemGroup>
+        <AndroidResource Remove="Resources/AppIcon/**" />
+        <MauiIcon Include="Resources/AppIcon/appicon.png" Color="#3B4BC7" ForegroundScale="0.67" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.110" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView" Version="10.0.13" />
         <PackageReference Include="SharpCompress" Version="0.48.1" />
+        <PackageReference Include="Xamarin.AndroidX.WebKit" Version="1.14.0.1" />
         <EmbeddedResource Include="SdkPackages.json" LogicalName="SdkPackages" />
     </ItemGroup>
 
@@ -36,6 +43,11 @@
         <ProjectReference Include="../../Alife/Alife.Application/Alife.Application.csproj" />
         <ProjectReference Include="../Alife.Client/Alife.Client.csproj" />
         <ProjectReference Include="../Alife.Client.Android.Shizuku/Alife.Client.Android.Shizuku.csproj" />
+    </ItemGroup>
+
+    <!-- Explicit opt-in device integration harness; never included in normal APKs. -->
+    <ItemGroup Condition="'$(AlifeWindowProbe)' == 'true' and '$(Configuration)' == 'Debug'">
+        <Compile Include="../../../Tests/Alife.Test.Android/WindowProbeActivity.cs" Link="WindowProbeActivity.cs" />
     </ItemGroup>
 
     <PropertyGroup>
