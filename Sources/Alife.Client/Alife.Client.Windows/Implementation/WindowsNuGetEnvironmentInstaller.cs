@@ -2,7 +2,7 @@ using Alife.Framework;
 
 namespace Alife.Client.Windows;
 
-public class WindowsNuGetEnvironmentInstaller(CSharpCompiler csharpCompiler) : NuGetEnvironmentInstaller(csharpCompiler)
+class WindowsNuGetEnvironmentInstaller(CSharpCompiler csharpCompiler) : NuGetEnvironmentInstaller(csharpCompiler)
 {
     protected override string GetNuGetPropertyGroup()
     {

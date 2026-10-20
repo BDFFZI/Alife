@@ -6,7 +6,7 @@ namespace Alife.Client;
 /// <summary>
 /// Windows 客户端的命令执行工具。
 /// </summary>
-public static class WindowsCommand
+static class WindowsCommand
 {
     public struct CommandResult
     {

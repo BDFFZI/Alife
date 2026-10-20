@@ -6,13 +6,13 @@ namespace Alife.Client;
 /// <summary>
 /// 客户端功能，可以实现自动帮用户配置软件运行环境。
 /// </summary>
-public static class WindowsEnvironment
+static class WindowsEnvironment
 {
     public static bool IsVCRedistReady { get; private set; }
     public static bool IsPythonReady { get; private set; }
     public static bool IsDotNetSdkReady { get; private set; }
     public static bool IsCudaReady { get; private set; }
-    
+
     public static IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
         SyncEnvironment();

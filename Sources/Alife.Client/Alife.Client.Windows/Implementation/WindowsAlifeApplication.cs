@@ -10,7 +10,7 @@ using ModelContextProtocol.Protocol;
 namespace Alife.Client.Windows;
 
 [SuppressMessage("ReSharper", "InconsistentNaming")]
-public partial class WindowsAlifeApplication
+partial class WindowsAlifeApplication
 {
     [StructLayout(LayoutKind.Sequential)]
     struct POINT
@@ -33,7 +33,7 @@ public partial class WindowsAlifeApplication
 }
 
 /// <summary>桌面端 MCP 传输：ASP.NET 自托管 HTTP。</summary>
-public partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplication
+partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplication
 {
     public Task RevealFolderAsync(string path)
     {

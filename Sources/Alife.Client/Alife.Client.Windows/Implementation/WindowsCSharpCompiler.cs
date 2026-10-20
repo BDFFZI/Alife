@@ -3,7 +3,7 @@ using Alife.Framework;
 
 namespace Alife.Client.Windows;
 
-public class WindowsCSharpCompiler : CSharpCompiler
+class WindowsCSharpCompiler : CSharpCompiler
 {
     protected override IEnumerable<string> GetAssemblyReferenceFiles(IEnumerable<Assembly> assemblies)
     {

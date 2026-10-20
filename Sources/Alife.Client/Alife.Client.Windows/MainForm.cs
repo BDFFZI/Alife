@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 
 namespace Alife.Client.Windows;
 
-public class MainForm : Form
+class MainForm : Form
 {
     public MainForm(IServiceProvider provider)
     {

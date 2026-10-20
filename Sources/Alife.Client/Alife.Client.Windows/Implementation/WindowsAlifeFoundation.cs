@@ -3,7 +3,7 @@ using Alife.Foundation;
 
 namespace Alife.Client.Windows;
 
-public class WindowsAlifeFoundation : IAlifeFoundation
+class WindowsAlifeFoundation : IAlifeFoundation
 {
     public string AppVersion => Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
     public string StorageFolderPath => storageFolderPath;

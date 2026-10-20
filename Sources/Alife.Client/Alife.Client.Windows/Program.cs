@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Alife.Client.Windows;
 
-public static class Program
+static class Program
 {
     [STAThread]
     static void Main()
@@ -88,7 +88,7 @@ public static class Program
     }
 }
 
-public class WindowsAlifeClientInitialize : IAlifeClientInitialize
+class WindowsAlifeClientInitialize : IAlifeClientInitialize
 {
     public async Task OnInitializeAsync(IProgress<string>? progress)
     {

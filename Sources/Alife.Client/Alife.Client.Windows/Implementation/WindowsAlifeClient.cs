@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Alife.Client.Windows;
 
-public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlifeClient
+class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlifeClient
 {
     public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {

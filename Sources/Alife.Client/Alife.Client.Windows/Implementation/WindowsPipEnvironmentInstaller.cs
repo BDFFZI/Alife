@@ -3,7 +3,7 @@ using Alife.Framework;
 
 namespace Alife.Client.Windows;
 
-public class WindowsPipEnvironmentInstaller : PipEnvironmentInstaller
+class WindowsPipEnvironmentInstaller : PipEnvironmentInstaller
 {
     protected override async Task InstallRequirements(IEnumerable<KeyValuePair<string, string>> items)
     {
