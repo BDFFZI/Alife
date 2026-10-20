@@ -8,9 +8,25 @@ namespace Alife.Client.Android;
 /// <summary>Read display metrics afresh: cached Activity metrics go stale on rotation/density changes.</summary>
 internal static class AndroidDisplay
 {
-    // Map the reference device's Android density 3.0 to the requested logical
-    // desktop-style scale 2.0 (the ratio also works on other density buckets).
-    public static float Density => MainApplication.Instance!.Resources!.DisplayMetrics!.Density * (2f / 3f);
+    // Render the application at half the system density, using the same rounded
+    // density for both WebView CSS pixels and native window/cursor coordinates.
+    static int WindowDensityDpi => (int)Math.Round(
+        (int)global::Android.Content.Res.Resources.System!.DisplayMetrics!.DensityDpi * 0.5);
+
+    public static float Density => WindowDensityDpi / 160f;
+
+    public static void ConfigureWebView(global::Android.Webkit.WebView view)
+    {
+        view.Settings.UseWideViewPort = true;
+    }
+
+    public static Context CreateScaledContext(Context context)
+    {
+        var configuration = new global::Android.Content.Res.Configuration(context.Resources!.Configuration) {
+            DensityDpi = WindowDensityDpi,
+        };
+        return context.CreateConfigurationContext(configuration)!;
+    }
 
     public static System.Drawing.Size GetSize()
     {

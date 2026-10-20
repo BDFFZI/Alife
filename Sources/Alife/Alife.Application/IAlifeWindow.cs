@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 
 namespace Alife.Client;
 
@@ -13,7 +13,7 @@ public class AlifeWindowOptions
 }
 
 /// <summary>
-/// 窗口采用 dpi 坐标，可以通过 <see cref="IAlifeClient.GetDpiScale" /> 来与物理坐标转换
+/// 窗口采用 dpi 坐标，可以通过 <see cref="Alife.Framework.IAlifeApplication.GetDpiScale" /> 来与物理坐标转换
 /// </summary>
 public interface IAlifeWindow : IAsyncDisposable
 {
@@ -28,12 +28,10 @@ public interface IAlifeWindow : IAsyncDisposable
     Task SetBoundsAsync(Rectangle bounds) => throw new NotSupportedException();
     Task SetTopMostAsync(bool topMost) => throw new NotSupportedException();
     /// <summary>
-    /// 设置窗口穿透（可以利用后端显式获取鼠标位置，再传入前端来进行命中测试切换穿透，从而实现部分UI穿透的效果）
+    /// 设置接收鼠标/触摸输入的区域，采用客户区内的 DPI 逻辑坐标。
+    /// null 表示整窗接收输入，空数组表示整窗穿透，否则仅指定区域接收输入。
     /// </summary>
-    /// <param name="ignore"></param>
-    /// <returns></returns>
-    /// <exception cref="NotSupportedException"></exception>
-    Task SetIgnoreMouseEventsAsync(bool ignore) => throw new NotSupportedException();
+    Task SetMouseInputRegionsAsync(Rectangle[]? regions) => throw new NotSupportedException();
 
     /// <summary>
     /// 接受前端消息（需让前端支持用 window.alifeWindow.postMessage(obj | string) 发消息）

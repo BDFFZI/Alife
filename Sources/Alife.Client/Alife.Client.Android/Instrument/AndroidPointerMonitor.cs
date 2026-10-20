@@ -44,6 +44,7 @@ internal static class AndroidPointerMonitor
                 string path = device.Groups["path"].Value; // Only numeric evdev paths from the regex.
                 await ShizukuBridge.ReadLinesAsync("getevent -lt " + path, line => {
                     if (!decoder.Read(line, out double x, out double y)) return;
+                    bool pressed = decoder.IsContactStart;
                     // Read display rotation/size on the UI thread and keep the public cursor in physical pixels.
                     _ = AndroidWindowManager.RunOnUi(() => {
                         var manager = MainApplication.Instance!.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>()!;
@@ -54,8 +55,8 @@ internal static class AndroidPointerMonitor
                             _ => (x, y),
                         };
                         var size = AndroidDisplay.GetSize();
-                        AndroidAlifeClient.LastCursorPosition = new((int)Math.Round(x * (size.Width - 1)),
-                            (int)Math.Round(y * (size.Height - 1)));
+                        AndroidAlifeClient.ObservePointer(new((int)Math.Round(x * (size.Width - 1)),
+                            (int)Math.Round(y * (size.Height - 1))), pressed);
                         return true;
                     });
                 }, token);

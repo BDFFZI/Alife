@@ -25,6 +25,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         Context context = MainApplication.Instance!;
         manager = context.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>()!;
         view = new OverlayWebView(context, this);
+        inputRegion = new AndroidInputRegion(view);
         view.SetBackgroundColor(options.Transparent ? Color.Transparent : Color.White);
         view.Settings.JavaScriptEnabled = true;
         view.Settings.DomStorageEnabled = true;
@@ -34,6 +35,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         view.Settings.LoadWithOverviewMode = false;
         view.Settings.SetSupportZoom(false);
         view.Settings.TextZoom = 100;
+        AndroidDisplay.ConfigureWebView(view);
         view.AddJavascriptInterface(new JsBridge(this), BridgeName);
         view.SetWebViewClient(new WindowClient(this));
 #if DEBUG
@@ -45,7 +47,8 @@ sealed class AndroidAlifeWindow : IAlifeWindow
             documentScript = WebViewCompat.AddDocumentStartJavaScript(view, BridgeScript, new HashSet<string> { "*" });
 
         layout = new WindowManagerLayoutParams(1, 1, WindowManagerTypes.ApplicationOverlay,
-            WindowManagerFlags.NotFocusable | WindowManagerFlags.NotTouchModal | WindowManagerFlags.LayoutInScreen,
+            WindowManagerFlags.NotFocusable | WindowManagerFlags.NotTouchModal | WindowManagerFlags.LayoutInScreen |
+            WindowManagerFlags.LayoutNoLimits | WindowManagerFlags.WatchOutsideTouch,
             Format.Translucent) {
             Gravity = GravityFlags.Top | GravityFlags.Left,
             SoftInputMode = SoftInput.AdjustNothing,
@@ -73,7 +76,11 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         // never detach/re-add every 500ms: that resets pointer capture, focus and rendering.
         if (visible) manager.UpdateViewLayout(view, layout);
     });
-    public Task SetIgnoreMouseEventsAsync(bool ignore) => RunOnUi(() => SetIgnoreInput(ignore));
+    public Task SetMouseInputRegionsAsync(Rectangle[]? regions)
+    {
+        var snapshot = regions?.ToArray();
+        return RunOnUi(() => SetMouseInputRegions(snapshot));
+    }
     public Task PostMessageAsync(string messageJson) => RunOnUi(() => {
         ObjectDisposedException.ThrowIf(disposed, this);
         view.EvaluateJavascript("window.alifeWindow?._dispatch(" + messageJson + ");", null);
@@ -158,6 +165,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         bounds = new Rectangle((int)Math.Round(x / dpi), (int)Math.Round(y / dpi),
             (int)Math.Round(width / dpi), (int)Math.Round(height / dpi));
         if (visible) manager.UpdateViewLayout(view, layout);
+        ApplyMouseInputRegions();
         PublishGeometry();
     }
 
@@ -184,7 +192,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
             (int)Math.Round(width / dpi), (int)Math.Round(height / dpi));
         // getMetrics is called on WebView's Java bridge thread; never access View APIs there.
         string json = JsonSerializer.Serialize(new {
-            x = location[0] / dpi, y = location[1] / dpi, width = width / dpi, height = height / dpi,
+            x = location[0] / dpi, y = location[1] / dpi, width = width / dpi, height = height / dpi, density = dpi,
             screenWidth = screen.Width / dpi, screenHeight = screen.Height / dpi,
         });
         Volatile.Write(ref geometryJson, json);
@@ -196,23 +204,27 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         }
     }
 
-    void SetIgnoreInput(bool ignore)
+    void SetMouseInputRegions(Rectangle[]? regions)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (ignoreInput == ignore) return;
-        ignoreInput = ignore;
-        SetKeyboardFocus(false);
-        layout.Flags = ignore ? layout.Flags | WindowManagerFlags.NotTouchable
-            : layout.Flags & ~WindowManagerFlags.NotTouchable;
-        // Android 12+ blocks touches through untrusted overlays above the obscuring-opacity limit.
-        UpdateOverlayOpacity();
-        if (visible) manager.UpdateViewLayout(view, layout);
+        mouseInputRegions = regions;
+        bool changed = ignoreInput != (regions != null);
+        ignoreInput = regions != null;
+        ApplyMouseInputRegions();
+        if (changed) UpdateOverlayOpacity();
+    }
+
+    void ApplyMouseInputRegions()
+    {
+        float dpi = AndroidDisplay.Density;
+        inputRegion.Set(ignoreInput, mouseInputRegions?.Select(r => new float[] {
+            r.Left * dpi, r.Top * dpi, r.Right * dpi, r.Bottom * dpi,
+        }).ToArray() ?? []);
     }
 
     static void UpdateOverlayOpacity()
     {
-        // Android combines obscuring opacity across overlays from the same UID.
-        // Budget across ignored windows so overlapping windows still permit passthrough.
+        // Android 12+ combines obscuring opacity across overlays from the same UID.
         float alpha = (float)(1 - Math.Pow(0.21, 1.0 / Math.Max(1, visibleWindows.Count(w => w.ignoreInput))));
         foreach (var window in visibleWindows) {
             window.layout.Alpha = window.ignoreInput ? alpha : 1f;
@@ -222,7 +234,8 @@ sealed class AndroidAlifeWindow : IAlifeWindow
 
     void SetKeyboardFocus(bool focus)
     {
-        if (disposed || (focus && ignoreInput)) return;
+        if (disposed || keyboardFocus == focus) return;
+        keyboardFocus = focus;
         layout.Flags = focus ? layout.Flags & ~WindowManagerFlags.NotFocusable
             : layout.Flags | WindowManagerFlags.NotFocusable;
         if (visible) manager.UpdateViewLayout(view, layout);
@@ -235,12 +248,31 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         }
     }
 
+    void BlurEditor()
+    {
+        if (disposed) return;
+        view.EvaluateJavascript("document.activeElement?.blur();", null);
+        SetKeyboardFocus(false);
+    }
+
+    internal static void UpdatePointer(System.Drawing.Point position, bool pressed)
+    {
+        foreach (var window in visibleWindows) {
+            int[] origin = new int[2];
+            window.view.GetLocationOnScreen(origin);
+            float x = position.X - origin[0], y = position.Y - origin[1];
+            window.view.UpdateHover(x, y);
+
+        }
+    }
+
     void DisposeSync()
     {
         if (disposed) return;
         Hide();
         disposed = true;
         documentScript?.Remove();
+        inputRegion.Detach();
         view.RemoveJavascriptInterface(BridgeName);
         view.StopLoading();
         view.Destroy();
@@ -268,13 +300,55 @@ sealed class AndroidAlifeWindow : IAlifeWindow
 
     sealed class OverlayWebView(Context context, AndroidAlifeWindow owner) : global::Android.Webkit.WebView(context)
     {
+        bool touching;
         public override bool OnTouchEvent(MotionEvent? e)
         {
-            if (e != null) {
-                // RawX/Y include the window origin; GetX/Y are viewport-local physical pixels.
-                AndroidAlifeClient.LastCursorPosition = new System.Drawing.Point((int)Math.Round(e.RawX), (int)Math.Round(e.RawY));
+            if (e?.ActionMasked == MotionEventActions.Outside) {
+                // InputDispatcher sends this for a target below this overlay, not for the
+                // IME above it. Relinquish native focus without guessing global coordinates.
+                owner.BlurEditor();
+                return true;
             }
-            return base.OnTouchEvent(e); // Preserve real pointer, click, selection, focus, IME and capture.
+            if (e?.ActionMasked == MotionEventActions.Down) touching = true;
+            bool handled = base.OnTouchEvent(e);
+            if (e?.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel) touching = false;
+            if (e != null) {
+                var position = new System.Drawing.Point((int)Math.Round(e.RawX), (int)Math.Round(e.RawY));
+                bool pressed = e.ActionMasked == MotionEventActions.Down;
+                Post(() => { if (!owner.disposed) AndroidAlifeClient.ObservePointer(position, pressed); });
+            }
+            return handled; // Preserve real pointer, click, selection, focus, IME and capture.
+        }
+
+        public override bool OnHoverEvent(MotionEvent? e)
+        {
+            bool handled = base.OnHoverEvent(e);
+            if (e != null) AndroidAlifeClient.LastCursorPosition =
+                new((int)Math.Round(e.RawX), (int)Math.Round(e.RawY));
+            return handled;
+        }
+
+        internal void UpdateHover(float x, float y)
+        {
+            if (touching) return;
+            bool inside = x >= 0 && y >= 0 && x < Width && y < Height;
+            using var pointer = new MotionEvent.PointerProperties { Id = 0, ToolType = MotionEventToolType.Mouse };
+            using var coords = new MotionEvent.PointerCoords { X = inside ? x : -1, Y = inside ? y : -1 };
+            using var motion = MotionEvent.Obtain(0, global::Android.OS.SystemClock.UptimeMillis(),
+                MotionEventActions.HoverMove, 1, [pointer], [coords], 0, 0, 1, 1, 0, 0, InputSourceType.Mouse, 0)!;
+            base.OnHoverEvent(motion);
+            if (!inside) { motion.Action = MotionEventActions.HoverExit; base.OnHoverEvent(motion); }
+        }
+
+        public override void OnWindowFocusChanged(bool hasWindowFocus)
+        {
+            base.OnWindowFocusChanged(hasWindowFocus);
+            if (!hasWindowFocus && owner.keyboardFocus) owner.BlurEditor();
+            if (hasWindowFocus && owner.keyboardFocus) Post(() => {
+                if (!owner.disposed && owner.keyboardFocus)
+                    Context!.GetSystemService(Context.InputMethodService)!.JavaCast<InputMethodManager>()?
+                        .ShowSoftInput(this, ShowFlags.Implicit);
+            });
         }
         public override bool OnGenericMotionEvent(MotionEvent? e)
         {
@@ -309,6 +383,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         public string GetMetrics() => Volatile.Read(ref window.geometryJson);
         [JavascriptInterface, Java.Interop.Export("setKeyboardFocus")]
         public void SetKeyboardFocus(bool focus) => _ = RunOnUi(() => window.SetKeyboardFocus(focus));
+
     }
 
     sealed class WindowClient(AndroidAlifeWindow owner) : WebViewClient
@@ -341,6 +416,22 @@ sealed class AndroidAlifeWindow : IAlifeWindow
             const host = window.AlifeAndroidHost;
             const handlers = [];
             let geometry = JSON.parse(host.getMetrics());
+            const scale = geometry.density / window.devicePixelRatio;
+            const viewportContent = `width=device-width, initial-scale=${scale}, minimum-scale=${scale}, maximum-scale=${scale}`;
+            function setViewport() {
+                if (!document.head) return;
+                let viewport = document.querySelector('meta[name="viewport"]');
+                if (!viewport) {
+                    viewport = document.createElement('meta');
+                    viewport.name = 'viewport';
+                    document.head.appendChild(viewport);
+                }
+                if (viewport.content !== viewportContent) viewport.content = viewportContent;
+            }
+            const observer = new MutationObserver(setViewport);
+            observer.observe(document, { childList: true, subtree: true });
+            document.addEventListener('DOMContentLoaded', () => { setViewport(); observer.disconnect(); });
+            setViewport();
             const define = (obj, name, getter) => Object.defineProperty(obj, name, { configurable: true, get: getter });
             for (const name of ['screenX', 'screenLeft']) define(window, name, () => geometry.x);
             for (const name of ['screenY', 'screenTop']) define(window, name, () => geometry.y);
@@ -356,8 +447,13 @@ sealed class AndroidAlifeWindow : IAlifeWindow
                 _dispatch(msg) { for (const handler of handlers) { try { handler(msg); } catch (e) { console.error(e); } } },
                 _setGeometry(value) { geometry = value; },
             };
-            // Preserve native PointerEvent/MouseEvent screen coordinates. They already include
-            // the overlay origin at event creation; recomputing them here races with window moves.
+            // Chromium screen coordinates retain system DIPs when the viewport is zoomed.
+            // Convert the event's own snapshot, avoiding races with window movement.
+            for (const name of ['screenX', 'screenY']) {
+                const getter = Object.getOwnPropertyDescriptor(MouseEvent.prototype, name).get;
+                Object.defineProperty(MouseEvent.prototype, name, { configurable: true,
+                    get() { return getter.call(this) / scale; } });
+            }
             document.addEventListener('focusin', event => {
                 if (event.target.matches('input,textarea,[contenteditable]')) host.setKeyboardFocus(true);
             });
@@ -372,6 +468,8 @@ sealed class AndroidAlifeWindow : IAlifeWindow
     readonly AlifeWindowOptions options;
     readonly IWindowManager manager;
     readonly OverlayWebView view;
+    readonly AndroidInputRegion inputRegion;
+    static readonly HashSet<AndroidAlifeWindow> visibleWindows = [];
     readonly WindowManagerLayoutParams layout;
     readonly IScriptHandler? documentScript;
     Rectangle bounds;
@@ -381,6 +479,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
     bool navigated;
     bool disposed;
     bool ignoreInput;
-    static readonly HashSet<AndroidAlifeWindow> visibleWindows = [];
+    bool keyboardFocus;
+    Rectangle[]? mouseInputRegions;
 }
 

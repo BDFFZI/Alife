@@ -93,6 +93,8 @@ const app = new PIXI.Application({
     transparent: true,
     backgroundAlpha: 0,
 });
+// Preserve browser click, double-click and focus defaults; CSS touch-action handles gestures.
+app.renderer.plugins.interaction.autoPreventDefault = false;
 
 let model = null;
 

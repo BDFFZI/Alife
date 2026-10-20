@@ -66,7 +66,7 @@ public sealed class WindowProbeActivity : Activity
                     await window.SetBoundsAsync(new Rectangle(data.GetProperty("x").GetInt32(), data.GetProperty("y").GetInt32(),
                         data.GetProperty("width").GetInt32(), data.GetProperty("height").GetInt32()));
                     break;
-                case "ignore": await window.SetIgnoreMouseEventsAsync(data.GetProperty("value").GetBoolean()); break;
+                case "ignore": await window.SetMouseInputRegionsAsync(data.GetProperty("value").GetBoolean() ? [] : null); break;
                 case "hide": await window.HideAsync(); break;
                 case "show": await window.ShowAsync(); break;
                 case "raise": await window.SetTopMostAsync(true); break;

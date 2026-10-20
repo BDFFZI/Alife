@@ -36,7 +36,7 @@ body:hover #topmost-toggle-btn { opacity:1; }
 #topmost-toggle-btn.faded:hover { background:rgba(0,0,0,0.35); }
 ";
     public string HtmlCode => @"
-<div id='topmost-toggle-btn' data-no-through title='维持窗口置顶'>
+<div id='topmost-toggle-btn' title='维持窗口置顶'>
     <svg id='topmost-toggle-on' viewBox='0 0 24 24' width='16' height='16' fill='currentColor'>
         <path d='M8 11h3v10h2V11h3l-4-4-4 4zM4 3v2h16V3H4z'/>
     </svg>

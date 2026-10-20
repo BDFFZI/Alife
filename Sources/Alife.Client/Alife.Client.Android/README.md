@@ -4,6 +4,13 @@ Android 客户端复用共享的 `Alife.Client` Razor UI，并像 Windows 客户
 BlazorWebView（`Microsoft.AspNetCore.Components.WebView.Maui`）在**单进程**内渲染。
 不再有独立的后端进程，也不再需要 HTTP/SignalR 桥接。
 
+## APK 签名
+
+Debug 和 Release 构建统一使用仓库中的 `Properties/alife.keystore`，不同电脑构建的同包名 APK
+可相互覆盖更新。别名为 `androiddebugkey`，密钥库和密钥密码均为 `android`。
+证书随项目共享，因此所有持有项目的人都能签署更新包。统一签名不代表 APK 内容逐字节相同。
+已安装应用若使用其他证书，不能直接被此证书签名的 APK 覆盖。
+
 ## 运行结构
 
 ```text
@@ -70,18 +77,31 @@ dotnet build Alife.Client.Android.csproj -c Release `
 
 ## 动态窗口与坐标
 
+- 主 Activity 使用系统密度的 `1/2`（`Configuration.densityDpi`，按整数 DPI 取整）。
+  Chromium 不随原生 Context 的密度改变，因此主页面和自定义 WebView 还使用 viewport 页面缩放。
+  `GetDpiScale()`、窗口 Bounds 和事件屏幕坐标采用缩放后的逻辑密度；
+  `devicePixelRatio` 仍是 Chromium 的原生值，实际 CSS 像素大小需再乘 `visualViewport.scale`。
+  系统显示设置和其他应用不受影响。
 - `GetScreenSize()` / `GetCursorPosition()` 返回物理屏幕像素。窗口 `Bounds`、
   `window.screenX/screenY`、`screen.width/height` 采用 DPI 逻辑坐标；
   `innerWidth/innerHeight` 是 WebView 内容区的 CSS 像素。物理坐标除以 `GetDpiScale()` 后
-  才能减去窗口位置得到注视/命中测试坐标。原生指针事件的 `screenX/Y` 已经是逻辑坐标，不二次换算。
+  才能减去窗口位置得到注视/命中测试坐标。页面桥将指针事件原有的 `screenX/Y` 按页面缩放比例换算，
+  不使用变化中的窗口位置重新拼接，避免拖动时的时序误差。
 - 每个窗口使用独立 `TYPE_APPLICATION_OVERLAY`，不依附主 Activity。Home 后仍显示，
   默认不抢键盘焦点、不拦截窗口外触摸；网页输入框聚焦时申请 IME 焦点。
   Android 的系统通知栏、权限页面等仍由系统决定层级，不能按 Win32 置顶规则覆盖。
-- 未提供 Bounds 时给出有效的居中尺寸；窗口位置/大小限制在当前屏幕内，旋转后重新计算。
+- 未提供 Bounds 时给出有效的居中尺寸；窗口允许最多 3/4 越出屏幕，旋转后重新计算边界。
   `BoundsChanged` 回报实际内容区域，使 DeskPet 的注视原点与原生窗口一致。
 - Shizuku 是必需环境。客户端以其 shell 身份读取触摸屏 `getevent`，处理主触点、硬件轴范围
-  和显示旋转；即使窗口 `NotTouchable`，现有 DeskPet 光标轮询/网页命中测试仍可恢复触摸。
-  不另加解锁控件。触摸没有鼠标悬停阶段，已经送给下层应用的一次按下不能追溯转交给悬浮窗。
+  和显示旋转，供 DeskPet 注视及命中测试使用。
+- `IAlifeWindow.SetMouseInputRegionsAsync` 接收客户区内的逻辑坐标矩形：null 为整窗输入，
+  空数组为整窗穿透，非空数组为局部输入。Android 使用系统触摸区域，Windows 根据鼠标位置切换穿透。
+  控件区域由调用方计算，窗口层不识别网页元素或桌宠标记；Android 第一次点击即可交互。
+- 最后一次触摸位置作为持续光标位置，在窗口层向 WebView 合成原生鼠标悬停，移出窗口后清除。
+  系统窗口外触摸或窗口失焦时同步清除网页编辑器焦点；不根据全局触摸坐标判断失焦，避免误伤软键盘输入。
+- Android 12+ 限制不透明应用悬浮窗向其他应用穿透触摸。穿透窗口按同 UID 窗口数分配透明度，
+  将叠加遮挡率控制在 0.79；单窗锁定时为 0.79，解锁后恢复 1。
+  这是原生整窗透明度，与桌宠模型自身的悬停淡出独立；不修改系统全局触摸遮挡阈值。
 - 页面桥只在 Launch 时开始导航，保证调用方能先订阅消息。支持 document-start 的 WebView
   使用 AndroidX 注入；旧 WebView 的本地 HTML 在资源读取时注入，避免 `OnPageStarted` 的时序竞争。
   旧 WebView 的 HTTP/HTTPS 窗口会明确提示升级系统 WebView。

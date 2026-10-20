@@ -55,7 +55,7 @@ body:hover #input-toggle-btn { opacity:1; }
 #input-toggle-btn.faded:hover { background:rgba(0,0,0,0.35); }
 ";
     public string HtmlCode => @"
-<div id='input-container' data-no-through>
+<div id='input-container'>
     <input type='text' id='chat-input' placeholder='来聊聊吧...' autocomplete='off'>
     <button id='send-btn'>
         <svg viewBox='0 0 24 24' width='14' height='14' fill='currentColor'>
@@ -76,6 +76,7 @@ body:hover #input-toggle-btn { opacity:1; }
     public string JsCode => @"
 (function() {
     var input = document.getElementById('chat-input');
+    window.addEventListener('blur', () => input.blur());
     var btn = document.getElementById('send-btn');
     var container = document.getElementById('input-container');
     var toggleBtn = document.getElementById('input-toggle-btn');

@@ -9,11 +9,8 @@ namespace Alife.Function.DeskPet;
 
 /// <summary>
 /// 鼠标穿透模块：在 UI 角落提供一个圆形锁图标（根据窗口在屏幕的左右半区显示在左上或右上）。
-/// 点击锁图标切换鼠标穿透。穿透开启时整个窗口对鼠标透明（点击穿透到后台），
-/// 但光标落在锁图标或标记了 data-no-through 的 UI（如输入框）上时会临时恢复鼠标响应：
-/// 锁图标始终可点击关闭、输入框悬停即显示且可点击使用，移开后恢复穿透。
-/// 因为穿透状态下渲染进程收不到鼠标事件，由本模块把光标坐标推给渲染进程，
-/// 命中测试在渲染进程内完成并回报结果（见 JsCode 中的 pointer_at）。
+/// 点击锁图标切换锁定；锁定时仅按钮和输入框所在区域接收输入。
+/// 控件区域由桌宠上报，平台窗口负责实现穿透。光标推送仅用于悬停和角色淡出。
 /// </summary>
 public class MouseThroughModule : IPetModule, IDisposable
 {
@@ -35,7 +32,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
 #lock-btn.right { right:8px; }
 ";
     public string HtmlCode => @"
-<div id='lock-btn' class='right' data-no-through title='鼠标穿透'>
+<div id='lock-btn' class='right' title='鼠标穿透'>
     <svg id='lock-open' viewBox='0 0 24 24' width='16' height='16' fill='currentColor'>
         <path d='M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z'/>
     </svg>
@@ -70,6 +67,21 @@ body:hover #lock-btn.faded { opacity:0.6; }
     setInterval(corner, 500);
     corner();
 
+    var lastRegions = '';
+    function publishRegions() {
+        var regions = [...document.querySelectorAll('#lock-btn, #input-container, #topmost-toggle-btn')]
+            .filter(el => getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden')
+            .map(el => { var r = el.getBoundingClientRect();
+                return [Math.floor(r.left), Math.floor(r.top), Math.ceil(r.right), Math.ceil(r.bottom)]; })
+            .filter(r => r[2] > r[0] && r[3] > r[1]);
+        var json = JSON.stringify(regions);
+        if (json !== lastRegions) { lastRegions = json; postMessage({type:'mouse_input_regions', regions:regions}); }
+    }
+    new MutationObserver(publishRegions).observe(document, {subtree:true, childList:true, attributes:true});
+    new ResizeObserver(publishRegions).observe(document.documentElement);
+    window.addEventListener('resize', publishRegions);
+    publishRegions();
+
     var hovered = null;
     function clearHover() {
         if (hovered) {
@@ -84,7 +96,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
         var y = msg.sy - window.screenY;
         var inside = x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
         var el = inside ? document.elementFromPoint(x, y) : null;
-        var hit = (el && el.closest('[data-no-through]')) || null;
+        var hit = (el && el.closest('#lock-btn, #input-container, #topmost-toggle-btn')) || null;
         if (hovered !== hit) {
             clearHover();
             if (hit) {
@@ -120,6 +132,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
     readonly PetWindow window;
     CancellationTokenSource? cancellationTokenSource;
     bool mouseThrough;
+    Rectangle[] inputRegions = [];
 
     /// <summary>光标移动时立即推送以保证跟手；该间隔只用于角色动作带动命中区域变化时刷新状态。</summary>
     const int IdlePushIntervalMs = 200;
@@ -145,23 +158,28 @@ body:hover #lock-btn.faded { opacity:0.6; }
             case "lock_ready":
                 bridge.SendMessage("lock_state", new { on = mouseThrough });
                 //重载页面后若仍处于锁定态需要重新建立推送，否则收不到 pointer_hit
-                if (mouseThrough)
+                if (mouseThrough) {
+                    window.Window.SetMouseInputRegionsAsync(inputRegions);
                     StartLoop();
+                }
                 break;
             case "lock_toggle":
                 SetMouseThrough(!mouseThrough);
+                break;
+            case "mouse_input_regions":
+                var rectangles = data.GetProperty("regions");
+                inputRegions = new Rectangle[rectangles.GetArrayLength()];
+                int index = 0;
+                foreach (var r in rectangles.EnumerateArray())
+                    inputRegions[index++] = Rectangle.FromLTRB(r[0].GetInt32(), r[1].GetInt32(), r[2].GetInt32(), r[3].GetInt32());
+                if (mouseThrough) window.Window.SetMouseInputRegionsAsync(inputRegions);
                 break;
             case "pointer_hit":
                 //解锁后可能仍有在途的回报，忽略以免把穿透状态错误地打开
                 if (mouseThrough == false)
                     break;
-                if (data.TryGetProperty("interactive", out JsonElement interactiveProp)
-                    && data.TryGetProperty("overModel", out JsonElement overModelProp))
-                {
-                    //光标在锁图标/输入框等交互 UI 上时临时恢复鼠标响应
-                    window.Window.SetIgnoreMouseEventsAsync(!interactiveProp.GetBoolean());
+                if (data.TryGetProperty("overModel", out JsonElement overModelProp))
                     IsCursorOverModel = overModelProp.GetBoolean();
-                }
                 break;
         }
     }
@@ -170,13 +188,13 @@ body:hover #lock-btn.faded { opacity:0.6; }
     {
         mouseThrough = enabled;
         bridge.SendMessage("lock_state", new { on = mouseThrough });
+        window.Window.SetMouseInputRegionsAsync(enabled ? inputRegions : null);
         if (enabled)
             StartLoop();
         else
         {
             StopLoop();
             IsCursorOverModel = false;
-            window.Window.SetIgnoreMouseEventsAsync(false);
         }
     }
 

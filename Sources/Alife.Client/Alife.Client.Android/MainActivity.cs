@@ -16,6 +16,9 @@ public class MainActivity : MauiAppCompatActivity
 {
     internal static MainActivity? Current { get; private set; }
 
+    protected override void AttachBaseContext(Context? newBase)
+        => base.AttachBaseContext(AndroidDisplay.CreateScaledContext(newBase!));
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);

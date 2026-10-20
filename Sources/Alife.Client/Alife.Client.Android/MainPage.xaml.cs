@@ -7,6 +7,7 @@ public class MainPage : ContentPage
         Microsoft.AspNetCore.Components.WebView.Maui.BlazorWebView webView = new() {
             HostPage = "wwwroot/index.html"
         };
+        webView.BlazorWebViewInitialized += (_, e) => AndroidDisplay.ConfigureWebView(e.WebView);
         webView.RootComponents.Add(new Microsoft.AspNetCore.Components.WebView.Maui.RootComponent {
             Selector = "#app",
             ComponentType = typeof(Components.Routes)

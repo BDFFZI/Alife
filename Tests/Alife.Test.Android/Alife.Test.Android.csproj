@@ -2,7 +2,7 @@
   <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
     <Compile Include="TouchDecoderTests.cs" />
-    <Compile Include="../../Sources/Alife.Client/Alife.Client.Android/AndroidTouchDecoder.cs" Link="AndroidTouchDecoder.cs" />
+    <Compile Include="../../sources/Alife.Client/Alife.Client.Android/Instrument/AndroidTouchDecoder.cs" Link="AndroidTouchDecoder.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />

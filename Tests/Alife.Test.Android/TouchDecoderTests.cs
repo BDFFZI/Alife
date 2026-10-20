@@ -15,6 +15,10 @@ public class TouchDecoderTests
         Assert.That(decoder.Read("EV_SYN SYN_REPORT 00000000", out double x, out double y), Is.True);
         Assert.That(x, Is.EqualTo(.5));
         Assert.That(y, Is.EqualTo(.5));
+        Assert.That(decoder.IsContactStart, Is.True);
+        decoder.Read("EV_ABS ABS_MT_POSITION_X 00000227", out _, out _);
+        decoder.Read("EV_SYN SYN_REPORT 00000000", out _, out _);
+        Assert.That(decoder.IsContactStart, Is.False, "Moving an existing contact must not steal editor focus.");
     }
 
     [Test]
@@ -45,5 +49,6 @@ public class TouchDecoderTests
         decoder.Read("EV_ABS ABS_MT_TRACKING_ID 00000002", out _, out _);
         Assert.That(decoder.Read("EV_SYN SYN_REPORT 00000000", out double x, out double y), Is.True);
         Assert.That((x,y), Is.EqualTo((.5,.5)));
+        Assert.That(decoder.IsContactStart, Is.True);
     }
 }

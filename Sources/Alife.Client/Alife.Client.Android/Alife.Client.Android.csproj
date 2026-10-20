@@ -23,6 +23,15 @@
         <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
     </PropertyGroup>
 
+    <!-- All configurations share the repository signing identity. -->
+    <PropertyGroup>
+        <AndroidKeyStore>true</AndroidKeyStore>
+        <AndroidSigningKeyStore>$(MSBuildProjectDirectory)/Properties/alife.keystore</AndroidSigningKeyStore>
+        <AndroidSigningKeyAlias>androiddebugkey</AndroidSigningKeyAlias>
+        <AndroidSigningStorePass>android</AndroidSigningStorePass>
+        <AndroidSigningKeyPass>android</AndroidSigningKeyPass>
+    </PropertyGroup>
+
     <!-- 只保留一张图标母版，构建时由 MAUI 生成各密度资源。 -->
     <ItemGroup>
         <AndroidResource Remove="Resources/AppIcon/**" />

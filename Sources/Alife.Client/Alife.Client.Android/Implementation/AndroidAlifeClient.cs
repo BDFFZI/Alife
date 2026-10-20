@@ -70,7 +70,13 @@ public sealed class AndroidAlifeClient(
             long value = Interlocked.Read(ref LastCursor);
             return value < 0 ? default : new((int)(value >> 32), (int)value);
         }
-        set => Interlocked.Exchange(ref LastCursor, ((long)value.X << 32) | (uint)value.Y);
+        set => ObservePointer(value);
+    }
+
+    internal static void ObservePointer(System.Drawing.Point position, bool pressed = false)
+    {
+        Interlocked.Exchange(ref LastCursor, ((long)position.X << 32) | (uint)position.Y);
+        MainThread.BeginInvokeOnMainThread(() => AndroidAlifeWindow.UpdatePointer(position, pressed));
     }
 }
 

@@ -119,13 +119,26 @@ sealed partial class WindowsAlifeWindow : Form, IAlifeWindow
         TopMost = topMost;
         return Task.CompletedTask;
     }
-    public Task SetIgnoreMouseEventsAsync(bool ignore)
+    public Task SetMouseInputRegionsAsync(Rectangle[]? regions)
     {
+        var snapshot = regions?.ToArray();
+        if (InvokeRequired)
+            return Invoke(() => SetMouseInputRegionsAsync(snapshot));
+        mouseInputRegions = snapshot;
+        inputRegionTimer.Enabled = snapshot is { Length: > 0 };
+        UpdateMouseInputRegion();
+        return Task.CompletedTask;
+    }
+
+    void UpdateMouseInputRegion()
+    {
+        Point physical = PointToClient(Cursor.Position);
+        var cursor = new PointF(physical.X / dpiScale, physical.Y / dpiScale);
+        bool ignore = mouseInputRegions != null && !mouseInputRegions.Any(r =>
+            cursor.X >= r.Left && cursor.X < r.Right && cursor.Y >= r.Top && cursor.Y < r.Bottom);
         int style = GetWindowLong(Handle, GWL_EXSTYLE);
         int next = ignore ? style | WS_EX_TRANSPARENT : style & ~WS_EX_TRANSPARENT;
-        if (next != style)
-            SetWindowLong(Handle, GWL_EXSTYLE, next);
-        return Task.CompletedTask;
+        if (next != style) SetWindowLong(Handle, GWL_EXSTYLE, next);
     }
 
     public Task PostMessageAsync(string messageJson)
@@ -165,6 +178,8 @@ sealed partial class WindowsAlifeWindow : Form, IAlifeWindow
 
     readonly AlifeWindowOptions options;
     readonly float dpiScale;
+    Rectangle[]? mouseInputRegions;
+    readonly System.Windows.Forms.Timer inputRegionTimer = new() { Interval = 16 };
     WebView2? webView;
     const string BridgeScript = """
                                 (function () {
@@ -208,6 +223,11 @@ sealed partial class WindowsAlifeWindow : Form, IAlifeWindow
     public WindowsAlifeWindow(AlifeWindowOptions options)
     {
         this.options = options;
+        inputRegionTimer.Tick += (_, _) => {
+            // Preserve the input receiver until a press or drag completes.
+            if (Control.MouseButtons == MouseButtons.None) UpdateMouseInputRegion();
+        };
+        Disposed += (_, _) => inputRegionTimer.Dispose();
 
         SetStyle(ControlStyles.SupportsTransparentBackColor, true);
         dpiScale = DeviceDpi / 96f;

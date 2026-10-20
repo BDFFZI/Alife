@@ -12,11 +12,16 @@ internal sealed class AndroidTouchDecoder(int minX, int maxX, int minY, int maxY
     bool active;
     bool hasX;
     bool hasY;
+    bool contactStarted;
+    public bool IsContactStart { get; private set; }
     public bool Read(string line, out double normalizedX, out double normalizedY)
     {
         normalizedX = normalizedY = 0;
+        IsContactStart = false;
         if (line.Contains("SYN_REPORT")) {
             if (!active || !hasX || !hasY) return false;
+            IsContactStart = contactStarted;
+            contactStarted = false;
             normalizedX = Math.Clamp((x - minX) / (double)(maxX - minX), 0, 1);
             normalizedY = Math.Clamp((y - minY) / (double)(maxY - minY), 0, 1);
             return true;
@@ -28,7 +33,7 @@ internal sealed class AndroidTouchDecoder(int minX, int maxX, int minY, int maxY
         if (code == "ABS_MT_SLOT") slot = value;
         else if (slot == 0) {
             switch (code) {
-                case "ABS_MT_TRACKING_ID": active = value >= 0;  break;
+                case "ABS_MT_TRACKING_ID": active = value >= 0; contactStarted = active; break;
                 case "ABS_MT_POSITION_X": x = value; hasX = true; break;
                 case "ABS_MT_POSITION_Y": y = value; hasY = true; break;
             }

@@ -320,17 +320,38 @@ public sealed class AndroidAlifeApplication(
         if (headers.TryGetValue("Expect", out string? expect) && expect.Contains("100-continue", StringComparison.OrdinalIgnoreCase))
             await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 100 Continue\r\n\r\n"), cancellationToken);
 
-        int contentLength = headers.TryGetValue("Content-Length", out string? lengthText) && int.TryParse(lengthText, out int parsed)
-            ? parsed
-            : 0;
-        byte[] body = new byte[contentLength];
-        int offset = 0;
-        while (offset < contentLength)
+        byte[] body;
+        // The MCP .NET client streams JSON using HTTP/1.1 chunked encoding.
+        if (headers.TryGetValue("Transfer-Encoding", out string? encoding) &&
+            encoding.Equals("chunked", StringComparison.OrdinalIgnoreCase))
         {
-            int read = await stream.ReadAsync(body.AsMemory(offset), cancellationToken);
-            if (read <= 0)
-                break;
-            offset += read;
+            using MemoryStream decoded = new();
+            while (true)
+            {
+                string line = await ReadLineAsync(stream, cancellationToken)
+                    ?? throw new EndOfStreamException();
+                int size = int.Parse(line.Split(';', 2)[0], System.Globalization.NumberStyles.HexNumber,
+                    System.Globalization.CultureInfo.InvariantCulture);
+                if (size == 0)
+                {
+                    while (!string.IsNullOrEmpty(await ReadLineAsync(stream, cancellationToken))) { }
+                    break;
+                }
+                byte[] chunk = new byte[size];
+                await stream.ReadExactlyAsync(chunk, cancellationToken);
+                await decoded.WriteAsync(chunk, cancellationToken);
+                if (await ReadLineAsync(stream, cancellationToken) != "")
+                    throw new InvalidDataException("Invalid HTTP chunk terminator.");
+            }
+            body = decoded.ToArray();
+        }
+        else
+        {
+            int contentLength = headers.TryGetValue("Content-Length", out string? lengthText) && int.TryParse(lengthText, out int parsed)
+                ? parsed
+                : 0;
+            body = new byte[contentLength];
+            await stream.ReadExactlyAsync(body, cancellationToken);
         }
 
         return new HttpRequest(parts[0], parts[1], headers, body);
