@@ -21,7 +21,9 @@ public class UsingModule(PetWindow bridge) : IPetModule
     width:6px; height:6px;
     background-color:#1890ff; border-radius:50%;
     animation:bounce 1.4s infinite ease-in-out both;
+    animation-play-state:paused;
 }
+#thinking-indicator.show .dot { animation-play-state:running; }
 .dot:nth-child(1) { animation-delay:-0.32s; }
 .dot:nth-child(2) { animation-delay:-0.16s; }
 @keyframes bounce {

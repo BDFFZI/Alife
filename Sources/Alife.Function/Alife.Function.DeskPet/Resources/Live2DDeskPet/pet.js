@@ -95,6 +95,11 @@ const app = new PIXI.Application({
 });
 // Preserve browser click, double-click and focus defaults; CSS touch-action handles gestures.
 app.renderer.plugins.interaction.autoPreventDefault = false;
+// Limit both rendering and Live2D updates on phones; their tickers are independent.
+if (/Android/i.test(navigator.userAgent)) {
+    app.ticker.maxFPS = 30;
+    PIXI.Ticker.shared.maxFPS = 30;
+}
 
 let model = null;
 
@@ -153,14 +158,3 @@ async function loadModel(url) {
 
 // ---- 初始化完成 ----
 postMessage({type: 'init'});
-
-document.addEventListener("mousemove", e => {
-    console.log("鼠标屏幕位置:", `${e.screenX}, ${e.screenY}`);
-    console.log("鼠标视口位置:", `${e.clientX}, ${e.clientY}`);
-    console.log("鼠标网页位置:", `${e.pageX}, ${e.pageY}`);
-
-    console.log("屏幕大小:", `${screen.width} × ${screen.height}`);
-    console.log("屏幕可用大小:", `${screen.availWidth} × ${screen.availHeight}`);
-    console.log("视口大小:", `${innerWidth} × ${innerHeight}`);
-    console.log("浏览器窗口大小:", `${outerWidth} × ${outerHeight}`);
-});
