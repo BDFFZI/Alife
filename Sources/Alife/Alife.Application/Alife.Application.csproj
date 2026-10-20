@@ -10,6 +10,7 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="ModelContextProtocol.Core" Version="1.1.0"/>
+        <PackageReference Include="NuGet.Commands" Version="7.9.0"/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="AntDesign" Version="1.6.2"/>

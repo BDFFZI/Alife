@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Foundation;
@@ -14,9 +15,15 @@ public static class AlifeFoundation
     }
     public static void InitAlifeFoundation(this IServiceProvider provider)
     {
-        AlifeLog.Initialize(); //激活静态日志功能
-        AlifeMirror.Initialize(); //激活网络镜像功能
         Instance = provider.GetRequiredService<IAlifeFoundation>();
+
+        //每次清空缓存
+        string tempFolderPath = Instance.TempFolderPath;
+        Directory.Delete(tempFolderPath, recursive: true);
+        Directory.CreateDirectory(tempFolderPath);
+
+        AlifeLog.Initialize(Instance); //初始化静态日志系统
+        AlifeMirror.Initialize(); //初始化网络镜像系统
     }
 
     public static void AddSingletonChain<TService, TImplementation>(this IServiceCollection services)

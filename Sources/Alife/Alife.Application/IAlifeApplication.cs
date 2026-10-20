@@ -5,6 +5,14 @@ namespace Alife.Framework;
 
 public interface IAlifeApplication
 {
+    #region AlifeMcp功能
+
+    Uri? AlifeMcpServer { get; }
+
+    Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools);
+
+    #endregion
+
     #region 文件对话框功能
 
     Task RevealFolderAsync(string path);
@@ -33,11 +41,12 @@ public interface IAlifeApplication
 
     #endregion
 
-    #region AlifeMcp功能
+    #region Python执行功能
 
-    Uri? AlifeMcpServer { get; }
-
-    Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools);
+    /// <summary>启动一个 Python 脚本进程。</summary>
+    /// <param name="scriptPath">脚本路径。</param>
+    /// <param name="pythonExe">可选的 Python 可执行文件；Android 仅支持设备内置 Python。</param>
+    IAlifeProcess StartPython(string scriptPath, string? pythonExe = null);
 
     #endregion
 }

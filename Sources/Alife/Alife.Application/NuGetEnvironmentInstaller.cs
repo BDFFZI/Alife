@@ -1,6 +1,16 @@
 ﻿using System.Runtime.Loader;
 using System.Text.Json;
 using Alife.Foundation;
+using NuGet.Commands;
+using NuGet.Common;
+using NuGet.Configuration;
+using NuGet.Frameworks;
+using NuGet.LibraryModel;
+using NuGet.Packaging.Signing;
+using NuGet.ProjectModel;
+using NuGet.Protocol;
+using NuGet.Protocol.Core.Types;
+using NuGet.Versioning;
 
 namespace Alife.Framework;
 
@@ -11,7 +21,7 @@ public abstract class NuGetEnvironmentInstaller : IEnvironmentInstaller
     {
         DependencyResolver resolver = new();
         resolver.AddDependencies(environment);
-        ResolvePackages(resolver);
+        await ResolvePackages(resolver);
         await LoadResolvedEnvironment();
     }
     public async Task LoadResolvedEnvironment()
@@ -43,15 +53,9 @@ public abstract class NuGetEnvironmentInstaller : IEnvironmentInstaller
     }
 
     /// <summary>
-    /// 允许为不同的操作系统设置不同的架构目标来获得平台原生的开发体验
+    /// 为不同的操作系统设置不同的目标框架
     /// </summary>
-    /// <returns></returns>
-    protected abstract string GetNuGetPropertyGroup();
-    /// <summary>
-    /// 不同的平台可调用的指令形式不同
-    /// </summary>
-    /// <param name="projectFile"></param>
-    protected abstract void RestoreNuGetPackages(string projectFile);
+    protected abstract NuGetFramework GetTargetFramework();
 
     readonly CSharpCompiler csharpCompiler;
     readonly string packagesResolverOutput = Path.Combine(AlifePath.RuntimeFolderPath, "PluginEnvironment", "NuGetPackagesResolver");
@@ -65,47 +69,131 @@ public abstract class NuGetEnvironmentInstaller : IEnvironmentInstaller
         Directory.CreateDirectory(packagesResolverOutput);
     }
 
-    void ResolvePackages(DependencyResolver resolver)
+    async Task ResolvePackages(DependencyResolver resolver)
     {
         Directory.CreateDirectory(packagesResolverOutput);
+        string objDirectory = Path.Combine(packagesResolverOutput, "obj");
+        Directory.CreateDirectory(objDirectory);
 
-        string refs = string.Join("\n",
-            resolver.GetDependencyLimit().Select(dep => {
+        NuGetFramework framework = GetTargetFramework();
+        List<LibraryDependency> dependencies = resolver.GetDependencyLimit()
+            .Select(dep => {
                 string spec = FormatVersionSpec(dep.Min, dep.Max);
-                return $"    <PackageReference Include=\"{dep.Name}\" Version=\"{spec}\" />";
-            }));
+                return new LibraryDependency(new LibraryRange(dep.Name, VersionRange.Parse(spec), LibraryDependencyTarget.Package));
+            })
+            .ToList();
 
-        string csproj = $"""
-                         <Project Sdk="Microsoft.NET.Sdk">
-                           <PropertyGroup>
-                             {GetNuGetPropertyGroup()}
-                           </PropertyGroup>
-                           <ItemGroup>
-                         {refs}
-                           </ItemGroup>
-                         </Project>
-                         """;
+        TargetFrameworkInformation target = new()
+        {
+            FrameworkName = framework,
+            AssetTargetFallback = true,
+            Dependencies = [.. dependencies]
+        };
 
         string projectFile = Path.Combine(packagesResolverOutput, "Project.csproj");
-        File.WriteAllText(projectFile, csproj);
-        RestoreNuGetPackages(projectFile);
-
-        static string FormatVersionSpec(string min, string max)
+        PackageSpec spec = new([target])
         {
-            bool hasMin = min != "0.0.0";
-            bool hasMax = max != "99999.0.0";
+            FilePath = projectFile,
+            Name = "Project",
+            Version = new NuGetVersion(1, 0, 0),
+            RestoreMetadata = new ProjectRestoreMetadata
+            {
+                ProjectStyle = ProjectStyle.PackageReference,
+                ProjectPath = projectFile,
+                ProjectName = "Project",
+                ProjectUniqueName = projectFile,
+                OutputPath = objDirectory,
+                PackagesPath = GetGlobalPackagesFolder(),
+                Sources = GetPackageSources(),
+                TargetFrameworks = [new ProjectRestoreMetadataFrameworkInfo(framework)],
+                OriginalTargetFrameworks = [framework.GetShortFolderName()],
+                ConfigFilePaths = [],
+                FallbackFolders = [],
+                UsingMicrosoftNETSdk = true,
+                RestoreAuditProperties = new RestoreAuditProperties()
+            }
+        };
 
-            if (hasMin && hasMax && min == max)
-                return min;
-            if (hasMin && hasMax)
-                return $"[{min},{max}]";
-            if (hasMin)
-                return $"[{min},)";
-            if (hasMax)
-                return $"(,{max}]";
-            return "*";
+        ISettings settings = Settings.LoadDefaultSettings(packagesResolverOutput);
+        SourceCacheContext cache = new();
+        ILogger logger = NullLogger.Instance;
+        RestoreCommandProviders providers = new RestoreCommandProvidersCache().GetOrCreate(
+            spec.RestoreMetadata.PackagesPath,
+            [],
+            spec.RestoreMetadata.Sources.Select(source => Repository.Factory.GetCoreV3(source)).ToList(),
+            cache,
+            logger,
+            updateLastAccess: false);
+
+        string lockFilePath = Path.Combine(objDirectory, "project.assets.json");
+        RestoreRequest request = new(
+            spec,
+            providers,
+            cache,
+            ClientPolicyContext.GetClientPolicy(settings, logger),
+            new PackageSourceMapping(new Dictionary<string, IReadOnlyList<string>>()),
+            logger,
+            new LockFileBuilderCache())
+        {
+            LockFilePath = lockFilePath,
+            MSBuildProjectExtensionsPath = objDirectory,
+            RestoreOutputPath = objDirectory,
+            AllowNoOp = false,
+            RestoreForceEvaluate = true,
+            ProjectStyle = ProjectStyle.PackageReference,
+            ValidateRuntimeAssets = true
+        };
+
+        RestoreResult result = await new RestoreCommand(request).ExecuteAsync(CancellationToken.None);
+        if (!result.Success || result.LockFile is null)
+        {
+            string messages = string.Join("\n", result.LogMessages
+                .Where(message => message.Level >= LogLevel.Warning)
+                .Select(message => $"{message.Level} {message.Code}"));
+            if (result.LockFile is null)
+                throw new InvalidOperationException($"NuGet restore failed.\n{messages}");
+            AlifeLog.LogWarning($"NuGet restore completed with signature warnings.\n{messages}");
         }
+
+        new LockFileFormat().Write(lockFilePath, result.LockFile!);
     }
+
+    static string GetGlobalPackagesFolder()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string folder = Path.Combine(home, ".nuget", "packages");
+        Directory.CreateDirectory(folder);
+        return folder;
+    }
+
+    static List<PackageSource> GetPackageSources()
+    {
+        ISettings settings = Settings.LoadDefaultSettings(null);
+        List<PackageSource> sources = new PackageSourceProvider(settings)
+            .LoadPackageSources()
+            .Where(source => source.IsEnabled)
+            .ToList();
+        if (sources.Count == 0)
+            sources.Add(new PackageSource("https://api.nuget.org/v3/index.json"));
+        return sources;
+    }
+
+    static string FormatVersionSpec(string min, string max)
+    {
+        bool hasMin = min != "0.0.0";
+        bool hasMax = max != "99999.0.0";
+
+        if (hasMin && hasMax && min == max)
+            return min;
+        if (hasMin && hasMax)
+            return $"[{min},{max}]";
+        if (hasMin)
+            return $"[{min},)";
+        if (hasMax)
+            return $"(,{max}]";
+        return "*";
+    }
+
     bool GrabPackageList()
     {
         string assetsFile = Path.Combine(packagesResolverOutput, "obj", "project.assets.json");
@@ -113,9 +201,7 @@ public abstract class NuGetEnvironmentInstaller : IEnvironmentInstaller
         string json = File.ReadAllText(assetsFile);
         using var doc = JsonDocument.Parse(json);
 
-        string nugetCache = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".nuget", "packages");
+        string nugetCache = GetGlobalPackagesFolder();
 
         string rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
 
