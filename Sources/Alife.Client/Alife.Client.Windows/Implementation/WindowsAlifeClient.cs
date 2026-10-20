@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Alife.Client.Windows;
 
-public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlifeClient, IAlifeClientInitialize
+public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlifeClient
 {
     public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
@@ -128,11 +128,4 @@ public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) :
     const string LauncherFileName = "Alife.Client.Windows.exe";
     static readonly string InstallRoot = AppContext.BaseDirectory;
     static readonly string LauncherPath = Path.Combine(InstallRoot, LauncherFileName);
-
-    public async Task OnInitializeAsync(IProgress<string>? progress)
-    {
-        //重定向环境变量，例如修正python路径
-        progress?.Report("正在初始化系统环境...");
-        await Task.Run(WindowsEnvironment.SyncEnvironment);
-    }
 }

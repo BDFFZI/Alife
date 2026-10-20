@@ -118,7 +118,7 @@ public class PetWindowTests
         public Task Launch() { Send("{\"type\":\"init\"}"); return Task.CompletedTask; }
         public Rectangle[]? InputRegions { get; private set; }
         public int InputRegionUpdates { get; private set; }
-        public Task SetMouseInputRegionsAsync(Rectangle[]? regions)
+        public Task SetInputRegionsAsync(Rectangle[]? regions)
         {
             InputRegions = regions;
             InputRegionUpdates++;

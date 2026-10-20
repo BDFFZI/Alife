@@ -159,7 +159,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
                 bridge.SendMessage("lock_state", new { on = mouseThrough });
                 //重载页面后若仍处于锁定态需要重新建立推送，否则收不到 pointer_hit
                 if (mouseThrough) {
-                    window.Window.SetMouseInputRegionsAsync(inputRegions);
+                    window.Window.SetInputRegionsAsync(inputRegions);
                     StartLoop();
                 }
                 break;
@@ -172,7 +172,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
                 int index = 0;
                 foreach (var r in rectangles.EnumerateArray())
                     inputRegions[index++] = Rectangle.FromLTRB(r[0].GetInt32(), r[1].GetInt32(), r[2].GetInt32(), r[3].GetInt32());
-                if (mouseThrough) window.Window.SetMouseInputRegionsAsync(inputRegions);
+                if (mouseThrough) window.Window.SetInputRegionsAsync(inputRegions);
                 break;
             case "pointer_hit":
                 //解锁后可能仍有在途的回报，忽略以免把穿透状态错误地打开
@@ -188,7 +188,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
     {
         mouseThrough = enabled;
         bridge.SendMessage("lock_state", new { on = mouseThrough });
-        window.Window.SetMouseInputRegionsAsync(enabled ? inputRegions : null);
+        window.Window.SetInputRegionsAsync(enabled ? inputRegions : null);
         if (enabled)
             StartLoop();
         else

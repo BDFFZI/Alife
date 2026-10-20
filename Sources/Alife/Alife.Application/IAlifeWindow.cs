@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Alife.Client;
 
@@ -31,7 +31,7 @@ public interface IAlifeWindow : IAsyncDisposable
     /// 设置接收鼠标/触摸输入的区域，采用客户区内的 DPI 逻辑坐标。
     /// null 表示整窗接收输入，空数组表示整窗穿透，否则仅指定区域接收输入。
     /// </summary>
-    Task SetMouseInputRegionsAsync(Rectangle[]? regions) => throw new NotSupportedException();
+    Task SetInputRegionsAsync(Rectangle[]? regions) => throw new NotSupportedException();
 
     /// <summary>
     /// 接受前端消息（需让前端支持用 window.alifeWindow.postMessage(obj | string) 发消息）

@@ -119,11 +119,11 @@ sealed partial class WindowsAlifeWindow : Form, IAlifeWindow
         TopMost = topMost;
         return Task.CompletedTask;
     }
-    public Task SetMouseInputRegionsAsync(Rectangle[]? regions)
+    public Task SetInputRegionsAsync(Rectangle[]? regions)
     {
         var snapshot = regions?.ToArray();
         if (InvokeRequired)
-            return Invoke(() => SetMouseInputRegionsAsync(snapshot));
+            return Invoke(() => SetInputRegionsAsync(snapshot));
         mouseInputRegions = snapshot;
         inputRegionTimer.Enabled = snapshot is { Length: > 0 };
         UpdateMouseInputRegion();
