@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 using Alife.Foundation;
 
 namespace Alife.Client.Windows;
@@ -10,45 +8,6 @@ public class WindowsAlifeFoundation : IAlifeFoundation
     public string AppVersion => Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
     public string StorageFolderPath => storageFolderPath;
     public string RuntimeFolderPath => runtimeFolderPath;
-
-    public CommandResult Command(string fileName, string arguments)
-    {
-        ProcessStartInfo psi = new() {
-            FileName = "cmd.exe",
-            Arguments = $"/c chcp 65001 > nul && {fileName} {arguments}",
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        using Process? process = Process.Start(psi);
-        if (process == null)
-            throw new Exception("进程不存在，无法启动。");
-
-        StringBuilder stdoutBuilder = new();
-        StringBuilder stderrBuilder = new();
-        process.OutputDataReceived += (_, e) => {
-            Console.WriteLine(e.Data);
-            stdoutBuilder.AppendLine(e.Data);
-        };
-        process.ErrorDataReceived += (_, e) => {
-            Console.WriteLine(e.Data);
-            stderrBuilder.AppendLine(e.Data);
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        process.WaitForExit();
-
-        CommandResult commandResult = new() {
-            ExitCode = process.ExitCode,
-            StandardOutput = stdoutBuilder.ToString().Trim(),
-            StandardError = stderrBuilder.ToString().Trim(),
-        };
-
-        return commandResult;
-    }
 
     public void SetStorageFolderPath(string path)
     {

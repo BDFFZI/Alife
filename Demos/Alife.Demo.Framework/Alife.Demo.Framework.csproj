@@ -28,6 +28,9 @@
         <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Implementation\WindowsPipEnvironmentInstaller.cs">
             <Link>WindowsPipEnvironmentInstaller.cs</Link>
         </Compile>
+        <Compile Include="..\..\Sources\Alife.Client\Alife.Client.Windows\Instrument\WindowsCommand.cs">
+          <Link>WindowsCommand.cs</Link>
+        </Compile>
         <Compile Include="..\..\Sources\Alife.Client\Alife.Client\AlifeClientConfig.cs">
             <Link>AlifeClientConfig.cs</Link>
         </Compile>

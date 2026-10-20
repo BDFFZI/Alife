@@ -99,7 +99,7 @@ public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) :
     {
         try
         {
-            string result = AlifeUtility.Command("schtasks", $"/query /tn \"{AutoStartTaskName}\" /fo csv /nh").StandardOutput;
+            string result = WindowsCommand.Run("schtasks", $"/query /tn \"{AutoStartTaskName}\" /fo csv /nh").StandardOutput;
             return result.Contains(AutoStartTaskName);
         }
         catch
@@ -109,7 +109,7 @@ public class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) :
     }
     public void SetAutoStart(bool value)
     {
-        AlifeUtility.Command("schtasks", value
+        WindowsCommand.Run("schtasks", value
             ? $"/create /tn \"{AutoStartTaskName}\" /tr \"\\\"{LauncherPath}\\\"\" /sc onlogon /rl highest /f"
             : $"/delete /tn \"{AutoStartTaskName}\" /f");
     }

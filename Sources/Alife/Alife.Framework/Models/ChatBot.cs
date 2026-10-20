@@ -32,6 +32,7 @@ public class ChatBot : IAsyncDisposable
 
     public event Func<string, string>? PokeSend; //Poke消息过滤
     public event Func<string, string>? ChatSend; //消息过滤
+    public event Action<ChatMessageContent>? ChatContentSend; //消息发送后
 
     public event Action<string>? ChatSent; //消息发送后
     public event Action<string>? ChatReceived; //接收到消息
@@ -119,24 +120,40 @@ public class ChatBot : IAsyncDisposable
                     message.Content += "\n\n" + poke;
 
                 //预处理用户消息
-                if (ChatSend != null)
                 {
-                    foreach (Func<string, string> func in ChatSend.GetInvocationList().Cast<Func<string, string>>())
+                    if (ChatContentSend != null)
                     {
-                        try
+                        foreach (Action<ChatMessageContent> func in ChatContentSend.GetInvocationList().Cast<Action<ChatMessageContent>>())
                         {
-                            message.Content = func(message.Content ?? "");
+                            try
+                            {
+                                func(message);
+                            }
+                            catch (Exception ex)
+                            {
+                                AlifeLog.LogError(ex);
+                            }
                         }
-                        catch (Exception ex)
+                    }
+
+                    if (ChatSend != null)
+                    {
+                        foreach (Func<string, string> func in ChatSend.GetInvocationList().Cast<Func<string, string>>())
                         {
-                            AlifeLog.LogError(ex);
+                            try
+                            {
+                                message.Content = func(message.Content ?? "");
+                            }
+                            catch (Exception ex)
+                            {
+                                AlifeLog.LogError(ex);
+                            }
                         }
                     }
                 }
 
                 //装载用户消息
-                await EditChatHistoryAsync(thread =>
-                {
+                await EditChatHistoryAsync(thread => {
                     thread.ChatHistory.Add(message);
                     ChaseChatHistory(thread);
                     return Task.CompletedTask;
@@ -158,15 +175,13 @@ public class ChatBot : IAsyncDisposable
             string aiMessage = "";
             StringBuilder aiThinking = new();
             //装载AI消息
-            await EditChatHistoryAsync(async thread =>
-            {
+            await EditChatHistoryAsync(async thread => {
                 if (languageModel == null)
                     error = new Exception("未检测到可用的语言模型");
                 else
                     aiMessage = await languageModel.ChatStreamingAsync(
                         thread,
-                        text =>
-                        {
+                        text => {
                             try
                             {
                                 ChatReceived?.Invoke(text);
@@ -176,8 +191,7 @@ public class ChatBot : IAsyncDisposable
                                 AlifeLog.LogError(e);
                             }
                         },
-                        think =>
-                        {
+                        think => {
                             try
                             {
                                 aiThinking.Append(think);
@@ -188,9 +202,10 @@ public class ChatBot : IAsyncDisposable
                                 AlifeLog.LogError(e);
                             }
                         },
-                        usage => { tokenUsage += usage; },
-                        exception =>
-                        {
+                        usage => {
+                            tokenUsage += usage;
+                        },
+                        exception => {
                             if (exception is not OperationCanceledException)
                                 error = exception;
                         },
@@ -302,9 +317,7 @@ public class ChatBot : IAsyncDisposable
         {
             await ChatAsync(content);
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             AlifeLog.LogError(e);
@@ -389,9 +402,7 @@ public class ChatBot : IAsyncDisposable
                 await Task.Delay(timeSpan, cancellationToken);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

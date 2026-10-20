@@ -9,6 +9,6 @@ public class WindowsPipEnvironmentInstaller : PipEnvironmentInstaller
     {
         string packageListOutput = Path.Combine(AlifePath.RuntimeFolderPath, "PluginEnvironment", "PipPackages.txt");
         await File.WriteAllLinesAsync(packageListOutput, items.Select(dep => $"{dep.Key}{dep.Value}"));
-        AlifeUtility.Command("python", $"-m pip install -r \"{packageListOutput}\"");
+        WindowsCommand.Run("python", $"-m pip install -r \"{packageListOutput}\"");
     }
 }

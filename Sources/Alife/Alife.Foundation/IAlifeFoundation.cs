@@ -12,5 +12,4 @@ public interface IAlifeFoundation
     public string AppVersion { get; }
     public string StorageFolderPath { get; }
     public string RuntimeFolderPath { get; }
-    public CommandResult Command(string fileName, string arguments);
 }

@@ -45,7 +45,7 @@ public static class WindowsEnvironment
 
         //检查Dotnet
         {
-            string output = AlifeUtility.Command("dotnet", "--list-sdks").StandardOutput;
+            string output = WindowsCommand.Run("dotnet", "--list-sdks").StandardOutput;
             IsDotNetSdkReady = output.Contains("10.");
         }
 
@@ -95,7 +95,7 @@ public static class WindowsEnvironment
             }
             else
             {
-                string output = AlifeUtility.Command("python", "-c \"import torch; print(torch.version.cuda or 'none')\"").StandardOutput;
+                string output = WindowsCommand.Run("python", "-c \"import torch; print(torch.version.cuda or 'none')\"").StandardOutput;
                 IsCudaReady = output.Contains("12.");
             }
         }
@@ -108,7 +108,7 @@ public static class WindowsEnvironment
         await AlifeUtility.DownloadFileAsync("https://aka.ms/vs/17/release/vc_redist.x64.exe", tempExe);
 
         progress?.Report("正在静默安装 Visual C++ Redistributable...");
-        AlifeUtility.Command(tempExe, "/install /quiet /norestart");
+        WindowsCommand.Run(tempExe, "/install /quiet /norestart");
         File.Delete(tempExe);
 
         progress?.Report("Visual C++ 安装完成");
@@ -120,7 +120,7 @@ public static class WindowsEnvironment
         await AlifeUtility.DownloadFileAsync("https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.301/dotnet-sdk-10.0.301-win-x64.exe", tempExe);
 
         progress?.Report("正在安装 .NET SDK 10...");
-        AlifeUtility.Command(tempExe, "/install /quiet /norestart");
+        WindowsCommand.Run(tempExe, "/install /quiet /norestart");
         File.Delete(tempExe);
 
         progress?.Report("正在刷新环境变量...");
@@ -152,11 +152,11 @@ public static class WindowsEnvironment
         string getPyUrl = "https://bootstrap.pypa.io/get-pip.py";
         string getPyPath = Path.Combine(Path.GetTempPath(), "get-pip.py");
         await AlifeUtility.DownloadFileAsync(getPyUrl, getPyPath);
-        AlifeUtility.Command(pyExe, $"\"{getPyPath}\" --no-warn-script-location");
+        WindowsCommand.Run(pyExe, $"\"{getPyPath}\" --no-warn-script-location");
 
         progress?.Report("正在安装 setuptools / wheel...");
 
-        AlifeUtility.Command(pyExe, "-m pip install --upgrade pip setuptools wheel --quiet --no-warn-script-location");
+        WindowsCommand.Run(pyExe, "-m pip install --upgrade pip setuptools wheel --quiet --no-warn-script-location");
 
         progress?.Report("Python 3.12 安装完成");
     }
@@ -166,12 +166,12 @@ public static class WindowsEnvironment
             throw new InvalidOperationException("请先安装 Python");
 
         progress?.Report("正在卸载已有 torch...");
-        AlifeUtility.Command("python.exe", "-m pip uninstall torch torchvision -y");
+        WindowsCommand.Run("python.exe", "-m pip uninstall torch torchvision -y");
 
         progress?.Report("正在安装 PyTorch 2.10.0 + CUDA 12.8（可能需要较长时间）...");
         string pytorchIndex = AlifeMirror.TransformUrl("--index-url https://download.pytorch.org/whl/cu128");
         string pipInstall = $"install torch==2.10.0+cu128 torchvision==0.25.0+cu128 {pytorchIndex}";
-        AlifeUtility.Command("python.exe", $"-m pip {pipInstall}");
+        WindowsCommand.Run("python.exe", $"-m pip {pipInstall}");
 
         progress?.Report("CUDA 安装完成");
     }

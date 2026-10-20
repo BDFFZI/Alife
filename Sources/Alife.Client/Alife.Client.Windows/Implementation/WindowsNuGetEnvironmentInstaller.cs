@@ -1,4 +1,3 @@
-using Alife.Foundation;
 using Alife.Framework;
 
 namespace Alife.Client.Windows;
@@ -14,6 +13,6 @@ public class WindowsNuGetEnvironmentInstaller(CSharpCompiler csharpCompiler) : N
     }
     protected override void RestoreNuGetPackages(string projectFile)
     {
-        AlifeUtility.Command("dotnet", $"restore \"{projectFile}\"");
+        WindowsCommand.Run("dotnet", $"restore \"{projectFile}\"");
     }
 }
