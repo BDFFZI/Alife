@@ -77,8 +77,11 @@ dotnet build Alife.Client.Android.csproj -c Release `
 
 ## 动态窗口与坐标
 
-- 主 Activity 使用系统密度的 `1/2`（`Configuration.densityDpi`，按整数 DPI 取整）。
-  Chromium 不随原生 Context 的密度改变，因此主页面和自定义 WebView 还使用 viewport 页面缩放。
+- 缩放比例写死在 `AndroidDisplay.UiScale`（默认 `0.5`，即系统密度的一半，按整数 DPI 取整）。
+  Chromium 不随原生 Context 的密度改变，因此主页面和自定义 WebView 还使用 viewport 页面缩放：
+  主页面由 `AndroidDisplay.ConfigureMainWebView` 在文档启动脚本中写入逻辑密度，再由
+  `wwwroot/index.html` 同步换算 viewport；插件窗口由桥接脚本按 `geometry.density / devicePixelRatio` 换算。
+  修改该常量后，主页面、窗口 Bounds、事件屏幕坐标和插件窗口会一起变化。
   `GetDpiScale()`、窗口 Bounds 和事件屏幕坐标采用缩放后的逻辑密度；
   `devicePixelRatio` 仍是 Chromium 的原生值，实际 CSS 像素大小需再乘 `visualViewport.scale`。
   系统显示设置和其他应用不受影响。

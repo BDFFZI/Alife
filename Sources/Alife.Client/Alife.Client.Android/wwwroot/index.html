@@ -4,6 +4,15 @@
     <title>Alife</title>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=0.5, minimum-scale=0.5, maximum-scale=0.5"/>
+    <script>
+        (function () {
+            var density = window.__alifeDensity;
+            if (!density) return;
+            var scale = density / window.devicePixelRatio;
+            var viewport = document.querySelector('meta[name="viewport"]');
+            viewport.content = 'width=device-width, initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=' + scale;
+        })();
+    </script>
     <base href="/"/>
     <!-- AntDesign 前端库 -->
     <meta no-antblazor-js no-antblazor-css/>

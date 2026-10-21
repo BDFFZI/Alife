@@ -44,13 +44,6 @@
             </GridCol>
         </GridRow>
 
-        <FormItem Label="启用向量检索 (EnableVector)">
-            <Switch @bind-Value="@Configuration.EnableVector"/>
-            <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                开启后会加载向量模型并保存向量数据以支持语义排序；关闭时不创建向量器，存档向量记零，搜索退化为关键词+时间排序。（向量搜索基本图一乐，还导致启动变慢）
-            </Text>
-        </FormItem>
-
         <FormItem Label="启用思考压缩 (ThinkingCompress)">
             <Switch @bind-Value="@Configuration.ThinkingCompress" Rows="12"
                     Placeholder="使用 {range} 作为被压缩内容的占位符"/>

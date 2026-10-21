@@ -1,14 +1,15 @@
 {
   "Version": "4.0.2",
   "Dependencies": {
-    "Alife.Function.FunctionCaller": "",
-    "Alife.Function.AIModelUtility": ""
+    "Alife.Function.FunctionCaller": ""
   },
-  "Environments": {
-    "nuget": {
-      "System.Drawing.Common": ">=9.0.0",
-      "Vortice.Direct3D11": ">=3.8.1",
-      "Microsoft.Windows.SDK.NET.Ref": ""
+  "Windows": {
+    "Environments": {
+      "nuget": {
+        "System.Drawing.Common": ">=9.0.0",
+        "Vortice.Direct3D11": ">=3.8.1",
+        "Microsoft.Windows.SDK.NET.Ref": ""
+      }
     }
   }
 }

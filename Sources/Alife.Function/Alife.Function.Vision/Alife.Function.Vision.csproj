@@ -9,8 +9,6 @@
         <PackageReference Include="Vortice.Direct3D11" Version="3.8.1"/>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
         <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj"/>
-        <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj"/>
     </ItemGroup>
 </Project>

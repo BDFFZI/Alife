@@ -2,6 +2,7 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props"/>
     <PropertyGroup>
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles><!--要求生成g.cs以便插件可以携带UI-->
+        <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants><!--默认按windows编译，确保g.cs可以先正常生成-->
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="$(MSBuildThisFileDirectory)..\Alife\Alife.Application\Alife.Application.csproj"/>

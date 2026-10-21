@@ -1,4 +1,3 @@
-@using System.IO
 @inject IAlifeClient AlifeClient
 
 <div class="step-content">
@@ -60,23 +59,13 @@
 
         <div class="path-item">
             <div class="path-header">
-                <span class="path-label">ModelScope 缓存路径</span>
-                <span class="path-status @(HasNonAscii(modelScopePath) ? "error" : "ok")">
-                    @(HasNonAscii(modelScopePath) ? "包含中文" : "正常")
+                <span class="path-label">临时文件路径</span>
+                <span class="path-status @(HasNonAscii(tempPath) ? "error" : "ok")">
+                    @(HasNonAscii(tempPath) ? "包含中文" : "正常")
                 </span>
             </div>
-            <div class="path-value">@modelScopePath</div>
-            @if (HasNonAscii(modelScopePath))
-            {
-                <div class="path-edit">
-                    <Input @bind-Value="newModelScopePath" Placeholder="输入新的 ModelScope 缓存路径"/>
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveModelScopePath())">
-                        保存
-                    </Button>
-                </div>
-            }
+            <div class="path-value">@tempPath</div>
         </div>
-
 
     </div>
 
@@ -98,10 +87,9 @@
 
     string runtimePath = "";
     string storagePath = "";
-    string modelScopePath = "";
+    string tempPath = "";
     string newRuntimePath = "";
     string newStoragePath = "";
-    string newModelScopePath = "";
 
     bool hasNonAsciiPath = false;
 
@@ -114,25 +102,17 @@
     {
         runtimePath = AlifePath.RuntimeFolderPath;
         storagePath = AlifePath.StorageFolderPath;
-
-        // ModelScope 缓存路径：先检查进程环境变量，再检查用户环境变量，最后检查系统环境变量
-        string modelScopeCache = Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.Process) ??
-                                 Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.User) ??
-                                 Environment.GetEnvironmentVariable("MODELSCOPE_CACHE", EnvironmentVariableTarget.Machine) ??
-                                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "modelscope", "hub");
-        modelScopePath = modelScopeCache;
+        tempPath = AlifePath.TempFolderPath;
 
         newRuntimePath = runtimePath;
         newStoragePath = storagePath;
-        newModelScopePath = modelScopePath;
 
         CheckAllPaths();
     }
 
     void CheckAllPaths()
     {
-        hasNonAsciiPath = HasNonAscii(runtimePath) || HasNonAscii(storagePath) ||
-                          HasNonAscii(modelScopePath);
+        hasNonAsciiPath = HasNonAscii(runtimePath) || HasNonAscii(storagePath);
     }
 
     bool HasNonAscii(string path)
@@ -156,19 +136,6 @@
         {
             AlifeClient.SetStorageFolderPath(newStoragePath);
             storagePath = newStoragePath;
-            CheckAllPaths();
-        }
-    }
-
-    void SaveModelScopePath()
-    {
-        if (!HasNonAscii(newModelScopePath))
-        {
-            // 永久修改用户环境变量
-            Environment.SetEnvironmentVariable("MODELSCOPE_CACHE", newModelScopePath, EnvironmentVariableTarget.User);
-            // 同时修改当前进程的环境变量，确保立即生效
-            Environment.SetEnvironmentVariable("MODELSCOPE_CACHE", newModelScopePath, EnvironmentVariableTarget.Process);
-            modelScopePath = newModelScopePath;
             CheckAllPaths();
         }
     }

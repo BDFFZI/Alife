@@ -136,7 +136,7 @@ public class MemoryService(
     }
     protected override async Task OnStart()
     {
-        //创建记忆工具（向量默认关闭，避免拉起 Python/torch 模型开销）
+        //初始化记忆压缩模型
         compressModel = await ResolveCompressModel();
         AlifeHistoryCompressor compressor = new(compressModel, Configuration.Probability, Configuration.CompressPrompt);
         memoryManager = new MemoryManager(compressor, storagePath, Configuration.Threshold,

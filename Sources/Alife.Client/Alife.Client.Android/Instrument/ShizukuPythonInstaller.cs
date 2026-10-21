@@ -44,7 +44,13 @@ static class ShizukuPythonInstaller
     ];
 
     static string GetMarker(IAlifeFoundation foundation) => Path.Combine(foundation.RuntimeFolderPath, "python-shizuku.installed.json");
-    static string GetStageRoot(IAlifeFoundation foundation) => Path.Combine(foundation.TempFolderPath, "python-stage");
+    static string GetStageRoot(IAlifeFoundation foundation)
+    {
+        string? cache = MainApplication.Instance?.CacheDir?.AbsolutePath;
+        return string.IsNullOrEmpty(cache)
+            ? Path.Combine(foundation.TempFolderPath, "python-stage")
+            : Path.Combine(cache, "python-stage");
+    }
     static string GetTarPath(IAlifeFoundation foundation) => Path.Combine(foundation.StorageFolderPath, "Temp", "python.tar");
 
     public static bool IsInstalled(IAlifeFoundation foundation) => File.Exists(GetMarker(foundation));

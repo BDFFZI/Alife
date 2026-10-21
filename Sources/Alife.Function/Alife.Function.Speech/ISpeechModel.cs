@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Alife.Function.AIModelUtility;
+namespace Alife.Function.Speech;
 
 public interface ISpeechModel
 {

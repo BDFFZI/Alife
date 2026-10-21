@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\Alife.Function.Execution\Alife.Function.Execution.csproj" />
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
   </ItemGroup>
 </Project>

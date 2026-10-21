@@ -213,7 +213,8 @@
     string selectedGithubDomain = "";
     bool isSpeedTesting = false;
     int speedTestedCount = 0;
-    readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
+    const int TestAttempts = 2;
+    readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(2.5) };
 
     public void Dispose()
     {
@@ -271,23 +272,30 @@
         candidate.IsTesting = true;
         await InvokeAsync(StateHasChanged);
 
+        long? bestLatency = null;
         try
         {
-            var sw = Stopwatch.StartNew();
-            var response = await httpClient.GetAsync(candidate.TestUrl);
-            sw.Stop();
-            
-            if (response.IsSuccessStatusCode)
-                candidate.Latency = sw.ElapsedMilliseconds;
-            else
-                candidate.Latency = null;
-        }
-        catch
-        {
-            candidate.Latency = null;
+            for (int attempt = 0; attempt < TestAttempts; attempt++)
+            {
+                try
+                {
+                    var sw = Stopwatch.StartNew();
+                    var response = await httpClient.GetAsync(candidate.TestUrl);
+                    sw.Stop();
+
+                    if (response.IsSuccessStatusCode &&
+                        (bestLatency == null || sw.ElapsedMilliseconds < bestLatency))
+                        bestLatency = sw.ElapsedMilliseconds;
+                }
+                catch
+                {
+                    // 单次失败不影响重试。
+                }
+            }
         }
         finally
         {
+            candidate.Latency = bestLatency;
             candidate.IsTesting = false;
             speedTestedCount++;
             await InvokeAsync(StateHasChanged);

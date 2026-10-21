@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
-using Alife.Function.AIModelUtility;
 using Alife.Function.FunctionCaller;
 
 namespace Alife.Function.Auditory;
