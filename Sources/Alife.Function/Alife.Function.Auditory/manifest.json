@@ -5,13 +5,15 @@
     "Alife.Function.FunctionCaller": "",
     "Alife.Function.MessageFilter": ""
   },
-  "Environments": {
-    "nuget": {
-      "Microsoft.Windows.SDK.NET.Ref": "",
-      "NAudio": ">=2.3.0"
-    },
-    "pip": {
-      "imageio-ffmpeg": ""
+  "Windows": {
+    "Environments": {
+      "nuget": {
+        "Microsoft.Windows.SDK.NET.Ref": "",
+        "NAudio": ">=2.3.0"
+      },
+      "pip": {
+        "imageio-ffmpeg": ""
+      }
     }
   }
 }

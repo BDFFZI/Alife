@@ -6,7 +6,7 @@ var character = new Character {
     Name = "开发测试助手",
     Modules = [
         typeof(SkillService).FullName!,
-        typeof(PythonService).FullName!,
+        typeof(ExecutionService).FullName!,
     ]
 };
 

@@ -23,7 +23,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         this.options = options;
         WindowId = windowId;
         Context context = MainApplication.Instance!;
-        manager = context.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>()!;
+        manager = context.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>();
         view = new OverlayWebView(context, this);
         inputRegion = new AndroidInputRegion(view);
         view.SetBackgroundColor(options.Transparent ? Color.Transparent : Color.White);
@@ -76,7 +76,7 @@ sealed class AndroidAlifeWindow : IAlifeWindow
         // never detach/re-add every 500ms: that resets pointer capture, focus and rendering.
         if (visible) manager.UpdateViewLayout(view, layout);
     });
-    public Task SetMouseInputRegionsAsync(Rectangle[]? regions)
+    public Task SetInputRegionsAsync(Rectangle[]? regions)
     {
         var snapshot = regions?.ToArray();
         return RunOnUi(() => SetMouseInputRegions(snapshot));

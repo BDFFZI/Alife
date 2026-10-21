@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -13,7 +14,10 @@ namespace Alife.Function.Memory;
 
 public record MemoryMeta(int Level, DateTime StartTime, DateTime EndTime)
 {
-    public string Name => $"{Level}-{StartTime:yyyyMMddHHmmss}-{EndTime:yyyyMMddHHmmss}";
+    public MemoryIndex ToMemoryIndex()
+    {
+        return new MemoryIndex(Level, $"{Level}-{StartTime:yyyyMMddHHmmss}-{EndTime:yyyyMMddHHmmss}");
+    }
 }
 
 /// <summary>
@@ -30,27 +34,33 @@ public record MemoryCompressionPlan(
     ChatMessageContent HeadAnchor,
     ChatMessageContent TailAnchor);
 
+public partial class MemoryManager
+{
+    public static string GetMemoryTag(MemoryIndex index)
+    {
+        return $"[记忆存档({index})]";
+    }
+    public static string GetMemoryTag(string summary)
+    {
+        return Regex.Match(summary, @"^\[记忆存档\([^)]+\)\]").Value;
+    }
+    public static string RemoveMemoryTag(string summary)
+    {
+        return summary.Replace(GetMemoryTag(summary), "").Trim();
+    }
+}
+
 /// <summary>
 /// 记忆核心管理器。协调存储、索引和压缩逻辑。
 /// 实现层级化索引关系：每个摘要记录都描述了其涵盖的对话范围和时间跨度。
 /// </summary>
-public class MemoryManager
+public partial class MemoryManager(
+    HistoryCompressor compressor,
+    string storagePath,
+    int compressionThreshold,
+    int compressionCount,
+    int maxCompressionLevel)
 {
-    public MemoryManager(HistoryCompressor compressor, TextVectorizer? vectorizer, string storagePath,
-        int compressionThreshold, int compressionCount, int maxCompressionLevel)
-    {
-        this.compressionThreshold = compressionThreshold;
-        this.compressionCount = compressionCount;
-        this.maxCompressionLevel = maxCompressionLevel;
-
-        this.compressor = compressor;
-        historyStoragePath = $"{storagePath}/History.json";
-        memoryStorage = new MemoryStorage(storagePath, vectorizer);
-
-        if (!Directory.Exists(storagePath))
-            Directory.CreateDirectory(storagePath);
-    }
-
     /// <summary>
     /// 阶段一：在快照副本上检查压缩条件并完成LLM归纳，不触碰真实上下文。
     /// 返回压缩计划；无需压缩时返回null。
@@ -88,7 +98,7 @@ public class MemoryManager
                 }
 
                 //将异常区域压缩
-                return await BuildCompressionPlan(chatHistory, areaStart, areaCount, newLevel, "记忆");
+                return await BuildCompressionPlan(chatHistory, areaStart, areaCount, newLevel);
             }
 
             if (areaLevel != newLevel)
@@ -105,22 +115,34 @@ public class MemoryManager
             if (areaLevel + 1 <= maxCompressionLevel && areaCount >= (areaLevel == 0 ? compressionThreshold : 4)) //压缩记忆
             {
                 int areaCompressionCount = areaLevel == 0 ? compressionCount : 3;
-                return await BuildCompressionPlan(chatHistory, areaStart, areaCompressionCount, areaLevel + 1,
-                    areaLevel == 0 ? "非记忆存档内容" : $"{areaLevel}级记忆存档");
+                return await BuildCompressionPlan(chatHistory, areaStart, areaCompressionCount, areaLevel + 1);
             }
         }
 
         return null;
 
-        async Task<MemoryCompressionPlan?> BuildCompressionPlan(ChatHistory snapshot,
-            int areaStart, int count, int newLevel, string type)
+        async Task<MemoryCompressionPlan?> BuildCompressionPlan(ChatHistory snapshot, int areaStart, int count, int newLevel)
         {
             //确认压缩事件段和内容
-            DateTime startTime = GetMemoryMetaData(snapshot[areaStart]).StartTime;
+            MemoryMeta startMemoryMeta = GetMemoryMetaData(snapshot[areaStart]);
+            int oldLevel = startMemoryMeta.Level;
+            DateTime startTime = startMemoryMeta.StartTime;
             DateTime endTime = GetMemoryMetaData(snapshot[areaStart + count - 1]).EndTime;
             string fullContent = PickContent(snapshot, areaStart, areaStart + count);
 
-            string range = $"从`{startTime}`到`{endTime}`期间的`{type}`";
+            string range;
+            if (oldLevel == 0)
+            {
+                range = $"从`{startTime}`到`{endTime}`期间的普通对话记录";
+            }
+            else
+            {
+                range = "如下记忆存档：" + string.Join(',', snapshot
+                    .Take(new Range(areaStart, areaStart + count))
+                    .Select(content => content.Content == null ? null : GetMemoryTag(content.Content))
+                    .Where(tag => !string.IsNullOrWhiteSpace(tag)));
+            }
+
             string? summary = await compressor.Compress(new ChatHistoryAgentThread(snapshot), range);
             if (summary == null)
                 return null;
@@ -148,11 +170,13 @@ public class MemoryManager
         if (plan.Summary == null)
         {
             ChatMessageContent target = chatHistory[plan.InsertIndex];
-            memoryMetaDatas[target] = new MemoryMeta(plan.NewLevel, plan.StartTime, plan.EndTime);
+            MemoryMeta oldMemoryMeta = GetMemoryMetaData(target);
+            string? oldContent = await memoryStorage.LoadAsync(oldMemoryMeta.ToMemoryIndex());
+            await WriteMemory(plan.NewLevel, plan.StartTime, plan.EndTime, RemoveMemoryTag(target.Content ?? ""), oldContent ?? "无内容", target);
             return;
         }
 
-        await SaveMemory(plan.NewLevel, plan.StartTime, plan.EndTime, plan.Summary, plan.FullContent, chatHistory,
+        await WriteMemory(plan.NewLevel, plan.StartTime, plan.EndTime, plan.Summary, plan.FullContent, chatHistory,
             plan.InsertIndex);
 
         //移除被压缩记忆
@@ -161,8 +185,19 @@ public class MemoryManager
         chatHistory.RemoveRange(plan.InsertIndex + 1, plan.RemoveCount);
     }
 
-    public async Task<string> InsertMemory(ChatHistory chatHistory, int level, string summary, string content, DateTime startTime, DateTime endTime)
+    public async Task WriteMemory(ChatHistory chatHistory, MemoryIndex memoryIndex, string summary, string content, DateTime? startTime = null,
+        DateTime? endTime = null)
     {
+        ChatMessageContent? chatMessageContent = FindMemory(chatHistory, memoryIndex);
+        if (chatMessageContent != null)
+        {
+            if (GetMemoryMetaData(chatMessageContent).Level != memoryIndex.Level)
+                throw new InvalidOperationException("存档等级不允许修改");
+
+            chatMessageContent.Content = GetMemoryTag(memoryIndex) + "\n" + summary;
+            await memoryStorage.SaveAsync(memoryIndex, content);
+        }
+
         // 寻找插入位置（同级区域的最下方）
         int insertIndex = -1;
         int contentIndex = 0;
@@ -178,7 +213,7 @@ public class MemoryManager
         for (int i = contentIndex; i < chatHistory.Count; i++)
         {
             int currentLevel = GetMemoryMetaData(chatHistory[i]).Level;
-            if (currentLevel == level)
+            if (currentLevel == memoryIndex.Level)
             {
                 foundLevel = true;
                 insertIndex = i + 1;
@@ -188,7 +223,7 @@ public class MemoryManager
                 // 已经过了该层级的连续区域
                 break;
             }
-            else if (currentLevel < level)
+            else if (currentLevel < memoryIndex.Level)
             {
                 // 还没找到该层级，但已经到了更低层级（说明该层级不存在，应插在更低层级之前）
                 insertIndex = i;
@@ -199,16 +234,24 @@ public class MemoryManager
         if (insertIndex == -1)
             insertIndex = chatHistory.Count;
 
-        return await SaveMemory(level, startTime, endTime, summary, content, chatHistory, insertIndex);
+        await WriteMemory(memoryIndex.Level, startTime ?? DateTime.Now, endTime ?? DateTime.Now, summary, content, chatHistory, insertIndex);
     }
-
+    public Task<string?> ReadMemory(MemoryIndex memoryIndex)
+    {
+        return memoryStorage.LoadAsync(memoryIndex);
+    }
+    public ChatMessageContent? FindMemory(ChatHistory chatHistory, MemoryIndex memoryIndex)
+    {
+        string memoryTag = GetMemoryTag(memoryIndex);
+        ChatMessageContent? chatMessageContent = chatHistory.FirstOrDefault(messageContent => messageContent.Content?.StartsWith(memoryTag) ?? false);
+        return chatMessageContent;
+    }
     public void RemoveMemory(ChatHistory chatHistory, ChatMessageContent content)
     {
         if (chatHistory.Remove(content))
-        {
             memoryMetaDatas.Remove(content);
-        }
     }
+
 
     public void SaveHistory(ChatHistory chatHistory)
     {
@@ -227,7 +270,6 @@ public class MemoryManager
 
         File.WriteAllText(historyStoragePath, JsonConvert.SerializeObject(history, Formatting.Indented));
     }
-
     public void LoadHistory(ChatHistory chatHistory)
     {
         if (File.Exists(historyStoragePath) == false)
@@ -253,17 +295,6 @@ public class MemoryManager
         }
     }
 
-    public Task<string?> ReadMemory(string index)
-    {
-        int level = int.Parse(index[..index.IndexOf('-')]);
-        return memoryStorage.LoadAsync(level, index);
-    }
-
-    public async Task<(List<SearchResult> Results, int Total)> SearchMemory(int level, string keyword, string? question, int count, int offset,
-        DateTime? startTime, DateTime? endTime)
-    {
-        return await memoryStorage.SearchAsync(level, keyword, question, count, offset, startTime, endTime);
-    }
 
     public MemoryMeta GetMemoryMetaData(ChatMessageContent content)
     {
@@ -278,34 +309,27 @@ public class MemoryManager
 
     record HistoryRecord(AuthorRole Role, string Content, MemoryMeta MemoryMeta);
 
-    readonly int compressionThreshold;
-    readonly int compressionCount;
-    readonly int maxCompressionLevel;
-    readonly HistoryCompressor compressor;
-    readonly MemoryStorage memoryStorage;
-    readonly string historyStoragePath;
-    readonly Dictionary<ChatMessageContent, MemoryMeta> memoryMetaDatas = new Dictionary<ChatMessageContent, MemoryMeta>();
+    readonly MemoryStorage memoryStorage = new(storagePath);
+    readonly string historyStoragePath = $"{storagePath}/History.json";
+    readonly Dictionary<ChatMessageContent, MemoryMeta> memoryMetaDatas = new();
 
-    async Task<string> SaveMemory(int level, DateTime startTime, DateTime endTime, string summary, string content, ChatHistory chatHistory,
+    async Task WriteMemory(int level, DateTime startTime, DateTime endTime, string summary, string content, ChatHistory chatHistory,
         int insertIndex)
     {
-        MemoryMeta memoryMeta = new(level, startTime, endTime);
-        string name = memoryMeta.Name;
-
-        //归档到数据库
-        await memoryStorage.SaveAsync(name, memoryMeta.Level, summary, content, memoryMeta.StartTime, memoryMeta.EndTime);
-
-        //插入到上下文
-        summary = $"""
-                   [记忆存档({name})]
-                   {summary}
-                   """;
-        ChatMessageContent compressedContent = new(AuthorRole.Assistant, summary);
+        ChatMessageContent compressedContent = new(AuthorRole.Assistant, "");
         chatHistory.Insert(insertIndex, compressedContent);
-        memoryMetaDatas[compressedContent] = new MemoryMeta(level, startTime, endTime);
+        await WriteMemory(level, startTime, endTime, summary, content, compressedContent);
+    }
+    async Task WriteMemory(int level, DateTime startTime, DateTime endTime, string summary, string content,
+        ChatMessageContent chatMessageContent)
+    {
+        MemoryMeta memoryMeta = new(level, startTime, endTime);
+        MemoryIndex memoryIndex = memoryMeta.ToMemoryIndex();
 
-        Console.WriteLine($"保存记忆：{name}");
-        return name;
+        string memoryTag = GetMemoryTag(memoryIndex);
+        chatMessageContent.Content = memoryTag + "\n" + summary;
+        memoryMetaDatas[chatMessageContent] = new MemoryMeta(memoryIndex.Level, startTime, endTime);
+        await memoryStorage.SaveAsync(memoryIndex, content);
     }
 
     string PickContent(ChatHistory chatHistory, int start, int end)

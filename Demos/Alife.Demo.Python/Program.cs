@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 var character = new Character {
     Name = "开发测试助手",
     Modules = [
-        typeof(PythonService).FullName!
+        typeof(ExecutionService).FullName!
     ]
 };
 

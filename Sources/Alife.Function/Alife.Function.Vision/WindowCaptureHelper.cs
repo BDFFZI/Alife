@@ -1,3 +1,4 @@
+#if !ANDROID
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -413,3 +414,5 @@ public static class WindowCaptureHelper
 
     private static IGraphicsCaptureItemInterop GetCaptureItemInterop() => _interopFactory.Value;
 }
+
+#endif

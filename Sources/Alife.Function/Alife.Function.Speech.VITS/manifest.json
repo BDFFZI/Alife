@@ -1,26 +1,5 @@
 {
-  "Version": "4.0.1",
-  "Dependencies": {
-    "Alife.Function.AIModelUtility": ""
-  },
-  "Environments": {
-    "pip": {
-      "numba": "",
-      "Cython": "",
-      "librosa": "",
-      "matplotlib": "",
-      "numpy": "",
-      "phonemizer": "",
-      "scipy": "",
-      "tensorboard": "",
-      "torch": "",
-      "torchvision": "",
-      "Unidecode": "",
-      "ffmpeg": "",
-      "cn2an": "",
-      "gradio": "",
-      "pypinyin": "",
-      "jieba": ""
-    }
-  }
+  "Version": "4.1.0",
+  "Dependencies": { "Alife.Function.AIModelUtility": "" },
+  "Environments": { "nuget": { "org.k2fsa.sherpa.onnx": ">=1.13.5" } }
 }

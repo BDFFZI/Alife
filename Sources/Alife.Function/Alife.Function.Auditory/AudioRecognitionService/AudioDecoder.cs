@@ -1,3 +1,4 @@
+#if !ANDROID
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -233,3 +234,5 @@ public static class AudioDecoder
         throw new Exception("未找到 ffmpeg。请安装 python 的 imageio-ffmpeg 包（插件会自动安装），或在系统安装 ffmpeg。");
     }
 }
+
+#endif

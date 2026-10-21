@@ -15,7 +15,8 @@ namespace Alife.Function.Speech.Genie;
     defaultCategory: "Alife 官方/模型接入/语音模型",
     EditorUI = typeof(GenieSpeechModelUI))]
 public class GenieSpeechModel(
-    ILogger<GenieSpeechModel> logger
+    ILogger<GenieSpeechModel> logger,
+    IAlifeApplication alifeApplication
 ) : ChatBehaviour,
     ISpeechModel,
     IConfigurable<GenieSpeechModelConfig>
@@ -123,7 +124,7 @@ public class GenieSpeechModel(
     {
         string charaName = Configuration.CharacterName;
         string language = Configuration.Language;
-        pythonPipe = new("genie_speech", pythonCode);
+        pythonPipe = new(alifeApplication, "genie_speech", pythonCode);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", RuntimeFolder, charaName, language);
     }

@@ -15,7 +15,7 @@ public class DeveloperService(
     XmlFunctionCaller functionCaller,
     ILoggerFactory loggerFactory,
     Interactor<DeveloperService> interactor) :
-    ChatBehaviour
+    ChatBehaviour               
 {
     McpClient? mcpClient;
 

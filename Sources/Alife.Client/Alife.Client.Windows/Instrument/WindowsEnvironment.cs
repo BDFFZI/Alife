@@ -6,34 +6,31 @@ namespace Alife.Client;
 /// <summary>
 /// 客户端功能，可以实现自动帮用户配置软件运行环境。
 /// </summary>
-static class WindowsEnvironment
+class WindowsEnvironment(IAlifeFoundation alifeFoundation)
 {
-    public static bool IsVCRedistReady { get; private set; }
-    public static bool IsPythonReady { get; private set; }
-    public static bool IsDotNetSdkReady { get; private set; }
-    public static bool IsCudaReady { get; private set; }
+    public bool IsVCRedistReady { get; private set; }
+    public bool IsPythonReady { get; private set; }
+    public bool IsCudaReady { get; private set; }
 
-    public static IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
+    public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
         SyncEnvironment();
         return [
             new("vcredist", "VC++ 运行库", IsVCRedistReady, true),
             new("python", "Python 3.12", IsPythonReady, true),
-            new("dotnet", ".NET SDK 10", IsDotNetSdkReady, true),
             new("cuda", "CUDA (需 NVIDIA 显卡支持)", IsCudaReady, false),
         ];
     }
-    public static Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null) => id switch {
+    public Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null) => id switch {
         "vcredist" => InstallVCppRedistAsync(progress),
         "python" => InstallPythonAsync(progress),
-        "dotnet" => InstallDotNetSdkAsync(progress),
         "cuda" => Task.Run(() => InstallCuda(progress)),
         _ => throw new ArgumentException("Unknown environment item.", nameof(id)),
     };
     /// <summary>
     /// 重新计算设置环境信息，在软件启动和环境变动（安装卸载）后应当执行一次
     /// </summary>
-    public static void SyncEnvironment()
+    public void SyncEnvironment()
     {
         RefreshProcessEnvironment();
 
@@ -41,12 +38,6 @@ static class WindowsEnvironment
         {
             string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "vcruntime140.dll");
             IsVCRedistReady = File.Exists(path);
-        }
-
-        //检查Dotnet
-        {
-            string output = WindowsCommand.Run("dotnet", "--list-sdks").StandardOutput;
-            IsDotNetSdkReady = output.Contains("10.");
         }
 
         //检查python
@@ -63,10 +54,10 @@ static class WindowsEnvironment
                 IsPythonReady = false;
             }
 
-            static string? FindPythonDir()
+            string? FindPythonDir()
             {
                 //优先使用 Runtime 中的沙盒 python
-                string runtimePy = Path.Combine(AlifePath.RuntimeFolderPath, "Python312");
+                string runtimePy = Path.Combine(alifeFoundation.RuntimeFolderPath, "Python312");
                 if (File.Exists(Path.Combine(runtimePy, "python.exe")))
                     return runtimePy;
 
@@ -101,10 +92,10 @@ static class WindowsEnvironment
         }
     }
 
-    public static async Task InstallVCppRedistAsync(IProgress<string>? progress = null)
+    public async Task InstallVCppRedistAsync(IProgress<string>? progress = null)
     {
         progress?.Report("正在下载 Visual C++ Redistributable...");
-        string tempExe = Path.Combine(Path.GetTempPath(), "vc_redist.x64.exe");
+        string tempExe = Path.Combine(alifeFoundation.TempFolderPath, "vc_redist.x64.exe");
         await AlifeUtility.DownloadFileAsync("https://aka.ms/vs/17/release/vc_redist.x64.exe", tempExe);
 
         progress?.Report("正在静默安装 Visual C++ Redistributable...");
@@ -113,23 +104,9 @@ static class WindowsEnvironment
 
         progress?.Report("Visual C++ 安装完成");
     }
-    public static async Task InstallDotNetSdkAsync(IProgress<string>? progress = null)
+    public async Task InstallPythonAsync(IProgress<string>? progress = null)
     {
-        progress?.Report("正在下载 .NET SDK 10 安装包...");
-        string tempExe = Path.Combine(Path.GetTempPath(), "dotnet-sdk-10.exe");
-        await AlifeUtility.DownloadFileAsync("https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.301/dotnet-sdk-10.0.301-win-x64.exe", tempExe);
-
-        progress?.Report("正在安装 .NET SDK 10...");
-        WindowsCommand.Run(tempExe, "/install /quiet /norestart");
-        File.Delete(tempExe);
-
-        progress?.Report("正在刷新环境变量...");
-
-        progress?.Report(".NET SDK 10 安装完成");
-    }
-    public static async Task InstallPythonAsync(IProgress<string>? progress = null)
-    {
-        string pyDir = Path.Combine(AlifePath.RuntimeFolderPath, "Python312");
+        string pyDir = Path.Combine(alifeFoundation.RuntimeFolderPath, "Python312");
         Directory.CreateDirectory(pyDir);
 
         progress?.Report("正在安装 Python 3.12 嵌入版...");
@@ -150,7 +127,7 @@ static class WindowsEnvironment
 
         progress?.Report("正在安装 pip...");
         string getPyUrl = "https://bootstrap.pypa.io/get-pip.py";
-        string getPyPath = Path.Combine(Path.GetTempPath(), "get-pip.py");
+        string getPyPath = Path.Combine(AlifePath.TempFolderPath, "get-pip.py");
         await AlifeUtility.DownloadFileAsync(getPyUrl, getPyPath);
         WindowsCommand.Run(pyExe, $"\"{getPyPath}\" --no-warn-script-location");
 
@@ -160,7 +137,7 @@ static class WindowsEnvironment
 
         progress?.Report("Python 3.12 安装完成");
     }
-    public static void InstallCuda(IProgress<string>? progress = null)
+    public void InstallCuda(IProgress<string>? progress = null)
     {
         if (IsPythonReady == false)
             throw new InvalidOperationException("请先安装 Python");
@@ -179,7 +156,7 @@ static class WindowsEnvironment
     /// <summary>
     /// 安装程序写入的环境变量不会自动同步到当前进程，需要从注册表重新读取。
     /// </summary>
-    static void RefreshProcessEnvironment()
+    void RefreshProcessEnvironment()
     {
         //PATH 需要合并机器和用户两处，并展开 %SystemRoot% 之类的占位符
         string? machinePath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine);

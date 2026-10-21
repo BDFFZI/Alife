@@ -12,8 +12,8 @@ namespace Alife.Client.Android;
     ForegroundServiceType = global::Android.Content.PM.ForegroundService.TypeSpecialUse)]
 public sealed class KeepAliveService : Service
 {
-    internal const string ChannelId = "alife-backend";
-    internal const int NotificationId = 1;
+    const string ChannelId = "alife-backend";
+    const int NotificationId = 1;
 
     public override void OnCreate()
     {

@@ -43,15 +43,15 @@ static class ShizukuPythonInstaller
         "zlib",
     ];
 
-    static string Marker => Path.Combine(AlifePath.RuntimeFolderPath, "python-shizuku.installed.json");
-    static string StageRoot => Path.Combine(AlifePath.TempFolderPath, "python-stage");
-    static string TarPath => Path.Combine(AlifePath.StorageFolderPath, "Temp", "python.tar");
+    static string GetMarker(IAlifeFoundation foundation) => Path.Combine(foundation.RuntimeFolderPath, "python-shizuku.installed.json");
+    static string GetStageRoot(IAlifeFoundation foundation) => Path.Combine(foundation.TempFolderPath, "python-stage");
+    static string GetTarPath(IAlifeFoundation foundation) => Path.Combine(foundation.StorageFolderPath, "Temp", "python.tar");
 
-    public static bool IsInstalled => File.Exists(Marker);
+    public static bool IsInstalled(IAlifeFoundation foundation) => File.Exists(GetMarker(foundation));
 
-    public static async Task<bool> VerifyAsync()
+    public static async Task<bool> VerifyAsync(IAlifeFoundation foundation)
     {
-        if (IsInstalled == false)
+        if (IsInstalled(foundation) == false)
             return false;
         if (ShizukuBridge.IsAvailable == false || ShizukuBridge.HasPermission == false)
             return false;
@@ -70,7 +70,7 @@ static class ShizukuPythonInstaller
 
         try
         {
-            File.Delete(Marker);
+            File.Delete(GetMarker(foundation));
         }
         catch
         {
@@ -79,57 +79,54 @@ static class ShizukuPythonInstaller
         return false;
     }
 
-    public static async Task InstallAsync(IProgress<string>? progress, CancellationToken cancellationToken)
+    public static async Task InstallAsync(IAlifeFoundation foundation, IProgress<string>? progress, CancellationToken cancellationToken)
     {
         if (ShizukuBridge.IsAvailable == false || ShizukuBridge.HasPermission == false)
-            throw new InvalidOperationException("需要先连接并授权 Shizuku。");
-        if (await VerifyAsync())
+            throw new InvalidOperationException("��Ҫ�����Ӳ���Ȩ Shizuku��");
+        string stageRoot = GetStageRoot(foundation);
+        string tarPath = GetTarPath(foundation);
+        if (await VerifyAsync(foundation))
         {
-            progress?.Report("Python 已安装在 " + FinalRoot);
+            progress?.Report("Python �Ѱ�װ�� " + FinalRoot);
             return;
         }
 
-        progress?.Report("正在准备 Python 安装包...");
-        if (Directory.Exists(StageRoot))
-            Directory.Delete(StageRoot, true);
-        Directory.CreateDirectory(StageRoot);
-
-        using Stream manifestStream = typeof(ShizukuPythonInstaller).Assembly.GetManifestResourceStream("SdkPackages")
-            ?? throw new InvalidOperationException("找不到 SdkPackages 资源。");
-        using StreamReader reader = new(manifestStream);
-        string manifestJson = await reader.ReadToEndAsync(cancellationToken);
-        Package[] packages = JsonSerializer.Deserialize<Package[]>(manifestJson)!
-            .Where(package => PackageNames.Contains(package.Name, StringComparer.Ordinal))
-            .ToArray();
+        progress?.Report("����׼�� Python ��װ��...");
+        if (Directory.Exists(stageRoot))
+            Directory.Delete(stageRoot, true);
+        Directory.CreateDirectory(stageRoot);
 
         using HttpClient http = new() { Timeout = TimeSpan.FromMinutes(30) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd($"Alife/{AlifeContext.AppVersion}");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd($"Alife/{foundation.AppVersion}");
+
+        Package[] packages = await ResolvePackagesAsync(http, cancellationToken);
+        string manifestJson = JsonSerializer.Serialize(packages);
 
         for (int index = 0; index < packages.Length; index++)
         {
             Package package = packages[index];
             progress?.Report($"正在下载 Python 组件 {package.Name}（{index + 1}/{packages.Length}）");
-            await InstallPackageAsync(http, package, cancellationToken);
+            await InstallPackageAsync(http, package, foundation, stageRoot, cancellationToken);
         }
 
-        FixShebangs(StageRoot, FinalRoot);
+        FixShebangs(stageRoot, FinalRoot);
 
         progress?.Report("正在打包 Python 运行时...");
-        string? tempDirectory = Path.GetDirectoryName(TarPath);
+        string? tempDirectory = Path.GetDirectoryName(tarPath);
         if (string.IsNullOrEmpty(tempDirectory) == false)
             Directory.CreateDirectory(tempDirectory);
-        if (File.Exists(TarPath))
-            File.Delete(TarPath);
-        await CreateTarAsync(StageRoot, TarPath, cancellationToken);
+        if (File.Exists(tarPath))
+            File.Delete(tarPath);
+        await CreateTarAsync(stageRoot, tarPath, cancellationToken);
 
         progress?.Report("正在通过 Shizuku 安装 Python...");
         string extractCommand = $"""
                                  rm -rf {FinalRoot}
                                  mkdir -p {FinalRoot}
-                                 /system/bin/tar -xf '{TarPath}' -C {FinalRoot}
+                                 /system/bin/tar -xf '{tarPath}' -C {FinalRoot}
                                  chmod -R u+rwX {FinalRoot}
                                  chmod 755 {FinalRoot}/usr/bin/python* {FinalRoot}/usr/bin/pip* 2>/dev/null || true
-                                 rm -f '{TarPath}'
+                                 rm -f '{tarPath}'
                                  """;
         ShizukuShellResult extractResult = await ShizukuBridge.ExecuteAsync(extractCommand + " 2>&1", cancellationToken);
         if (extractResult.ExitCode != 0)
@@ -142,11 +139,11 @@ static class ShizukuPythonInstaller
         if (verify.ExitCode != 0 || verify.Output.Contains("pip", StringComparison.OrdinalIgnoreCase) == false)
             throw new InvalidOperationException($"Python 验证失败：{verify.Output}");
 
-        await File.WriteAllTextAsync(Marker, manifestJson, cancellationToken);
+        await File.WriteAllTextAsync(GetMarker(foundation), manifestJson, cancellationToken);
         try
         {
-            if (Directory.Exists(StageRoot))
-                Directory.Delete(StageRoot, true);
+            if (Directory.Exists(stageRoot))
+                Directory.Delete(stageRoot, true);
         }
         catch
         {
@@ -156,9 +153,67 @@ static class ShizukuPythonInstaller
         progress?.Report("Python 与 pip 安装完成。");
     }
 
-    static async Task InstallPackageAsync(HttpClient http, Package package, CancellationToken cancellationToken)
+    static async Task<Package[]> ResolvePackagesAsync(HttpClient http, CancellationToken cancellationToken)
     {
-        string archive = Path.Combine(AlifePath.TempFolderPath, package.Name + ".deb");
+        foreach (string mirror in Mirrors)
+        {
+            try
+            {
+                string index = await http.GetStringAsync(
+                    AlifeMirror.TransformUrl(mirror + "dists/stable/main/binary-aarch64/Packages"),
+                    cancellationToken);
+                Dictionary<string, (string File, string Sha256)> entries = ParsePackageIndex(index);
+                List<Package> resolved = [];
+                foreach (string name in PackageNames)
+                {
+                    if (entries.TryGetValue(name, out (string File, string Sha256) entry))
+                        resolved.Add(new Package(name, entry.File, entry.Sha256));
+                }
+                if (resolved.Count == PackageNames.Length)
+                    return resolved.ToArray();
+            }
+            catch (Exception error) when (error is not OperationCanceledException || cancellationToken.IsCancellationRequested == false)
+            {
+                // 尝试下一个镜像。
+            }
+        }
+
+        using Stream manifestStream = typeof(ShizukuPythonInstaller).Assembly.GetManifestResourceStream("SdkPackages")
+            ?? throw new InvalidOperationException("找不到 SdkPackages 资源。");
+        using StreamReader reader = new(manifestStream);
+        string manifestJson = await reader.ReadToEndAsync(cancellationToken);
+        return JsonSerializer.Deserialize<Package[]>(manifestJson)!
+            .Where(package => PackageNames.Contains(package.Name, StringComparer.Ordinal))
+            .ToArray();
+    }
+
+    static Dictionary<string, (string File, string Sha256)> ParsePackageIndex(string index)
+    {
+        Dictionary<string, (string File, string Sha256)> result = new(StringComparer.Ordinal);
+        foreach (string paragraph in index.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            string? name = null;
+            string? file = null;
+            string? sha256 = null;
+            foreach (string rawLine in paragraph.Split('\n'))
+            {
+                string line = rawLine.TrimEnd('\r');
+                if (line.StartsWith("Package: ", StringComparison.Ordinal))
+                    name = line[9..].Trim();
+                else if (line.StartsWith("Filename: ", StringComparison.Ordinal))
+                    file = line[10..].Trim();
+                else if (line.StartsWith("SHA256: ", StringComparison.Ordinal))
+                    sha256 = line[8..].Trim();
+            }
+            if (name != null && file != null && sha256 != null)
+                result[name] = (file, sha256);
+        }
+        return result;
+    }
+
+    static async Task InstallPackageAsync(HttpClient http, Package package, IAlifeFoundation foundation, string stageRoot, CancellationToken cancellationToken)
+    {
+        string archive = Path.Combine(foundation.TempFolderPath, package.Name + ".deb");
         Exception? lastError = null;
         for (int attempt = 1; attempt <= 3; attempt++)
         {
@@ -173,7 +228,7 @@ static class ShizukuPythonInstaller
                     throw new InvalidDataException($"{package.Name} 校验失败。");
                 }
                 await using (FileStream file = File.OpenRead(archive))
-                    ExtractDeb(file, StageRoot, FinalRoot);
+                    ExtractDeb(file, stageRoot, FinalRoot);
                 File.Delete(archive);
                 return;
             }

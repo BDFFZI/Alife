@@ -10,7 +10,7 @@ namespace Alife.Client.Android;
 /// are NotTouchable. Never grabs the device or consumes touches delivered to other apps.
 /// Shizuku is a required Android runtime dependency.
 /// </summary>
-internal static class AndroidPointerMonitor
+static class AndroidPointerMonitor
 {
     public static void EnsureStarted()
     {
@@ -47,7 +47,7 @@ internal static class AndroidPointerMonitor
                     bool pressed = decoder.IsContactStart;
                     // Read display rotation/size on the UI thread and keep the public cursor in physical pixels.
                     _ = AndroidWindowManager.RunOnUi(() => {
-                        var manager = MainApplication.Instance!.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>()!;
+                        var manager = MainApplication.Instance!.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>();
                         (x, y) = manager.DefaultDisplay!.Rotation switch {
                             SurfaceOrientation.Rotation90 => (y, 1 - x),
                             SurfaceOrientation.Rotation180 => (1 - x, 1 - y),

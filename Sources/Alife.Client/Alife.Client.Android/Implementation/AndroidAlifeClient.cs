@@ -3,9 +3,7 @@ using Alife.Framework;
 
 namespace Alife.Client.Android;
 
-public sealed class AndroidAlifeClient(
-    AndroidAlifeFoundation foundation,
-    IServiceProvider provider) : IAlifeClient
+sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvider provider) : IAlifeClient
 {
     public Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
@@ -40,14 +38,14 @@ public sealed class AndroidAlifeClient(
 
     public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
-        return AndroidEnvironment.GetEnvironmentItems();
+        return AndroidEnvironment.GetEnvironmentItems(foundation);
     }
 
     public async Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null)
     {
-        await AndroidEnvironment.InstallEnvironmentAsync(id, progress);
+        await AndroidEnvironment.InstallEnvironmentAsync(foundation, id, progress);
 
-        if (id is "python" or "dotnet")
+        if (id is "python")
         {
             try
             {
@@ -81,7 +79,7 @@ public sealed class AndroidAlifeClient(
 }
 
 /// <summary>全局路径与自启动标记等常量。</summary>
-public static class KeepAlivePaths
+static class KeepAlivePaths
 {
     public static string AutoStartFile { get; } =
         Path.Combine(MainApplication.Instance!.FilesDir!.AbsolutePath, "Alife", "AutoStart");

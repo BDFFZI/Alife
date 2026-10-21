@@ -18,26 +18,14 @@ public class AndroidDeviceService(
     Interactor<AndroidDeviceService> interactor) :
     ChatBehaviour
 {
-    [XmlFunction(FunctionMode.OneShot)]
-    [Description("执行一条 Android shell 命令（Shizuku shell 身份），返回退出码和合并后的输出。")]
-    public async Task Shell(
-        [Description("要执行的 shell 命令，例如：pm list packages | head")] string command,
-        CancellationToken cancellationToken = default)
-    {
-#if ANDROID
-        ShizukuShellResult result = await ShizukuBridge.ExecuteAsync(command, cancellationToken);
-        interactor.Poke($"退出码: {result.ExitCode}\n{result.Output}");
-#else
-        throw new PlatformNotSupportedException("Android 设备控制仅在 Android 客户端可用。");
-#endif
-    }
+
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("查看 Shizuku 连接与授权状态。")]
     public void Status()
     {
 #if ANDROID
-        interactor.Poke($"Shizuku 可用: {ShizukuBridge.IsAvailable}\n已授权: {ShizukuBridge.HasPermission}\n身份 UID: {ShizukuBridge.Uid}");
+        interactor.Poke($"Shizuku 可用: {AndroidAlifePlatform.ShizukuAvailable}\n已授权: {AndroidAlifePlatform.ShizukuGranted}\n身份 UID: {AndroidAlifePlatform.ShizukuUid}");
 #else
         interactor.Poke("当前平台不支持 Shizuku。");
 #endif
@@ -48,7 +36,7 @@ public class AndroidDeviceService(
     public async Task RequestPermission()
     {
 #if ANDROID
-        bool granted = await ShizukuBridge.RequestPermissionAsync();
+        bool granted = await AndroidAlifePlatform.RequestShizukuPermissionAsync();
         interactor.Poke(granted ? "Shizuku 授权成功。" : "Shizuku 授权未通过。");
 #else
         throw new PlatformNotSupportedException("Android 设备控制仅在 Android 客户端可用。");

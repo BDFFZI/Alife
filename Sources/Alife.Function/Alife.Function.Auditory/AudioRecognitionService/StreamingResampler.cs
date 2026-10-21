@@ -1,5 +1,7 @@
 using System;
+#if !ANDROID
 using NAudio.Wave;
+#endif
 
 namespace Alife.Function.Auditory;
 
@@ -11,10 +13,15 @@ namespace Alife.Function.Auditory;
 /// </summary>
 public class StreamingResampler
 {
-    public StreamingResampler(WaveFormat inputFormat)
+#if !ANDROID
+    public StreamingResampler(WaveFormat inputFormat) : this(inputFormat.SampleRate, inputFormat.Channels) { }
+#endif
+
+    public StreamingResampler(int sampleRate, int channelCount)
     {
-        ratio = inputFormat.SampleRate / 16000.0;
-        channels = inputFormat.Channels;
+        if (sampleRate <= 0 || channelCount <= 0) throw new ArgumentOutOfRangeException();
+        ratio = sampleRate / 16000.0;
+        channels = channelCount;
     }
 
     /// <summary>

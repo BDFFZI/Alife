@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
+        <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj"/>
+    </ItemGroup>
+</Project>

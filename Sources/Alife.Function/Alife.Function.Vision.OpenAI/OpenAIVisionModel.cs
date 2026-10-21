@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -33,22 +34,28 @@ public class OpenAIVisionModel :
             //构建图片段
             byte[] imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
             string base64Image = Convert.ToBase64String(imageBytes);
-            string dataUri = $"data:image/jpeg;base64,{base64Image}";
+            string mediaType = Path.GetExtension(imagePath).Equals(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+            string dataUri = $"data:{mediaType};base64,{base64Image}";
 
-            //构造请求体
-            var requestBody = new {
-                model = Configuration.ModelName,
-                messages = new[] {
-                    new {
+            Dictionary<string, object?> requestBody = new()
+            {
+                ["model"] = Configuration.ModelName,
+                ["messages"] = new[]
+                {
+                    new
+                    {
                         role = "user",
-                        content = new object[] {
+                        content = new object[]
+                        {
                             new { type = "text", text = question },
                             new { type = "image_url", image_url = new { url = dataUri } }
                         }
                     }
                 },
-                max_tokens = maxResponseTokens
+                ["max_tokens"] = Math.Max(maxResponseTokens, 2048)
             };
+            if (Configuration.BaseUrl.Contains("xiaomimimo.com", StringComparison.OrdinalIgnoreCase))
+                requestBody["thinking"] = new { type = "disabled" };
 
             string jsonContent = JsonSerializer.Serialize(requestBody);
             using var request = new HttpRequestMessage(HttpMethod.Post, Configuration.BaseUrl);

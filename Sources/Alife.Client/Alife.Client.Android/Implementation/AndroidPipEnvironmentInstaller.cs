@@ -4,7 +4,7 @@ using Alife.Framework;
 
 namespace Alife.Client.Android;
 
-public sealed class AndroidPipEnvironmentInstaller : PipEnvironmentInstaller
+sealed class AndroidPipEnvironmentInstaller(IAlifeFoundation foundation) : PipEnvironmentInstaller
 {
     protected override async Task InstallRequirements(IEnumerable<KeyValuePair<string, string>> items)
     {
@@ -17,7 +17,7 @@ public sealed class AndroidPipEnvironmentInstaller : PipEnvironmentInstaller
             AlifeLog.LogWarning("Shizuku 未连接或未授权，已跳过 pip 环境安装。");
             return;
         }
-        if (ShizukuPythonInstaller.IsInstalled == false)
+        if (ShizukuPythonInstaller.IsInstalled(foundation) == false)
         {
             AlifeLog.LogWarning("未安装 Python，已跳过 pip 环境安装。相关插件在运行时可能不可用。");
             return;

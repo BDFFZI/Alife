@@ -12,7 +12,8 @@ namespace Alife.Function.Vision.MiniCPM;
     defaultCategory: "Alife 官方/模型接入/视觉模型",
     EditorUI = typeof(MiniCPMVisionModelUI))]
 public class MiniCPMVisionModel(
-    ILogger<MiniCPMVisionModel> logger) :
+    ILogger<MiniCPMVisionModel> logger,
+    IAlifeApplication alifeApplication) :
     ChatBehaviour,
     IConfigurable<MiniCPMVisionModelConfig>,
     IVisionModel
@@ -98,9 +99,9 @@ public class MiniCPMVisionModel(
     protected override async Task OnAwake()
     {
         const string ModelId = "OpenBMB/MiniCPM-V-4.6";
-        string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
+        string modelPath = ModelDownloader.EnsureModelExisting(alifeApplication, ModelId);
         string precision = Configuration.Precision;
-        pythonPipe = new PythonPipeProcess("minicpm_v", pythonCode);
+        pythonPipe = new PythonPipeProcess(alifeApplication, "minicpm_v", pythonCode);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath, precision);
     }

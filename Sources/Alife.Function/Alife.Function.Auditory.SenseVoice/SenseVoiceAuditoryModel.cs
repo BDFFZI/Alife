@@ -11,7 +11,7 @@ namespace Alife.Function.Auditory.SenseVoice;
     "基于SenseVoice的本地语音识别引擎",
     defaultCategory: "Alife 官方/模型接入/听觉模型",
     EditorUI = typeof(SenseVoiceAuditoryModelUI))]
-public class SenseVoiceAuditoryModel :
+public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
     ChatBehaviour,
     IConfigurable<SenseVoiceAuditoryModelConfig>,
     IAuditoryModel,
@@ -24,6 +24,7 @@ public class SenseVoiceAuditoryModel :
             string senseVoicePath = Path.Combine(ModelDownloader.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
             string vadPath = Path.Combine(ModelDownloader.ModelScopeModelPath, VadId.Replace(".", "___"));
             return File.Exists(Path.Combine(senseVoicePath, "model.int8.onnx"))
+                   && File.Exists(Path.Combine(senseVoicePath, "tokens.txt"))
                    && File.Exists(Path.Combine(vadPath, "silero_vad.onnx"));
         }
     }
@@ -41,10 +42,12 @@ public class SenseVoiceAuditoryModel :
     VadModelConfig vadConfig = new();
     SenseVoiceAudioRecognizer realtimeRecognizer = null!;
 
-    protected override Task OnAwake()
+    protected override async Task OnAwake()
     {
-        string senseVoicePath = ModelDownloader.EnsureModelExisting(SenseVoiceId);
-        string vadModelPath = ModelDownloader.EnsureModelExisting(VadId, "silero_vad.onnx");
+        await ModelDownloader.EnsureModelExistingAsync(alifeApplication, SenseVoiceId, "tokens.txt", DestroyCancellationToken);
+        string modelFile = await ModelDownloader.EnsureModelExistingAsync(alifeApplication, SenseVoiceId, "model.int8.onnx", DestroyCancellationToken);
+        string senseVoicePath = Path.GetDirectoryName(modelFile)!;
+        string vadModelPath = await ModelDownloader.EnsureModelExistingAsync(alifeApplication, VadId, "silero_vad.onnx", DestroyCancellationToken);
 
         OfflineRecognizerConfig config = new();
         config.ModelConfig.SenseVoice.Model = Path.Combine(senseVoicePath, "model.int8.onnx");
@@ -63,8 +66,6 @@ public class SenseVoiceAuditoryModel :
         vadConfig.SampleRate = 16000;
 
         realtimeRecognizer = new SenseVoiceAudioRecognizer(recognizer, vadConfig);
-
-        return Task.CompletedTask;
     }
     protected override Task OnDestroy()
     {

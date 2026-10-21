@@ -1,22 +1,22 @@
 using System;
 using Alife.Foundation;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
+using Alife.Client;
 
-namespace Alife.Function.Python;
+namespace Alife.Function.Execution;
 
 [Module("脚本执行",
-    "借助Python，让AI几乎可以执行任何任务！",
+    "让AI拥有在设备上运行命令的能力，从而执行任何任务！",
     defaultCategory: "Alife 官方/实用工具")]
-public partial class PythonService(
+public partial class ExecutionService(
     XmlFunctionCaller functionCaller,
-    Interactor<PythonService> interactor) :
+    Interactor<ExecutionService> interactor,
+    IAlifeApplication alifeApplication) :
     ChatBehaviour
 {
     [XmlFunction(FunctionMode.Content)]
@@ -32,7 +32,7 @@ public partial class PythonService(
             string result;
             try
             {
-                result = await Python(filePath, timeout, cancellationToken);
+                result = await Python(alifeApplication, filePath, timeout, cancellationToken);
             }
             finally
             {
@@ -51,7 +51,8 @@ public partial class PythonService(
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    public async Task DownloadFile(string url, string path)
+    [Description("基于内部镜像和伪装的下载工具")]
+    public async Task Download(string url, string path)
     {
         await AlifeUtility.DownloadFileAsync(url, path);
         interactor.Poke("已下载");
@@ -70,51 +71,26 @@ public partial class PythonService(
     }
 }
 
-public partial class PythonService
+public partial class ExecutionService
 {
-    public static async Task<string> Python(string path, int timeout = 30, CancellationToken cancellationToken = default)
+    public static async Task<string> Python(IAlifeApplication alifeApplication, string path, int timeout = 30,
+        CancellationToken cancellationToken = default)
     {
-        ProcessStartInfo startInfo = new() {
-            FileName = "python",
-            Arguments = $"\"{path}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            Environment = { { "PYTHONIOENCODING", "utf-8" }, { "PYTHONUTF8", "1" } },
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-
-        using Process process = new();
-        process.StartInfo = startInfo;
-        process.Start();
-
+        if (timeout <= 0) throw new ArgumentOutOfRangeException(nameof(timeout));
+        using CancellationTokenSource timeCts = new(TimeSpan.FromSeconds(timeout));
+        using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeCts.Token);
         try
         {
-            CancellationTokenSource timeCts = new(timeout * 1000);
-            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeCts.Token);
-
-            // 同时开始读取输出和错误流，防止缓冲区满导致进程死锁
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
-            Task<string> errorTask = process.StandardError.ReadToEndAsync(cts.Token);
-            await process.WaitForExitAsync(cts.Token);
-
-            if (process.ExitCode == 0)
-                return await outputTask;
-            else
-                throw new Exception(await errorTask);
+            using IAlifeProcess process = alifeApplication.StartPython(path);
+            AlifeProcessResult result = await process.WaitCompletion(cts.Token);
+            if (result.ExitCode != 0) throw new Exception(result.Output);
+            return result.Output;
         }
         catch (OperationCanceledException)
         {
             if (cancellationToken.IsCancellationRequested)
                 throw;
             throw new TimeoutException("脚本执行堵塞或超时（注意不要写需要交互的代码，如果需要展示结果等可以单独创建一个进程）");
-        }
-        finally
-        {
-            if (process.HasExited == false)
-                process.Kill();
         }
     }
 }

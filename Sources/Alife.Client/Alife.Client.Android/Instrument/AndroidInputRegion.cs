@@ -1,5 +1,3 @@
-using Android.Graphics;
-using Android.Views;
 using Android.Runtime;
 using Java.Lang.Reflect;
 using View = Android.Views.View;
@@ -24,12 +22,12 @@ sealed class AndroidInputRegion : Java.Lang.Object, IInvocationHandler
         this.view = view;
         // Resolve JNI metadata on a managed worker, outside a Java reflection callback.
         regionField = Task.Run(() => {
-            using var type = Java.Lang.Class.ForName("android.view.ViewTreeObserver$InternalInsetsInfo")!;
+            using var type = Java.Lang.Class.ForName("android.view.ViewTreeObserver$InternalInsetsInfo");
             return JNIEnv.GetFieldID(type.Handle, "touchableRegion", "Landroid/graphics/Region;");
         }).GetAwaiter().GetResult();
-        listenerType = Java.Lang.Class.ForName("android.view.ViewTreeObserver$OnComputeInternalInsetsListener")!;
-        listener = Proxy.NewProxyInstance(listenerType.ClassLoader, [listenerType], this)!;
-        view.ViewTreeObserver!.Class.GetMethod("addOnComputeInternalInsetsListener", listenerType)!
+        listenerType = Java.Lang.Class.ForName("android.view.ViewTreeObserver$OnComputeInternalInsetsListener");
+        listener = Proxy.NewProxyInstance(listenerType.ClassLoader, [listenerType], this);
+        view.ViewTreeObserver!.Class.GetMethod("addOnComputeInternalInsetsListener", listenerType)
             .Invoke(view.ViewTreeObserver, listener);
     }
 
@@ -47,11 +45,11 @@ sealed class AndroidInputRegion : Java.Lang.Object, IInvocationHandler
     {
         if (method?.Name == "onComputeInternalInsets" && args is [var info])
         {
-            info.Class.GetMethod("setTouchableInsets", Java.Lang.Integer.Type!)!
+            info.Class.GetMethod("setTouchableInsets", Java.Lang.Integer.Type!)
                 .Invoke(info, Java.Lang.Integer.ValueOf(enabled ? 3 : 0));
             if (enabled)
             {
-                using var target = Java.Lang.Object.GetObject<Region>(JNIEnv.GetObjectField(info.Handle, regionField), JniHandleOwnership.TransferLocalRef);
+                using var target = GetObject<Region>(JNIEnv.GetObjectField(info.Handle, regionField), JniHandleOwnership.TransferLocalRef);
                 target!.Set(region);
             }
         }
@@ -65,7 +63,7 @@ sealed class AndroidInputRegion : Java.Lang.Object, IInvocationHandler
 
     public void Detach()
     {
-        view.ViewTreeObserver!.Class.GetMethod("removeOnComputeInternalInsetsListener", listenerType)!
+        view.ViewTreeObserver!.Class.GetMethod("removeOnComputeInternalInsetsListener", listenerType)
             .Invoke(view.ViewTreeObserver, listener);
         region.Dispose();
         listener.Dispose();

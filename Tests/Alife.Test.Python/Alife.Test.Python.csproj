@@ -21,7 +21,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\Sources\Alife\Alife.Foundation\Alife.Foundation.csproj" />
-      <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Python\Alife.Function.Python.csproj" />
+      <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.Execution\Alife.Function.Execution.csproj" />
     </ItemGroup>
 
 </Project>

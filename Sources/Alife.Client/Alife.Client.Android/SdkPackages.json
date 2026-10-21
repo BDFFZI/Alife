@@ -11,8 +11,8 @@
   },
   {
     "Name": "ca-certificates",
-    "File": "pool/main/c/ca-certificates/ca-certificates_1:2026.09.25_all.deb",
-    "Sha256": "57fab24bf4561bfdd35afe71bc1929914e51c35458cfd1fca2b15e54bc8df7af"
+    "File": "pool/main/c/ca-certificates/ca-certificates_1:2026.10.20-1_all.deb",
+    "Sha256": "ab8a7fe63293b455c02399ee125eb8a0041e430ccfdf89a5be8317522fdf9107"
   },
   {
     "Name": "dotnet-apphost-pack-10.0",
@@ -116,13 +116,13 @@
   },
   {
     "Name": "python",
-    "File": "pool/main/p/python/python_3.14.6-1_aarch64.deb",
-    "Sha256": "3166e56c2b6c03fff41191fbb9d736302978e7c484702814d9f6dc99dd6006bd"
+    "File": "pool/main/p/python/python_3.14.8_aarch64.deb",
+    "Sha256": "55fcd7c23a603ba0caeca3ef9e670ec88ff71c1a480101de4983629792563b5e"
   },
   {
     "Name": "python-pip",
-    "File": "pool/main/p/python-pip/python-pip_26.2.1_all.deb",
-    "Sha256": "92a9cb4b3c99dd20086f90fedc95c604eefc5bd0f88d1862690884474f82de44"
+    "File": "pool/main/p/python-pip/python-pip_26.2.2-1_all.deb",
+    "Sha256": "9a28a8ae15aac1f3154206c6d278e1692da8a04b900af198bc594b2cfad7b82f"
   },
   {
     "Name": "readline",

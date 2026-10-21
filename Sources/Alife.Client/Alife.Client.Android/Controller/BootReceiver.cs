@@ -4,7 +4,7 @@ using Android.Content;
 namespace Alife.Client.Android;
 
 [BroadcastReceiver(Enabled = true, Exported = true)]
-[IntentFilter(new[] { Intent.ActionBootCompleted, Intent.ActionMyPackageReplaced })]
+[IntentFilter([Intent.ActionBootCompleted, Intent.ActionMyPackageReplaced])]
 public sealed class BootReceiver : BroadcastReceiver
 {
     public override void OnReceive(Context? context, Intent? intent)

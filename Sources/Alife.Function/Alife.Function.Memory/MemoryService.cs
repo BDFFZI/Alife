@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
@@ -34,138 +32,71 @@ public class MemoryService(
 {
     public MemoryConfig Configuration { get; set; } = null!;
 
-    [XmlFunction(FunctionMode.OneShot)]
-    public async Task ReadMemoryArchive([Description("存档id")] string id)
+    public async Task Memorize(int level, string name, string synopsis, string content)
     {
-        string? memory = await memoryManager.ReadMemory(id);
-        interactor.Poke(memory != null
-            ? $"读取[记忆存档({id})]内容如下：\n{memory}"
-            : $"未找到[记忆存档({id})]");
+        MemoryIndex memoryIndex = new(level, name);
+        await ChatBot.EditChatHistoryAsync(
+            async thread => {
+                await memoryManager.WriteMemory(thread.ChatHistory, memoryIndex, synopsis, content);
+            }, "编辑记忆");
     }
-
-    [XmlFunction(FunctionMode.OneShot)]
-    public async Task SearchMemoryArchive(
-        [Description("精准匹配关键词（仅支持一个，不要太具体避免搜不到）")] string? keyword = null,
-        [Description("向量搜索提示词（仅用于排序，为空则基于时间排序）")] string? prompt = null,
-        [Description("页码，从1开始")] int page = 1,
-        [Description("每页条数")] int count = 5,
-        [Description("存档层级（推荐3级，信息冗余少，损耗适中）")] int level = 3,
-        [Description("ISO-8601格式，不填则不限")] DateTime? startTime = null,
-        [Description("ISO-8601格式，不填则不限")] DateTime? endTime = null)
-    {
-        keyword = keyword?.Trim() ?? "";
-        if (keyword.Contains(' '))
-            throw new Exception("不支持使用空格拆分多关键词搜索！");
-        if (!string.IsNullOrEmpty(prompt) && vectorizer == null)
-            throw new Exception("当前未启用向量功能，不支持语义搜索（prompt 参数）！请先在记忆配置中开启 EnableVector，或仅使用关键词搜索。");
-
-        int offset = (page - 1) * count;
-        (List<SearchResult> results, int total) = await memoryManager.SearchMemory(level, keyword, prompt, count, offset, startTime, endTime);
-
-        StringBuilder stringBuilder = new();
-        if (total == 0)
-        {
-            stringBuilder.AppendLine(keyword + "在" + level + "级存档中未匹配到内容。");
-            interactor.Poke(stringBuilder.ToString());
-            return;
-        }
-
-        int totalPages = (total + count - 1) / count;
-        stringBuilder.AppendLine($"“{keyword}”的搜索结果（第{page}页，共{totalPages}页）：");
-        for (int index = 0; index < results.Count; index++)
-        {
-            SearchResult searchResult = results[index];
-            string highlighted = HighlightKeyword(searchResult.Summary, keyword);
-            stringBuilder.AppendLine(
-                $"""
-                 > {index + 1}
-                 [记忆存档({searchResult.Name})]
-                 {highlighted}
-                 """);
-        }
-
-        if (page < totalPages)
-        {
-            int remaining = total - page * count;
-            stringBuilder.AppendLine($"\n(还有 {remaining} 条结果，可用 <Search page=\"{page + 1}\"> 继续翻页查看)");
-        }
-
-        interactor.Poke(stringBuilder.ToString());
-
-        static string HighlightKeyword(string text, string keyword)
-        {
-            string[] lines = text.Split('\n');
-            var matched = lines.Where(line => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
-            return matched.Count > 0 ? string.Join("\n", matched) : $"…（未显示含“{keyword}”的匹配行）…\n{string.Join("\n", lines.Take(3))}";
-        }
-    }
-
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("创建一个永久记忆（仅能用于存储珍贵的核心记忆（与他人相关的记忆），不要用来存储个人休闲活动信息）")]
-    public async Task Memorize(XmlExecutorContext ctx,
-        [Description("格式为ISO-8601")] DateTime? startTime = null,
-        [Description("格式为ISO-8601")] DateTime? endTime = null
+    [Description("创建或修改记忆存档")]
+    public async void Memorize(XmlExecutorContext ctx,
+        [Description("等级")] int level,
+        [Description("记忆名")] string name,
+        [Description("简述（始终可见，方便你未来查阅）")] string synopsis,
+        [Description($"具体内容（存到外存。需要用{nameof(Recall)}查看）")] [XmlContent] string content
     )
-    {
-        if (ctx.CallMode == CallMode.Closing)
-        {
-            DateTime start = startTime ?? DateTime.Now;
-            DateTime end = endTime ?? DateTime.Now;
-
-            string name = await InsertMemory(100, ctx.FullContent.Trim(), "手动存储的记忆，无原始内容。", start, end);
-            interactor.Poke($"成功插入永久记忆存档：{name}");
-        }
-    }
-
-    [XmlFunction(FunctionMode.OneShot)]
-    [Description("移除一个永久记忆")]
-    public async void Forget([Description("存档索引")] string index)
     {
         try
         {
-            index = index.Trim();
-            ChatMessageContent? target = ChatBot.ChatHistory.FirstOrDefault(c => memoryManager.GetMemoryMetaData(c).Name == index);
-            if (target == null)
-            {
-                interactor.Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
+            if (ctx.CallMode != CallMode.Closing)
                 return;
-            }
 
-            MemoryMeta memoryMeta = memoryManager.GetMemoryMetaData(target);
-            if (memoryMeta.Level < Configuration.MaxCompressionLevel)
-            {
-                interactor.Poke($"仅支持删除层级大于等于 {Configuration.MaxCompressionLevel} 的记忆");
-                return;
-            }
-
-            await ChatBot.EditChatHistoryAsync(thread => {
-                memoryManager.RemoveMemory(thread.ChatHistory, target);
-                return Task.CompletedTask;
-            }, "删除永久记忆");
-
-            interactor.Poke($"成功移除记忆存档：{index}（不过你仍可以通过 {nameof(ReadMemoryArchive)} 读取其内容）");
+            MemoryIndex memoryIndex = new(level, name);
+            string fullContent = ctx.FullContent;
+            await Memorize(level, name, synopsis, fullContent);
+            interactor.Poke($"已编辑{MemoryManager.GetMemoryTag(memoryIndex)}");
         }
         catch (Exception e)
         {
-            AlifeLog.LogError(e);
+            interactor.Poke("编辑失败：" + e.Message);
         }
     }
 
-    public async Task<string> InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)
+    [XmlFunction(FunctionMode.OneShot)]
+    [Description("删除记忆存档")]
+    public void Forget([Description("存档索引")] string index)
     {
-        string? name = null;
-        await ChatBot.EditChatHistoryAsync(
-            async thread => {
-                name = await memoryManager.InsertMemory(thread.ChatHistory, level, summary, content, startTime, endTime);
-            }, "插入永久记忆");
-        if (name == null)
-            throw new Exception("永久记忆插入失败。");
+        MemoryIndex memoryIndex = MemoryIndex.Parse(index);
+        _ = ChatBot.EditChatHistoryAsync(
+            thread => {
+                ChatMessageContent? chatMessageContent = memoryManager.FindMemory(thread.ChatHistory, memoryIndex);
+                if (chatMessageContent == null)
+                {
+                    interactor.Poke($"{MemoryManager.GetMemoryTag(memoryIndex)}不存在");
+                    return Task.CompletedTask;
+                }
 
-        return name;
+                thread.ChatHistory.Remove(chatMessageContent);
+                interactor.Poke($"{MemoryManager.GetMemoryTag(memoryIndex)}已删除");
+                return Task.CompletedTask;
+            }, "编辑记忆");
     }
 
-    TextVectorizer? vectorizer;
+    [XmlFunction(FunctionMode.OneShot)]
+    [Description("查看记忆存档具体内容")]
+    public async Task Recall([Description("存档索引")] string index)
+    {
+        MemoryIndex memoryIndex = MemoryIndex.Parse(index);
+        string? memory = await memoryManager.ReadMemory(memoryIndex);
+        interactor.Poke(memory != null
+            ? $"{MemoryManager.GetMemoryTag(memoryIndex)}内容如下：\n{memory}"
+            : $"未找到{MemoryManager.GetMemoryTag(memoryIndex)}");
+    }
+    
     MemoryManager memoryManager = null!;
     ILanguageModel compressModel = null!;
     string storagePath = null!;
@@ -177,33 +108,38 @@ public class MemoryService(
             throw new Exception("持久记忆依赖消息过滤的时间戳功能，请先打开时间戳！");
 
         storagePath = Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Memory");
+        Directory.CreateDirectory(storagePath);
 
         //插入提示词
         XmlHandler xmlHandler = new(this) {
-            Description = "当你想要回忆往事或存储额外记忆时使用",
-            Explanation = $$"""
-                            记忆存储介绍
-                            - 早期聊天记录会被总结为记忆存档，每个存档有唯一ID，格式为`等级-最早日期范围-最大日期范围`。其中等级表示被压缩次数（早期存档也会被二次压缩）
-                            - 可以通过<{{nameof(ReadMemoryArchive)}}>查看存档压缩的内容。内容中可能是嵌套的存档，因此需要多次调用才能拿到最原始的聊天记录
-                            - 存档中被压缩内容不会丢失，而是以存档id为名永久存储在`{{storagePath}}`中，可利用记忆工具或文件工具查看
+            Description = "上下文编辑与回忆工具",
+            Explanation = $"""
+                           记忆存档：
+                           每当对话超一定次数，部分对话内容就会被压缩成存档。
+                           每个存档有一个唯一标识，格式为`等级-名称`。系统的存档中，名称通常由内容涉及的日期构成`开始时间-截至时间`。
+                           当同级存档达到一定数量，也会进行二次压缩归档，同时等级加一。当等级>={Configuration.MaxCompressionLevel}时，则长驻上下文，不再自动压缩。
 
-                            如何恢复记忆
-                            1. 预估大致时间范围，或根据概述所在存档，通过<{{nameof(ReadMemoryArchive)}}>查看记忆存档的完整内容
-                            2. 根据关键词通过<{{nameof(SearchMemoryArchive)}}>查找疑似存档，然后重复第一步
-                            3. 备选方案，通过文件系统直接浏览搜索存档目录中的所有文件
-                            """
+                           创建专用记忆：
+                           你可以使用本服务提供编辑工具，修改你的上下文（慎用，极耗token）。
+                           比如创建一些不会被压缩的高级存档来存储专用内容，如人物画像、规则约束、数据记录等。
+                           并且你可以随时更新，因为只要保持synopsis不变，仅修改content不会破坏llm的缓存命中。
+                           但注意也别忘了先用{nameof(Recall)}查看原内容再写，防止错误覆盖。
+
+                           检索记忆：
+                           所有记忆存档中的原始具体内容都被存放在了`{storagePath}`中，他们是被归档在上下文之外的旧记忆内容，你可以用文件操作工具翻阅他们。
+                           你可以没事翻一翻，或许会发现被遗忘的珍贵回忆。
+                           """
         };
-        functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit, DestroyCancellationToken);
+        functionService.RegisterHandler(xmlHandler, DocumentMode.Explicit, DestroyCancellationToken);
 
         return Task.CompletedTask;
     }
     protected override async Task OnStart()
     {
         //创建记忆工具（向量默认关闭，避免拉起 Python/torch 模型开销）
-        vectorizer = Configuration.EnableVector ? await TextVectorizer.CreateAsync() : null;
         compressModel = await ResolveCompressModel();
         AlifeHistoryCompressor compressor = new(compressModel, Configuration.Probability, Configuration.CompressPrompt);
-        memoryManager = new MemoryManager(compressor, vectorizer, storagePath, Configuration.Threshold,
+        memoryManager = new MemoryManager(compressor, storagePath, Configuration.Threshold,
             Configuration.BatchSize,
             Configuration.MaxCompressionLevel);
 
@@ -256,8 +192,6 @@ public class MemoryService(
         ChatBot.ChatSend -= OnChatSend;
         ChatBot.ChatHistoryAdd -= OnChatHistoryAdd;
         ChatBot.TokenUsed -= OnTokenUsed;
-        if (vectorizer != null)
-            await vectorizer.DisposeAsync();
     }
 
     string OnChatSend(string message)

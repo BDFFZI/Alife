@@ -10,13 +10,14 @@
         <ApplicationId>com.alife.client</ApplicationId>
         <ApplicationTitle>Alife</ApplicationTitle>
         <ApplicationVersion>1</ApplicationVersion>
-        <ApplicationDisplayVersion>6.0.0</ApplicationDisplayVersion>
-        <Version>6.0.0</Version>
+        <ApplicationDisplayVersion>5.0.0</ApplicationDisplayVersion>
+        <Version>5.0.0</Version>
         <AndroidManifest>Properties/AndroidManifest.xml</AndroidManifest>
         <AndroidPackageFormats>apk</AndroidPackageFormats>
         <PublishTrimmed>false</PublishTrimmed>
         <RunAOTCompilation>false</RunAOTCompilation>
         <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+        <AndroidUseAssemblyStore>false</AndroidUseAssemblyStore>
         <StaticWebAssetFingerprintingEnabled>false</StaticWebAssetFingerprintingEnabled>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <UseMaui>true</UseMaui>
@@ -42,6 +43,8 @@
         <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.110" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView" Version="10.0.13" />
+        <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
+        <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.5" />
         <PackageReference Include="SharpCompress" Version="0.48.1" />
         <PackageReference Include="Xamarin.AndroidX.WebKit" Version="1.14.0.1" />
         <EmbeddedResource Include="SdkPackages.json" LogicalName="SdkPackages" />
@@ -59,31 +62,4 @@
         <Compile Include="../../../Tests/Alife.Test.Android/WindowProbeActivity.cs" Link="WindowProbeActivity.cs" />
     </ItemGroup>
 
-    <PropertyGroup>
-        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(ANDROID_NDK_ROOT)' != ''">$(ANDROID_NDK_ROOT)</AlifeAndroidNdkRoot>
-        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(ANDROID_NDK_HOME)' != ''">$(ANDROID_NDK_HOME)</AlifeAndroidNdkRoot>
-        <AlifeAndroidNdkRoot Condition="'$(AlifeAndroidNdkRoot)' == '' and '$(AndroidNdkDirectory)' != ''">$(AndroidNdkDirectory)</AlifeAndroidNdkRoot>
-        <AlifeAndroidNdkHost Condition="'$(OS)' == 'Windows_NT'">windows-x86_64</AlifeAndroidNdkHost>
-        <AlifeAndroidNdkHost Condition="'$(AlifeAndroidNdkHost)' == ''">linux-x86_64</AlifeAndroidNdkHost>
-        <AlifeAndroidClang Condition="'$(AlifeAndroidClang)' == '' and '$(AlifeAndroidNdkRoot)' != '' and '$(OS)' == 'Windows_NT'">$(AlifeAndroidNdkRoot)/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang.exe</AlifeAndroidClang>
-        <AlifeAndroidClang Condition="'$(AlifeAndroidClang)' == '' and '$(AlifeAndroidNdkRoot)' != '' and '$(OS)' != 'Windows_NT'">$(AlifeAndroidNdkRoot)/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang</AlifeAndroidClang>
-    </PropertyGroup>
-
-    <!-- 插件 NuGet restore 需要在 Android 上以 hostfxr 方式启动 termux .NET，故随 APK 嵌入原生 launcher。 -->
-    <Target Name="BuildSdkLauncher" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
-        <ItemGroup Condition="'$(AlifeAndroidClang)' == ''">
-            <_AlifeNdkClang Include="$(ANDROID_SDK_ROOT)/ndk/*/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang"/>
-            <_AlifeNdkClang Include="$(ANDROID_SDK_ROOT)/ndk/*/toolchains/llvm/prebuilt/$(AlifeAndroidNdkHost)/bin/clang.exe"/>
-        </ItemGroup>
-        <PropertyGroup>
-            <_AlifeClang Condition="'$(AlifeAndroidClang)' != ''">$(AlifeAndroidClang)</_AlifeClang>
-            <_AlifeClang Condition="'$(_AlifeClang)' == ''">@(_AlifeNdkClang)</_AlifeClang>
-        </PropertyGroup>
-        <Error Condition="'$(_AlifeClang)' == ''" Text="未找到 Android NDK。请设置 AlifeAndroidClang，或设置 ANDROID_NDK_ROOT。"/>
-        <MakeDir Directories="$(IntermediateOutputPath)native"/>
-        <Exec Command="&quot;$(_AlifeClang)&quot; --target=aarch64-linux-android26 &quot;$(MSBuildProjectDirectory)/Native/sdk-launcher.c&quot; -ldl -O2 -o &quot;$(IntermediateOutputPath)native/sdk-launcher&quot;"/>
-        <ItemGroup>
-            <EmbeddedResource Include="$(IntermediateOutputPath)native/sdk-launcher" LogicalName="SdkLauncher"/>
-        </ItemGroup>
-    </Target>
 </Project>

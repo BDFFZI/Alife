@@ -1,3 +1,4 @@
+#if !ANDROID
 using System;
 using NAudio.Wave;
 
@@ -111,3 +112,5 @@ public class SystemAudioRecorder : IDisposable
     float[]? convInput;
     float[]? convOutput;
 }
+
+#endif

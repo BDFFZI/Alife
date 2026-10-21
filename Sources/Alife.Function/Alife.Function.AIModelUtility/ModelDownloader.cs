@@ -1,46 +1,60 @@
 using System;
 using System.IO;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Alife.Foundation;
+using Alife.Framework;
 
 namespace Alife.Function.AIModelUtility;
 
-/// <summary>
-/// 通用的模型与资源下载引导器。
-/// 负责检测文件完整性并调用独立的 WPF 下载器窗口。
-/// </summary>
+/// <summary>Download ModelScope assets into a cache readable by both the app and its Python process.</summary>
 public static class ModelDownloader
 {
-    public static string EnsureModelExisting(string modelId, string? targetFile = null)
+    static readonly SemaphoreSlim DownloadGate = new(1, 1);
+    public static string EnsureModelExisting(IAlifeApplication alifeApplication, string modelId, string? targetFile = null)
+        => Task.Run(() => EnsureModelExistingAsync(alifeApplication, modelId, targetFile)).GetAwaiter().GetResult();
+
+    public static async Task<string> EnsureModelExistingAsync(IAlifeApplication alifeApplication, string modelId,
+        string? targetFile = null, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(modelId) || modelId.Split('/').Length != 2 ||
+            modelId.Contains("..") || modelId.IndexOfAny(['\\', ':']) >= 0)
+            throw new ArgumentException("模型 ID 必须为 owner/name。", nameof(modelId));
         string localPath = Path.Combine(ModelScopeModelPath, modelId.Replace(".", "___"));
-        string checkFile = Path.Combine(localPath, targetFile ?? "README.md");
-
-        AlifeUtility.Command("python", $"-c \"from modelscope import snapshot_download; snapshot_download('{modelId}')\"");
-
-        if (!File.Exists(checkFile))
-            throw new DirectoryNotFoundException($"模型下载失败，目录不完整（{localPath}），请尝试删除后重试");
-
-        return targetFile != null ? checkFile : localPath;
-    }
-
-    public static string ModelScopeModelPath { get; }
-
-    static ModelDownloader()
-    {
-        string modelScopeCachePath = Environment.GetEnvironmentVariable("MODELSCOPE_CACHE") ??
-                                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "modelscope", "hub");
-
+        string checkFile = Path.GetFullPath(Path.Combine(localPath, targetFile ?? "README.md"));
+        if (!checkFile.StartsWith(Path.GetFullPath(localPath) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            throw new ArgumentException("模型文件必须位于模型目录内。", nameof(targetFile));
+        await DownloadGate.WaitAsync(cancellationToken);
         try
         {
-            string lockFile = Path.Combine(modelScopeCachePath, ".lock");
-            if (Directory.Exists(lockFile))
-                Directory.Delete(lockFile, true);
+            if (!File.Exists(checkFile))
+            {
+                Directory.CreateDirectory(ModelScopeModelPath);
+                string script = Path.Combine(ModelScopeModelPath, $"download_{Guid.NewGuid():N}.py");
+                try
+                {
+                    // local_dir makes the returned layout independent of ModelScope cache-version changes.
+                    string patterns = targetFile == null ? "None" : JsonSerializer.Serialize(new[] { targetFile });
+                    string code =
+                        $"from modelscope import snapshot_download\nsnapshot_download({JsonSerializer.Serialize(modelId)}, local_dir={JsonSerializer.Serialize(localPath)}, allow_patterns={patterns})\n";
+                    await File.WriteAllTextAsync(script, code, cancellationToken);
+                    await alifeApplication.StartPython(script).WaitCompletion(cancellationToken);
+                }
+                finally
+                {
+                    File.Delete(script);
+                }
+            }
+            if (!File.Exists(checkFile))
+                throw new FileNotFoundException("模型下载不完整，缺少所需文件。", checkFile);
+            return targetFile != null ? checkFile : localPath;
         }
-        catch (Exception ex)
+        finally
         {
-            throw new Exception("检测到模型下载任务中断或冲突，请重启电脑后继续\n" + ex);
+            DownloadGate.Release();
         }
-
-        ModelScopeModelPath = Path.Combine(modelScopeCachePath, "models").Replace(Path.DirectorySeparatorChar, '/');
     }
+
+    public static string ModelScopeModelPath { get; } = Path.Combine(AlifePath.RuntimeFolderPath, "Models");
 }

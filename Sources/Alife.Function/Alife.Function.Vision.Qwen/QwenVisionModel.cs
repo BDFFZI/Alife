@@ -12,7 +12,8 @@ namespace Alife.Function.Vision.Qwen;
     defaultCategory: "Alife 官方/模型接入/视觉模型",
     EditorUI = typeof(QwenVisionModelUI))]
 public class QwenVisionModel(
-    ILogger<QwenVisionModel> logger) :
+    ILogger<QwenVisionModel> logger,
+    IAlifeApplication alifeApplication) :
     ChatBehaviour,
     IVisionModel,
     IConfigurable<QwenVisionModelConfig>
@@ -106,8 +107,8 @@ public class QwenVisionModel(
     protected override async Task OnAwake()
     {
         const string ModelId = "Qwen/Qwen2.5-VL-3B-Instruct";
-        string modelPath = ModelDownloader.EnsureModelExisting(ModelId);
-        pythonPipe = new("qwen_vl", pythonCode);
+        string modelPath = ModelDownloader.EnsureModelExisting(alifeApplication, ModelId);
+        pythonPipe = new(alifeApplication, "qwen_vl", pythonCode);
         await pythonPipe.StartAsync();
         await pythonPipe.InvokeAsync<string>("init", modelPath);
     }

@@ -1,15 +1,10 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
-#if !ANDROID
-using NAudio.Wave;
-#endif
 
 namespace Alife.Function.Speech;
 
@@ -18,7 +13,7 @@ namespace Alife.Function.Speech;
     defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(SpeechServiceUI))]
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
-public class SpeechService(
+public partial class SpeechService(
     XmlFunctionCaller functionService,
     AIModelUtility.ISpeechModel speechModel,
     ILogger<SpeechService> logger) :
@@ -68,13 +63,7 @@ public class SpeechService(
 
     protected override Task OnAwake()
     {
-#if ANDROID
-        // Android 直接使用进程内 MediaPlayer，无需客户端注入。
-        audioPlayer = new AndroidSpeechAudioPlayer();
-#else
-        // 桌面默认走 NAudio；若外部注入了平台播放器则优先使用。
-        audioPlayer = ChatActivity.Container.Instances.OfType<ISpeechAudioPlayer>().FirstOrDefault();
-#endif
+        InitializeAudioPlayer();
 
         XmlHandler xmlHandler = new(this);
         functionService.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
@@ -124,6 +113,7 @@ public class SpeechService(
 
         playAudioTask = PlayAudioAsync(audioFile, cancellationToken);
     }
+
     async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (audioPlayer != null)
@@ -132,55 +122,7 @@ public class SpeechService(
             return;
         }
 
-#if !ANDROID
-        TaskCompletionSource tcs = new();
-
-        if (File.Exists(filePath) == false)
-            Console.WriteLine(filePath);
-
-        await using AudioFileReader reader = new(filePath); //音频读取
-        SpeechSilenceTrimmer silenceTrimmer = new(reader); //音频预处理
-        // 预计算整段音量包络，出声后再连同起跑时间戳一起发布，前端按本机时钟查表驱动口型
-        float[] envelope = silenceTrimmer.GetEnvelope(AudioWindowMs);
-        using WaveOutEvent speaker = new();
-        speaker.Init(silenceTrimmer);
-        speaker.PlaybackStopped += OnPlaybackStopped;
-        speaker.Play();
-        try
-        {
-            AudioStarted?.Invoke(new SpeechAudioContext {
-                Envelope = envelope,
-                WindowMs = AudioWindowMs,
-                StartUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
-        }
-        catch (Exception e)
-        {
-            logger.LogWarning(e, "发布语音包络失败");
-        }
-
-        // ReSharper disable once AccessToDisposedClosure
-        await using CancellationTokenRegistration registration = cancellationToken.Register(() => speaker.Stop());
-        await tcs.Task; //等待播放完毕
-
-        void OnPlaybackStopped(object? _, StoppedEventArgs e)
-        {
-            try
-            {
-                AudioStopped?.Invoke();
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "发布语音停止事件失败");
-            }
-            if (e.Exception != null)
-                tcs.TrySetException(e.Exception);
-            else
-                tcs.TrySetResult();
-        }
-#else
-        await Task.CompletedTask;
-#endif
+        await PlayBufferedAudioAsync(filePath, cancellationToken);
     }
 
     /// <summary>
@@ -188,16 +130,7 @@ public class SpeechService(
     /// </summary>
     async Task PlayWithPlatformPlayerAsync(string filePath, CancellationToken cancellationToken)
     {
-#if !ANDROID
-        float[] envelope;
-        using (AudioFileReader reader = new(filePath))
-        {
-            SpeechSilenceTrimmer silenceTrimmer = new(reader);
-            envelope = silenceTrimmer.GetEnvelope(AudioWindowMs);
-        }
-#else
-        float[] envelope = [];
-#endif
+        float[] envelope = CreateEnvelope(filePath);
 
         try
         {
@@ -228,4 +161,13 @@ public class SpeechService(
             }
         }
     }
+
+    /// <summary>初始化当前平台的音频播放器。</summary>
+    partial void InitializeAudioPlayer();
+
+    /// <summary>计算用于口型同步的音量包络；无法计算时返回空数组。</summary>
+    private partial float[] CreateEnvelope(string filePath);
+
+    /// <summary>使用插件自带的缓冲播放器播放音频。</summary>
+    private partial Task PlayBufferedAudioAsync(string filePath, CancellationToken cancellationToken);
 }

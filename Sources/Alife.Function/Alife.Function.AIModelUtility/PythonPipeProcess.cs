@@ -1,57 +1,43 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Client;
 using Alife.Foundation;
+using Alife.Framework;
 
 namespace Alife.Function.AIModelUtility;
 
 public class PythonException(string message) : Exception(message);
 
-public sealed class PythonPipeProcess(string scriptName, string pythonCode, string? pythonExe = null) : IAsyncDisposable
+public sealed class PythonPipeProcess(
+    IAlifeApplication alifeApplication,
+    string scriptName,
+    string pythonCode,
+    string? pythonExe = null) : IAsyncDisposable
 {
     public async Task StartAsync(CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        if (process != null) throw new InvalidOperationException("Python process already started");
         Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
         await File.WriteAllTextAsync(scriptPath, BoilerplateHeader + "\n" + pythonCode + "\n" + BoilerplateFooter, ct);
 
-        ProcessStartInfo psi = new() {
-            FileName = pythonExe,
-            Arguments = $"\"{scriptPath}\"",
-            UseShellExecute = false,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            Environment = { { "PYTHONIOENCODING", "utf-8" }, { "PYTHONUTF8", "1" } },
-        };
-
-        process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        process.ErrorDataReceived += (_, e) => {
-            if (string.IsNullOrEmpty(e.Data) == false)
-                AlifeLog.LogInformation(e.Data); //python用错误流输出普通log，也是醉了
-        };
-        process.OutputDataReceived += (_, e) => {
-            if (string.IsNullOrEmpty(e.Data) == false)
-                AlifeLog.LogInformation(e.Data);
-        };
-
-        process.Start();
-
-        process.BeginErrorReadLine();
+        process = alifeApplication.StartPython(scriptPath, pythonExe);
+        _ = Task.Run(() => DrainErrorsAsync(process.StandardError));
         stdin = process.StandardInput;
         stdout = process.StandardOutput;
         callLock = new SemaphoreSlim(1, 1);
     }
     public async Task<T> InvokeAsync<T>(string funcName, params object[] args)
     {
-        JsonElement result = await InvokeAsync(funcName, args);
+        return await InvokeAsync<T>(funcName, CancellationToken.None, args);
+    }
+    public async Task<T> InvokeAsync<T>(string funcName, CancellationToken cancellationToken, params object[] args)
+    {
+        JsonElement result = await InvokeAsync(funcName, cancellationToken, args);
         return result.Deserialize<T>(jsonOptions)!;
     }
     public async ValueTask DisposeAsync()
@@ -66,8 +52,8 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
                 await stdin!.WriteLineAsync("""{"func":"__shutdown__","args":[]}""");
                 await stdin.FlushAsync();
 
-                if (process.WaitForExit(3000) == false)
-                    process.Kill();
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await process.Completion.WaitAsync(timeout.Token);
             }
             catch
             {
@@ -97,6 +83,16 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
         {
             AlifeLog.LogError(e);
         }
+    }
+
+    static async Task DrainErrorsAsync(StreamReader reader)
+    {
+        try
+        {
+            while (await reader.ReadLineAsync() is { } line) AlifeLog.LogInformation(line);
+        }
+        catch (ObjectDisposedException) { }
+        catch (IOException) { }
     }
 
     const string BoilerplateHeader = """
@@ -133,27 +129,35 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
                                      """;
 
     readonly string pythonExe = pythonExe ?? "python";
-    readonly string scriptPath = Path.Combine(AlifePath.TempFolderPath, "python_pipe", $"{scriptName}.py");
+    readonly string scriptPath = Path.Combine(AlifePath.TempFolderPath, "python_pipe", $"{Guid.NewGuid():N}.py");
 
     readonly JsonSerializerOptions jsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    Process? process;
+    IAlifeProcess? process;
     StreamWriter? stdin;
     StreamReader? stdout;
     SemaphoreSlim? callLock;
     bool disposed;
 
-    async Task<JsonElement> InvokeAsync(string funcName, params object[] args)
+    async Task<JsonElement> InvokeAsync(string funcName, CancellationToken cancellationToken, params object[] args)
     {
         EnsureStarted();
-        await callLock!.WaitAsync();
+        await callLock!.WaitAsync(cancellationToken);
         try
         {
+            EnsureStarted();
+            using var cancellation = cancellationToken.Register(() => process!.Kill());
             await WriteRequestAsync(funcName, args);
-            return await ReadResponseAsync();
+            return await ReadResponseAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Prevent the canceled response from becoming the next call's result.
+            process!.Kill();
+            throw;
         }
         finally
         {
@@ -167,11 +171,12 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
         await stdin!.WriteLineAsync(json.AsMemory());
         await stdin.FlushAsync();
     }
-    async Task<JsonElement> ReadResponseAsync()
+    async Task<JsonElement> ReadResponseAsync(CancellationToken cancellationToken)
     {
         while (true)
         {
-            string? line = await stdout!.ReadLineAsync();
+            string? line = await stdout!.ReadLineAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (line is null)
                 throw new PythonException("Python 进程已退出，未收到响应");
@@ -182,7 +187,7 @@ public sealed class PythonPipeProcess(string scriptName, string pythonCode, stri
             if (line.AsSpan().TrimStart()[0] != '{')
                 continue;
 
-            JsonDocument doc = JsonDocument.Parse(line);
+            using JsonDocument doc = JsonDocument.Parse(line);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("ok", out JsonElement ok))

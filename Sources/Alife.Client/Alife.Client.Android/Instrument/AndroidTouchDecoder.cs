@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Alife.Client.Android;
 
 // Protocol-B multi-touch: follow slot zero, publish only complete SYN_REPORT frames.
-internal sealed class AndroidTouchDecoder(int minX, int maxX, int minY, int maxY)
+sealed class AndroidTouchDecoder(int minX, int maxX, int minY, int maxY)
 {
     int slot;
     int x;

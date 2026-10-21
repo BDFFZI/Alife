@@ -5,7 +5,8 @@
   },
   "Environments": {
     "nuget": {
-      "org.k2fsa.sherpa.onnx": ""
+      "org.k2fsa.sherpa.onnx": ">=1.13.5"
     }
   }
 }
+

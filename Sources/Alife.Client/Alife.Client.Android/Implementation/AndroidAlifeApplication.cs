@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.Json;
 using Alife.Foundation;
 using Alife.Framework;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol;
@@ -19,7 +18,7 @@ namespace Alife.Client.Android;
 /// Android 平台前端应用：文件对话框（不支持）、自定义窗口，以及基于 TcpListener 的 MCP 服务器。
 /// MCP 使用极小的 HTTP 层，协议处理交给 ModelContextProtocol.Core 的 StreamableHttpServerTransport。
 /// </summary>
-public sealed class AndroidAlifeApplication(
+sealed class AndroidAlifeApplication(
     AlifeClientConfig config,
     IServiceProvider provider,
     AndroidWindowManager windowManager) : IAlifeApplication
@@ -60,6 +59,17 @@ public sealed class AndroidAlifeApplication(
     {
         ArgumentNullException.ThrowIfNull(options);
         return await AndroidWindowManager.RunOnUi(() => windowManager.Create(options));
+    }
+
+    #endregion
+
+    #region Python
+
+    public IAlifeProcess StartPython(string scriptPath, string? pythonExe = null)
+    {
+        if (pythonExe is not null && pythonExe != "python")
+            throw new PlatformNotSupportedException("Android 使用 Shizuku 安装的 Python。");
+        return AndroidAlifePlatform.StartPython(scriptPath);
     }
 
     #endregion
@@ -157,7 +167,7 @@ public sealed class AndroidAlifeApplication(
         {
             try
             {
-                using NetworkStream stream = client.GetStream();
+                await using NetworkStream stream = client.GetStream();
                 HttpRequest? request = await ReadRequestAsync(stream, CancellationToken.None);
                 if (request == null)
                     return;
@@ -206,7 +216,7 @@ public sealed class AndroidAlifeApplication(
         }
 
         string? sessionId = request.GetHeader("Mcp-Session-Id");
-        Session? session = null;
+        Session? session;
         if (string.IsNullOrEmpty(sessionId))
         {
             if (message is not JsonRpcRequest { Method: "initialize" })
@@ -222,7 +232,7 @@ public sealed class AndroidAlifeApplication(
             McpServer server = McpServer.Create(transport, options, loggerFactory, provider);
             CancellationTokenSource cts = new();
             Task runTask = server.RunAsync(cts.Token);
-            session = new Session(transport, server, cts, runTask);
+            session = new Session(transport, cts, runTask);
             sessions[sessionId] = session;
         }
         else if (sessions.TryGetValue(sessionId, out Session? existing) == false)
@@ -253,7 +263,8 @@ public sealed class AndroidAlifeApplication(
             return;
         }
 
-        string headers = $"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nMcp-Session-Id: {sessionId}\r\nConnection: close\r\n\r\n";
+        string headers =
+            $"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nMcp-Session-Id: {sessionId}\r\nConnection: close\r\n\r\n";
         await stream.WriteAsync(Encoding.ASCII.GetBytes(headers));
         await stream.FlushAsync();
         await session.Transport.HandleGetRequestAsync(stream, CancellationToken.None);
@@ -318,7 +329,7 @@ public sealed class AndroidAlifeApplication(
         }
 
         if (headers.TryGetValue("Expect", out string? expect) && expect.Contains("100-continue", StringComparison.OrdinalIgnoreCase))
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 100 Continue\r\n\r\n"), cancellationToken);
+            await stream.WriteAsync("HTTP/1.1 100 Continue\r\n\r\n"u8.ToArray(), cancellationToken);
 
         byte[] body;
         // The MCP .NET client streams JSON using HTTP/1.1 chunked encoding.
@@ -329,7 +340,7 @@ public sealed class AndroidAlifeApplication(
             while (true)
             {
                 string line = await ReadLineAsync(stream, cancellationToken)
-                    ?? throw new EndOfStreamException();
+                              ?? throw new EndOfStreamException();
                 int size = int.Parse(line.Split(';', 2)[0], System.Globalization.NumberStyles.HexNumber,
                     System.Globalization.CultureInfo.InvariantCulture);
                 if (size == 0)
@@ -385,13 +396,12 @@ public sealed class AndroidAlifeApplication(
 
     sealed record Session(
         StreamableHttpServerTransport Transport,
-        McpServer Server,
         CancellationTokenSource Cancellation,
         Task RunTask) : IAsyncDisposable
     {
         public async ValueTask DisposeAsync()
         {
-            Cancellation.Cancel();
+            await Cancellation.CancelAsync();
             await Transport.DisposeAsync();
             try
             {

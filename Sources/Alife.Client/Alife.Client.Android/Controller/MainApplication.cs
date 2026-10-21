@@ -17,6 +17,8 @@ public class MainApplication(IntPtr handle, JniHandleOwnership ownership) : Maui
     {
         Instance = this;
         InitializeEnvironment();
+        // Expose APK-packaged speech bindings to runtime-compiled Function plugins.
+        System.Reflection.Assembly.Load("sherpa-onnx");
         return BuildMauiApp();
     }
 
@@ -26,9 +28,6 @@ public class MainApplication(IntPtr handle, JniHandleOwnership ownership) : Maui
         string home = FilesDir!.AbsolutePath;
         Environment.SetEnvironmentVariable("HOME", home);
         Environment.SetEnvironmentVariable("TMPDIR", CacheDir!.AbsolutePath);
-        Environment.SetEnvironmentVariable("DOTNET_CLI_HOME", home);
-        Environment.SetEnvironmentVariable("DOTNET_CLI_TELEMETRY_OPTOUT", "1");
-        Environment.SetEnvironmentVariable("DOTNET_NOLOGO", "1");
 
         ClientVersion = PackageManager?.GetPackageInfo(PackageName!, 0)?.VersionName ?? "0.0.0";
     }
@@ -50,6 +49,7 @@ public class MainApplication(IntPtr handle, JniHandleOwnership ownership) : Maui
             AndroidAlifeApplication,
             AndroidAlifeClient>();
         builder.Services.AddSingleton<AndroidWindowManager>();
+        builder.Services.AddSingleton<IAlifeClientInitialize, AndroidAlifeClientInitialize>();
 
         return builder.Build();
     }
@@ -60,4 +60,22 @@ public class App : Application
 {
     protected override Window CreateWindow(IActivationState? activationState)
         => new Window(new MainPage());
+}
+
+class AndroidAlifeClientInitialize(AndroidAlifeFoundation alifeFoundation) : IAlifeClientInitialize
+{
+    public async Task OnInitializeAsync(IProgress<string>? progress)
+    {
+        progress?.Report("正在检查 Shizuku...");
+        if (ShizukuBridge.IsAvailable == false)
+            throw new InvalidOperationException("未检测到 Shizuku。请先下载并安装 Shizuku，启动服务并授予本应用权限后重试。");
+        if (ShizukuBridge.HasPermission == false)
+            await ShizukuBridge.RequestPermissionAsync();
+        if (ShizukuBridge.HasPermission == false)
+            throw new InvalidOperationException("未获得 Shizuku 授权，请允许本应用使用 Shizuku 后重试。");
+
+        progress?.Report("正在检查存储路径...");
+        await alifeFoundation.TryUseDocumentsStorageAsync();
+        AndroidEnvironment.SyncEnvironment(alifeFoundation);
+    }
 }

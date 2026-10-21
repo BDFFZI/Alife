@@ -45,7 +45,7 @@
         </GridRow>
 
         <FormItem Label="启用向量检索 (EnableVector)">
-            <Switch @bind-Value="@Configuration.EnableVector" />
+            <Switch @bind-Value="@Configuration.EnableVector"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 开启后会加载向量模型并保存向量数据以支持语义排序；关闭时不创建向量器，存档向量记零，搜索退化为关键词+时间排序。（向量搜索基本图一乐，还导致启动变慢）
             </Text>
@@ -53,14 +53,15 @@
 
         <FormItem Label="启用思考压缩 (ThinkingCompress)">
             <Switch @bind-Value="@Configuration.ThinkingCompress" Rows="12"
-                      Placeholder="使用 {range} 作为被压缩内容的占位符"/>
+                    Placeholder="使用 {range} 作为被压缩内容的占位符"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 在压缩时使用思考功能。启用思考可以提高记忆存档质量，关闭则可减少输出token开销。
             </Text>
         </FormItem>
 
         <FormItem Label="自定义压缩语言模型 (CompressModelClassName)">
-            <Input @bind-Value="@Configuration.CompressModelClassName" Placeholder="输入模块类名，如Alife.Function.Language.OpenAI.OpenAILanguageModel"/>
+            <Input @bind-Value="@Configuration.CompressModelClassName"
+                   Placeholder="输入模块类名，如Alife.Function.Language.OpenAI.OpenAILanguageModel"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 显式指定用于记忆压缩的语言模型。留空则沿用当前对话用的语言模型。
             </Text>
@@ -73,9 +74,13 @@
                 自定义记忆压缩时使用的提示词模板，{range} 会被替换为待压缩的上下文内容
             </Text>
         </FormItem>
-        
+
         <FormItem Label="记忆提醒关键词 (RecallHintKeywords)">
-            <TextArea Value="@keywordsString" ValueChanged="@((string value) => { keywordsString = value; UpdateKeywords(); })" ValueExpression="@(() => keywordsString)" Rows="2" Placeholder="输入关键词，用逗号分隔（如：记得,记住,忆）"/>
+            <TextArea Value="@keywordsString" ValueChanged="@((string value) => {
+                                                                keywordsString = value;
+                                                                UpdateKeywords();
+                                                            })" ValueExpression="@(() => keywordsString)" Rows="2"
+                      Placeholder="输入关键词，用逗号分隔（如：记得,记住,忆）"/>
             <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
                 当用户消息包含这些关键词时，系统会提醒AI使用记忆搜索功能
             </Text>
@@ -92,7 +97,7 @@
 
     @if (Module != null)
     {
-        <Divider>核心记忆管理 (知识库)</Divider>
+        <Divider>插入记忆存档</Divider>
         <Card Size="CardSize.Small" Style="background: #fafafa; border-radius: 8px; border: 1px dashed #d9d9d9;">
             <Flex Direction="FlexDirection.Vertical" Gap="@("12")">
                 <div style="padding: 12px;">
@@ -104,12 +109,15 @@
                 </div>
 
                 <Form Model="@newArchiveModel" Layout="@FormLayout.Vertical" Style="padding: 0 12px 12px 12px;">
-                    <FormItem Label="事件概述 (Summary)">
-                        <Input @bind-Value="@newArchiveModel.Summary" Placeholder="简短描述该记忆（用于搜索和概览）"/>
+                    <FormItem Label="存档索引（格式为`{等级}-{名称}`）">
+                        <Input @bind-Value="@newArchiveModel.Index" Placeholder="如：`100-知识库`"/>
                     </FormItem>
-                    <FormItem Label="详细内容 (Content)">
+                    <FormItem Label="存档简述（AI可见）">
+                        <Input @bind-Value="@newArchiveModel.Summary" Placeholder="简短描述该存档内容"/>
+                    </FormItem>
+                    <FormItem Label="具体内容 (AI查阅后可见)">
                         <TextArea @bind-Value="@newArchiveModel.Content" Rows="4"
-                                  Placeholder="记录详细的事实、知识或对话细节..."/>
+                                  Placeholder="记录详细的事实、知识或对话细节..."></TextArea>
                     </FormItem>
                     <Button Type="@ButtonType.Primary" Ghost Icon="@IconType.Outline.Plus" Block
                             OnClick="@HandleAddArchive" Loading="@isProcessing">
@@ -168,6 +176,7 @@
 
     class ArchiveModel
     {
+        public string Index { get; set; } = "";
         public string Summary { get; set; } = "";
         public string Content { get; set; } = "";
     }
@@ -184,14 +193,14 @@
         isProcessing = true;
         try
         {
-            int maxLevel = Configuration.MaxCompressionLevel;
-            await Module.InsertMemory(maxLevel, newArchiveModel.Summary, newArchiveModel.Content, DateTime.Now, DateTime.Now);
-            MessageService.Success("核心记忆已成功存入喵！");
+            MemoryIndex memoryIndex = MemoryIndex.Parse(newArchiveModel.Index);
+            await Module.Memorize(memoryIndex.Level, memoryIndex.Name, newArchiveModel.Summary, newArchiveModel.Content);
+            _ = MessageService.SuccessAsync("核心记忆已成功存入喵！");
             newArchiveModel = new ArchiveModel();
         }
         catch (Exception ex)
         {
-            MessageService.Error($"存入失败: {ex.Message}");
+            _ = MessageService.ErrorAsync($"存入失败: {ex.Message}");
         }
         finally
         {

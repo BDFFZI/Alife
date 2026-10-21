@@ -6,8 +6,6 @@ namespace Alife.Foundation;
 
 public static class AlifeFoundation
 {
-    public static IAlifeFoundation Instance { get; private set; } = null!;
-
     public static void AddAlifeFoundation<TAlifeFoundation>(this IServiceCollection services)
         where TAlifeFoundation : class, IAlifeFoundation
     {
@@ -43,4 +41,6 @@ public static class AlifeFoundation
         services.AddSingleton<TAbstract>(provider => provider.GetRequiredService<TImplementation>());
         services.AddSingleton<TInterface>(provider => provider.GetRequiredService<TAbstract>());
     }
+
+    internal static IAlifeFoundation Instance { get; set; } = null!;
 }

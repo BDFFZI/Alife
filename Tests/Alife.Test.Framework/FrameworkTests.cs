@@ -24,13 +24,13 @@ public class FrameworkTests
 
         TestContext.WriteLine("安装插件:");
         await pluginSystem.InstallPlugins([
-            new KeyValuePair<PluginPackage, string>(pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"], "1.0.0")
+            new KeyValuePair<PluginPackage, string>(pluginSystem.GetAllOnlinePlugins()["Alife.Function.Execution"], "1.0.0")
         ]);
 
         LogLocalPlugins(pluginSystem);
 
         TestContext.WriteLine("卸载插件:");
-        await pluginSystem.UninstallPlugins([pluginSystem.GetAllOnlinePlugins()["Alife.Function.Python"]]);
+        await pluginSystem.UninstallPlugins([pluginSystem.GetAllOnlinePlugins()["Alife.Function.Execution"]]);
 
         LogLocalPlugins(pluginSystem);
     }

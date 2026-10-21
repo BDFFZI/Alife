@@ -8,6 +8,13 @@ class WindowsAlifeFoundation : IAlifeFoundation
     public string AppVersion => Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
     public string StorageFolderPath => storageFolderPath;
     public string RuntimeFolderPath => runtimeFolderPath;
+    public string TempFolderPath { get; } =
+#if DEBUG
+        Path.Combine(Path.GetTempPath(), "Alife.ClientDebug");
+#else
+        Path.Combine(Path.GetTempPath(), "Alife.Client");
+#endif
+
 
     public void SetStorageFolderPath(string path)
     {

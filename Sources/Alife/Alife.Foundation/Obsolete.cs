@@ -15,11 +15,19 @@ namespace Alife.Foundation
 {
     public class AlifePath
     {
-        public static string StorageFolderPath => AlifeContext.StorageFolderPath;
-        public static string RuntimeFolderPath => AlifeContext.RuntimeFolderPath;
-        public static string TempFolderPath => AlifeContext.TempFolderPath;
+        // [Obsolete("请改用IAlifeFoundation")]
+        public static string StorageFolderPath => AlifeFoundation.Instance.StorageFolderPath;
+        // [Obsolete("请改用IAlifeFoundation")]
+        public static string RuntimeFolderPath => AlifeFoundation.Instance.RuntimeFolderPath;
+        // [Obsolete("请改用IAlifeFoundation")]
+        public static string TempFolderPath => AlifeFoundation.Instance.TempFolderPath;
     }
 
+    public static partial class AlifeContext
+    {
+        // [Obsolete("请改用IAlifeFoundation")]
+        public static string AppVersion => AlifeFoundation.Instance.AppVersion;
+    }
 
     public partial class AlifeUtility
     {

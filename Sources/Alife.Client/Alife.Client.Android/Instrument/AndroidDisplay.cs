@@ -6,10 +6,10 @@ using Android.Views;
 namespace Alife.Client.Android;
 
 /// <summary>Read display metrics afresh: cached Activity metrics go stale on rotation/density changes.</summary>
-internal static class AndroidDisplay
+static class AndroidDisplay
 {
-    // Render the application at half the system density, using the same rounded
-    // density for both WebView CSS pixels and native window/cursor coordinates.
+    // Keep the application at the system density (1x): WebView CSS pixels and native
+    // window/cursor coordinates share the same rounded density.
     static int WindowDensityDpi => (int)Math.Round(
         (int)global::Android.Content.Res.Resources.System!.DisplayMetrics!.DensityDpi * 0.5);
 
@@ -30,9 +30,10 @@ internal static class AndroidDisplay
 
     public static System.Drawing.Size GetSize()
     {
-        var manager = MainApplication.Instance!.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>()!;
-        if (OperatingSystem.IsAndroidVersionAtLeast(30)) {
-            var bounds = manager.MaximumWindowMetrics!.Bounds;
+        var manager = MainApplication.Instance!.GetSystemService(Context.WindowService)!.JavaCast<IWindowManager>();
+        if (OperatingSystem.IsAndroidVersionAtLeast(30))
+        {
+            var bounds = manager.MaximumWindowMetrics.Bounds;
             return new(bounds.Width(), bounds.Height());
         }
         DisplayMetrics metrics = new();

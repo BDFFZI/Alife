@@ -53,7 +53,9 @@ else
         catch (Exception ex)
         {
             exception = ex;
-            Alife.Foundation.AlifeLog.LogError(ex);
+            AlifeLog.LogError(ex);
+            StateHasChanged();
+            return;
         }
 
         isAppInitialized = true;

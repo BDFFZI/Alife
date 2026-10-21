@@ -136,6 +136,7 @@ public class PetWindowTests
         public string AppVersion => "test";
         public string StorageFolderPath { get; } = Path.Combine(Path.GetTempPath(), "Alife-Window-Tests-" + Guid.NewGuid());
         public string RuntimeFolderPath => StorageFolderPath;
+        public string TempFolderPath => StorageFolderPath;
         public CommandResult Command(string fileName, string arguments) => throw new NotSupportedException();
     }
 }

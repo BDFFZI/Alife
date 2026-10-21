@@ -1,51 +1,45 @@
 using Android.Content;
 using Android.Provider;
-using Alife.Client;
 using Alife.Foundation;
 
 namespace Alife.Client.Android;
 
-public static class AndroidEnvironment
+static class AndroidEnvironment
 {
     public static bool IsStorageReady { get; private set; }
     public static bool IsShizukuReady { get; private set; }
     public static bool IsPythonReady { get; private set; }
-    public static bool IsDotNetReady { get; private set; }
 
-    public static IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
+    public static IReadOnlyList<EnvironmentItem> GetEnvironmentItems(IAlifeFoundation foundation)
     {
-        SyncEnvironment();
+        SyncEnvironment(foundation);
         return [
             new("storage", "所有文件访问", IsStorageReady, true),
             new("shizuku", "Shizuku", IsShizukuReady, true),
             new("python", "Python 3.14 + pip", IsPythonReady, true),
-            new("dotnet", ".NET SDK 10（NuGet 还原）", IsDotNetReady, true),
         ];
     }
 
-    public static async Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null)
+    public static async Task InstallEnvironmentAsync(IAlifeFoundation foundation, string id, IProgress<string>? progress = null)
     {
         switch (id)
         {
             case "storage":
-                await InstallStorageAsync();
+                await InstallStorageAsync(foundation);
                 break;
             case "shizuku":
                 await InstallShizukuAsync();
                 break;
             case "python":
-                await InstallPythonAsync(progress);
-                break;
-            case "dotnet":
-                await InstallDotNetAsync(progress);
+                await InstallPythonAsync(foundation, progress);
                 break;
             default:
                 throw new ArgumentException("未知的环境项。", nameof(id));
         }
-        SyncEnvironment();
+        SyncEnvironment(foundation);
     }
 
-    public static void SyncEnvironment()
+    public static void SyncEnvironment(IAlifeFoundation foundation)
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(30))
         {
@@ -59,11 +53,10 @@ public static class AndroidEnvironment
         }
 
         IsShizukuReady = ShizukuBridge.IsAvailable && ShizukuBridge.HasPermission;
-        IsPythonReady = IsShizukuReady && ShizukuPythonInstaller.IsInstalled;
-        IsDotNetReady = Directory.Exists(new DotNetInstallation().SdkPath);
+        IsPythonReady = IsShizukuReady && ShizukuPythonInstaller.IsInstalled(foundation);
     }
 
-    static async Task InstallStorageAsync()
+    static async Task InstallStorageAsync(IAlifeFoundation foundation)
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(30) == false)
             return;
@@ -86,8 +79,8 @@ public static class AndroidEnvironment
 #pragma warning restore CA1416
         if (granted)
         {
-            if (AlifeFoundation.Instance is AndroidAlifeFoundation foundation)
-                await foundation.TryUseDocumentsStorageAsync();
+            if (foundation is AndroidAlifeFoundation androidFoundation)
+                await androidFoundation.TryUseDocumentsStorageAsync();
             return;
         }
 
@@ -124,27 +117,21 @@ public static class AndroidEnvironment
             throw new InvalidOperationException("未获得 Shizuku 授权。");
     }
 
-    static async Task InstallPythonAsync(IProgress<string>? progress)
+    static async Task InstallPythonAsync(IAlifeFoundation foundation, IProgress<string>? progress)
     {
         if (ShizukuBridge.IsAvailable == false || ShizukuBridge.HasPermission == false)
             throw new InvalidOperationException("请先完成 Shizuku 连接与授权。");
 
-        if (AlifeFoundation.Instance is AndroidAlifeFoundation foundation)
-            await foundation.TryUseDocumentsStorageAsync();
+        if (foundation is AndroidAlifeFoundation androidFoundation)
+            await androidFoundation.TryUseDocumentsStorageAsync();
 
-        if (IsStorageShellReadable() == false)
+        if (IsStorageShellReadable(foundation) == false)
             throw new InvalidOperationException("Python 安装需要 Storage 位于文档目录，请先授予所有文件访问权限并重启应用。");
 
-        await ShizukuPythonInstaller.InstallAsync(progress, CancellationToken.None);
+        await ShizukuPythonInstaller.InstallAsync(foundation, progress, CancellationToken.None);
     }
 
-    static async Task InstallDotNetAsync(IProgress<string>? progress)
-    {
-        DotNetInstallation installation = new();
-        await installation.EnsureAsync((message, _, _) => progress?.Report(message), CancellationToken.None);
-    }
-
-    static bool IsStorageShellReadable()
+    static bool IsStorageShellReadable(IAlifeFoundation foundation)
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(30) == false)
             return true;
@@ -157,7 +144,7 @@ public static class AndroidEnvironment
         if (string.IsNullOrEmpty(documents))
             return false;
 
-        return Path.GetFullPath(AlifePath.StorageFolderPath)
+        return Path.GetFullPath(foundation.StorageFolderPath)
             .StartsWith(Path.GetFullPath(documents), StringComparison.OrdinalIgnoreCase);
     }
 }

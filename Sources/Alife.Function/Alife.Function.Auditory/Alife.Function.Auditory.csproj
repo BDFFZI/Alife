@@ -1,19 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
-
-  <PropertyGroup>
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
-    <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj"/>
-    <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
-    <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.3.0" />
-  </ItemGroup>
-
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="NAudio" Version="2.3.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
+        <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj"/>
+        <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj"/>
+        <ProjectReference Include="..\Alife.Function.MessageFilter\Alife.Function.MessageFilter.csproj"/>
+    </ItemGroup>
 </Project>

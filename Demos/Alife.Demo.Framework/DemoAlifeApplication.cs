@@ -38,6 +38,10 @@ public class DemoAlifeApplication : IAlifeApplication
     {
         throw new NotSupportedException();
     }
+    public IAlifeProcess StartPython(string scriptPath, string? pythonExe = null)
+    {
+        throw new NotSupportedException();
+    }
     public Uri? AlifeMcpServer { get; private set; }
     public async Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools)
     {

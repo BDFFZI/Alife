@@ -7,34 +7,22 @@
 <div style="background: #fff; padding: 20px; border-radius: 8px;">
     <Title Level="4" Style="margin-bottom: 24px;">VITS语音合成配置</Title>
 
-    @if (!Directory.Exists(VitsSpeechModel.RuntimeFolder))
-    {
-        <Alert Type="AlertType.Warning"
-               Message="Runtime/VITS 目录不存在"
-               ShowIcon="true"
-               Style="margin-bottom: 16px">
-            <ChildContent>
-                请下载 VITS 模型文件并放置到 Runtime/VITS 目录下，否则语音合成功能将无法使用。<br/>
-                <br/>
-                <a href="https://github.com/BDFFZI/Alife/releases/download/VITS/VITS.zip">
-                    Github 下载
-                </a>
-                <br/>
-                <a href="https://pan.baidu.com/s/1Iy0NAKH-m2h6uwaPA7Y6rQ?pwd=t1rb">
-                    百度网盘下载
-                </a>
-            </ChildContent>
-        </Alert>
-    }
-    else
-    {
-        <Alert Type="AlertType.Success"
-               Message="Runtime 环境已就绪"
-               ShowIcon="true"
-               Style="margin-bottom: 16px;"/>
-    }
+    <Alert Type="@(VitsSpeechModel.IsModelReady(Configuration) ? AlertType.Success : AlertType.Warning)"
+           Message="@(VitsSpeechModel.IsModelReady(Configuration) ? "ONNX 模型已就绪" : "请准备 ONNX 模型文件")"
+           ShowIcon="true" Style="margin-bottom: 16px;">
+        <ChildContent>
+            模型目录：@VitsSpeechModel.GetModelDirectory(Configuration)<br/>
+            需要 alife-paimon.onnx、tokens.txt、lexicon.txt，支持原模型的说话人 ID。
+        </ChildContent>
+    </Alert>
 
     <Form TModel="VitsSpeechModelConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
+        <FormItem Label="模型目录（留空使用默认目录）">
+            <Input @bind-Value="@Configuration.ModelDirectory" Placeholder="@Path.Combine(VitsSpeechModel.RuntimeFolder, "onnx")"/>
+        </FormItem>
+        <FormItem Label="推理线程数">
+            <InputNumber @bind-Value="@Configuration.WorkerThreads" Min="1" Max="4"/>
+        </FormItem>
         <GridRow Gutter="16">
             <GridCol Span="12">
                 <FormItem Label="说话人ID">
@@ -130,7 +118,8 @@
     {
         try
         {
-            string listPath = Path.Combine(VitsSpeechModel.RuntimeFolder, "speakers_list.txt");
+            string listPath = Path.Combine(VitsSpeechModel.GetModelDirectory(Configuration), "speakers_list.txt");
+            if (!File.Exists(listPath)) listPath = Path.Combine(VitsSpeechModel.RuntimeFolder, "speakers_list.txt");
             if (File.Exists(listPath))
             {
                 var lines = File.ReadAllLines(listPath);

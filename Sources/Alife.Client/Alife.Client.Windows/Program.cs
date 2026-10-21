@@ -33,6 +33,7 @@ static class Program
         services.AddBlazorWebViewDeveloperTools();
         services.AddSingleton<MainForm>();
         services.AddSingleton<IAlifeClientInitialize, WindowsAlifeClientInitialize>();
+        services.AddSingleton<WindowsEnvironment>();
         ServiceProvider provider = services.BuildServiceProvider();
 
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2); //使Form使用物理像素渲染，从而解决画面模糊问题，但因此需要手动转换Dpi坐标。（webView不受影响，其始终使用转换后的坐标）
@@ -88,12 +89,12 @@ static class Program
     }
 }
 
-class WindowsAlifeClientInitialize : IAlifeClientInitialize
+class WindowsAlifeClientInitialize(WindowsEnvironment windowsEnvironment) : IAlifeClientInitialize
 {
     public async Task OnInitializeAsync(IProgress<string>? progress)
     {
         //重定向环境变量，例如修正python路径
         progress?.Report("正在初始化系统环境...");
-        await Task.Run(WindowsEnvironment.SyncEnvironment);
+        await Task.Run(windowsEnvironment.SyncEnvironment);
     }
 }

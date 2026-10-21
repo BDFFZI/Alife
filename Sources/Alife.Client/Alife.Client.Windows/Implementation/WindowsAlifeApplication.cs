@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Text;
 using Alife.Foundation;
 using Alife.Framework;
 using Microsoft.AspNetCore.Builder;
@@ -92,6 +93,28 @@ partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplicat
         thread.Name = options.Title;
         thread.Start();
         return await tcs.Task;
+    }
+
+    public IAlifeProcess StartPython(string scriptPath, string? pythonExe = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(scriptPath);
+        ProcessStartInfo startInfo = new() {
+            FileName = string.IsNullOrWhiteSpace(pythonExe) ? "python" : pythonExe,
+            UseShellExecute = false,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardInputEncoding = new UTF8Encoding(false),
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            Environment = { { "PYTHONIOENCODING", "utf-8" }, { "PYTHONUTF8", "1" } },
+        };
+        startInfo.ArgumentList.Add(scriptPath);
+
+        Process process = new() { StartInfo = startInfo };
+        process.Start();
+        return new WindowsPythonProcess(process);
     }
 
     public Uri? AlifeMcpServer { get; private set; }

@@ -71,9 +71,12 @@ public class AudioRecognitionService(
             StringBuilder result = new StringBuilder("【音频文件识别结果】\n");
             Action<string> onRecognized = text => result.AppendLine(text);
             oneShotRecognizer.Recognized += onRecognized;
-            oneShotRecognizer.AcceptWaveform(samples, samples.Length);
-            oneShotRecognizer.Flush(); //输出末尾语音段
-            oneShotRecognizer.Recognized -= onRecognized;
+            try
+            {
+                oneShotRecognizer.AcceptWaveform(samples, samples.Length);
+                oneShotRecognizer.Flush();
+            }
+            finally { oneShotRecognizer.Recognized -= onRecognized; }
             interactor.Poke(result.ToString());
         }
         finally
@@ -93,13 +96,12 @@ public class AudioRecognitionService(
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("主动进行声音监听（可用于听取系统中的游戏、视频等声音，实现陪看陪玩效果，不需要时应当关闭）")]
-    public void SetAudioListening(
-        [Description("是否开启")] bool enabled,
-        [Description("system:扬声器,mic:麦克风")] string source = "system")
+    [Description("主动进行系统声音监听（可用于听取游戏、视频等声音，实现陪看陪玩效果，不需要时应当关闭）")]
+    public async Task SetAudioListening(
+        [Description("是否开启")] bool enabled)
     {
         if (enabled)
-            OpenAudioListening(source);
+            await OpenAudioListening();
         else
             CloseAudioListening();
     }
@@ -124,7 +126,7 @@ public class AudioRecognitionService(
         listeningRecorder.WaveformReady += OnListeningWaveform;
 
         XmlHandler xmlHandler = new(this) {
-            Description = "此服务让你能够识别音频文件，或主动监听系统或麦克风的声音。"
+            Description = "此服务让你能够识别音频文件，或主动监听系统声音。"
         };
         functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
 
@@ -167,7 +169,7 @@ public class AudioRecognitionService(
         listeningRecognizer.AcceptWaveform(samples, count);
     }
 
-    void OpenAudioListening(string source)
+    async Task OpenAudioListening()
     {
         if (listeningRecorder.IsRecording)
         {
@@ -176,10 +178,15 @@ public class AudioRecognitionService(
         }
 
         //对象化的系统录音器：负责采样与转格式，此处仅消费波形
-        listeningRecorder.Start(source);
+#if ANDROID
+        await listeningRecorder.StartAsync("system", DestroyCancellationToken);
+#else
+        listeningRecorder.Start("system");
+        await Task.CompletedTask;
+#endif
 
         thinkingOccupationMarker = ChatBot.LanguageModel.GetThinkingRequester().Rent("主动监听声音");
-        interactor.Poke($"已开启{source}监听，系统将持续汇报听到的内容");
+        interactor.Poke("已开启系统声音监听，系统将持续汇报听到的内容");
     }
     void CloseAudioListening()
     {

@@ -1,4 +1,3 @@
-using Android.Content;
 using Android.OS;
 
 namespace Alife.Client.Android;
@@ -6,7 +5,7 @@ namespace Alife.Client.Android;
 /// <summary>
 /// 窗口注册表：管理插件创建的动态窗口（始终为系统悬浮窗）。
 /// </summary>
-public sealed class AndroidWindowManager
+sealed class AndroidWindowManager
 {
     public IAlifeWindow Create(AlifeWindowOptions options)
     {

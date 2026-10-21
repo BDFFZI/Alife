@@ -4,7 +4,8 @@ using Newtonsoft.Json.Linq;
 
 namespace Alife.Client.Windows;
 
-class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlifeClient
+class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsEnvironment windowsEnvironment, IAlifeFoundation alifeFoundation)
+    : IAlifeClient
 {
     public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
@@ -15,7 +16,7 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlife
         if (string.IsNullOrEmpty(downloadUrl))
             throw new Exception($"v{version} 的发布资源中不存在更新包 {UpdateAssetName}。");
 
-        string updateDir = Path.Combine(AlifePath.TempFolderPath, "Update");
+        string updateDir = Path.Combine(alifeFoundation.TempFolderPath, "Update");
         if (Directory.Exists(updateDir))
             Directory.Delete(updateDir, true);
 
@@ -116,11 +117,11 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation) : IAlife
 
     public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
     {
-        return WindowsEnvironment.GetEnvironmentItems();
+        return windowsEnvironment.GetEnvironmentItems();
     }
     public Task InstallEnvironmentAsync(string id, IProgress<string>? progress = null)
     {
-        return WindowsEnvironment.InstallEnvironmentAsync(id, progress);
+        return windowsEnvironment.InstallEnvironmentAsync(id, progress);
     }
 
     const string UpdateAssetName = "Alife.Client.zip";

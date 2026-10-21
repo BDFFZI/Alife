@@ -3,19 +3,18 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
 using Moe.Shizuku.Server;
-using Rikka.Shizuku;
 using ShizukuApi = Rikka.Shizuku.Shizuku;
 
 namespace Alife.Client.Android;
 
 /// <summary>Shizuku shell 执行结果。</summary>
-public sealed record ShizukuShellResult(int ExitCode, string Output);
+sealed record ShizukuShellResult(int ExitCode, string Output);
 
 /// <summary>
 /// 将 Shizuku 的 shell 能力封装为客户端内部服务，供 Android 插件调用。
 /// 绑定接收由 AndroidManifest.xml 中声明的 rikka.shizuku.ShizukuProvider 完成。
 /// </summary>
-public static class ShizukuBridge
+static class ShizukuBridge
 {
     /// <summary>Shizuku 安装的 Python 运行时根目录（shell 可执行）。</summary>
     public const string PythonRoot = "/data/local/tmp/Alife/Python";
@@ -122,6 +121,7 @@ public static class ShizukuBridge
         IRemoteProcess process = service.NewProcess(["/system/bin/sh", "-c", command], null, null)
             ?? throw new InvalidOperationException("无法创建远程进程。");
 
+        using var cancellation = cancellationToken.Register(() => process.Destroy());
         try
         {
             ParcelFileDescriptor? output = process.InputStream;
@@ -130,6 +130,10 @@ public static class ShizukuBridge
 
             using ParcelFileDescriptor.AutoCloseInputStream fileInput = new(output);
             using Stream stream = new InputStreamInvoker(fileInput);
+            using var errorInput = new ParcelFileDescriptor.AutoCloseInputStream(process.ErrorStream!);
+            using var errorStream = new InputStreamInvoker(errorInput);
+            using var errorReader = new StreamReader(errorStream, Encoding.UTF8);
+            Task<string> errors = errorReader.ReadToEndAsync(cancellationToken);
             using MemoryStream buffer = new();
             byte[] chunk = new byte[8192];
             while (true)
@@ -141,12 +145,26 @@ public static class ShizukuBridge
             }
 
             int exitCode = await Task.Run(process.WaitFor, cancellationToken);
-            return new ShizukuShellResult(exitCode, Encoding.UTF8.GetString(buffer.ToArray()));
+            return new ShizukuShellResult(exitCode, Encoding.UTF8.GetString(buffer.ToArray()) + await errors);
         }
         finally
         {
             process.Destroy();
         }
+    }
+
+    internal static IRemoteProcess StartProcess(string command)
+    {
+        if (IsAvailable == false)
+            throw new InvalidOperationException("Shizuku 未连接。");
+        if (HasPermission == false)
+            throw new InvalidOperationException("Shizuku 未授权。");
+
+        IBinder binder = ShizukuApi.Binder ?? throw new InvalidOperationException("Shizuku 绑定不可用。");
+        IShizukuService service = IShizukuService.Stub.AsInterface(binder)
+            ?? throw new InvalidOperationException("无法获取 Shizuku 服务");
+        return service.NewProcess(["/system/bin/sh", "-c", command], null, null)
+            ?? throw new InvalidOperationException("无法启动远程进程。");
     }
 
     /// <summary>Consume a long-lived shell stream without buffering it until process exit.</summary>
