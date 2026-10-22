@@ -1,9 +1,6 @@
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Alife.Function.Speech;
 
-public interface ISpeechModel
+/// <summary>兼容旧命名空间；新代码请使用 Alife.Function.AIModelUtility.ISpeechModel。</summary>
+public interface ISpeechModel : global::Alife.Function.AIModelUtility.ISpeechModel
 {
-    Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default);
 }

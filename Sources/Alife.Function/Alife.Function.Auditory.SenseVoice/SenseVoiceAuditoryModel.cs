@@ -14,8 +14,8 @@ namespace Alife.Function.Auditory.SenseVoice;
 public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
     ChatBehaviour,
     IConfigurable<SenseVoiceAuditoryModelConfig>,
-    IAuditoryModel,
-    IAudioRecognizerProvider
+    global::Alife.Function.AIModelUtility.IAuditoryModel,
+    global::Alife.Function.AIModelUtility.IAudioRecognizerProvider
 {
     public static bool ModelsExists
     {
@@ -34,7 +34,7 @@ public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
     public event Action<string>? Recognized { add => realtimeRecognizer.Recognized += value; remove => realtimeRecognizer.Recognized -= value; }
     public void AcceptWaveform(float[] samples, int length) => realtimeRecognizer.AcceptWaveform(samples, length);
     
-    public IAudioRecognizer CreateAudioRecognizer() => new SenseVoiceAudioRecognizer(recognizer, vadConfig);
+    public global::Alife.Function.AIModelUtility.IAudioRecognizer CreateAudioRecognizer() => new SenseVoiceAudioRecognizer(recognizer, vadConfig);
 
     const string SenseVoiceId = "pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue";
     const string VadId = "pengzhendong/silero-vad";
@@ -74,3 +74,4 @@ public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
         return Task.CompletedTask;
     }
 }
+

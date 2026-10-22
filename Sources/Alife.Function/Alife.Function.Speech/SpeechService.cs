@@ -15,7 +15,7 @@ namespace Alife.Function.Speech;
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public partial class SpeechService(
     XmlFunctionCaller functionService,
-    ISpeechModel speechModel,
+    global::Alife.Function.AIModelUtility.ISpeechModel speechModel,
     ILogger<SpeechService> logger) :
     ChatBehaviour,
     ISpeechService
@@ -76,16 +76,26 @@ public partial class SpeechService(
     {
         functionService.ChatCalledAsync -= OnChatCalledAsync;
         audioPlayer?.Stop();
-        try { await Task.WhenAll(audioSynthesizingTask, playAudioTask); }
+        try
+        {
+            await Task.WhenAll(audioSynthesizingTask, playAudioTask);
+        }
         catch (OperationCanceledException) { }
-        catch (Exception e) { logger.LogWarning(e, "停止语音任务失败"); }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "停止语音任务失败");
+        }
     }
 
     async Task OnChatCalledAsync()
     {
         using (ChatBot.ResourceOccupiedReason.Rent("等待语音结束"))
         {
-            await playAudioTask;
+            try
+            {
+                await playAudioTask;
+            }
+            catch (OperationCanceledException) { }
         }
     }
 

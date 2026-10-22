@@ -1,6 +1,7 @@
 {
   "Version": "4.2.1",
   "Dependencies": {
+    "Alife.Function.AIModelUtility": "",
     "Alife.Function.FunctionCaller": ""
   },
   "Windows": {

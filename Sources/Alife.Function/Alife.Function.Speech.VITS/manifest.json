@@ -1,5 +1,5 @@
 {
   "Version": "4.1.0",
-  "Dependencies": { "Alife.Function.Speech": "" },
+  "Dependencies": { "Alife.Function.AIModelUtility": "" },
   "Environments": { "nuget": { "org.k2fsa.sherpa.onnx": ">=1.13.5" } }
 }

@@ -13,7 +13,7 @@ namespace Alife.Function.Auditory;
 public partial class AuditoryService(
     Interactor<AuditoryService> interactor,
     MessageFilterService messageFilterService,
-    IAuditoryModel auditoryModel) :
+    global::Alife.Function.AIModelUtility.IAuditoryModel auditoryModel) :
     ChatBehaviour,
     IConfigurable<AuditoryServiceConfig>
 {

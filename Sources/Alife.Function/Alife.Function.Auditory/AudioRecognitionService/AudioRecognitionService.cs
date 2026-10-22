@@ -17,7 +17,7 @@ namespace Alife.Function.Auditory;
 public class AudioRecognitionService(
     XmlFunctionCaller functionCaller,
     Interactor<AudioRecognitionService> interactor,
-    IAudioRecognizerProvider audioRecognizerProvider) :
+    global::Alife.Function.AIModelUtility.IAudioRecognizerProvider audioRecognizerProvider) :
     ChatBehaviour,
     IConfigurable<AudioRecognitionServiceConfig>
 {
@@ -106,9 +106,9 @@ public class AudioRecognitionService(
     }
 
     //文件识别
-    IAudioRecognizer oneShotRecognizer = null!;
+    global::Alife.Function.AIModelUtility.IAudioRecognizer oneShotRecognizer = null!;
     //主动监听
-    IAudioRecognizer listeningRecognizer = null!;
+    global::Alife.Function.AIModelUtility.IAudioRecognizer listeningRecognizer = null!;
     SystemAudioRecorder listeningRecorder = null!; //复用对象化的系统录音器
     OccupationMarker? thinkingOccupationMarker;
     readonly Lock pendingLock = new(); //识别结果缓存（音频线程写，更新线程读）互斥

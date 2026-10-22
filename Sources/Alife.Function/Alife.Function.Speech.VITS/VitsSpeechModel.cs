@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Foundation;
+using Alife.Function.AIModelUtility;
 using SherpaOnnx;
 using Microsoft.Extensions.Logging;
 

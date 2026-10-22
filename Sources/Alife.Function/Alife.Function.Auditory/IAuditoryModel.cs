@@ -1,22 +1,14 @@
-using System;
-
 namespace Alife.Function.Auditory;
 
-public interface IAuditoryModel
+/// <summary>兼容旧命名空间；新代码请使用 Alife.Function.AIModelUtility.IAuditoryModel。</summary>
+public interface IAuditoryModel : global::Alife.Function.AIModelUtility.IAuditoryModel
 {
-    event Action<string>? Recognized;
-    /// <summary>喂入 16kHz 单声道 float 波形，只处理前 length 个采样（数组可复用）</summary>
-    void AcceptWaveform(float[] samples, int length);
 }
 
-public interface IAudioRecognizer : IAuditoryModel, IDisposable
+public interface IAudioRecognizer : global::Alife.Function.AIModelUtility.IAudioRecognizer, IAuditoryModel
 {
-    /// <summary>结束当前会话，促使 VAD 将末尾语音段输出（同步，返回后识别结果均已产出）</summary>
-    void Flush();
 }
 
-public interface IAudioRecognizerProvider
+public interface IAudioRecognizerProvider : global::Alife.Function.AIModelUtility.IAudioRecognizerProvider
 {
-    /// <summary>创建一个新的流式识别器（独立 VAD）</summary>
-    IAudioRecognizer CreateAudioRecognizer();
 }
