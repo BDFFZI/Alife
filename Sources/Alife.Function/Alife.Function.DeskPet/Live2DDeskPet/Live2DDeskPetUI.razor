@@ -1,9 +1,10 @@
 @namespace Alife.Function.DeskPet
 @using System.IO
-@using System.Diagnostics
 @using System.Linq
 @using AntDesign
 @using Alife.Framework
+@inject IAlifeApplication AlifeApplication
+@inject IMessageService MessageService
 @inherits ModuleUIBase<Live2DDeskPet, Live2DDeskPetConfig>
 
 @if (isDownloading)
@@ -96,9 +97,16 @@ else
         StateHasChanged();
     }
 
-    void OpenModelFolder()
+    async Task OpenModelFolder()
     {
-        Process.Start("explorer.exe", $"\"{Live2DDeskPet.ModelRoot}\"");
+        try
+        {
+            await AlifeApplication.RevealFolderAsync(Live2DDeskPet.ModelRoot);
+        }
+        catch (Exception ex)
+        {
+            await MessageService.ErrorAsync($"打开模型文件夹失败：{ex.Message}");
+        }
     }
 
     void ResetWindow()

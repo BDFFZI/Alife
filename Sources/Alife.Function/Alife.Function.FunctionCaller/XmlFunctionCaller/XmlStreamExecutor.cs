@@ -310,7 +310,14 @@ public class XmlStreamExecutor : IAsyncDisposable
                     else
                     {
                         parallelTasks[source] = parallelTasks[source].ContinueWith(async _ => {
-                            await handler.Handle(name, tagContext, cancellationToken);
+                            try
+                            {
+                                await handler.Handle(name, tagContext, cancellationToken);
+                            }
+                            catch (Exception e)
+                            {
+                                Error?.Invoke(name, e.InnerException ?? e);
+                            }
                         }, CancellationToken.None).Unwrap();
                     }
                 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Alife.Foundation;
 using Alife.Framework;
 
@@ -9,24 +8,7 @@ sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvi
     public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
         //按 tag 精确取该版本，避免检查与安装之间版本漂移
-        string response = await AlifeUtility.FetchStringAsync(
-            $"{ClientUpgrade.ReleasesApiUrl}/tags/v{version}", TimeSpan.FromSeconds(7));
-        using JsonDocument document = JsonDocument.Parse(response);
-        string? downloadUrl = null;
-        if (document.RootElement.TryGetProperty("assets", out JsonElement assets))
-        {
-            foreach (JsonElement asset in assets.EnumerateArray())
-            {
-                if (asset.TryGetProperty("name", out JsonElement name) && name.GetString() == UpdateAssetName &&
-                    asset.TryGetProperty("browser_download_url", out JsonElement url))
-                {
-                    downloadUrl = url.GetString();
-                    break;
-                }
-            }
-        }
-        if (string.IsNullOrEmpty(downloadUrl))
-            throw new Exception($"v{version} 的发布资源中不存在更新包 {UpdateAssetName}。");
+        string downloadUrl = $"{ClientUpgrade.ReleasesDownloadUrl}/v{version}/{UpdateAssetName}";
 
         string updateDir = Path.Combine(foundation.TempFolderPath, "Update");
         if (Directory.Exists(updateDir))

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Alife.Foundation;
-using Newtonsoft.Json.Linq;
 
 namespace Alife.Client.Windows;
 
@@ -10,11 +9,7 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
     public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
         //按 tag 精确取该版本，而不是再取一次 latest，避免检查与安装之间版本漂移
-        string response = await AlifeUtility.FetchStringAsync($"{ClientUpgrade.ReleasesApiUrl}/tags/v{version}", TimeSpan.FromSeconds(7));
-        string? downloadUrl = (JObject.Parse(response)["assets"] as JArray)?
-            .FirstOrDefault(asset => asset["name"]?.ToString() == UpdateAssetName)?["browser_download_url"]?.ToString();
-        if (string.IsNullOrEmpty(downloadUrl))
-            throw new Exception($"v{version} 的发布资源中不存在更新包 {UpdateAssetName}。");
+        string downloadUrl = $"{ClientUpgrade.ReleasesDownloadUrl}/v{version}/{UpdateAssetName}";
 
         string updateDir = Path.Combine(alifeFoundation.TempFolderPath, "Update");
         if (Directory.Exists(updateDir))
@@ -26,48 +21,10 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
                 onProgress?.Invoke((int)(read * 100 / total));
         });
 
-        string launcherPath = LauncherPath;
-        string processName = Path.GetFileNameWithoutExtension(launcherPath);
-        string psPath = Path.Combine(updateDir, "update.ps1");
-
-        // 交给独立脚本完成：等旧进程退出 -> 运行安装包；安装完成后由安装包负责启动。
-        await File.WriteAllTextAsync(psPath,
-            $$"""
-              Write-Host '=== Alife Update ===' -ForegroundColor Cyan
-              Write-Host ''
-
-              $proc = Get-Process -Name '{{processName}}' -ErrorAction SilentlyContinue
-              if ($proc) {
-                  Write-Host 'Waiting for old process to exit...' -ForegroundColor Yellow
-                  $proc | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 2
-              }
-
-              Write-Host 'PackagePath: {{packagePath}}'
-              Write-Host ''
-              if (-not (Test-Path '{{packagePath}}')) {
-                  Write-Host 'ERROR: package not found!' -ForegroundColor Red
-                  Read-Host 'Press Enter to exit'
-                  exit 1
-              }
-
-              Write-Host 'Running installer...' -ForegroundColor Yellow
-              try {
-                  Start-Process -FilePath '{{packagePath}}' -ArgumentList '/SILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
-              } catch {
-                  Write-Host "Install failed: $($_.Exception.Message)" -ForegroundColor Red
-                  Read-Host 'Press Enter to exit'
-                  exit 1
-              }
-
-              Write-Host 'Upgrade successful!' -ForegroundColor Green
-              exit
-              """);
-
+        // 直接启动安装包：本进程会在下面立即退出，安装包由安装器自己接管并静默安装、重启客户端。
         Process.Start(new ProcessStartInfo {
-            FileName = "powershell.exe",
-            Arguments = $"-ExecutionPolicy Bypass -File \"{psPath}\"",
-            CreateNoWindow = false,
+            FileName = packagePath,
+            Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
             UseShellExecute = true
         });
         Environment.Exit(0);

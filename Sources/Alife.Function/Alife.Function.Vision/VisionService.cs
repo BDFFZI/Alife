@@ -48,7 +48,7 @@ public partial class VisionService(
                 prompt,
                 replyCharCount,
                 cancellationToken: cancellationTokenSource.Token)}"
-            : "未开启";
+            : "未开启，请尝试其他办法";
         if (hwnd == -1)
         {
             interactor.Poke($"""
@@ -90,7 +90,7 @@ public partial class VisionService(
                 prompt,
                 replyLength,
                 cancellationToken: cancellationTokenSource.Token)
-            : "未开启";
+            : "未开启，请尝试其他办法";
         interactor.Poke($"""
                          图片分析结果
                          文字识别：{await OcrAsync(pathOrUrl)}

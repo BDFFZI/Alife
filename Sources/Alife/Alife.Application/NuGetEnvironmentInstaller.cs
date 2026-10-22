@@ -152,7 +152,6 @@ public abstract class NuGetEnvironmentInstaller : IEnvironmentInstaller
                 .Select(message => $"{message.Level} {message.Code}"));
             if (result.LockFile is null)
                 throw new InvalidOperationException($"NuGet restore failed.\n{messages}");
-            AlifeLog.LogWarning($"NuGet restore completed with signature warnings.\n{messages}");
         }
 
         new LockFileFormat().Write(lockFilePath, result.LockFile!);
