@@ -16,7 +16,7 @@ public record MemoryMeta(int Level, DateTime StartTime, DateTime EndTime)
 {
     public MemoryIndex ToMemoryIndex()
     {
-        return new MemoryIndex(Level, $"{Level}-{StartTime:yyyyMMddHHmmss}-{EndTime:yyyyMMddHHmmss}");
+        return new MemoryIndex(Level, $"{StartTime:yyyyMMddHHmmss}-{EndTime:yyyyMMddHHmmss}");
     }
 }
 
@@ -194,8 +194,10 @@ public partial class MemoryManager(
             if (GetMemoryMetaData(chatMessageContent).Level != memoryIndex.Level)
                 throw new InvalidOperationException("存档等级不允许修改");
 
-            chatMessageContent.Content = GetMemoryTag(memoryIndex) + "\n" + summary;
-            await memoryStorage.SaveAsync(memoryIndex, content);
+            await WriteMemory(memoryIndex, summary, content,
+                startTime.GetValueOrDefault(DateTime.Now),
+                endTime.GetValueOrDefault(DateTime.Now), chatMessageContent);
+            return;
         }
 
         // 寻找插入位置（同级区域的最下方）
@@ -234,7 +236,11 @@ public partial class MemoryManager(
         if (insertIndex == -1)
             insertIndex = chatHistory.Count;
 
-        await WriteMemory(memoryIndex.Level, startTime ?? DateTime.Now, endTime ?? DateTime.Now, summary, content, chatHistory, insertIndex);
+        chatMessageContent = new(AuthorRole.Assistant, "");
+        chatHistory.Insert(insertIndex, chatMessageContent);
+        await WriteMemory(memoryIndex, summary, content,
+            startTime.GetValueOrDefault(DateTime.Now),
+            endTime.GetValueOrDefault(DateTime.Now), chatMessageContent);
     }
     public Task<string?> ReadMemory(MemoryIndex memoryIndex)
     {
@@ -325,7 +331,11 @@ public partial class MemoryManager(
     {
         MemoryMeta memoryMeta = new(level, startTime, endTime);
         MemoryIndex memoryIndex = memoryMeta.ToMemoryIndex();
-
+        await WriteMemory(memoryIndex, summary, content, startTime, endTime, chatMessageContent);
+    }
+    async Task WriteMemory(MemoryIndex memoryIndex, string summary, string content, DateTime startTime, DateTime endTime,
+        ChatMessageContent chatMessageContent)
+    {
         string memoryTag = GetMemoryTag(memoryIndex);
         chatMessageContent.Content = memoryTag + "\n" + summary;
         memoryMetaDatas[chatMessageContent] = new MemoryMeta(memoryIndex.Level, startTime, endTime);

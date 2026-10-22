@@ -20,9 +20,6 @@
         <FormItem Label="模型目录（留空使用默认目录）">
             <Input @bind-Value="@Configuration.ModelDirectory" Placeholder="@Path.Combine(VitsSpeechModel.RuntimeFolder, "onnx")"/>
         </FormItem>
-        <FormItem Label="推理线程数">
-            <InputNumber @bind-Value="@Configuration.WorkerThreads" Min="1" Max="4"/>
-        </FormItem>
         <GridRow Gutter="16">
             <GridCol Span="12">
                 <FormItem Label="说话人ID">

@@ -1,4 +1,5 @@
 using System.Text;
+using Alife.Foundation;
 using Android.Content;
 using Android.OS;
 using Android.Runtime;
@@ -49,6 +50,7 @@ public static class AndroidAlifePlatform
             export HOME={root} TMPDIR={root}/tmp PYTHONHOME={usr}
             export LD_LIBRARY_PATH={usr}/lib PATH={usr}/bin:$PATH
             export SSL_CERT_FILE={usr}/etc/tls/cert.pem PYTHONIOENCODING=utf-8 PYTHONUTF8=1
+            {BuildMirrorEnvironmentExports()}
             mkdir -p {root}/tmp
             cd {root} || exit 1
             exec {usr}/bin/python -u {Quote(scriptPath)}
@@ -56,7 +58,41 @@ public static class AndroidAlifePlatform
         return new PythonProcess(ShizukuBridge.StartProcess(command.Replace("\r\n", "\n")));
     }
 
-    static string Quote(string value) => "'" + value.Replace("'", "'\"'\"'") + "'";
+    internal static string Quote(string value) => "'" + value.Replace("'", "'\"'\"'") + "'";
+
+    internal static string BuildMirrorEnvironmentExports()
+    {
+        StringBuilder exports = new();
+        foreach ((string key, string value) in AlifeMirror.MirrorEnvironmentVariables)
+        {
+            if (string.IsNullOrEmpty(value) || ProtectedEnvironmentKeys.Contains(key) || IsValidEnvironmentKey(key) == false)
+                continue;
+
+            if (exports.Length > 0)
+                exports.Append('\n');
+            exports.Append("export ").Append(key).Append('=').Append(Quote(value));
+        }
+        return exports.ToString();
+    }
+
+    static readonly HashSet<string> ProtectedEnvironmentKeys = new(StringComparer.OrdinalIgnoreCase) {
+        "HOME", "PATH", "TMPDIR", "PYTHONHOME", "PYTHONPATH",
+        "LD_LIBRARY_PATH", "LD_PRELOAD", "SSL_CERT_FILE", "SSL_CERT_DIR",
+    };
+
+    static bool IsValidEnvironmentKey(string key)
+    {
+        if (key.Length == 0)
+            return false;
+        if (char.IsAsciiLetter(key[0]) == false && key[0] != '_')
+            return false;
+        foreach (char character in key)
+        {
+            if (char.IsAsciiLetterOrDigit(character) == false && character != '_')
+                return false;
+        }
+        return true;
+    }
 
     public sealed record ShellResult(int ExitCode, string Output);
 

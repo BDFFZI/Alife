@@ -96,7 +96,7 @@ public class MemoryService(
             ? $"{MemoryManager.GetMemoryTag(memoryIndex)}内容如下：\n{memory}"
             : $"未找到{MemoryManager.GetMemoryTag(memoryIndex)}");
     }
-    
+
     MemoryManager memoryManager = null!;
     ILanguageModel compressModel = null!;
     string storagePath = null!;
@@ -115,15 +115,15 @@ public class MemoryService(
             Description = "上下文编辑与回忆工具",
             Explanation = $"""
                            记忆存档：
-                           每当对话超一定次数，部分对话内容就会被压缩成存档。
-                           每个存档有一个唯一标识，格式为`等级-名称`。系统的存档中，名称通常由内容涉及的日期构成`开始时间-截至时间`。
-                           当同级存档达到一定数量，也会进行二次压缩归档，同时等级加一。当等级>={Configuration.MaxCompressionLevel}时，则长驻上下文，不再自动压缩。
+                           每当对话超一定次数，部分对话内容就会被压缩成存档。每个存档有一个唯一标识，格式为`等级-名称`。
+                           系统的存档中，名称通常由内容涉及的日期构成`开始时间-截至时间`，但名称本身完全支持自定义，例如`关于xx的记忆`。
+                           当同级存档达到一定数量，也会进行二次压缩归档，同时等级加一，直到达到最高等级。
 
                            创建专用记忆：
                            你可以使用本服务提供编辑工具，修改你的上下文（慎用，极耗token）。
-                           比如创建一些不会被压缩的高级存档来存储专用内容，如人物画像、规则约束、数据记录等。
-                           并且你可以随时更新，因为只要保持synopsis不变，仅修改content不会破坏llm的缓存命中。
-                           但注意也别忘了先用{nameof(Recall)}查看原内容再写，防止错误覆盖。
+                           比如创建一些不会被压缩的高级存档（等级>={Configuration.MaxCompressionLevel}时才会常驻上下文）来存储专用内容，如存储人物画像、规则约束、数据记录等内容。
+                           起一个易懂的名称并维护它，同时尽可能保持synopsis不变，仅修改content来保持缓存命中。
+                           但也注意别忘了先用{nameof(Recall)}查看原内容再写，防止错误覆盖。
 
                            检索记忆：
                            所有记忆存档中的原始具体内容都被存放在了`{storagePath}`中，他们是被归档在上下文之外的旧记忆内容，你可以用文件操作工具翻阅他们。

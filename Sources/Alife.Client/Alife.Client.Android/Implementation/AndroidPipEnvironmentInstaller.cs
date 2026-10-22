@@ -39,6 +39,7 @@ sealed class AndroidPipEnvironmentInstaller(IAlifeFoundation foundation) : PipEn
                            export LD_LIBRARY_PATH={ShizukuBridge.PythonUsr}/lib
                            export PATH={ShizukuBridge.PythonUsr}/bin:$PATH
                            export SSL_CERT_FILE={ShizukuBridge.PythonUsr}/etc/tls/cert.pem
+                           {AndroidAlifePlatform.BuildMirrorEnvironmentExports()}
                            mkdir -p {ShizukuBridge.PythonRoot}/tmp
                            cd {ShizukuBridge.PythonRoot}
                            ./usr/bin/python -m pip install --no-cache-dir --disable-pip-version-check -r '{requirementsPath}' 2>&1

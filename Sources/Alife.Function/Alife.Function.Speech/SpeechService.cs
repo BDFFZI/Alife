@@ -113,6 +113,8 @@ public partial class SpeechService(
             }
             catch (OperationCanceledException)
             {
+                lifetime.Cancel();
+                _ = audioSynthesizingTask.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
                 return; // 语音被打断，那么后续语音显然也不用播放了
             }
         }
@@ -122,6 +124,10 @@ public partial class SpeechService(
         try
         {
             audioFile = await audioSynthesizingTask; // 等待合成任务完成
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception e)
         {

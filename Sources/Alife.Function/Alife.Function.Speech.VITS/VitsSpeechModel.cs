@@ -17,6 +17,7 @@ namespace Alife.Function.Speech.VITS;
 public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, ISpeechModel, IConfigurable<VitsSpeechModelConfig>
 {
     public static string RuntimeFolder => Path.Combine(AlifePath.RuntimeFolderPath, "VITS");
+    public static int InferenceThreads => Math.Max(1, Environment.ProcessorCount);
     public static string GetModelDirectory(VitsSpeechModelConfig config) =>
         string.IsNullOrWhiteSpace(config.ModelDirectory) ? Path.Combine(RuntimeFolder, "onnx") : Path.GetFullPath(config.ModelDirectory);
     public static bool IsModelReady(VitsSpeechModelConfig config) =>
@@ -123,12 +124,12 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
     EngineSettings GetSettings()
     {
         var settings = new EngineSettings(GetModelDirectory(Configuration), Configuration.NoiseScale,
-            Configuration.NoiseScaleW, Configuration.LengthScale, Configuration.WorkerThreads);
+            Configuration.NoiseScaleW, Configuration.LengthScale, InferenceThreads);
         if (!float.IsFinite(settings.NoiseScale) || settings.NoiseScale < 0 ||
             !float.IsFinite(settings.NoiseScaleW) || settings.NoiseScaleW < 0 ||
             !float.IsFinite(settings.LengthScale) || settings.LengthScale <= 0 ||
-            settings.WorkerThreads < 1 || settings.WorkerThreads > 4 || Configuration.SpeakerId < 0)
-            throw new ArgumentException("VITS 合成参数无效。线程数应为 1–4，长度规模必须大于 0，噪声参数与说话人 ID 不能小于 0。");
+            settings.WorkerThreads < 1 || Configuration.SpeakerId < 0)
+            throw new ArgumentException("VITS 合成参数无效。长度规模必须大于 0，噪声参数与说话人 ID 不能小于 0。");
         return settings;
     }
 
@@ -148,7 +149,7 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
             config.Model.NumThreads = settings.WorkerThreads;
             config.Model.Provider = "cpu";
             config.Model.Debug = 0;
-            logger.LogInformation("正在加载 VITS ONNX 模型，推理线程数：{Threads}", settings.WorkerThreads);
+            logger.LogInformation("正在加载 VITS ONNX 模型，推理线程数：{Threads}（全部逻辑核心）", settings.WorkerThreads);
             synthesizer = new OfflineTts(config);
             loadedSettings = settings;
             loadedModelTime = model.LastWriteTimeUtc;

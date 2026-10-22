@@ -48,6 +48,10 @@ public class GenieSpeechModel(
             await pythonPipe.InvokeAsync<string>("synthesize", text, outputPath, charaName);
             return outputPath;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogWarning($"Genie synthesis failed: {ex.Message}");
