@@ -129,8 +129,7 @@ public static class AlifeApplication
             {
                 //激活 MCP 服务，使外部程序可以通过 MCP 调用 Alife 系统能力
                 IAlifeApplication alifeApplication = provider.GetRequiredService<IAlifeApplication>();
-                AlifeMcpTools alifeMcpTools = provider.GetRequiredService<AlifeMcpTools>();
-                await alifeApplication.StartAlifeMcpAsync(alifeMcpTools);
+                await alifeApplication.StartAlifeMcpAsync(provider);
             }
             catch (Exception e)
             {

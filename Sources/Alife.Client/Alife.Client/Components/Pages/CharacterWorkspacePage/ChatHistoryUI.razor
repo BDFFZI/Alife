@@ -75,8 +75,10 @@
        OnOk="OnConfirmEdit"
        OnCancel="@(() => editVisible = false)"
        OkText="@("保存")"
-       CancelText="@("取消")">
-    <InputTextArea @bind-Value="editingContent" Rows="6" Style="width: 100%;"/>
+       CancelText="@("取消")"
+       Width="@("min(900px, 90vw)")"
+       Centered="true">
+    <InputTextArea @bind-Value="editingContent" Rows="16" Style="width: 100%;"/>
 </Modal>
 
 @code {

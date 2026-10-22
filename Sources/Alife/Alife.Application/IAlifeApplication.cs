@@ -9,7 +9,7 @@ public interface IAlifeApplication
 
     Uri? AlifeMcpServer { get; }
 
-    Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools);
+    Task StartAlifeMcpAsync(IServiceProvider provider);
 
     #endregion
 

@@ -15,7 +15,7 @@ public class DeveloperService(
     XmlFunctionCaller functionCaller,
     ILoggerFactory loggerFactory,
     Interactor<DeveloperService> interactor) :
-    ChatBehaviour               
+    ChatBehaviour
 {
     McpClient? mcpClient;
 
@@ -28,7 +28,7 @@ public class DeveloperService(
         XmlHandler xmlHandler = await McpXmlAdapter.McpClientToXmlHandler(
             mcpClient,
             "DeveloperTools",
-            "你是搭载在Alife框架上的一名AI，你已被授予完全的开发者权限。你可以通过此工具获取框架的所有信息和软件控制能力，借此轻松实现自制插件、角色管理、错误处理等需求。当用户遇到技术问题或请求功能时，请使用此工具。",
+            "（重要！）你是搭载在Alife框架上的一名AI，此服务是你必须要了解的东西。他让你获得完全的开发者能力。你可借此获取Alife中的所有信息并控制软件，从而轻松实现自制插件、角色管理、错误修复等需求。当用户遇到问题或期望时，请立即使用此工具。",
             (name, result) => interactor.Poke($"AlifeMcp.{name} 执行完成\n{result}")
         );
 

@@ -47,6 +47,7 @@ async function init() {
 
 function bindEvents() {
   document.getElementById('btn-save-config').addEventListener('click', saveConfigNow);
+  document.getElementById('btn-close-editor').addEventListener('click', () => { api.closeWindow(); });
   document.getElementById('btn-convert-res').addEventListener('click', convertResolution);
   document.getElementById('btn-add-game').addEventListener('click', () => promptGameName('新建游戏', '', addGame));
   document.getElementById('btn-rename-game').addEventListener('click', () => {

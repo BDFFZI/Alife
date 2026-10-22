@@ -118,10 +118,13 @@ partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplicat
     }
 
     public Uri? AlifeMcpServer { get; private set; }
-    public async Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools)
+    public async Task StartAlifeMcpAsync(IServiceProvider provider)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
-        builder.Services.AddSingleton(alifeMcpTools);
+        builder.Services.AddSingleton(ActivatorUtilities.CreateInstance<AlifeMcpTools>(provider));
+        //将AlifeMcpTools依赖的框架服务从主容器映射到MCP容器，避免激活时无法解析
+        foreach (Type t in typeof(AlifeMcpTools).GetConstructors().First().GetParameters().Select(p => p.ParameterType))
+            builder.Services.AddSingleton(t, provider.GetRequiredService(t));
         builder.Services.AddMcpServer(options => {
             options.ServerInfo = new Implementation {
                 Name = "Alife MCP Server",

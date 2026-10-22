@@ -28,15 +28,13 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
 
     public void SetStorageFolderPath(string path)
     {
-        path = EnsureExternalPath(path);
-        storageFolderPath = MigrateDirectory(storageFolderPath, path);
+        storageFolderPath = MigrateDirectory(storageFolderPath, Path.GetFullPath(path));
         AlifeConfig.SetString("storage_path", storageFolderPath);
     }
 
     public void SetRuntimeFolderPath(string path)
     {
-        path = EnsureExternalPath(path);
-        runtimeFolderPath = MigrateDirectory(runtimeFolderPath, path);
+        runtimeFolderPath = MigrateDirectory(runtimeFolderPath, Path.GetFullPath(path));
         AlifeConfig.SetString("runtime_path", runtimeFolderPath);
     }
 
@@ -58,25 +56,17 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
         if (HasStorageAccess() == false)
             throw new InvalidOperationException("需要“所有文件访问权限”才能使用外部存储。请授予权限后重试。");
 
-        string root = GetExternalRoot();
-        string targetStorage = Path.Combine(root, "Storage");
-        string targetRuntime = Path.Combine(root, "Runtime");
-        tempFolderPath = Path.Combine(root, "Temp");
+        tempFolderPath = Path.Combine(GetExternalRoot(), "Temp");
 
         try
         {
-            if (IsUnderRoot(storageFolderPath, root) == false)
-                SetStorageFolderPath(targetStorage);
-            if (IsUnderRoot(runtimeFolderPath, root) == false)
-                SetRuntimeFolderPath(targetRuntime);
-
             Directory.CreateDirectory(storageFolderPath);
             Directory.CreateDirectory(runtimeFolderPath);
             Directory.CreateDirectory(tempFolderPath);
         }
         catch (Exception e)
         {
-            throw new InvalidOperationException($"无法访问外部存储目录 {root}：{e.Message}", e);
+            throw new InvalidOperationException($"无法访问存储目录：{e.Message}", e);
         }
     }
 
@@ -100,21 +90,6 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
         if (string.IsNullOrEmpty(documents))
             throw new InvalidOperationException("无法获取外部存储 Documents 目录。请联系系统管理员。");
         return Path.Combine(documents, "Alife");
-    }
-
-    static string EnsureExternalPath(string path)
-    {
-        string root = GetExternalRoot();
-        if (IsUnderRoot(path, root) == false)
-            throw new InvalidOperationException($"路径必须位于 {root} 下。");
-        return path;
-    }
-
-    static bool IsUnderRoot(string path, string root)
-    {
-        string fullPath = Path.GetFullPath(path);
-        string fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        return fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     static string MigrateDirectory(string oldPath, string newPath)

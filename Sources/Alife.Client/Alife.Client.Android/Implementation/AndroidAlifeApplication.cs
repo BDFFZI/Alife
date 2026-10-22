@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Alife.Foundation;
 using Alife.Framework;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol;
@@ -27,15 +28,17 @@ sealed class AndroidAlifeApplication(
 
     public Task RevealFolderAsync(string path)
     {
-        throw new NotSupportedException("Android 客户端不支持打开文件夹。");
+        AndroidFileDialogs.RevealFolder(path);
+        return Task.CompletedTask;
     }
     public Task RevealFileAsync(string path)
     {
-        throw new NotSupportedException("Android 客户端不支持定位文件。");
+        AndroidFileDialogs.RevealFile(path);
+        return Task.CompletedTask;
     }
     public Task<string?> SelectFolderAsync()
     {
-        throw new NotSupportedException("Android 客户端不支持选择目录。");
+        return AndroidFileDialogs.SelectFolderAsync(CancellationToken.None);
     }
 
     #endregion
@@ -78,10 +81,11 @@ sealed class AndroidAlifeApplication(
 
     public Uri? AlifeMcpServer { get; private set; }
 
-    public Task StartAlifeMcpAsync(AlifeMcpTools alifeMcpTools)
+    public Task StartAlifeMcpAsync(IServiceProvider provider)
     {
         Uri uri = new(config.McpServerAddress);
         string route = string.IsNullOrWhiteSpace(config.McpServerPath) ? "/mcp" : config.McpServerPath;
+        AlifeMcpTools alifeMcpTools = ActivatorUtilities.CreateInstance<AlifeMcpTools>(provider);
         McpServerOptions options = CreateOptions(provider, alifeMcpTools);
         ILoggerFactory loggerFactory = provider.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Alife.Foundation;
 using Alife.Framework;
 
@@ -5,9 +6,39 @@ namespace Alife.Client.Android;
 
 sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvider provider) : IAlifeClient
 {
-    public Task UpgradeClient(string version, Action<int>? onProgress = null)
+    public async Task UpgradeClient(string version, Action<int>? onProgress = null)
     {
-        throw new NotSupportedException("Android 客户端只能通过安装新版 APK 更新。");
+        //按 tag 精确取该版本，避免检查与安装之间版本漂移
+        string response = await AlifeUtility.FetchStringAsync(
+            $"{ClientUpgrade.ReleasesApiUrl}/tags/v{version}", TimeSpan.FromSeconds(7));
+        using JsonDocument document = JsonDocument.Parse(response);
+        string? downloadUrl = null;
+        if (document.RootElement.TryGetProperty("assets", out JsonElement assets))
+        {
+            foreach (JsonElement asset in assets.EnumerateArray())
+            {
+                if (asset.TryGetProperty("name", out JsonElement name) && name.GetString() == UpdateAssetName &&
+                    asset.TryGetProperty("browser_download_url", out JsonElement url))
+                {
+                    downloadUrl = url.GetString();
+                    break;
+                }
+            }
+        }
+        if (string.IsNullOrEmpty(downloadUrl))
+            throw new Exception($"v{version} 的发布资源中不存在更新包 {UpdateAssetName}。");
+
+        string updateDir = Path.Combine(foundation.TempFolderPath, "Update");
+        if (Directory.Exists(updateDir))
+            Directory.Delete(updateDir, true);
+
+        string packagePath = Path.Combine(updateDir, UpdateAssetName);
+        await AlifeUtility.DownloadFileAsync(downloadUrl, packagePath, (read, total) => {
+            if (total > 0)
+                onProgress?.Invoke((int)(read * 100 / total));
+        });
+
+        AndroidPackageInstaller.Install(packagePath);
     }
 
     public void SetStorageFolderPath(string path)
@@ -76,6 +107,8 @@ sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvi
         Interlocked.Exchange(ref LastCursor, ((long)position.X << 32) | (uint)position.Y);
         MainThread.BeginInvokeOnMainThread(() => AndroidAlifeWindow.UpdatePointer(position, pressed));
     }
+
+    const string UpdateAssetName = "Alife.Client.Android.apk";
 }
 
 /// <summary>全局路径与自启动标记等常量。</summary>

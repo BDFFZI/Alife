@@ -19,7 +19,7 @@ public class AlifeMcpTools(
     #region 文档指南
 
     [McpServerTool]
-    [Description("了解 Alife 中的基本框架结构，打好使用/开发的基础。")]
+    [Description("（必读！）了解Alife框架的基本构造，打好使用/开发的基础。")]
     public string ReadAlifeFrameworkGuide()
     {
         return $$"""
@@ -31,68 +31,67 @@ public class AlifeMcpTools(
                  ## 项目结构
 
                  ## Alife.Foundation
-
                  提供 Alife 的基础必要功能实现环境。
-
                  ### 提供功能
-
                  - AlifePath：存储着Alife中使用的路径环境。
                  - AlifeMirror：Alife中实现镜像的协议类。
                  - AlifeUtility：对一些常用功能，比如镜像下载的封装。
                  - AlifeLog：自定义ILogger，同时提供静态调用途径。在此流过的Log会被前端特殊显示。
                  - AlifeConfig：一个固定路径的配置存储（不建议使用，为了便于用户管理，优先使用`StorageSystem`）。
-
                  ### 提供路径
-
                  - 应用目录：`AppContext.BaseDirectory` > {{AppContext.BaseDirectory}}
                  - 存储目录（存储角色数据、插件配置等）：`AlifePath.StorageFolderPath` > {{AlifePath.StorageFolderPath}}
                  - 环境目录（存储python等运行时环境）：`AlifePath.RuntimeFolderPath` > {{AlifePath.RuntimeFolderPath}}
                  - 缓存目录（存储运行期间产生的临时文件，每次启动时清空）：`AlifePath.TempFolderPath` > {{AlifePath.TempFolderPath}}
 
-                 ## Alife.Framework（内核）
-
+                 ## Alife.Framework
                  实现AI活动所需的基本框架，允许使用者通过模块机制、事件、管理系统来扩展控制框架功能。
-
                  ### 基本对象
-
                  - Character：存储ai人设功能配置的数据类。该对象全局保持，即使重载角色也不影响，可充当长期唯一索引。
                  - ChatBot：协调与llm通讯的类，提供通讯函数、事件、上下文等，是与llm交流的海关。不过该类本身不实现通讯，而是通过接口从插件中获取语言模型。
                  - ChatActivity：代表一个实际的llm活动环境，负责根据 Character 创建 ChatBot，组装激活 Module 实例，驱动插件框架，热重载等。
                  - Module：Alife 的功能装载单位。系统会识别程序集中所有被标记 ModuleAttribute 的类，然后在 ChatActivity 创建时被按需构造。
                  - ChatBehaviour：一个重要的功能框架基类。会被 ChatActivity 特殊处理，可借此获取到活动上下文，以及相关事件。除此之外还有很多框架工具，具体见 Module 文件夹。
-                 - Plugin：本身不是一个类，而是一个概念，是 Alife 的功能编译单元。插件根目录的每个子文件夹被认为是一个插件，里面包含cs、dll、插件清单等文件。
-
                  ### 管理系统
-
                  为了管理上述基本对象，还存在如下系统类，可以利用模块的构造函数注入来获取
-
                  - CharacterSystem：管理角色信息
                  - ChatActivitySystem：管理角色的激活
                  - StorageSystem：简易存储功能封装
                  - ConfigurationSystem：管理模块配置的读写
-                 - PluginSystem：管理插件的安装编译加载
                  - ModuleSystem：从插件程序集中提取模块信息
-
                  ### 提供目录
-
                  - 角色目录（对于每个角色的配置、记忆、个人文件等）：{存储目录}/Character
                  - 模块配置目录（当模块使用配置功能时，配置的存储目录）：{存储目录}/Configuration
                  - 特定于角色的模块配置目录（优先级比全局高）：{角色目录}/Configuration
-
                  提示：这些目录通常存放着各种配置信息，是开发过程中用来从外部修改软件数据的最佳途径。
 
-                 ## Alife.Client（外壳）
+                 ## Alife.PluginSystem
+                 对插件机制和插件市场的独立实现
+                 ### 基本对象
+                 - Plugin：本身不是一个类，而是一个概念，是 Alife 的功能编译单元。插件根目录的每个子文件夹被认为是一个插件，里面包含cs、dll、插件清单等文件。
+                 - PluginManifest：插件清单的模型类，保存版本、依赖、环境等编译运行时信息。
+                 - PluginPackage：插件市场包描述模型，保存在市场中使用的插件属性，例如平台、介绍、releases。
+                 ### 管理系统
+                 - PluginContext：管理插件编译和加载
+                 - PluginMarket：管理插件市场下载升级
+                 - PluginSystem：统合上述两个系统
 
-                 是内核的官方前端封装，用于图形化操控框架中的各种系统，额外还接入了环境检测，新手引导等辅助功能。
+                 ## Alife.Application
+                 将上述项目的组合后形成的一个标准Alife应用框架，他扩展了一些功能，封装了初始化流程，并提供了大量接口让使用者支持。
+                 利用该项目可以轻松搭建无头Alife应用，并沿用Alife的插件生态，因为他是Alife应用的标准。
+                 ### 提供类型
+                 - IAlifeApplication：Alife应用层功能抽象，可借此实现跨平台开发
+                 - ModuleUIBase：自定义模块UI的标准基类
 
-                 ## Alife.PluginContext/Alife.PluginMarket
+                 ## Alife.Client
+                 是对Alife.Application项目的官方图形化客户端的UI部分实现，映射了框架中的各种系统和对象，并额外增加了环境检测，新手引导等辅助功能。
 
-                 一套与业务无关的插件框架实现，两者分别负责实现插件的编译加载和下载安装。
-                 （实际使用中应直接用 PluginSystem 代替，因为其封装了两者并使其协同工作，否则你要处理复杂的手动管理）
+                 ## Alife.Client.Windows / Alife.Client.Android
+                 对Alife.Client项目的最终实现，补全了系统中的所有接口，并以此落地成多个操作系统的真实程序。
                  """;
     }
     [McpServerTool]
-    [Description("了解如何抓取 Alife 中的运行数据，来诊断功能是否正常")]
+    [Description("（必读！）了解如何抓取Alife中的日志和对话，来进行功能诊断。")]
     public string ReadDebugDiagnosticGuide()
     {
         return $$"""
@@ -124,7 +123,7 @@ public class AlifeMcpTools(
                  """;
     }
     [McpServerTool]
-    [Description("了解如何为角色装配功能，以及通过开发插件，实现功能扩展。")]
+    [Description("了解如何管理、配置、交互角色，以及学习开发插件来实现功能扩展。")]
     public string ReadFunctionDevelopmentGuide()
     {
         return $$"""
@@ -205,6 +204,7 @@ public class AlifeMcpTools(
                    "author": "作者名",//插件作者
                    "description": "插件功能描述",//插件显示描述
                    "tags": ["视觉模型", "官方"],//插件标签，用于分类筛选（可选）
+                   "platforms": ["Windows", "Android"],//平台可用性
                    "source": "https://github.com/xxx",//插件主页或联系方式（可选）
                    "dependencies": { //依赖的其他插件（可选）
                      "{PluginID}": "{VersionDescription}" //版本描述采用pip格式，支持`>=`,`<=`,`==`,留空
@@ -271,6 +271,13 @@ public class AlifeMcpTools(
                      },
                      "pip": {
                        "requests": ""
+                     }
+                   },
+                   "Windows": {//你也可以将属性放到平台为名的字段下，来针对不同平台使用不同的环境
+                     "Environments": {
+                       "nuget": {
+                         "NAudio": ">=2.3.0"
+                       }
                      }
                    }
                  }
@@ -451,6 +458,28 @@ public class AlifeMcpTools(
         {
             return $"{character.Name} 关闭失败\n{e}";
         }
+    }
+
+    [McpServerTool]
+    [Description("重启角色，先关闭再激活")]
+    public string ReactivateCharacter(string characterName)
+    {
+        Character? character = FindCharacter(characterName);
+        if (character == null)
+            return $"角色不存在：{characterName}";
+
+        _ = Task.Run(async () => {
+            try
+            {
+                await DeactivateCharacter(characterName);
+                await ActivateCharacter(characterName);
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        });
+        return "正在重启";
     }
 
     #endregion

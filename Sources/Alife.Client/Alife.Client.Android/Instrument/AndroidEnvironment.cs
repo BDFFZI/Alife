@@ -125,26 +125,6 @@ static class AndroidEnvironment
         if (foundation is AndroidAlifeFoundation androidFoundation)
             await androidFoundation.TryUseDocumentsStorageAsync();
 
-        if (IsStorageShellReadable(foundation) == false)
-            throw new InvalidOperationException("Python 安装需要 Storage 位于文档目录，请先授予所有文件访问权限并重启应用。");
-
         await ShizukuPythonInstaller.InstallAsync(foundation, progress, CancellationToken.None);
-    }
-
-    static bool IsStorageShellReadable(IAlifeFoundation foundation)
-    {
-        if (OperatingSystem.IsAndroidVersionAtLeast(30) == false)
-            return true;
-
-#pragma warning disable CA1416
-        string? documents = global::Android.OS.Environment
-            .GetExternalStoragePublicDirectory(global::Android.OS.Environment.DirectoryDocuments)?
-            .AbsolutePath;
-#pragma warning restore CA1416
-        if (string.IsNullOrEmpty(documents))
-            return false;
-
-        return Path.GetFullPath(foundation.StorageFolderPath)
-            .StartsWith(Path.GetFullPath(documents), StringComparison.OrdinalIgnoreCase);
     }
 }

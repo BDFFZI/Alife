@@ -1,58 +1,128 @@
-// 陪玩配置编辑器 - 渲染进程 IPC 桥（nodeIntegration 环境，由插件 IpcMain 提供服务）
-const { ipcRenderer } = require('electron');
+// 陪玩窗口 - 渲染进程桥（基于 Alife.Client 的 window.alifeWindow 通用消息通道）
+// 与主进程约定：
+//   request  { kind:'request', id, channel, payload }
+//   response { kind:'response', id, result, error }
+//   event    { kind:'event', channel, payload }
+(function () {
+  const host = window.alifeWindow;
+  const pending = new Map();
+  const listeners = Object.create(null);
+  const latest = Object.create(null);
+  let seq = 0;
 
-window.companion = {
-  // 配置读写
-  getConfig: async () => JSON.parse(await ipcRenderer.invoke('companion:get-config')),
-  getScreenSize: async () => JSON.parse(await ipcRenderer.invoke('companion:get-screen-size')),
-  collectorTypes: async () => JSON.parse(await ipcRenderer.invoke('companion:collector-types')),
-  saveConfig: (config) => ipcRenderer.invoke('companion:save-config', JSON.stringify(config)),
-  saveConfigSync: (config) => ipcRenderer.sendSync('companion:save-config-sync', JSON.stringify(config)),
-  onConfigPath: (cb) => ipcRenderer.on('companion:config-path', (e, p) => cb(p)),
-  openConfigFolder: () => ipcRenderer.invoke('companion:open-config-folder'),
-  onConfigSaved: (cb) => ipcRenderer.on('companion:config-saved', cb),
+  function post(message) {
+    if (!host) return;
+    try { host.postMessage(message); } catch (e) { console.error('[companion] postMessage failed', e); }
+  }
 
-  // 覆盖层控制（主窗口调用）
-  showOverlay: (items) => ipcRenderer.invoke('companion:show-overlay', JSON.stringify(items)),
-  hideOverlay: () => ipcRenderer.invoke('companion:hide-overlay'),
+  function subscribe(channel, handler) {
+    (listeners[channel] || (listeners[channel] = [])).push(handler);
+    // 页面脚本注册监听通常晚于窗口就绪消息，回放最近一次事件避免丢失初始状态
+    if (channel in latest) {
+      try { handler(latest[channel]); } catch (e) { console.error('[companion] handler error', channel, e); }
+    }
+  }
 
-  // 屏幕取色
-  pickColor: () => ipcRenderer.invoke('companion:pick-color'),
-  pickAt: (x, y) => ipcRenderer.invoke('companion:pick-at', JSON.stringify({ x, y })),
-  pickCancel: () => ipcRenderer.invoke('companion:pick-cancel'),
-  pickResult: (hex) => ipcRenderer.invoke('companion:pick-result', hex),
-  onPickMode: (cb) => ipcRenderer.on('companion:pick-mode', (e, on) => cb(!!on)),
-  onPickResult: (cb) => ipcRenderer.on('companion:pick-result', (e, hex) => cb(hex)),
+  function emit(channel, payload) {
+    latest[channel] = payload;
+    const handlers = listeners[channel];
+    if (!handlers) return;
+    handlers.forEach((handler) => {
+      try { handler(payload); } catch (e) { console.error('[companion] handler error', channel, e); }
+    });
+  }
 
-  // 主窗口监听覆盖层上报的区域变更
-  onRegionChanged: (cb) => ipcRenderer.on('companion:region-changed', (e, id, region) => cb(id, typeof region === 'string' ? JSON.parse(region) : region)),
+  function invoke(channel, payload) {
+    if (!host) return Promise.reject(new Error('alifeWindow bridge unavailable'));
+    return new Promise((resolve, reject) => {
+      const id = ++seq;
+      pending.set(id, { resolve, reject });
+      post({ kind: 'request', id, channel, payload });
+    });
+  }
 
-  // 覆盖层接收项目
-  onOverlayItems: (cb) => ipcRenderer.on('companion:overlay-items', (e, itemsJson) => cb(JSON.parse(itemsJson))),
+  function send(channel, payload) {
+    post({ kind: 'request', id: 0, channel, payload });
+  }
 
-  // 覆盖层上报区域变更
-  reportRegionChange: (id, region) => ipcRenderer.invoke('companion:region-changed', JSON.stringify({ id, region })),
-  finishOverlay: () => ipcRenderer.invoke('companion:hide-overlay'),
-  debugSend: (msg) => ipcRenderer.send('companion:overlay-debug', msg),
+  if (host) {
+    host.onMessage(function (message) {
+      if (!message) return;
+      if (typeof message === 'string') {
+        try { message = JSON.parse(message); } catch { return; }
+      }
+      if (message.kind === 'response') {
+        const task = pending.get(message.id);
+        if (!task) return;
+        pending.delete(message.id);
+        if (message.error) task.reject(new Error(message.error));
+        else task.resolve(message.result);
+      } else if (message.kind === 'event') {
+        emit(message.channel, message.payload);
+      }
+    });
+  }
 
-  // 测试场景（开发验证用）
-  openTestScene: () => ipcRenderer.invoke('companion:open-test-scene'),
-  getTestSceneBounds: () => ipcRenderer.invoke('companion:get-test-scene-bounds'),
+  window.companion = {
+    closeWindow: () => send('companion:close-window'),
 
-  // 数据浮窗
-  onFloatData: (cb) => ipcRenderer.on('companion:float-data', (e, dataJson) => cb(JSON.parse(dataJson))),
-  onFloatCharacter: (cb) => ipcRenderer.on('companion:float-character', (e, name) => cb(name)),
-  onFloatResetCollapsed: (cb) => ipcRenderer.on('companion:float-reset-collapsed', () => cb()),
-  floatExpand: () => ipcRenderer.invoke('companion:float-expand'),
-  floatCollapse: () => ipcRenderer.invoke('companion:float-collapse'),
-  floatEdit: (gameName) => ipcRenderer.invoke('companion:float-edit', gameName),
-  floatMove: (x, y) => ipcRenderer.invoke('companion:float-set-pos', JSON.stringify({ x, y })),
-  floatGetPos: async () => JSON.parse(await ipcRenderer.invoke('companion:float-get-pos')),
-  floatPause: () => ipcRenderer.invoke('companion:float-pause'),
-  floatGames: async () => JSON.parse(await ipcRenderer.invoke('companion:float-games')),
-  floatStart: (gameName) => ipcRenderer.invoke('companion:float-start', gameName),
-  floatStop: () => ipcRenderer.invoke('companion:float-stop'),
-  floatToggle: (gameName, name, enable) => ipcRenderer.invoke('companion:float-toggle', JSON.stringify({ game: gameName, name, enable })),
-floatOverlayView: (show, gameName) => ipcRenderer.invoke('companion:float-overlay-view', JSON.stringify({ show, game: gameName || '' })),
-  debug: (msg) => ipcRenderer.send('companion:debug', typeof msg === 'string' ? msg : JSON.stringify(msg))
-};
+    // 配置读写
+    getConfig: () => invoke('companion:get-config'),
+    getScreenSize: () => invoke('companion:get-screen-size'),
+    collectorTypes: () => invoke('companion:collector-types'),
+    saveConfig: (config) => invoke('companion:save-config', config),
+    saveConfigSync: (config) => send('companion:save-config-sync', config),
+    onConfigPath: (cb) => subscribe('companion:config-path', (p) => cb(p)),
+    openConfigFolder: () => invoke('companion:open-config-folder'),
+    onConfigSaved: (cb) => subscribe('companion:config-saved', () => cb()),
+
+    // 覆盖层控制（主窗口调用）
+    showOverlay: (items) => invoke('companion:show-overlay', items),
+    hideOverlay: () => invoke('companion:hide-overlay'),
+
+    // 屏幕取色
+    pickColor: () => invoke('companion:pick-color'),
+    pickAt: (x, y) => invoke('companion:pick-at', { x, y }),
+    pickCancel: () => invoke('companion:pick-cancel'),
+    pickResult: (hex) => invoke('companion:pick-result', hex),
+    onPickMode: (cb) => subscribe('companion:pick-mode', (on) => cb(!!on)),
+    onPickResult: (cb) => subscribe('companion:pick-result', (hex) => cb(hex)),
+
+    // 主窗口监听覆盖层上报的区域变更
+    onRegionChanged: (cb) => subscribe('companion:region-changed', (p) => cb(p && p.id, p && p.region)),
+
+    // 覆盖层接收项目
+    onOverlayItems: (cb) => subscribe('companion:overlay-items', (items) => cb(items)),
+
+    // 覆盖层上报区域变更
+    reportRegionChange: (id, region) => invoke('companion:region-changed', { id, region }),
+    finishOverlay: () => invoke('companion:hide-overlay'),
+    debugSend: (msg) => send('companion:overlay-debug', msg),
+
+    // 测试场景（开发验证用）
+    openTestScene: () => invoke('companion:open-test-scene'),
+    getTestSceneBounds: () => invoke('companion:get-test-scene-bounds'),
+
+    // 数据浮窗
+    onFloatData: (cb) => subscribe('companion:float-data', (data) => cb(data)),
+    onFloatCharacter: (cb) => subscribe('companion:float-character', (name) => cb(name)),
+    onFloatResetCollapsed: (cb) => subscribe('companion:float-reset-collapsed', () => cb()),
+    floatExpand: () => invoke('companion:float-expand'),
+    floatCollapse: () => invoke('companion:float-collapse'),
+    floatEdit: (gameName) => invoke('companion:float-edit', gameName),
+    floatMove: (x, y) => invoke('companion:float-set-pos', { x, y }),
+    floatGetPos: () => invoke('companion:float-get-pos'),
+    floatPause: () => invoke('companion:float-pause'),
+    floatGames: () => invoke('companion:float-games'),
+    floatStart: (gameName) => invoke('companion:float-start', gameName),
+    floatStop: () => invoke('companion:float-stop'),
+    floatToggle: (gameName, name, enable) => invoke('companion:float-toggle', { game: gameName, name, enable }),
+    floatOverlayView: (show, gameName) => invoke('companion:float-overlay-view', { show, game: gameName || '' }),
+    debug: (msg) => send('companion:debug', typeof msg === 'string' ? msg : JSON.stringify(msg))
+  };
+
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', () => post({ kind: 'ready' }));
+  else
+    setTimeout(() => post({ kind: 'ready' }), 0);
+})();

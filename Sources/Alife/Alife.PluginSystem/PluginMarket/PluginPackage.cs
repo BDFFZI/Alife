@@ -18,6 +18,9 @@ public class PluginPackage
 
     [JsonProperty("tags")]
     public List<string>? Tags { get; set; }
+    
+    [JsonProperty("platforms")]
+    public List<string>? Platforms { get; set; }
 
     [JsonProperty("source")]
     public string Source { get; set; } = string.Empty;

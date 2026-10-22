@@ -28,6 +28,7 @@ public class GameCompanionModule(
     Interactor<GameCompanionModule> interactor,
     PluginSystem pluginSystem,
     MessageFilterService messageFilterService,
+    IAlifeApplication alifeApplication,
     IAudioRecognizerProvider? audioRecognizerProvider = null) :
     ChatBehaviour,
     IConfigurable<GameCompanionConfig>
@@ -236,6 +237,7 @@ public class GameCompanionModule(
         // 编辑器统一读写全局陪玩配置目录（每游戏一个 JSON + config.json）
         editorController = new GameCompanionEditorController(
             logger,
+            alifeApplication,
             pluginSystem,
             Store.RootDirectory,
             Character?.Name ?? "",

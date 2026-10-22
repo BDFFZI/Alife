@@ -30,7 +30,7 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
         string processName = Path.GetFileNameWithoutExtension(launcherPath);
         string psPath = Path.Combine(updateDir, "update.ps1");
 
-        // 交给独立脚本完成：等旧进程退出 -> 解包 -> 覆盖安装根目录 -> 重新拉起。
+        // 交给独立脚本完成：等旧进程退出 -> 运行安装包；安装完成后由安装包负责启动。
         await File.WriteAllTextAsync(psPath,
             $$"""
               Write-Host '=== Alife Update ===' -ForegroundColor Cyan
@@ -39,12 +39,11 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
               $proc = Get-Process -Name '{{processName}}' -ErrorAction SilentlyContinue
               if ($proc) {
                   Write-Host 'Waiting for old process to exit...' -ForegroundColor Yellow
-                  $proc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
+                  $proc | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
                   Start-Sleep -Seconds 2
               }
 
               Write-Host 'PackagePath: {{packagePath}}'
-              Write-Host 'InstallDir:  {{InstallRoot}}'
               Write-Host ''
               if (-not (Test-Path '{{packagePath}}')) {
                   Write-Host 'ERROR: package not found!' -ForegroundColor Red
@@ -52,29 +51,16 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
                   exit 1
               }
 
-              $extractTemp = '{{updateDir}}\_extract_tmp'
-              if (Test-Path $extractTemp) { Remove-Item $extractTemp -Recurse -Force }
-              New-Item -ItemType Directory -Path $extractTemp -Force | Out-Null
-
-              Write-Host 'Extracting to temp...' -ForegroundColor Yellow
+              Write-Host 'Running installer...' -ForegroundColor Yellow
               try {
-                  Expand-Archive -Path '{{packagePath}}' -DestinationPath $extractTemp -Force
-                  Write-Host 'Extraction succeeded.' -ForegroundColor Green
+                  Start-Process -FilePath '{{packagePath}}' -ArgumentList '/SILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
               } catch {
-                  Write-Host "Extraction failed: $($_.Exception.Message)" -ForegroundColor Red
+                  Write-Host "Install failed: $($_.Exception.Message)" -ForegroundColor Red
                   Read-Host 'Press Enter to exit'
                   exit 1
               }
 
-              Write-Host 'Copying new files (overwrite)...' -ForegroundColor Yellow
-              Copy-Item -Path "$extractTemp\*" -Destination '{{InstallRoot}}' -Recurse -Force
-              Remove-Item $extractTemp -Recurse -Force -ErrorAction SilentlyContinue
-
-              Write-Host ''
-              Write-Host 'Starting Alife...' -ForegroundColor Cyan
-              cmd /c start "" "{{launcherPath}}"
               Write-Host 'Upgrade successful!' -ForegroundColor Green
-              Start-Sleep -Seconds 2
               exit
               """);
 
@@ -124,7 +110,7 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
         return windowsEnvironment.InstallEnvironmentAsync(id, progress);
     }
 
-    const string UpdateAssetName = "Alife.Client.zip";
+    const string UpdateAssetName = "Alife.Client.Windows.exe";
     const string AutoStartTaskName = "Alife.Client.Windows";
     const string LauncherFileName = "Alife.Client.Windows.exe";
     static readonly string InstallRoot = AppContext.BaseDirectory;

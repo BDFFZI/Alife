@@ -61,6 +61,18 @@
                                        FilterPlugins();
                                    })">
             </AutoComplete>
+            <Select TItemValue="string" TItem="string"
+                    DataSource="@platformOptions"
+                    @bind-Value="platformFilter"
+                    @bind-Value:after="OnPlatformFilterChanged"
+                    Placeholder="平台筛选"
+                    Style="flex: 1; min-width: 160px;"
+                    AllowClear="true"
+                    ValueOnClear="@("")">
+            </Select>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="flex-shrink: 0; white-space: nowrap;">
+                共 @filteredPlugins.Length 个
+            </AntDesign.Text>
         </div>
         @if (allTags.Length > 0)
         {
@@ -251,6 +263,7 @@
 <ErrorWindowUI @bind-Value="@operException"/>
 
 @code {
+    const string UnknownPlatform = "未知";
     bool isFetching;
     Exception? operException;
     PluginPackage? inspectingPlugin;
@@ -260,6 +273,7 @@
     string viewMode = "all";
     string searchText = "";
     string authorSearchText = "";
+    string platformFilter = "";
     readonly Dictionary<string, bool> selectedTags = []; // true=include, false=exclude
     string tagSearchText = "";
     int currentPage = 1;
@@ -268,6 +282,7 @@
     //筛选源和结果
     string[] allTags = [];
     string[] authorOptions = [];
+    string[] platformOptions = [];
     int TotalPages => (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
     PluginPackage[] allPlugins = [];
     PluginPackage[] filteredPlugins = [];
@@ -329,10 +344,32 @@
             .Select(g => g.Key)
             .ToArray();
 
+        platformOptions = allPlugins
+            .SelectMany(GetPlatformCategories)
+            .GroupBy(platform => platform, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key == UnknownPlatform ? 1 : 0)
+            .ThenBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => g.Key)
+            .ToArray();
+
+        if (!string.IsNullOrEmpty(platformFilter) &&
+            !platformOptions.Contains(platformFilter, StringComparer.OrdinalIgnoreCase))
+            platformFilter = "";
+
         foreach (var key in selectedTags.Keys.Where(k => !allTags.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList())
             selectedTags.Remove(key);
 
         FilterPlugins();
+    }
+    static IEnumerable<string> GetPlatformCategories(PluginPackage package)
+    {
+        string[] platforms = package.Platforms?
+            .Where(platform => !string.IsNullOrWhiteSpace(platform))
+            .Select(platform => platform.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
+
+        return platforms.Length == 0 ? [UnknownPlatform] : platforms;
     }
     void FilterPlugins(bool resetPage = true)
     {
@@ -350,6 +387,12 @@
         {
             result = result.Where(p =>
                 p.Author.Contains(authorSearchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(platformFilter))
+        {
+            result = result.Where(p =>
+                GetPlatformCategories(p).Contains(platformFilter, StringComparer.OrdinalIgnoreCase));
         }
 
         if (selectedTags.Any())
@@ -495,6 +538,10 @@
     {
         viewMode = value;
         UpdatePluginOptions();
+    }
+    void OnPlatformFilterChanged()
+    {
+        FilterPlugins();
     }
     void ChangePageIndex(PaginationEventArgs args)
     {
