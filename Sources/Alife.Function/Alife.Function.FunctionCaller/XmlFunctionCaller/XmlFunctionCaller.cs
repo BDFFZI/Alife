@@ -163,6 +163,8 @@ public partial class XmlFunctionCaller(
 
         await executor.CancelFeeding();
         await executor.DisposeAsync();
+        chatOccupationMarker?.Dispose();
+        thinkingOccupationMarker?.Dispose();
     }
 
     void OnChatSent(string obj)

@@ -76,6 +76,40 @@ public class ProcessManagerImplTests
     }
 
     [Test]
+    public void ReplacingSameName_ReclaimsBothProcesses()
+    {
+        impl.CreateProcess("first", "worker");
+        impl.CreateProcess("second", "worker");
+        Assert.That(factory.Created[0].HasExited, Is.True);
+        Assert.That(factory.Created[1].HasExited, Is.False);
+        impl.KillAll();
+        Assert.That(factory.Created.TrueForAll(p => p.HasExited), Is.True);
+        Assert.That(impl.Processes, Is.Empty);
+    }
+
+    [Test]
+    public async Task KillAll_TerminatesRealDescendant()
+    {
+        ProcessManagerImpl manager = new(new SystemProcessFactory());
+        System.Diagnostics.Process? child = null;
+        try
+        {
+            manager.CreateProcess("python", "parent", "-u -c \"import subprocess,time; p=subprocess.Popen(['python','-c','import time;time.sleep(120)']); print(p.pid,flush=True); time.sleep(120)\"");
+            string output = await manager.ReadOutputAsync("parent", 1, 1);
+            child = System.Diagnostics.Process.GetProcessById(int.Parse(output.Trim()));
+            manager.KillAll();
+            await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(child.HasExited, Is.True);
+            manager.KillAll(); //重复销毁安全
+        }
+        finally
+        {
+            manager.KillAll();
+            if (child != null) { if (!child.HasExited) child.Kill(true); child.Dispose(); }
+        }
+    }
+
+    [Test]
     public async Task ReadOutputAsync_RealProcess_WriteAndRead()
     {
         ProcessManagerImpl realImpl = new(new SystemProcessFactory());

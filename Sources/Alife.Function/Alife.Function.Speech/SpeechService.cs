@@ -72,6 +72,15 @@ public partial class SpeechService(
         return Task.CompletedTask;
     }
 
+    protected override async Task OnDestroy()
+    {
+        functionService.ChatCalledAsync -= OnChatCalledAsync;
+        audioPlayer?.Stop();
+        try { await Task.WhenAll(audioSynthesizingTask, playAudioTask); }
+        catch (OperationCanceledException) { }
+        catch (Exception e) { logger.LogWarning(e, "停止语音任务失败"); }
+    }
+
     async Task OnChatCalledAsync()
     {
         using (ChatBot.ResourceOccupiedReason.Rent("等待语音结束"))
@@ -82,8 +91,9 @@ public partial class SpeechService(
 
     async Task QueueSpeakAsync(string text, CancellationToken cancellationToken = default)
     {
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DestroyCancellationToken);
         // 收到新的语音播报任务，先进行语音合成
-        audioSynthesizingTask = speechModel.GenerateSpeechFileAsync(text, cancellationToken);
+        audioSynthesizingTask = speechModel.GenerateSpeechFileAsync(text, lifetime.Token);
         // 如果当前有音频在播放，则等待占用结束
         if (IsSpeaking)
         {
@@ -111,11 +121,15 @@ public partial class SpeechService(
         if (audioFile == null)
             return; // 没有可朗读的文本
 
+        DestroyCancellationToken.ThrowIfCancellationRequested();
         playAudioTask = PlayAudioAsync(audioFile, cancellationToken);
     }
 
     async Task PlayAudioAsync(string filePath, CancellationToken cancellationToken = default)
     {
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DestroyCancellationToken);
+        cancellationToken = lifetime.Token;
+        cancellationToken.ThrowIfCancellationRequested();
         if (audioPlayer != null)
         {
             await PlayWithPlatformPlayerAsync(filePath, cancellationToken);

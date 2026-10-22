@@ -119,6 +119,7 @@ public partial class MessageFilterService(
         ChatBot.ChatSend -= OnChatSend;
         ChatBot.PokeSend -= OnPokeSend;
         ChatBot.ChatFinished -= OnChatFinished;
+        thinkingOccupationMarker?.Dispose();
 
         return Task.CompletedTask;
     }

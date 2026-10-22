@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-
 
 namespace Alife.Function.ProcessService;
 
@@ -101,7 +98,7 @@ class SystemManagedProcess : IManagedProcess
     public void Kill()
     {
         if (process.HasExited == false)
-            process.Kill();
+            process.Kill(entireProcessTree: true);
         process.Dispose();
     }
 
@@ -149,6 +146,8 @@ public class ProcessManagerImpl
 
     public ProcessInfo CreateProcess(string command, string name, string? arguments = null, string? workdir = null)
     {
+        if (processes.TryRemove(name, out IManagedProcess? previous))
+            previous.Kill();
         IManagedProcess process = factory.Start(command, arguments, workdir);
         processes[name] = process;
         return new ProcessInfo(process.Id, name, false);

@@ -8,7 +8,7 @@
     <Title Level="4" Style="margin-bottom: 24px;">VITS语音合成配置</Title>
 
     <Alert Type="@(VitsSpeechModel.IsModelReady(Configuration) ? AlertType.Success : AlertType.Warning)"
-           Message="@(VitsSpeechModel.IsModelReady(Configuration) ? "ONNX 模型已就绪" : "请准备 ONNX 模型文件")"
+           Message="@(VitsSpeechModel.IsModelReady(Configuration) ? "ONNX 模型已就绪" : string.IsNullOrWhiteSpace(Configuration.ModelDirectory) ? "首次合成时将自动下载 ONNX 模型（约 108 MB）" : "自定义目录缺少 ONNX 模型文件")"
            ShowIcon="true" Style="margin-bottom: 16px;">
         <ChildContent>
             模型目录：@VitsSpeechModel.GetModelDirectory(Configuration)<br/>

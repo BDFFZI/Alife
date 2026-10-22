@@ -15,7 +15,7 @@ static class AndroidDisplay
     // Single source of truth for the logical density. Native window/cursor coordinates and
     // WebView CSS pixels both derive from this; Chromium ignores the Android Context density,
     // so each WebView additionally applies a viewport scale (see index.html and bridge script).
-    public const float UiScale = 0.5f;
+    public const float UiScale = 0.67f;
 
     static int WindowDensityDpi => (int)Math.Round(
         (int)global::Android.Content.Res.Resources.System!.DisplayMetrics!.DensityDpi * UiScale);

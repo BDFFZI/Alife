@@ -148,17 +148,20 @@ public class DeskPetService(
 
         return Task.CompletedTask;
     }
-    protected override Task OnDestroy()
-    {
-        return Task.CompletedTask;
-    }
     protected override Task OnStart()
     {
         pet.OnInput += interactor.Chat;
-        pet.OnInteracted += text => interactor.Chat("交互：" + text);
+        pet.OnInteracted += OnInteracted;
 
         return Task.CompletedTask;
     }
+    protected override Task OnDestroy()
+    {
+        pet.OnInput -= interactor.Chat;
+        pet.OnInteracted -= OnInteracted;
+        return Task.CompletedTask;
+    }
+    void OnInteracted(string text) => interactor.Chat("交互：" + text);
     protected override Task OnUpdate()
     {
         bool currentStatus = ChatBot.IsChatOccupied;

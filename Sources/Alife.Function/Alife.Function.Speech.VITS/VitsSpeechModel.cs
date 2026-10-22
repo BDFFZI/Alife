@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -29,9 +29,47 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
     EngineSettings? loadedSettings;
     DateTime loadedModelTime;
     bool disposed;
+
     record EngineSettings(string Directory, float NoiseScale, float NoiseScaleW, float LengthScale, int WorkerThreads);
 
-    // Initialize only on first synthesis; missing model files can be supplied while the role is idle.
+    protected override async Task OnAwake()
+    {
+        CancellationToken ct = DestroyCancellationToken;
+        await gate.WaitAsync(ct);
+        try
+        {
+            await EnsureModelAsync(ct);
+            EngineSettings settings = GetSettings();
+            var model = new FileInfo(Path.Combine(settings.Directory, "alife-paimon.onnx"));
+            await Task.Run(() => {
+                ct.ThrowIfCancellationRequested();
+                InitializeModel(settings, model);
+                ct.ThrowIfCancellationRequested();
+                if (Configuration.SpeakerId >= synthesizer!.NumSpeakers)
+                    throw new ArgumentOutOfRangeException(nameof(Configuration.SpeakerId), $"说话人 ID 应为 0–{synthesizer.NumSpeakers - 1}。");
+            }, CancellationToken.None);
+        }
+        catch
+        {
+            // Awake 失败时框架不会调用 OnDestroy，释放已创建的原生模型。
+            synthesizer?.Dispose();
+            synthesizer = null;
+            throw;
+        }
+        finally { gate.Release(); }
+    }
+    protected override async Task OnDestroy()
+    {
+        await gate.WaitAsync();
+        try
+        {
+            disposed = true;
+            synthesizer?.Dispose();
+            synthesizer = null;
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task<string?> GenerateSpeechFileAsync(string text, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -43,14 +81,8 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
         {
             ct.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(disposed, this);
-            ValidateModel();
-            var settings = new EngineSettings(GetModelDirectory(Configuration), Configuration.NoiseScale,
-                Configuration.NoiseScaleW, Configuration.LengthScale, Configuration.WorkerThreads);
-            if (!float.IsFinite(settings.NoiseScale) || settings.NoiseScale < 0 ||
-                !float.IsFinite(settings.NoiseScaleW) || settings.NoiseScaleW < 0 ||
-                !float.IsFinite(settings.LengthScale) || settings.LengthScale <= 0 ||
-                settings.WorkerThreads < 1 || settings.WorkerThreads > 4 || Configuration.SpeakerId < 0)
-                throw new ArgumentException("VITS 合成参数无效。线程数应为 1–4，长度规模必须大于 0，噪声参数与说话人 ID 不能小于 0。");
+            await EnsureModelAsync(ct);
+            EngineSettings settings = GetSettings();
             int speaker = Configuration.SpeakerId;
             string normalized = NormalizeText(text);
             var model = new FileInfo(Path.Combine(settings.Directory, "alife-paimon.onnx"));
@@ -65,27 +97,9 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
             {
                 await Task.Run(() => {
                     ct.ThrowIfCancellationRequested();
-                    if (synthesizer == null || settings != loadedSettings || loadedModelTime != model.LastWriteTimeUtc)
-                    {
-                        synthesizer?.Dispose();
-                        synthesizer = null;
-                        var config = new OfflineTtsConfig();
-                        config.Model.Vits.Model = model.FullName;
-                        config.Model.Vits.Tokens = Path.Combine(settings.Directory, "tokens.txt");
-                        config.Model.Vits.Lexicon = Path.Combine(settings.Directory, "lexicon.txt");
-                        config.Model.Vits.NoiseScale = settings.NoiseScale;
-                        config.Model.Vits.NoiseScaleW = settings.NoiseScaleW;
-                        config.Model.Vits.LengthScale = settings.LengthScale;
-                        config.Model.NumThreads = settings.WorkerThreads;
-                        config.Model.Provider = "cpu";
-                        config.Model.Debug = 0;
-                        logger.LogInformation("正在加载 VITS ONNX 模型，推理线程数：{Threads}", settings.WorkerThreads);
-                        synthesizer = new OfflineTts(config);
-                        loadedSettings = settings;
-                        loadedModelTime = model.LastWriteTimeUtc;
-                    }
+                    InitializeModel(settings, model);
                     ct.ThrowIfCancellationRequested();
-                    if (speaker >= synthesizer.NumSpeakers)
+                    if (speaker >= synthesizer!.NumSpeakers)
                         throw new ArgumentOutOfRangeException(nameof(Configuration.SpeakerId), $"说话人 ID 应为 0–{synthesizer.NumSpeakers - 1}。");
                     var audio = synthesizer.GenerateWithCallback(normalized, 1, speaker, (_, _) => ct.IsCancellationRequested ? 0 : 1);
                     try
@@ -105,10 +119,47 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
         finally { gate.Release(); }
     }
 
-    void ValidateModel()
+    EngineSettings GetSettings()
     {
+        var settings = new EngineSettings(GetModelDirectory(Configuration), Configuration.NoiseScale,
+            Configuration.NoiseScaleW, Configuration.LengthScale, Configuration.WorkerThreads);
+        if (!float.IsFinite(settings.NoiseScale) || settings.NoiseScale < 0 ||
+            !float.IsFinite(settings.NoiseScaleW) || settings.NoiseScaleW < 0 ||
+            !float.IsFinite(settings.LengthScale) || settings.LengthScale <= 0 ||
+            settings.WorkerThreads < 1 || settings.WorkerThreads > 4 || Configuration.SpeakerId < 0)
+            throw new ArgumentException("VITS 合成参数无效。线程数应为 1–4，长度规模必须大于 0，噪声参数与说话人 ID 不能小于 0。");
+        return settings;
+    }
+
+    void InitializeModel(EngineSettings settings, FileInfo model)
+    {
+        if (synthesizer == null || settings != loadedSettings || loadedModelTime != model.LastWriteTimeUtc)
+        {
+            synthesizer?.Dispose();
+            synthesizer = null;
+            var config = new OfflineTtsConfig();
+            config.Model.Vits.Model = model.FullName;
+            config.Model.Vits.Tokens = Path.Combine(settings.Directory, "tokens.txt");
+            config.Model.Vits.Lexicon = Path.Combine(settings.Directory, "lexicon.txt");
+            config.Model.Vits.NoiseScale = settings.NoiseScale;
+            config.Model.Vits.NoiseScaleW = settings.NoiseScaleW;
+            config.Model.Vits.LengthScale = settings.LengthScale;
+            config.Model.NumThreads = settings.WorkerThreads;
+            config.Model.Provider = "cpu";
+            config.Model.Debug = 0;
+            logger.LogInformation("正在加载 VITS ONNX 模型，推理线程数：{Threads}", settings.WorkerThreads);
+            synthesizer = new OfflineTts(config);
+            loadedSettings = settings;
+            loadedModelTime = model.LastWriteTimeUtc;
+        }
+    }
+
+    async Task EnsureModelAsync(CancellationToken cancellationToken)
+    {
+        if (!IsModelReady(Configuration) && string.IsNullOrWhiteSpace(Configuration.ModelDirectory))
+            await VitsModelDownload.EnsureAsync(GetModelDirectory(Configuration), logger, cancellationToken);
         if (!IsModelReady(Configuration))
-            throw new FileNotFoundException($"请将 alife-paimon.onnx、tokens.txt、lexicon.txt 放入 {GetModelDirectory(Configuration)}。旧版 .pth 模型不能直接用于 sherpa-onnx。");
+            throw new FileNotFoundException($"模型目录不完整：{GetModelDirectory(Configuration)}。需要 alife-paimon.onnx、tokens.txt、lexicon.txt；清空模型目录配置可自动下载官方模型。");
     }
 
     static string NormalizeText(string text)
@@ -123,12 +174,5 @@ public class VitsSpeechModel(ILogger<VitsSpeechModel> logger) : ChatBehaviour, I
             if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) result.Append(' ');
         }
         return result.ToString();
-    }
-
-    protected override async Task OnDestroy()
-    {
-        await gate.WaitAsync();
-        try { disposed = true; synthesizer?.Dispose(); synthesizer = null; }
-        finally { gate.Release(); }
     }
 }
