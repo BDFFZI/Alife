@@ -33,9 +33,10 @@
             </Tooltip>
             <PluginUpgradeButton/>
             <Badge Count="@(cartItems.Count)">
-                <Button Type="@ButtonType.Primary" Shape="@ButtonShape.Round" Icon="@IconType.Outline.ShoppingCart"
+                <Button Type="@ButtonType.Primary" Shape="@ButtonShape.Round"
                         OnClick="@(() => showCartModal = true)">
-                    购物车
+                    <WrenchIcon/>
+                    插件操作
                 </Button>
             </Badge>
         </Flex>
@@ -182,8 +183,8 @@
     }
 </Modal>
 
-@* 购物车弹窗 *@
-<Modal Title="@($"购物车 ({cartItems.Count})")"
+@* 插件操作弹窗 *@
+<Modal Title="@($"插件操作 ({cartItems.Count})")"
        Visible="showCartModal"
        OnCancel="@(() => showCartModal = false)"
        Footer="null"

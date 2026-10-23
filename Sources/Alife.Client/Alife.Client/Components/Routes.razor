@@ -1,6 +1,17 @@
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
 
+<style>
+    .modal-top.ant-modal-wrap {
+        z-index: 99999 !important;
+    }
+
+    .ant-notification {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+</style>
+
 @if (isAppInitialized)
 {
     <ErrorBoundary>

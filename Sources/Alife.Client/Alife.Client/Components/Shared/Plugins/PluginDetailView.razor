@@ -53,10 +53,42 @@
         }
 
         @* 操作按钮 *@
-        <Flex Gap="@("12")" Style="margin-top: 16px;">
+        <Flex Gap="@("12")" Style="margin-top: 16px; flex-wrap: wrap;">
+            @if (!isInstalled)
+            {
+                <Tooltip Title="@(latestVersion == null ? "没有兼容当前客户端的版本" : "")">
+                    <Button Type="@ButtonType.Primary" Loading="isOperating" Disabled="@(latestVersion == null)"
+                            OnClick="@InstallLatest">
+                        <Icon Type="@IconType.Outline.CloudDownload"/>
+                        安装
+                    </Button>
+                </Tooltip>
+            }
+            else
+            {
+                @if (hasUpdate)
+                {
+                    <Button Type="@ButtonType.Primary" Loading="isOperating" OnClick="@UpgradeLatest">
+                        <Icon Type="@IconType.Outline.ArrowUp"/>
+                        升级到 @latestVersion
+                    </Button>
+                }
+                <Button Loading="isOperating" OnClick="@Reinstall">
+                    <Icon Type="@IconType.Outline.Reload"/>
+                    重装
+                </Button>
+                <Popconfirm Title="@($"确定要卸载 {PluginPackage.Name} 吗？")"
+                            OkText="卸载" CancelText="取消"
+                            OnConfirm="@Uninstall">
+                    <Button Danger Loading="isOperating" Disabled="isOperating">
+                        <Icon Type="@IconType.Outline.Delete"/>
+                        卸载
+                    </Button>
+                </Popconfirm>
+            }
             <Button Type="@(IsInCart ? ButtonType.Primary : ButtonType.Default)" OnClick="@ToggleCart">
-                <Icon Type="shopping-cart" Theme="IconThemeType.Outline"/>
-                @(isInCart ? "移出购物车" : "加入购物车")
+                <WrenchIcon/>
+                @(isInCart ? "移出插件操作" : "加入插件操作")
             </Button>
         </Flex>
     </div>
@@ -137,6 +169,11 @@
 
     protected override void OnParametersSet()
     {
+        RefreshState();
+    }
+
+    void RefreshState()
+    {
         isInstalled = PluginSystem.IsInstalled(PluginPackage.Id);
         installedVersion = PluginSystem.GetInstalledVersion(PluginPackage.Id);
         latestVersion = PluginSystem.GetLatestVersion(PluginPackage);
@@ -149,25 +186,62 @@
         await OnToggleCart.InvokeAsync(!isInCart);
     }
 
-    async Task InstallVersion(string version)
+    Task InstallLatest()
     {
+        if (latestVersion == null)
+        {
+            _ = NotificationService.Warning(new NotificationConfig { Message = "没有兼容当前客户端的版本" });
+            return Task.CompletedTask;
+        }
+        return RunOperation($"已安装 {PluginPackage.Name}", () =>
+            PluginSystem.InstallPlugins([new KeyValuePair<PluginPackage, string>(PluginPackage, latestVersion)]));
+    }
+
+    Task UpgradeLatest()
+    {
+        if (latestVersion == null)
+            return Task.CompletedTask;
+        return RunOperation($"已升级 {PluginPackage.Name} 到 v{latestVersion}", () =>
+            PluginSystem.InstallPlugins([new KeyValuePair<PluginPackage, string>(PluginPackage, latestVersion)]));
+    }
+
+    Task Uninstall() => RunOperation($"已卸载 {PluginPackage.Name}", () =>
+        PluginSystem.UninstallPlugins([PluginPackage]));
+
+    Task Reinstall()
+    {
+        if (installedVersion == null)
+            return Task.CompletedTask;
+        return RunOperation($"已重装 {PluginPackage.Name} v{installedVersion}", () =>
+            PluginSystem.InstallPlugins([new KeyValuePair<PluginPackage, string>(PluginPackage, installedVersion)]));
+    }
+
+    Task InstallVersion(string version) => RunOperation($"已切换到版本 {version}", () =>
+        PluginSystem.InstallPlugins([new KeyValuePair<PluginPackage, string>(PluginPackage, version)]));
+
+    async Task RunOperation(string successMessage, Func<Task> operation)
+    {
+        if (isOperating)
+            return;
+
         isOperating = true;
+        operException = null;
         StateHasChanged();
 
         try
         {
-            var toInstall = new List<KeyValuePair<PluginPackage, string>> {
-                new(PluginPackage, version)
-            };
-            await PluginSystem.InstallPlugins(toInstall);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"已切换到版本 {version}" });
+            await operation();
+            _ = NotificationService.Success(new NotificationConfig { Message = successMessage });
         }
         catch (Exception ex)
         {
             operException = ex;
         }
-
-        isOperating = false;
-        StateHasChanged();
+        finally
+        {
+            isOperating = false;
+            RefreshState();
+            StateHasChanged();
+        }
     }
 }

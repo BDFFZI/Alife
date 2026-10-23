@@ -15,33 +15,7 @@ public partial class ExecutionService
     [Description("在Windows上执行 PowerShell")]
     public async Task Shell(string command, CancellationToken cancellationToken = default)
     {
-        ProcessStartInfo startInfo = new() {
-            FileName = "pwsh",
-            UseShellExecute = false,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            StandardInputEncoding = new UTF8Encoding(false),
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        foreach (string argument in new[] {
-                     "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
-                     "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); " + command
-                 })
-            startInfo.ArgumentList.Add(argument);
-
-        using Process process = new();
-        process.StartInfo = startInfo;
-        try
-        {
-            process.Start();
-        }
-        catch (Win32Exception e) when (e.NativeErrorCode == 2)
-        {
-            throw new Exception("找不到 pwsh，请先安装 PowerShell 7 并确保其位于 PATH 中", e);
-        }
+        using Process process = StartPowerShell(command);
 
         process.StandardInput.Close();
         try
@@ -69,6 +43,57 @@ public partial class ExecutionService
             if (cancellationToken.IsCancellationRequested)
                 throw;
             throw new TimeoutException("命令执行堵塞或超时（注意不要写需要交互的代码）");
+        }
+    }
+
+    static Process StartPowerShell(string command)
+    {
+        try
+        {
+            return StartPowerShell("pwsh", command);
+        }
+        catch (Win32Exception e) when (e.NativeErrorCode == 2)
+        {
+            try
+            {
+                return StartPowerShell("powershell.exe", command);
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+            {
+                throw new Exception("找不到 PowerShell，请安装 PowerShell 7 或启用 Windows PowerShell。", ex);
+            }
+        }
+    }
+
+    static Process StartPowerShell(string fileName, string command)
+    {
+        ProcessStartInfo startInfo = new() {
+            FileName = fileName,
+            UseShellExecute = false,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardInputEncoding = new UTF8Encoding(false),
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+        foreach (string argument in new[] {
+                     "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                     "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); " + command
+                 })
+            startInfo.ArgumentList.Add(argument);
+
+        Process process = new() { StartInfo = startInfo };
+        try
+        {
+            process.Start();
+            return process;
+        }
+        catch
+        {
+            process.Dispose();
+            throw;
         }
     }
 }

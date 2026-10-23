@@ -10,7 +10,7 @@ using Alife.Client;
 
 namespace Alife.Function.Execution;
 
-[Module("脚本执行",
+[Module("执行能力",
     "让AI拥有在设备上运行命令的能力，从而执行任何任务！",
     defaultCategory: "Alife 官方/实用工具")]
 public partial class ExecutionService(
@@ -52,9 +52,21 @@ public partial class ExecutionService(
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("基于内部镜像和伪装的下载工具")]
-    public async Task Download(string url, string path)
+    public async Task Download(string url, string path, int timeout = 100,
+        CancellationToken cancellationToken = default)
     {
-        await AlifeUtility.DownloadFileAsync(url, path);
+        if (timeout <= 0) throw new ArgumentOutOfRangeException(nameof(timeout));
+
+        try
+        {
+            await AlifeUtility.DownloadFileAsync(url, path, timeout: TimeSpan.FromSeconds(timeout),
+                cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested == false)
+        {
+            throw new TimeoutException($"下载超时（{timeout} 秒）：{url}");
+        }
+
         interactor.Poke("已下载");
     }
 

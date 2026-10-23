@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,7 +41,9 @@ public partial class AlifeUtility
     /// <param name="savePath">保存路径</param>
     /// <param name="progress">进度回调，参数为已下载字节数和总字节数</param>
     /// <param name="timeout">超时时间，默认 100 秒</param>
-    public static async Task DownloadFileAsync(string url, string savePath, Action<long, long>? progress = null, TimeSpan? timeout = null)
+    /// <param name="cancellationToken">取消令牌</param>
+    public static async Task DownloadFileAsync(string url, string savePath, Action<long, long>? progress = null, TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         //应用镜像替换
         url = AlifeMirror.TransformUrl(url);
@@ -61,23 +64,23 @@ public partial class AlifeUtility
         if (progress == null)
         {
             using var httpClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
-            using var response = await httpClient.SendAsync(request);
+            using var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
-            byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-            await File.WriteAllBytesAsync(savePath, bytes);
+            byte[] bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            await File.WriteAllBytesAsync(savePath, bytes, cancellationToken);
             return;
         }
 
         //设置超时
         using var streamClient = timeout.HasValue ? new HttpClient { Timeout = timeout.Value } : new HttpClient();
-        using var streamResponse = await streamClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        using var streamResponse = await streamClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         streamResponse.EnsureSuccessStatusCode();
 
         //获取总大小
         long totalBytes = streamResponse.Content.Headers.ContentLength ?? -1;
 
         //下载文件并报告进度
-        await using var contentStream = await streamResponse.Content.ReadAsStreamAsync();
+        await using var contentStream = await streamResponse.Content.ReadAsStreamAsync(cancellationToken);
         await using var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None);
 
         byte[] buffer = new byte[81920];
@@ -85,9 +88,9 @@ public partial class AlifeUtility
         int bytesRead;
         long nextReport = 0;
 
-        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
         {
-            await fileStream.WriteAsync(buffer, 0, bytesRead);
+            await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             readSoFar += bytesRead;
 
             if (readSoFar >= nextReport)

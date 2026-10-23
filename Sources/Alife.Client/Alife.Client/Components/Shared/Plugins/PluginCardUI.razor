@@ -20,11 +20,11 @@
             }
         </div>
         <div class="plugin-actions">
-            <Tooltip Title="@(IsInCart ? "移出购物车" : "添加到购物车")">
+            <Tooltip Title="@(IsInCart ? "移出插件操作" : "加入插件操作")">
                 <Button Type="@(IsInCart ? ButtonType.Primary : ButtonType.Default)" Size="@ButtonSize.Small"
                         OnClick="@ToggleCart" OnClickStopPropagation="true"
                         Style="@("width: 28px; height: 28px; min-width: 28px; padding: 0; border-radius: 50%;")">
-                    <Icon Type="shopping-cart" Theme="IconThemeType.Outline"/>
+                    <WrenchIcon MarginRight="0"/>
                 </Button>
             </Tooltip>
         </div>

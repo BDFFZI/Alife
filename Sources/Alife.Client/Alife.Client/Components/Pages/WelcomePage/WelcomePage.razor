@@ -66,28 +66,28 @@
     int currentStep = 0;
     bool? hasEnvironmentItems;
 
+    protected override async Task OnInitializedAsync()
+    {
+        //环境探测会拉起 Python 等进程，放到后台完成，避免点击“下一步”时阻塞 UI。
+        hasEnvironmentItems = await Task.Run(() =>
+        {
+            try
+            {
+                return AlifeClient.GetEnvironmentItems().Count > 0;
+            }
+            catch
+            {
+                return true; //让环境页自行展示具体错误
+            }
+        });
+    }
+
     void GoToStep(int step)
     {
-        if (step == 3 && HasEnvironmentItems() == false)
+        if (step == 3 && hasEnvironmentItems == false)
             step = currentStep < step ? 4 : 2;
         currentStep = step;
         StateHasChanged();
-    }
-
-    bool HasEnvironmentItems()
-    {
-        if (hasEnvironmentItems.HasValue)
-            return hasEnvironmentItems.Value;
-
-        try
-        {
-            hasEnvironmentItems = AlifeClient.GetEnvironmentItems().Count > 0;
-        }
-        catch
-        {
-            hasEnvironmentItems = true; //让环境页自行展示具体错误
-        }
-        return hasEnvironmentItems.Value;
     }
 }
 

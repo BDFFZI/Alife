@@ -165,7 +165,7 @@ public partial class MessageFilterService(
         {
             if (DateTime.Now - lastTimestamp > TimeSpan.FromSeconds(Configuration.TimestampInterval))
             {
-                message = $"当前时间:[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{message}";
+                message = $"[时间({DateTime.Now:yyyy-MM-dd HH:mm:ss})]\n{message}";
                 lastTimestamp = DateTime.Now;
             }
         }

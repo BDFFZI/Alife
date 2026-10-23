@@ -41,6 +41,15 @@ public class SystemEventService(
 
     protected override Task OnStart()
     {
+        ChatBot.ChatSent += OnChatSent;
+        interactor.Prompt($"""
+                           【闲时行动建议】
+                           {Configuration.UpdatePrompt}
+                           """);
+
+        //设置定时
+        NextTimer();
+
         //发送系统启动消息
         {
             OccupationMarker occupationMarker = languageModel.GetThinkingRequester().Rent("程序启动");
@@ -61,16 +70,13 @@ public class SystemEventService(
             }
         }
 
-        ChatBot.ChatSent += OnChatSent;
-        interactor.Prompt($"""
-                           【闲时行动建议】
-                           {Configuration.UpdatePrompt}
-                           """);
-
-        //设置定时
-        NextTimer();
-
         return Task.CompletedTask;
+    }
+    protected override async Task OnDestroy()
+    {
+        ChatBot.ChatSent -= OnChatSent;
+
+        await interactor.ChatAsync($"程序关闭中。{Configuration.DestroyPrompt}");
     }
     protected override Task OnUpdate()
     {
@@ -96,12 +102,7 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
-    protected override async Task OnDestroy()
-    {
-        ChatBot.ChatSent -= OnChatSent;
 
-        await interactor.ChatAsync($"程序关闭中。{Configuration.DestroyPrompt}");
-    }
 
     void OnChatSent(string message)
     {

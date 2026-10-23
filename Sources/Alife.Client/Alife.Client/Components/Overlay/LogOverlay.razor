@@ -233,6 +233,20 @@
     int maxErrorCount = 30;
     int errorBadge;
 
+    //通知聚合与节流
+    const int NotificationThrottleMs = 400;
+    const int NotificationBurstGapMs = 2000;
+    const int NotificationTextLimit = 120;
+    int pendingWarningCount;
+    string pendingWarningMessage = "";
+    long lastWarningTime;
+    bool warningNotificationScheduled;
+    int pendingErrorCount;
+    string pendingErrorMessage = "";
+    long lastErrorTime;
+    bool errorNotificationScheduled;
+    bool disposed;
+
     int flashKey; //新日志闪烁指示器
     string activeKey = "log";
     bool visible;
@@ -276,6 +290,7 @@
 
     public void Dispose()
     {
+        disposed = true;
         AlifeLog.WarningLogged -= OnWarning;
         AlifeLog.ErrorLogged -= OnError;
         AlifeLog.Logging -= OnLogging;
@@ -310,15 +325,18 @@
     void OnWarning(string message)
     {
         InvokeAsync(() => {
-            _ = NotificationService.Warning(new NotificationConfig() {
-                Key = "logWarning",
-                Description = message
-            });
-
             warnings.Add(message + "\n---");
             Trim(warnings, maxWarningCount);
             if (visible == false || activeKey != "warning")
                 warningBadge++;
+
+            long now = Environment.TickCount64;
+            if (now - lastWarningTime > NotificationBurstGapMs)
+                pendingWarningCount = 0;
+            pendingWarningCount++;
+            pendingWarningMessage = message;
+            lastWarningTime = now;
+            ScheduleWarningNotification();
 
             OnLogUpdate();
         });
@@ -326,18 +344,74 @@
     void OnError(string message)
     {
         InvokeAsync(() => {
-            _ = NotificationService.Error(new NotificationConfig() {
-                Description = message,
-                Key = "logError"
-            });
-
             errors.Add(message + "\n---");
             Trim(errors, maxErrorCount);
             if (visible == false || activeKey != "error")
                 errorBadge++;
 
+            long now = Environment.TickCount64;
+            if (now - lastErrorTime > NotificationBurstGapMs)
+                pendingErrorCount = 0;
+            pendingErrorCount++;
+            pendingErrorMessage = message;
+            lastErrorTime = now;
+            ScheduleErrorNotification();
+
             OnLogUpdate();
         });
+    }
+    void ScheduleWarningNotification()
+    {
+        if (warningNotificationScheduled)
+            return;
+        warningNotificationScheduled = true;
+        _ = FlushWarningNotificationAsync();
+    }
+    void ScheduleErrorNotification()
+    {
+        if (errorNotificationScheduled)
+            return;
+        errorNotificationScheduled = true;
+        _ = FlushErrorNotificationAsync();
+    }
+    async Task FlushWarningNotificationAsync()
+    {
+        await Task.Delay(NotificationThrottleMs);
+        if (disposed)
+            return;
+        await InvokeAsync(() => {
+            warningNotificationScheduled = false;
+            if (pendingWarningCount == 0)
+                return;
+            _ = NotificationService.Warning(new NotificationConfig() {
+                Message = pendingWarningCount > 1 ? $"警告 ×{pendingWarningCount}" : "警告",
+                Description = TruncateMessage(pendingWarningMessage),
+                Key = "logWarning"
+            });
+        });
+    }
+    async Task FlushErrorNotificationAsync()
+    {
+        await Task.Delay(NotificationThrottleMs);
+        if (disposed)
+            return;
+        await InvokeAsync(() => {
+            errorNotificationScheduled = false;
+            if (pendingErrorCount == 0)
+                return;
+            _ = NotificationService.Error(new NotificationConfig() {
+                Message = pendingErrorCount > 1 ? $"错误 ×{pendingErrorCount}" : "错误",
+                Description = TruncateMessage(pendingErrorMessage),
+                Key = "logError"
+            });
+        });
+    }
+    static string TruncateMessage(string message)
+    {
+        int lineEnd = message.IndexOfAny(['\r', '\n']);
+        string text = lineEnd >= 0 ? message[..lineEnd] : message;
+        text = text.Trim();
+        return text.Length > NotificationTextLimit ? text[..NotificationTextLimit] + "…" : text;
     }
     void OnLogging(string line)
     {

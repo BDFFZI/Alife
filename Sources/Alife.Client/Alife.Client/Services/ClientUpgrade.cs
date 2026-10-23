@@ -1,5 +1,7 @@
-using System.Xml.Linq;
+using System.Collections.Generic;
+using System.Linq;
 using Alife.Foundation;
+using Newtonsoft.Json.Linq;
 
 namespace Alife.Client;
 
@@ -7,32 +9,48 @@ public record UpdateInfo(string Version, string? ReleaseNotes);
 
 public static class ClientUpgrade
 {
-    public const string ReleasesAtomUrl = "https://github.com/BDFFZI/Alife/releases.atom";
+    public const string ReleasesApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases";
     public const string ReleasesDownloadUrl = "https://github.com/BDFFZI/Alife/releases/download";
     public static string CurrentVersion => AlifeContext.AppVersion;
     public static UpdateInfo? NewVersion { get; private set; }
 
+    static void EnsureGithubApiMirror()
+    {
+        const string githubUrl = "https://github.com";
+        const string apiUrl = "https://api.github.com";
+        if (AlifeMirror.MirrorUrlMap.ContainsKey(apiUrl))
+            return;
+        if (AlifeMirror.MirrorUrlMap.TryGetValue(githubUrl, out string? githubMirror) == false)
+            return;
+
+        string apiMirror = githubMirror.Replace(githubUrl, apiUrl, StringComparison.OrdinalIgnoreCase);
+        if (apiMirror == githubMirror)
+            return;
+
+        Dictionary<string, string> urlMap = AlifeMirror.MirrorUrlMap.ToDictionary(x => x.Key, x => x.Value);
+        urlMap[apiUrl] = apiMirror;
+        AlifeMirror.SetMirrorUrlMap(urlMap);
+    }
+
     public static async Task FetchNewVersion()
     {
-        string response = await AlifeUtility.FetchStringAsync(ReleasesAtomUrl, TimeSpan.FromSeconds(7));
-        XDocument document = XDocument.Parse(response);
-        XNamespace ns = "http://www.w3.org/2005/Atom";
-        XElement? entry = document.Root?.Element(ns + "entry");
-        if (entry == null)
-            throw new Exception("客户端版本同步失败，无法获取到版本信息。");
+        EnsureGithubApiMirror();
 
-        string? tagName = entry.Element(ns + "title")?.Value;
+        string response = await AlifeUtility.FetchStringAsync($"{ReleasesApiUrl}/latest", TimeSpan.FromSeconds(7));
+        JObject json = JObject.Parse(response);
+
+        string? tagName = json["tag_name"]?.ToString();
         if (tagName == null)
             throw new Exception("客户端版本同步失败，无法获取到标签信息。");
 
-        string remoteVersion = tagName.Trim().TrimStart('v');
+        string remoteVersion = tagName.TrimStart('v');
         if (new Version(remoteVersion) <= new Version(AlifeContext.AppVersion))
         {
             NewVersion = null;
             return; //本地比云端新
         }
 
-        NewVersion = new UpdateInfo(remoteVersion, entry.Element(ns + "content")?.Value);
+        NewVersion = new UpdateInfo(remoteVersion, json["body"]?.ToString());
     }
     public static async Task InstallNewVersion(IAlifeClient alifeClient, Action<int>? onProgress = null)
     {

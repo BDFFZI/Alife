@@ -14,7 +14,7 @@ public partial class Interactor<T>
     }
     public static string GetMessageTag()
     {
-        return $"[消息来源({typeof(T).Name})]";
+        return $"[源({typeof(T).Name})]";
     }
 }
 

@@ -28,7 +28,7 @@ public struct ChatResult
 
 public class ChatBot : IAsyncDisposable
 {
-    public const string PokeMessageTag = "[来自系统的杂项消息推送]";
+    public const string PokeMessageTag = "[系统推送消息]";
 
     public event Func<string, string>? PokeSend; //Poke消息过滤
     public event Func<string, string>? ChatSend; //消息过滤

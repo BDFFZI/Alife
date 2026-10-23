@@ -66,8 +66,8 @@
     string envProgressMsg = "";
     Exception? installException;
 
-    bool EnvAllReady => !isEnvRefreshing && !isInstallingEnv && environmentItems.Count > 0
-        && environmentItems.Where(item => item.IsRequired).All(item => item.IsReady);
+    bool EnvAllReady => !isEnvRefreshing && !isInstallingEnv
+        && environmentItems.All(item => !item.IsRequired || item.IsReady);
 
     protected override Task OnInitializedAsync() => RefreshEnvironment();
 

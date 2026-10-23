@@ -4,7 +4,7 @@ namespace Alife.Client;
 
 public class ChatSettings
 {
-    public string UserTag { get; set; } = "消息来源:[ChatWindow]";
+    public string UserTag { get; set; } = "[源(ChatWindow)]";
     public int MaxMessageCount { get; set; } = 100;
     public bool ShowReasoning { get; set; } = true;
 }
