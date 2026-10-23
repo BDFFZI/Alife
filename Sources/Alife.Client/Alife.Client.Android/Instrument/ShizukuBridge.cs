@@ -118,7 +118,7 @@ static class ShizukuBridge
         IBinder binder = ShizukuApi.Binder ?? throw new InvalidOperationException("Shizuku 绑定不可用。");
         IShizukuService service = IShizukuService.Stub.AsInterface(binder)
             ?? throw new InvalidOperationException("无法获取 Shizuku 服务。");
-        IRemoteProcess process = service.NewProcess(["/system/bin/sh", "-c", command], null, null)
+        IRemoteProcess process = service.NewProcess(["/system/bin/sh", "-c", command.Replace("\r\n", "\n")], null, null)
             ?? throw new InvalidOperationException("无法创建远程进程。");
 
         using var cancellation = cancellationToken.Register(() => process.Destroy());
@@ -163,7 +163,7 @@ static class ShizukuBridge
         IBinder binder = ShizukuApi.Binder ?? throw new InvalidOperationException("Shizuku 绑定不可用。");
         IShizukuService service = IShizukuService.Stub.AsInterface(binder)
             ?? throw new InvalidOperationException("无法获取 Shizuku 服务");
-        return service.NewProcess(["/system/bin/sh", "-c", command], null, null)
+        return service.NewProcess(["/system/bin/sh", "-c", command.Replace("\r\n", "\n")], null, null)
             ?? throw new InvalidOperationException("无法启动远程进程。");
     }
 
@@ -172,7 +172,7 @@ static class ShizukuBridge
     {
         if (!HasPermission) throw new InvalidOperationException("Shizuku 未连接或未授权。");
         var service = IShizukuService.Stub.AsInterface(ShizukuApi.Binder!)!;
-        var process = service.NewProcess(["/system/bin/sh", "-c", command], null, null)
+        var process = service.NewProcess(["/system/bin/sh", "-c", command.Replace("\r\n", "\n")], null, null)
             ?? throw new InvalidOperationException("无法创建触摸监视进程。");
         using var cancellation = cancellationToken.Register(() => process.Destroy());
         try {
