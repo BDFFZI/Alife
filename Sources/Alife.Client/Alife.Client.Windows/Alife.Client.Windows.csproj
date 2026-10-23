@@ -13,7 +13,7 @@
         <ApplicationIcon>alife-icon.ico</ApplicationIcon>
         <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages><!--消除webview和net10的库冲突警告-->
         <!-- 版本号 -->
-        <Version>5.0.1</Version>
+        <Version>5.0.2</Version>
     </PropertyGroup>
 
     <ItemGroup>
