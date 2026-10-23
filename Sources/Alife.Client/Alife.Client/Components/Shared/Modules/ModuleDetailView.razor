@@ -2,6 +2,7 @@
 @inject ConfigurationSystem ConfigurationSystem
 @inject PluginContext PluginContext
 @inject PluginSystem PluginSystem
+@inject IAlifeApplication AlifeApplication
 @inject INotificationService NotificationService
 
 <ErrorWindowUI Title="插件重载失败喵！" @bind-Value="@exception"></ErrorWindowUI>
@@ -24,6 +25,10 @@
                         <Tooltip Title="重载此插件">
                             <Button Type="@ButtonType.Text" Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload"
                                     Loading="@isReloadingPlugin" OnClick="@ReloadPlugin"></Button>
+                        </Tooltip>
+                        <Tooltip Title="打开插件文件夹">
+                            <Button Type="@ButtonType.Text" Size="@ButtonSize.Small" Icon="@IconType.Outline.FolderOpen"
+                                    OnClick="@OpenPluginFolder"></Button>
                         </Tooltip>
                     }
                 </div>
@@ -122,6 +127,14 @@
             isReloadingPlugin = false;
             StateHasChanged();
         }
+    }
+
+    async Task OpenPluginFolder()
+    {
+        if (attachedPluginId == null)
+            return;
+
+        await AlifeApplication.RevealFolderAsync(PluginContext.GetPluginDirectoryPath(attachedPluginId));
     }
 
     void ConfigurationChanged(object newConfig)
