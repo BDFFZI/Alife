@@ -48,14 +48,18 @@ partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplicat
     }
     public Task<string?> SelectFolderAsync()
     {
-        return Task.Run(() => {
-            using FolderBrowserDialog dialog = new();
-            dialog.Description = "请选择文件夹";
-            dialog.ShowNewFolderButton = true;
+        Form? owner = Application.OpenForms.OfType<MainForm>().FirstOrDefault()
+                      ?? Application.OpenForms.Cast<Form>().FirstOrDefault();
+        if (owner == null)
+            return Task.FromResult<string?>(null);
 
-            if (dialog.ShowDialog() == DialogResult.OK)
-                return dialog.SelectedPath;
-            return null;
+        return owner.InvokeAsync(() => {
+            using FolderBrowserDialog dialog = new() {
+                Description = "请选择文件夹",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = true,
+            };
+            return dialog.ShowDialog(owner) == DialogResult.OK ? dialog.SelectedPath : null;
         });
     }
 
