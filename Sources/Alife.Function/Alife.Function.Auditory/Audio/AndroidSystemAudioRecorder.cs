@@ -79,7 +79,6 @@ public sealed class SystemAudioRecorder : IDisposable
                 lock (sync)
                 {
                     access = lease;
-                    lease.Revoked += OnPermissionRevoked;
                     int size = Math.Max(64000, AudioRecord.GetMinBufferSize(16000, ChannelIn.Mono, Encoding.Pcm16bit));
                     // Android's .NET binding types this mask as ChannelOut even for AudioRecord.
                     using var format = new AudioFormat.Builder().SetSampleRate(16000).SetChannelMask((ChannelOut)(int)ChannelIn.Mono).SetEncoding(Encoding.Pcm16bit).Build()!;
@@ -150,12 +149,10 @@ public sealed class SystemAudioRecorder : IDisposable
             reader?.GetAwaiter().GetResult(); reader = null;
             echoCanceler?.Release(); echoCanceler?.Dispose(); echoCanceler = null;
             recorder?.Release(); recorder?.Dispose(); recorder = null;
-            if (access != null) access.Revoked -= OnPermissionRevoked;
             access?.Dispose(); access = null;
         }
     }
     public void Dispose() => Stop();
-    void OnPermissionRevoked() => _ = Task.Run(Stop);
 
     sealed class AccessLease : IDisposable
     {
@@ -163,38 +160,19 @@ public sealed class SystemAudioRecorder : IDisposable
         {
             this.projection = projection;
             this.foreground = foreground;
-            if (projection == null)
-                return;
-            callback = new ProjectionCallback(this);
-            projection.RegisterCallback(callback, new Handler(Looper.MainLooper!));
         }
-
-        public event Action? Revoked;
 
         public void Dispose()
         {
             if (Interlocked.Exchange(ref disposed, 1) != 0)
                 return;
-            if (callback != null)
-            {
-                projection?.UnregisterCallback(callback);
-                callback.Dispose();
-            }
             projection?.Stop();
             projection?.Dispose();
             foreground.Dispose();
         }
 
-        internal void Revoke() => Revoked?.Invoke();
-
-        sealed class ProjectionCallback(AccessLease owner) : MediaProjection.Callback
-        {
-            public override void OnStop() => owner.Revoke();
-        }
-
         readonly MediaProjection? projection;
         readonly IDisposable foreground;
-        ProjectionCallback? callback;
         int disposed;
     }
 }
