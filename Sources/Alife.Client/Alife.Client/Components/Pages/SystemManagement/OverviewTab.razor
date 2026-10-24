@@ -29,6 +29,17 @@
     </div>
 
     <div style="margin-bottom: 24px;">
+        <Text Strong Style="margin-bottom: 8px; display: block;">临时目录 (Temp)</Text>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <Input @bind-Value="tempFolderPath" Style="flex: 1;" ReadOnly/>
+            <Button Icon="@IconType.Outline.FolderOpen" OnClick="@PickTempFolderAsync"></Button>
+        </div>
+        <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
+            存放运行期间的临时文件，启动时会清空，请选择空目录。重启后生效。
+        </Text>
+    </div>
+
+    <div style="margin-bottom: 24px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <Text Strong>开机自启</Text>
             <Switch @key="autoStartRevision" Checked="autoStartOnBoot" CheckedChanged="@OnAutoStartChanged"/>
@@ -149,6 +160,7 @@
     //路径配置
     string storageFolderPath = AlifePath.StorageFolderPath;
     string runtimeFolderPath = AlifePath.RuntimeFolderPath;
+    string tempFolderPath = AlifePath.TempFolderPath;
     //其他配置
     bool autoStartOnBoot;
     int autoStartRevision;
@@ -272,6 +284,16 @@
             runtimeFolderPath = result;
             AlifeClient.SetRuntimeFolderPath(runtimeFolderPath);
             _ = NotificationService.Success(new NotificationConfig { Message = "运行时目录已保存！重启后生效喵~" });
+        }
+    }
+    async Task PickTempFolderAsync()
+    {
+        string? result = await PickFolderAsync();
+        if (string.IsNullOrWhiteSpace(result) is false)
+        {
+            tempFolderPath = result;
+            AlifeClient.SetTempFolderPath(tempFolderPath);
+            _ = NotificationService.Success(new NotificationConfig { Message = "临时目录已保存！重启后生效喵~" });
         }
     }
     async Task<string?> PickFolderAsync()

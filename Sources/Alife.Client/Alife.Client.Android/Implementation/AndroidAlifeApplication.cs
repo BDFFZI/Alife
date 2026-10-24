@@ -40,6 +40,10 @@ sealed class AndroidAlifeApplication(
     {
         return AndroidFileDialogs.SelectFolderAsync(CancellationToken.None);
     }
+    public Task<string?> SelectFileAsync()
+    {
+        return AndroidFileDialogs.SelectFileAsync(CancellationToken.None);
+    }
 
     #endregion
 

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using Alife.Foundation;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using Color = System.Drawing.Color;
@@ -40,6 +41,7 @@ sealed partial class WindowsAlifeWindow : Form, IAlifeWindow
             AdditionalBrowserArguments = "--allow-file-access-from-files",
         }; //允许访问任意位置的文件
         CoreWebView2Environment environment = await CoreWebView2Environment.CreateAsync(
+            userDataFolder: Path.Combine(AlifePath.RuntimeFolderPath, "AlifeWebViewData"),
             options: environmentOptions
         );
         await webView.EnsureCoreWebView2Async(environment);

@@ -33,6 +33,11 @@ sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvi
         foundation.SetRuntimeFolderPath(path);
     }
 
+    public void SetTempFolderPath(string path)
+    {
+        foundation.SetTempFolderPath(path);
+    }
+
     public bool GetAutoStart()
     {
         return File.Exists(KeepAlivePaths.AutoStartFile);
@@ -47,6 +52,36 @@ sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvi
         }
         if (File.Exists(KeepAlivePaths.AutoStartFile))
             File.Delete(KeepAlivePaths.AutoStartFile);
+    }
+
+    public IReadOnlyList<string> GetRecommendedPluginIds()
+    {
+        return
+        [
+            //地基
+            "Alife.Function.FunctionCaller",
+            "Alife.Function.Mcp",
+            "Alife.Function.Skill",
+            //环境
+            "Alife.Function.Developer",
+            "Alife.Function.Memory",
+            "Alife.Function.MessageFilter",
+            "Alife.Function.SystemEvent",
+            "Alife.Function.VirtualWorld",
+            //工具
+            "Alife.Function.FileService",
+            "Alife.Function.Execution",
+            "Alife.Function.TimedTask",
+            "Alife.Function.Todo",
+            "Alife.Function.Vision",
+            //交互
+            "Alife.Function.DeskPet",
+            "Alife.Function.Speech",
+            //感官
+            "Alife.Function.Language.OpenAI",
+            "Alife.Function.Auditory.SenseVoice",
+            "Alife.Function.Speech.VITS",
+        ];
     }
 
     public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()

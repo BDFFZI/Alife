@@ -18,6 +18,7 @@ public interface IAlifeApplication
     Task RevealFolderAsync(string path);
     Task RevealFileAsync(string path);
     Task<string?> SelectFolderAsync();
+    Task<string?> SelectFileAsync();
 
     #endregion
 

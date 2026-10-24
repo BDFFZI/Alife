@@ -1,6 +1,7 @@
 
 @inject PluginSystem PluginSystem
 @inject INotificationService NotificationService
+@inject IAlifeClient AlifeClient
 
 <div class="step-content">
     <ErrorWindowUI @bind-Value="@operException"/>
@@ -80,34 +81,6 @@
     [Parameter] public EventCallback OnPrevStep { get; set; }
     [Parameter] public EventCallback OnNextStep { get; set; }
 
-    static readonly string[] RecommendedPluginIds =
-    [
-        //地基
-        "Alife.Function.FunctionCaller",
-        "Alife.Function.Mcp",
-        "Alife.Function.Skill",
-        //环境
-        "Alife.Function.Developer",
-        "Alife.Function.Memory",
-        "Alife.Function.MessageFilter",
-        "Alife.Function.SystemEvent",
-        "Alife.Function.VirtualWorld",
-        //工具
-        "Alife.Function.Browser",
-        "Alife.Function.FileService",
-        "Alife.Function.Execution",
-        "Alife.Function.TimedTask",
-        "Alife.Function.Todo",
-        "Alife.Function.Vision",
-        //交互
-        "Alife.Function.DeskPet",
-        "Alife.Function.Speech",
-        //感官
-        "Alife.Function.Language.OpenAI",
-        "Alife.Function.Auditory.SenseVoice",
-        "Alife.Function.Speech.VITS",
-    ];
-
     readonly List<PluginPackage> availablePlugins = new();
     readonly HashSet<string> selectedIds = new();
     (int Current, int Total, string Name)? installProgress;
@@ -138,7 +111,7 @@
         }
 
         var allPlugins = PluginSystem.GetAllOnlinePlugins().Values.ToList();
-        foreach (string id in RecommendedPluginIds)
+        foreach (string id in AlifeClient.GetRecommendedPluginIds())
         {
             var plugin = allPlugins.FirstOrDefault(p => p.Id == id);
             if (plugin != null)

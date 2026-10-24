@@ -72,7 +72,7 @@ public static class AlifeConfig
 
     static AlifeConfig()
     {
-        ConfigFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "alife", "config.json");
+        ConfigFilePath = Path.Combine(AppContext.BaseDirectory, "config.json");
         Load();
     }
 

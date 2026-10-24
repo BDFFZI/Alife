@@ -62,6 +62,22 @@ partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplicat
             return dialog.ShowDialog(owner) == DialogResult.OK ? dialog.SelectedPath : null;
         });
     }
+    public Task<string?> SelectFileAsync()
+    {
+        Form? owner = Application.OpenForms.OfType<MainForm>().FirstOrDefault()
+                      ?? Application.OpenForms.Cast<Form>().FirstOrDefault();
+        if (owner == null)
+            return Task.FromResult<string?>(null);
+
+        return owner.InvokeAsync(() => {
+            using OpenFileDialog dialog = new() {
+                Title = "选择文件",
+                CheckFileExists = true,
+                Multiselect = false,
+            };
+            return dialog.ShowDialog(owner) == DialogResult.OK ? dialog.FileName : null;
+        });
+    }
 
     public Size GetScreenSize()
     {

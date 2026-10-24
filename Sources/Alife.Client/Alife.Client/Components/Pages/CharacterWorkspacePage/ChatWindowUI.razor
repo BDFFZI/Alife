@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject IJSRuntime JsRuntime
+@inject IAlifeApplication AlifeApplication
 
 <Flex Style="height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden;"
       Direction="@FlexDirection.Vertical">
@@ -113,6 +114,11 @@
                         </div>
                     }
                 </div>
+                <Tooltip Title="上传文件">
+                    <Button Icon="@IconType.Outline.Upload"
+                            OnClick="@OnUploadFile"
+                            Style="border-radius: 8px; height: 40px; width: 40px;"/>
+                </Tooltip>
                 <Button Type="@ButtonType.Primary"
                         Icon="@(IconType.Outline.Send)"
                         OnClick="@(async () => await OnSend())"
@@ -411,6 +417,16 @@
         el.dispatchEvent(new Event('input', {bubbles: true}));
     };
 
+    window.appendTextToElement = (elementId, text) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const separator = el.value && !el.value.endsWith('\n') ? '\n' : '';
+        el.value = el.value + separator + text;
+        el.selectionStart = el.selectionEnd = el.value.length;
+        el.focus();
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+    };
+
     window.getElementValue = (elementId) => {
         const el = document.getElementById(elementId);
         return el?.value ?? "";
@@ -650,6 +666,15 @@
         ClientChatStatistics.ClearMessages(Character.Name);
 
         StateHasChanged();
+    }
+    async Task OnUploadFile()
+    {
+        string? path = await AlifeApplication.SelectFileAsync();
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        await JsRuntime.InvokeVoidAsync("appendTextToElement", "chatInput", path);
+        await JsRuntime.InvokeVoidAsync("focusElementById", "chatInput");
     }
     async Task OnSend(string? providedInputText = null)
     {

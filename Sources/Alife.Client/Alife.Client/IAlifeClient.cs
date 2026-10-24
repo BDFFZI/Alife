@@ -19,6 +19,7 @@ public interface IAlifeClient
 
     void SetStorageFolderPath(string path);
     void SetRuntimeFolderPath(string path);
+    void SetTempFolderPath(string path);
 
     #endregion
 
@@ -26,6 +27,15 @@ public interface IAlifeClient
 
     bool GetAutoStart();
     void SetAutoStart(bool value);
+
+    #endregion
+
+    #region 新手引导
+
+    /// <summary>
+    /// 获取当前平台推荐安装的插件 Id 列表。
+    /// </summary>
+    IReadOnlyList<string> GetRecommendedPluginIds();
 
     #endregion
 

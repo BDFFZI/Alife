@@ -1,5 +1,6 @@
 using Android.App;
 using Android.Content;
+using Alife.Foundation;
 
 namespace Alife.Client.Android;
 
@@ -74,6 +75,84 @@ static class AndroidFileDialogs
         return relative.Length == 0
             ? root
             : Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    /// <summary>通过系统文件选择器选择单个文件，尽量返回真实路径，无法解析时复制到临时目录。</summary>
+    public static async Task<string?> SelectFileAsync(CancellationToken cancellationToken = default)
+    {
+        Intent intent = new(Intent.ActionOpenDocument);
+        intent.AddFlags(ActivityFlags.GrantReadUriPermission);
+        intent.SetType("*/*");
+
+        (Result result, Intent? data) = await AndroidActivityResultBroker.RequestAsync(intent, cancellationToken);
+        if (result != Result.Ok || data?.Data == null)
+            return null;
+
+        return ResolveDocumentPath(MainApplication.Instance!, data.Data);
+    }
+
+    static string ResolveDocumentPath(Context context, global::Android.Net.Uri uri)
+    {
+        if (uri.Scheme == "file" && string.IsNullOrEmpty(uri.Path) == false)
+            return uri.Path;
+
+        string? documentId = null;
+        try
+        {
+            documentId = global::Android.Provider.DocumentsContract.GetDocumentId(uri);
+        }
+        catch (Exception)
+        {
+            // 某些 provider 不支持 DocumentsContract，走复制兜底
+        }
+
+        if (string.IsNullOrEmpty(documentId) == false)
+        {
+            int separator = documentId.IndexOf(':');
+            if (separator > 0)
+            {
+                string volume = documentId[..separator];
+                string root = string.Equals(volume, "primary", StringComparison.OrdinalIgnoreCase)
+                    ? global::Android.OS.Environment.ExternalStorageDirectory!.AbsolutePath
+                    : Path.Combine("/storage", volume);
+                string relative = documentId[(separator + 1)..];
+                string path = relative.Length == 0
+                    ? root
+                    : Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
+                if (File.Exists(path))
+                    return path;
+            }
+        }
+
+        return CopyToTemp(context, uri);
+    }
+
+    static string CopyToTemp(Context context, global::Android.Net.Uri uri)
+    {
+        string? displayName = null;
+        try
+        {
+            using var cursor = context.ContentResolver?.Query(uri,
+                [global::Android.Provider.IOpenableColumns.DisplayName], null, null, null);
+            if (cursor != null && cursor.MoveToFirst())
+                displayName = cursor.GetString(0);
+        }
+        catch (Exception)
+        {
+            // 忽略查询失败，仅使用随机文件名
+        }
+
+        string extension = Path.GetExtension(displayName ?? "");
+        string path = Path.Combine(AlifePath.TempFolderPath,
+            $"picked_{DateTime.Now:HHmmss}_{Guid.NewGuid():N}{extension}");
+        Directory.CreateDirectory(AlifePath.TempFolderPath);
+
+        using Stream? input = context.ContentResolver?.OpenInputStream(uri);
+        if (input == null)
+            throw new NotSupportedException("无法读取所选文件。");
+        using FileStream output = File.Create(path);
+        input.CopyTo(output);
+        return path;
     }
 
     static void OpenWithFileProvider(Context context, string path, string mimeType)

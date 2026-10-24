@@ -16,7 +16,6 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
         string root = GetExternalRoot();
         string defaultStorage = Path.Combine(root, "Storage");
         string defaultRuntime = Path.Combine(root, "Runtime");
-        tempFolderPath = Path.Combine(root, "Temp");
 
         storageFolderPath = AlifeConfig.GetString("storage_path");
         if (string.IsNullOrWhiteSpace(storageFolderPath))
@@ -24,6 +23,9 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
         runtimeFolderPath = AlifeConfig.GetString("runtime_path");
         if (string.IsNullOrWhiteSpace(runtimeFolderPath))
             runtimeFolderPath = defaultRuntime;
+        tempFolderPath = AlifeConfig.GetString("temp_path");
+        if (string.IsNullOrWhiteSpace(tempFolderPath))
+            tempFolderPath = Path.Combine(root, "Temp");
     }
 
     public void SetStorageFolderPath(string path)
@@ -36,6 +38,13 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
     {
         runtimeFolderPath = MigrateDirectory(runtimeFolderPath, Path.GetFullPath(path));
         AlifeConfig.SetString("runtime_path", runtimeFolderPath);
+    }
+
+    public void SetTempFolderPath(string path)
+    {
+        tempFolderPath = Path.GetFullPath(path);
+        Directory.CreateDirectory(tempFolderPath);
+        AlifeConfig.SetString("temp_path", tempFolderPath);
     }
 
     internal async Task TryUseDocumentsStorageAsync()
@@ -56,7 +65,10 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
         if (HasStorageAccess() == false)
             throw new InvalidOperationException("需要“所有文件访问权限”才能使用外部存储。请授予权限后重试。");
 
-        tempFolderPath = Path.Combine(GetExternalRoot(), "Temp");
+        string configTemp = AlifeConfig.GetString("temp_path");
+        tempFolderPath = string.IsNullOrWhiteSpace(configTemp)
+            ? Path.Combine(GetExternalRoot(), "Temp")
+            : configTemp;
 
         try
         {
