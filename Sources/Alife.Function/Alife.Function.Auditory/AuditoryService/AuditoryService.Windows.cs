@@ -70,7 +70,7 @@ public partial class AuditoryService
 
         try
         {
-            auditoryModel.Flush();
+            micRecognizer.Flush();
         }
         catch (Exception ex)
         {
@@ -188,7 +188,7 @@ public partial class AuditoryService
                     Buffer.MemoryCopy(dataInBytes, dest, capacityInBytes, capacityInBytes);
 
                 ThreadPool.QueueUserWorkItem(_ => {
-                    auditoryModel.AcceptWaveform(samples, sampleCount);
+                    micRecognizer.AcceptWaveform(samples, sampleCount);
                 });
             }
         }

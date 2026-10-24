@@ -13,15 +13,14 @@ namespace Alife.Function.Auditory;
 
 public sealed class AuditoryOverlayWindow(
     AuditoryService auditoryService,
-    AudioRecognitionService? audioRecognitionService,
     IAlifeApplication alifeApplication,
     PluginSystem pluginSystem,
     StorageSystem storageSystem,
     ILogger logger) : IAsyncDisposable
 {
     const string PluginId = "Alife.Function.Auditory";
-    const int OverlayWidth = 132;
-    const int OverlayHeight = 64;
+    const int OverlayWidth = 72;
+    const int OverlayHeight = 30;
 
     public async Task ResetWindowAsync()
     {
@@ -61,7 +60,7 @@ public sealed class AuditoryOverlayWindow(
                 "AuditoryOverlay");
             string indexPath = Path.Combine(wwwRoot, "index.html");
             if (File.Exists(indexPath) == false)
-                throw new FileNotFoundException("听觉控制悬浮窗页面不存在。", indexPath);
+                throw new FileNotFoundException("听觉悬浮窗页面不存在。", indexPath);
 
             window = await alifeApplication.CreateWindowAsync(new AlifeWindowOptions {
                 Title = "听觉控制",
@@ -83,7 +82,7 @@ public sealed class AuditoryOverlayWindow(
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested == false)
             {
-                logger.LogWarning("听觉控制悬浮窗未在超时前完成初始化，将继续显示。");
+                logger.LogWarning("听觉悬浮窗未在超时前完成初始化，继续显示。");
             }
 
             await SendStateAsync(force: true);
@@ -110,7 +109,6 @@ public sealed class AuditoryOverlayWindow(
             loopCancellation = null;
         }
 
-        await StopTemporaryAsync();
         SaveBounds();
         await DisposeWindowAsync();
     }
@@ -134,14 +132,11 @@ public sealed class AuditoryOverlayWindow(
                     lastStateJson = "";
                     readyTcs.TrySetResult(true);
                     break;
-                case "toggle" when TryGetTarget(root, out string? target):
-                    _ = RunGuardedAsync(() => ToggleAsync(target));
+                case "press" when TryGetTarget(root, out string? target):
+                    _ = RunGuardedAsync(() => PressAsync(target), target);
                     break;
-                case "hold_start" when TryGetTarget(root, out string? target):
-                    _ = RunGuardedAsync(() => HoldStartAsync(target));
-                    break;
-                case "hold_end" when TryGetTarget(root, out string? target):
-                    _ = RunGuardedAsync(() => HoldEndAsync(target));
+                case "stop" when TryGetTarget(root, out string? target):
+                    _ = RunGuardedAsync(() => StopAsync(target), target);
                     break;
                 case "drag_start":
                     dragStartBounds = bounds;
@@ -169,21 +164,19 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "处理听觉控制悬浮窗消息失败。");
+            logger.LogError(ex, "解析听觉悬浮窗消息失败。");
         }
     }
 
-    async Task ToggleAsync(string target)
+    async Task PressAsync(string target)
     {
         if (target == "system")
         {
-            if (audioRecognitionService == null)
-                return;
-
             await systemGate.WaitAsync();
             try
             {
-                await audioRecognitionService.SetAudioListening(audioRecognitionService.IsListeningActive == false);
+                if (auditoryService.IsListeningActive == false)
+                    await auditoryService.SetAudioListening(true);
             }
             finally
             {
@@ -192,15 +185,10 @@ public sealed class AuditoryOverlayWindow(
         }
         else if (target == "mic")
         {
-            if (auditoryService == null)
-                return;
-
             await micGate.WaitAsync();
             try
             {
-                if (auditoryService.IsRunning)
-                    auditoryService.StopRecording();
-                else
+                if (auditoryService.IsRunning == false)
                     await auditoryService.StartRecordingAsync();
             }
             finally
@@ -212,32 +200,15 @@ public sealed class AuditoryOverlayWindow(
         await SendStateAsync(force: true);
     }
 
-    async Task HoldStartAsync(string target)
+    async Task StopAsync(string target)
     {
         if (target == "system")
         {
-            if (audioRecognitionService == null)
-                return;
-
             await systemGate.WaitAsync();
             try
             {
-                if (systemHoldActive)
-                    return;
-
-                systemHoldActive = true;
-                systemHoldWasActive = audioRecognitionService.IsListeningActive;
-                if (systemHoldWasActive == false)
-                {
-                    systemTemporary = true;
-                    await audioRecognitionService.SetAudioListening(true);
-                }
-            }
-            catch
-            {
-                systemHoldActive = false;
-                systemTemporary = false;
-                throw;
+                if (auditoryService.IsListeningActive)
+                    await auditoryService.SetAudioListening(false);
             }
             finally
             {
@@ -246,22 +217,11 @@ public sealed class AuditoryOverlayWindow(
         }
         else if (target == "mic")
         {
-            if (auditoryService == null)
-                return;
-
             await micGate.WaitAsync();
             try
             {
-                if (micHoldActive)
-                    return;
-
-                micHoldActive = true;
-                await auditoryService.BeginTemporaryMicAsync();
-            }
-            catch
-            {
-                micHoldActive = false;
-                throw;
+                if (auditoryService.IsRunning)
+                    auditoryService.StopRecording();
             }
             finally
             {
@@ -270,86 +230,6 @@ public sealed class AuditoryOverlayWindow(
         }
 
         await SendStateAsync(force: true);
-    }
-
-    async Task HoldEndAsync(string target)
-    {
-        if (target == "system")
-        {
-            if (audioRecognitionService == null)
-                return;
-
-            await systemGate.WaitAsync();
-            try
-            {
-                if (systemHoldActive == false)
-                    return;
-
-                systemHoldActive = false;
-                if (systemTemporary)
-                {
-                    systemTemporary = false;
-                    if (audioRecognitionService.IsListeningActive)
-                        await audioRecognitionService.SetAudioListening(false);
-                }
-            }
-            finally
-            {
-                systemGate.Release();
-            }
-        }
-        else if (target == "mic")
-        {
-            if (auditoryService == null)
-                return;
-
-            await micGate.WaitAsync();
-            try
-            {
-                if (micHoldActive == false)
-                    return;
-
-                micHoldActive = false;
-                await auditoryService.EndTemporaryMicAsync();
-            }
-            finally
-            {
-                micGate.Release();
-            }
-        }
-
-        await SendStateAsync(force: true);
-    }
-
-    async Task StopTemporaryAsync()
-    {
-        bool stopSystem = systemTemporary;
-        systemTemporary = false;
-        systemHoldActive = false;
-        if (stopSystem && audioRecognitionService?.IsListeningActive == true)
-        {
-            try
-            {
-                await audioRecognitionService.SetAudioListening(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "关闭系统声音接收失败。");
-            }
-        }
-
-        if (micHoldActive)
-        {
-            micHoldActive = false;
-            try
-            {
-                await auditoryService.EndTemporaryMicAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "关闭麦克风接收失败。");
-            }
-        }
     }
 
     async Task LoopAsync(CancellationToken cancellationToken)
@@ -359,7 +239,7 @@ public sealed class AuditoryOverlayWindow(
             while (cancellationToken.IsCancellationRequested == false)
             {
                 await SendStateAsync();
-                await Task.Delay(250, cancellationToken);
+                await Task.Delay(150, cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -367,7 +247,7 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "听觉控制悬浮窗状态同步失败。");
+            logger.LogError(ex, "同步听觉悬浮窗状态失败。");
         }
     }
 
@@ -376,20 +256,17 @@ public sealed class AuditoryOverlayWindow(
         if (window == null)
             return;
 
-        bool systemAvailable = audioRecognitionService != null;
-        bool micAvailable = auditoryService != null;
         string json = JsonSerializer.Serialize(new {
             type = "state",
             system = new {
-                available = systemAvailable,
-                active = systemAvailable && audioRecognitionService!.IsListeningActive,
-                temporary = systemTemporary,
+                available = true,
+                active = auditoryService.IsListeningActive,
             },
             mic = new {
-                available = micAvailable,
-                active = micAvailable && auditoryService!.IsRunning,
-                listening = micAvailable && auditoryService!.IsListening,
-                temporary = micAvailable && auditoryService!.IsTemporaryMicActive,
+                available = true,
+                active = auditoryService.IsRunning,
+                listening = auditoryService.IsListening,
+                temporary = auditoryService.IsTemporaryMicActive,
             },
         });
 
@@ -403,11 +280,11 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "发送听觉控制悬浮窗状态失败。");
+            logger.LogDebug(ex, "发送听觉悬浮窗状态失败。");
         }
     }
 
-    async Task RunGuardedAsync(Func<Task> action)
+    async Task RunGuardedAsync(Func<Task> action, string? target = null)
     {
         try
         {
@@ -415,7 +292,24 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "执行听觉控制操作失败。");
+            logger.LogError(ex, "执行听觉悬浮窗操作失败。");
+            if (target != null)
+                await SendErrorAsync(target);
+        }
+    }
+
+    async Task SendErrorAsync(string target)
+    {
+        if (window == null)
+            return;
+
+        try
+        {
+            await window.PostMessageAsync(JsonSerializer.Serialize(new { type = "error", target }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "发送听觉悬浮窗错误状态失败。");
         }
     }
 
@@ -428,7 +322,7 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "调整听觉控制悬浮窗位置失败。");
+            logger.LogDebug(ex, "设置听觉悬浮窗位置失败。");
         }
     }
 
@@ -448,7 +342,7 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "保存听觉控制悬浮窗位置失败。");
+            logger.LogDebug(ex, "保存听觉悬浮窗位置失败。");
         }
     }
 
@@ -465,7 +359,7 @@ public sealed class AuditoryOverlayWindow(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "关闭听觉控制悬浮窗失败。");
+            logger.LogDebug(ex, "关闭听觉悬浮窗失败。");
         }
         window = null;
     }
@@ -489,9 +383,5 @@ public sealed class AuditoryOverlayWindow(
     Rectangle defaultBounds;
     Rectangle dragStartBounds;
     bool dragging;
-    bool systemTemporary;
-    bool systemHoldActive;
-    bool systemHoldWasActive;
-    bool micHoldActive;
     string lastStateJson = "";
 }

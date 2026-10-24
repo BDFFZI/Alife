@@ -17,82 +17,110 @@
             background: transparent;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .dock {
-            width: 100%;
-            height: 100%;
-            padding: 9px;
+            position: absolute;
+            inset: 0;
+            padding: 2px 4px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 32px;
-            background: rgba(18, 20, 26, 0.84);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+            gap: 4px;
+            border-radius: 15px;
+            background: linear-gradient(180deg, #242831 0%, #171a20 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+                        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
             cursor: grab;
             touch-action: none;
         }
 
-        .dock:active {
+        .dock.dragging {
             cursor: grabbing;
         }
 
         .orb {
-            width: 46px;
-            height: 46px;
+            width: 26px;
+            height: 26px;
             padding: 0;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid transparent;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.55);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.5);
             display: grid;
             place-items: center;
             cursor: pointer;
             touch-action: none;
-            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            -webkit-appearance: none;
+            appearance: none;
+            outline: none;
+            transition: color 0.16s ease,
+                        background 0.16s ease,
+                        border-color 0.16s ease,
+                        box-shadow 0.16s ease,
+                        transform 0.1s ease;
         }
 
         .orb svg {
-            width: 22px;
-            height: 22px;
+            width: 15px;
+            height: 15px;
             pointer-events: none;
         }
 
         .orb:hover {
-            background: rgba(255, 255, 255, 0.09);
+            color: rgba(255, 255, 255, 0.82);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .orb.pressed {
+            transform: scale(0.9);
         }
 
         .orb.active {
-            color: #3ddc97;
-            border-color: rgba(61, 220, 151, 0.55);
-            background: rgba(61, 220, 151, 0.12);
-            box-shadow: 0 0 16px rgba(61, 220, 151, 0.24);
+            color: #7ee7c7;
+            background: rgba(126, 231, 199, 0.15);
+            border-color: rgba(126, 231, 199, 0.3);
+            box-shadow: 0 0 8px rgba(126, 231, 199, 0.16);
         }
 
-        .orb.temporary {
-            color: #ffbf47;
-            border-color: rgba(255, 191, 71, 0.55);
-            background: rgba(255, 191, 71, 0.12);
-            box-shadow: 0 0 16px rgba(255, 191, 71, 0.22);
+        .orb[data-target="system"].active {
+            color: #8ecbff;
+            background: rgba(142, 203, 255, 0.15);
+            border-color: rgba(142, 203, 255, 0.3);
+            box-shadow: 0 0 8px rgba(142, 203, 255, 0.16);
         }
 
+        .orb.temporary,
         .orb.holding {
-            transform: scale(0.94);
+            color: #ffc766;
+            background: rgba(255, 199, 102, 0.15);
+            border-color: rgba(255, 199, 102, 0.32);
+            box-shadow: 0 0 8px rgba(255, 199, 102, 0.16);
+        }
+
+        .orb.error {
+            color: #ff9b9b;
+            background: rgba(255, 155, 155, 0.15);
+            border-color: rgba(255, 155, 155, 0.32);
+            box-shadow: 0 0 8px rgba(255, 155, 155, 0.16);
         }
 
         .orb.unavailable {
             opacity: 0.28;
-            cursor: not-allowed;
-            transform: none;
+            cursor: default;
+        }
+
+        .orb.unavailable:hover {
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
         }
     </style>
 </head>
 <body>
 <div class="dock" data-drag>
     <button class="orb" data-target="system" type="button" title="系统声音" aria-label="系统声音">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 5 6.5 8.5H3v7h3.5L11 19V5Z"/>
             <path d="M15 8.5a5 5 0 0 1 0 7"/>
@@ -100,7 +128,7 @@
         </svg>
     </button>
     <button class="orb" data-target="mic" type="button" title="麦克风" aria-label="麦克风">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3"/>
             <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/>
@@ -113,19 +141,33 @@
     (() => {
         const bridge = window.alifeWindow;
         const post = data => bridge?.postMessage(data);
-        const holdDelay = 220;
+        const longPressDelay = 350;
+        const channels = {
+            system: { available: false, active: false },
+            mic: { available: false, active: false }
+        };
 
         function setChannel(key, info) {
             const element = document.querySelector(`.orb[data-target="${key}"]`);
             if (!element) return;
             info = info || {};
+            channels[key] = info;
             element.classList.toggle('unavailable', !info.available);
             element.classList.toggle('active', !!info.active);
             element.classList.toggle('temporary', !!info.temporary);
+            element.setAttribute('aria-pressed', info.active ? 'true' : 'false');
         }
 
         bridge?.onMessage(message => {
-            if (!message || message.type !== 'state') return;
+            if (!message) return;
+            if (message.type === 'error') {
+                const element = document.querySelector(`.orb[data-target="${message.target}"]`);
+                if (!element) return;
+                element.classList.add('error');
+                setTimeout(() => element.classList.remove('error'), 700);
+                return;
+            }
+            if (message.type !== 'state') return;
             setChannel('system', message.system);
             setChannel('mic', message.mic);
         });
@@ -135,19 +177,29 @@
             let pointerId = null;
             let holdTimer = null;
             let longPress = false;
+            let wasActive = false;
 
-            const finish = (event, cancelled) => {
-                if (pointerId === null || event.pointerId !== pointerId) return;
-                const wasLongPress = longPress;
-                pointerId = null;
-                longPress = false;
+            const clearHold = () => {
                 if (holdTimer !== null) {
                     clearTimeout(holdTimer);
                     holdTimer = null;
                 }
-                button.classList.remove('holding');
-                if (wasLongPress) post({type: 'hold_end', target: target});
-                else if (!cancelled) post({type: 'toggle', target: target});
+                button.classList.remove('pressed', 'holding');
+            };
+
+            const finish = event => {
+                if (pointerId === null || event.pointerId !== pointerId) return;
+                pointerId = null;
+                clearHold();
+
+                if (longPress || wasActive) {
+                    longPress = false;
+                    wasActive = false;
+                    post({ type: 'stop', target });
+                }
+                else {
+                    wasActive = false;
+                }
             };
 
             button.addEventListener('pointerdown', event => {
@@ -157,17 +209,25 @@
                 event.stopPropagation();
                 pointerId = event.pointerId;
                 longPress = false;
+                wasActive = !!channels[target]?.active;
                 button.setPointerCapture(event.pointerId);
+                button.classList.add('pressed');
+                post({ type: 'press', target });
+
+                if (!wasActive) {
+                    channels[target] = { ...channels[target], active: true };
+                    button.classList.add('active');
+                }
+
                 holdTimer = setTimeout(() => {
                     holdTimer = null;
                     longPress = true;
                     button.classList.add('holding');
-                    post({type: 'hold_start', target: target});
-                }, holdDelay);
+                }, longPressDelay);
             });
-            button.addEventListener('pointerup', event => finish(event, false));
-            button.addEventListener('pointercancel', event => finish(event, true));
-            button.addEventListener('lostpointercapture', event => finish(event, true));
+            button.addEventListener('pointerup', finish);
+            button.addEventListener('pointercancel', finish);
+            button.addEventListener('lostpointercapture', finish);
             button.addEventListener('contextmenu', event => event.preventDefault());
         }
 
@@ -177,9 +237,10 @@
             if (event.pointerType === 'mouse' && event.button !== 0) return;
             if (event.target.closest('.orb')) return;
             event.preventDefault();
-            drag = {id: event.pointerId, x: event.screenX, y: event.screenY};
+            drag = { id: event.pointerId, x: event.screenX, y: event.screenY };
             dock.setPointerCapture(event.pointerId);
-            post({type: 'drag_start'});
+            dock.classList.add('dragging');
+            post({ type: 'drag_start' });
         });
         window.addEventListener('pointermove', event => {
             if (!drag || event.pointerId !== drag.id) return;
@@ -192,14 +253,15 @@
         const endDrag = event => {
             if (!drag || event.pointerId !== drag.id) return;
             drag = null;
-            post({type: 'drag_end'});
+            dock.classList.remove('dragging');
+            post({ type: 'drag_end' });
         };
         window.addEventListener('pointerup', endDrag);
         window.addEventListener('pointercancel', endDrag);
         dock.addEventListener('lostpointercapture', endDrag);
         window.addEventListener('contextmenu', event => event.preventDefault());
 
-        post({type: 'ready'});
+        post({ type: 'ready' });
     })();
 </script>
 </body>

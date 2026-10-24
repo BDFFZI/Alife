@@ -9,7 +9,6 @@ var character = new Character {
     Description = "用于验证听觉服务功能的开发测试角色。",
     Modules = [
         typeof(AuditoryService).FullName!,
-        typeof(AudioRecognitionService).FullName!,
         typeof(SenseVoiceAuditoryModel).FullName!,
     ]
 };

@@ -9,7 +9,7 @@ namespace Alife.Function.Auditory;
 /// 将 NAudio 的采样器（WasapiLoopbackCapture 系统扬声器 / WaveInEvent 麦克风）对象化为独立组件：
 /// 通过 <see cref="Start"/>/<see cref="Stop"/> 管理生命周期，将任意格式的音频流统一转换为
 /// 16kHz 单声道 IEEE float 后以 <see cref="WaveformReady"/> 事件对外输出。
-/// 供本插件（AudioRecognitionService）及外部插件（如游戏陪玩）复用。
+/// 供本插件（AuditoryService）及外部插件（如游戏陪玩）复用。
 /// </summary>
 public class SystemAudioRecorder : IDisposable
 {

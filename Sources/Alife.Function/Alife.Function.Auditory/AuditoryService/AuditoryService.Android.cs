@@ -28,7 +28,7 @@ public partial class AuditoryService
         recorder = null;
         try
         {
-            auditoryModel.Flush();
+            micRecognizer.Flush();
         }
         catch
         {
@@ -45,6 +45,6 @@ public partial class AuditoryService
 
     SystemAudioRecorder? recorder;
 
-    void OnAndroidWaveform(float[] samples, int count) => auditoryModel.AcceptWaveform(samples, count);
+    void OnAndroidWaveform(float[] samples, int count) => micRecognizer.AcceptWaveform(samples, count);
 }
 #endif

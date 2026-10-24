@@ -3,35 +3,31 @@
 @using Alife.Framework
 @using Microsoft.Extensions.Logging
 @inherits ModuleUIBase<AuditoryService, AuditoryServiceConfig>
+@implements IDisposable
 @inject ILogger<AuditoryServiceUI> Logger
 
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
         <div>
-            <Title Level="4" Style="margin-bottom: 16px;">语音识别配置</Title>
+            <Title Level="4" Style="margin-bottom: 16px;">听觉能力</Title>
         </div>
 
         <Flex Direction="FlexDirection.Vertical" Gap="@("16")">
             @if (Module != null)
             {
-                @* 状态指示 *@
-                <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
-                    @if (Module.IsRunning)
-                    {
-                        <Badge Status="BadgeStatus.Processing" Text="正在监听中..."/>
-                    }
-                    else
-                    {
-                        <Badge Status="BadgeStatus.Default" Text="未启用"/>
-                    }
-                </Flex>
-
-                @* 实时语音识别开关 *@
                 <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
                     <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
                         <Switch Checked="@Module.IsRunning"
                                 CheckedChanged="@OnRealtimeToggleChanged"/>
-                        <Text Strong>启用语音识别</Text>
+                        <Text Strong>麦克风实时识别</Text>
+                        @if (Module.IsRunning)
+                        {
+                            <Badge Status="BadgeStatus.Processing" Text="监听中"/>
+                        }
+                        else
+                        {
+                            <Badge Status="BadgeStatus.Default" Text="未启用"/>
+                        }
                     </Flex>
                     <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                         关闭后不再监听麦克风。
@@ -39,9 +35,99 @@
                 </Flex>
 
                 <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                    <Text Strong>麦克风按键说话</Text>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        控制麦克风识别：选择一个按键，只有按住按键时才监听麦克风；留空则麦克风始终监听。
+                    </Text>
+                    <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                        <Select TItemValue="string" TItem="string"
+                                Style="width: 200px;"
+                                @bind-Value="Configuration.PushToTalkKey"
+                                Placeholder="麦克风始终监听（不设置）"
+                                AllowClear>
+                            @foreach (var key in pushToTalkKeys)
+                            {
+                                <SelectOption Value="@key" Label="@key"/>
+                            }
+                        </Select>
+                        @if (Module.Configuration.PushToTalkKey == Configuration.PushToTalkKey && Configuration.PushToTalkKey != null)
+                        {
+                            @if (Module.IsRunning)
+                            {
+                                <Badge Status="BadgeStatus.Processing" Text="麦克风监听中"/>
+                            }
+                            else
+                            {
+                                <Badge Status="BadgeStatus.Default" Text="等待按键"/>
+                            }
+                        }
+                    </Flex>
+                </Flex>
+
+                <Divider Style="margin: 0;"/>
+
+                <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                    <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                        <Switch Checked="@Module.IsListeningActive"
+                                CheckedChanged="@OnSystemListeningChanged"/>
+                        <Text Strong>监听系统声音</Text>
+                        @if (Module.IsListeningActive)
+                        {
+                            <Badge Status="BadgeStatus.Processing" Text="监听中"/>
+                        }
+                        else
+                        {
+                            <Badge Status="BadgeStatus.Default" Text="未启用"/>
+                        }
+                    </Flex>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        识别电脑正在播放的声音，并按推送间隔合并发送给 AI。
+                    </Text>
+                </Flex>
+
+                <Flex Direction="FlexDirection.Horizontal" Align="FlexAlign.Start" Gap="@("24")">
+                    <div style="text-align: center; min-width: 130px;">
+                        <Progress Type="ProgressType.Circle" Percent="@CountdownPercent" Width="96"
+                                  StrokeColor="@("#1890ff")"
+                                  Format="@((_) => FormatCountdown(Module.SecondsUntilNextPush))"/>
+                        <Text Type="TextElementType.Secondary" Style="font-size: 12px;">下次推送倒计时</Text>
+                    </div>
+
+                    <div style="flex: 1; min-width: 0;">
+                        <Card Size="CardSize.Small" Title="当前缓存内容（待推送）" Style="border-radius: 8px;">
+                            @if (string.IsNullOrEmpty(Module.PendingPushText))
+                            {
+                                <span style="color: rgba(0,0,0,0.45); font-size: 13px;">暂无缓存内容</span>
+                            }
+                            else
+                            {
+                                <pre style="max-height: 220px; overflow: auto; background: #f8f8f8; padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; margin: 0;">@Module.PendingPushText</pre>
+                            }
+                        </Card>
+                    </div>
+                </Flex>
+
+                <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                    <Text Strong>推送间隔</Text>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        系统声音识别结果先缓存，再按间隔和随机抖动合并推送，避免频繁打扰 AI。
+                    </Text>
+                    <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                        <InputNumber @bind-Value="@Configuration.PushIntervalSeconds" Min="1" Step="1"
+                                     Style="width: 140px;"/>
+                        <Text Type="TextElementType.Secondary">秒 ±</Text>
+                        <InputNumber @bind-Value="@Configuration.PushJitterSeconds" Min="0" Step="1"
+                                     Style="width: 140px;"/>
+                        <Text Type="TextElementType.Secondary">秒</Text>
+                    </Flex>
+                </Flex>
+
+                <Divider Style="margin: 0;"/>
+
+                <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
                     <Text Strong>控制悬浮窗</Text>
                     <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
-                        悬浮窗随本模块显示；系统声音需同时启用“音频识别”模块。点按切换、长按临时接收，位置异常时可重置。
+                        悬浮窗随本模块显示；扬声器按钮控制系统声音，麦克风按钮控制麦克风。按下立即开始，单击切换开关，长按临时说话、松手关闭。位置异常时可重置。
                     </Text>
                     <div>
                         <Button OnClick="@ResetOverlayWindow">重置悬浮窗位置</Button>
@@ -49,38 +135,8 @@
                 </Flex>
             }
 
-            @* 按键说话 *@
-            <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
-                <Text Strong>按键说话</Text>
-                <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
-                    选择一个按键，按住时才会进行语音识别。留空则始终监听。
-                </Text>
-                <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
-                    <Select TItemValue="string" TItem="string"
-                            Style="width: 200px;"
-                            @bind-Value="Configuration.PushToTalkKey"
-                            Placeholder="始终监听（不设置）"
-                            AllowClear>
-                        @foreach (var key in pushToTalkKeys)
-                        {
-                            <SelectOption Value="@key" Label="@key"/>
-                        }
-                    </Select>
-                    @if (Module != null && Module.Configuration.PushToTalkKey == Configuration.PushToTalkKey && Configuration.PushToTalkKey != null)
-                    {
-                        @if (Module.IsRunning)
-                        {
-                            <Badge Status="BadgeStatus.Processing" Text="监听中"/>
-                        }
-                        else
-                        {
-                            <Badge Status="BadgeStatus.Default" Text="等待按键"/>
-                        }
-                    }
-                </Flex>
-            </Flex>
+            <Divider Style="margin: 0;"/>
 
-            @* 输出标签 *@
             <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
                 <Text Strong>回复限定词</Text>
                 <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
@@ -97,12 +153,40 @@
 
 @code {
     readonly string[] pushToTalkKeys = Enum.GetNames<ConsoleKey>();
+    System.Timers.Timer? refreshTimer;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
         if (Module != null)
             Module.IsListeningChanged += OnIsListeningChanged;
+
+        refreshTimer = new System.Timers.Timer(500);
+        refreshTimer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+
+    int CountdownPercent
+    {
+        get
+        {
+            if (Module == null || Module.IsListeningActive == false)
+                return 0;
+            double max = Module.Configuration.PushIntervalSeconds + Module.Configuration.PushJitterSeconds;
+            if (max <= 0)
+                return 0;
+            double percent = (1 - Module.SecondsUntilNextPush / max) * 100;
+            return (int)Math.Clamp(percent, 0, 100);
+        }
+    }
+
+    string FormatCountdown(double seconds)
+    {
+        if (seconds <= 0)
+            return "等待推送";
+        if (seconds >= 60)
+            return $"{(int)seconds / 60}m{(int)seconds % 60}s";
+        return $"{seconds:F0}s";
     }
 
     void OnIsListeningChanged(bool isListening)
@@ -128,7 +212,26 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "切换启用语音识别失败");
+            Logger.LogError(ex, "切换麦克风识别失败");
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task OnSystemListeningChanged(bool enabled)
+    {
+        if (Module == null)
+            return;
+
+        try
+        {
+            await Module.SetAudioListening(enabled);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "切换系统声音监听失败");
         }
         finally
         {
@@ -147,5 +250,13 @@
         Configuration.ReplyRestrictedWords = string.IsNullOrWhiteSpace(value)
             ? []
             : [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+    }
+
+    public void Dispose()
+    {
+        if (Module != null)
+            Module.IsListeningChanged -= OnIsListeningChanged;
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
     }
 }
