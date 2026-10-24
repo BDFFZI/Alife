@@ -32,21 +32,6 @@ public sealed class AuditoryOverlayWindow(
         SaveBounds();
     }
 
-    public async Task SetTopMostAsync(bool topMost)
-    {
-        if (window == null)
-            return;
-
-        try
-        {
-            await window.SetTopMostAsync(topMost);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "设置听觉悬浮窗置顶失败。");
-        }
-    }
-
     public async Task CreateAsync(Character character, CancellationToken cancellationToken)
     {
         boundsKey = $"{character.StorageKey}/AuditoryOverlay/WindowBounds";
@@ -81,7 +66,7 @@ public sealed class AuditoryOverlayWindow(
                 Title = "听觉控制",
                 Url = new Uri(indexPath).AbsoluteUri,
                 Bounds = bounds,
-                TopMost = auditoryService.Configuration.OverlayTopMost,
+                TopMost = true,
                 Resizable = false,
                 Transparent = true,
             });
