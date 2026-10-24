@@ -1,5 +1,5 @@
 @namespace Alife.Function.SystemEvent
-@inherits Alife.Framework.ModuleUIBase<TimedTaskService>
+@inherits Alife.Framework.ModuleUIBase<TimedTaskService, TimedTaskServiceConfig>
 @implements IDisposable
 @using AntDesign
 
@@ -42,6 +42,20 @@
             {
                 <Alert Type="AlertType.Info" Message="当前模块未在运行中，任务监控不可用喵！" ShowIcon="true"/>
             }
+        </div>
+
+        <Divider Style="margin: 8px 0;"/>
+
+        <!-- 函数说明 -->
+        <div>
+            <Title Level="4" Style="margin-bottom: 16px;">函数说明</Title>
+            <Card Size="CardSize.Small" Style="border-radius: 8px;">
+                <Text Type="TextElementType.Secondary" Style="display: block; margin-bottom: 8px; font-size: 12px;">
+                    这段说明会作为 XML 函数文档的“详细说明”展示给 AI，修改后需重新激活角色生效。
+                </Text>
+                <TextArea @bind-Value="@Configuration.Explanation" Rows="5"
+                          Style="border-radius: 6px;"></TextArea>
+            </Card>
         </div>
 
     </Flex>

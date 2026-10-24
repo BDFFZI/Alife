@@ -14,10 +14,13 @@ namespace Alife.Function.SystemEvent;
     EditorUI = typeof(TimedTaskServiceUI))]
 public class TimedTaskService(
     XmlFunctionCaller functionCaller,
-    ISystemEventService systemEvent,
+    ISystemEventService? systemEvent,
     Interactor<TimedTaskService> interactor) :
-    ChatBehaviour
+    ChatBehaviour,
+    IConfigurable<TimedTaskServiceConfig>
 {
+    public TimedTaskServiceConfig Configuration { get; set; } = null!;
+
     public DateTime NextReportTime => pointTimerTime; //暴露给UI的数据
     public string Remark => pointTimerRemark; //暴露给UI的数据
 
@@ -34,7 +37,7 @@ public class TimedTaskService(
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("创建一个定点报时，同时重置系统周期报点（这可以让你主动重新活跃一段时间）")]
+    [Description("创建一个定点报时，同时重置系统周期报点（可以让你在目标时间段恢复活跃）")]
     public void Awake([Description("格式为ISO-8601")] DateTime time, string remark = "")
     {
         pointTimerTime = time;
@@ -50,12 +53,9 @@ public class TimedTaskService(
     {
         XmlHandler xmlHandler = new(this) {
             Description = "当你需要主动控制你的日程，想保持活跃时，请使用该功能。",
-            Explanation = """
-                          主动性的表现，会让自己看着更自然更有趣更讨人喜欢。而且使得你有机会主动做一些自己的事情。因此善用报点事件，能让你变的非常强大。
-                          例如偷偷记下主人的日常起居时间，来个早晚问候，或白天主动找用户聊天，这些都会让用户感到非常惊喜。
-                          """
+            Explanation = Configuration.Explanation
         };
-        functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
+        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit, cancellationToken: DestroyCancellationToken);
 
         return Task.CompletedTask;
     }
@@ -65,7 +65,7 @@ public class TimedTaskService(
         {
             interactor.Poke($"AWake报点：{pointTimerRemark}");
             pointTimerTime = DateTime.MaxValue; //关闭定时提醒
-            systemEvent.ResetTimer(); //触发时重置系统报点
+            systemEvent?.ResetTimer(); //触发时重置系统报点
         }
 
         return Task.CompletedTask;
