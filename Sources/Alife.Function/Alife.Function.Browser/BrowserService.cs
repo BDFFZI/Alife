@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
@@ -24,35 +25,35 @@ public class BrowserService(
     public BrowserConfig Configuration { get; set; } = null!;
 
     [XmlFunction(FunctionMode.OneShot)]
-    public async Task OpenWebsite(string url)
+    public async Task OpenWebsite(string url, CancellationToken cancellationToken = default)
     {
-        await browser.OpenWebsiteAsync(url);
+        await browser.OpenWebsiteAsync(url, cancellationToken);
         interactor.Poke("已打开网站");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description($"返回当前打开网页的文本。其中可交互元素会以[{{交互类型}}{{id}}:{{描述}}]的格式返回。交互类型中：t=文本框，b=按钮，i=iframe；id则可在{nameof(GetElementInfo)}中用来查看对应元素的详细原始html信息")]
-    public async Task ReadWebsite([Description("从1开始")] int page)
+    public async Task ReadWebsite([Description("从1开始")] int page, CancellationToken cancellationToken = default)
     {
-        string result = await browser.ReadWebsiteAsync(page, Configuration.PageCharLimit);
+        string result = await browser.ReadWebsiteAsync(page, Configuration.PageCharLimit, cancellationToken);
         interactor.Poke($"页面内容：{result}\n提示：翻页寻找可疑的交互元素，然后使用{nameof(GetElementInfo)}查看");
     }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description($"查看{nameof(ReadWebsite)}中返回的可交互元素的原始完整html信息")]
-    public async Task GetElementInfo(int id)
+    public async Task GetElementInfo(int id, CancellationToken cancellationToken = default)
     {
-        string result = await browser.GetElementInfoAsync(id);
+        string result = await browser.GetElementInfoAsync(id, cancellationToken);
         interactor.Poke("元素内容：" + result);
     }
 
     [XmlFunction(FunctionMode.Content)]
-    public async Task RunWebsiteJs(XmlExecutorContext context, [XmlContent] string script)
+    public async Task RunWebsiteJs(XmlExecutorContext context, [XmlContent] string script, CancellationToken cancellationToken = default)
     {
         if (context.CallMode == CallMode.Closing)
         {
             string code = context.FullContent.Trim();
-            string result = await browser.RunWebsiteJsAsync(code);
+            string result = await browser.RunWebsiteJsAsync(code, cancellationToken);
             interactor.Poke($"JS结果：{result}\n注意：执行成功不代表符合预期，请验证执行结果");
         }
     }

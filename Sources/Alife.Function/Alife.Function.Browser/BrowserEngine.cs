@@ -14,27 +14,33 @@ public class NavigateResult
 
 public class BrowserEngine : IAsyncDisposable
 {
-    public async Task WaitToLoadedAsync(TimeSpan timeout)
+    public async Task WaitToLoadedAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        using var cts = new CancellationTokenSource(timeout);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
         while (!worker.IsLaunched)
         {
             await Task.Delay(100, cts.Token);
         }
     }
 
-    public async Task<NavigateResult> OpenWebsiteAsync(string url)
+    public async Task<NavigateResult> OpenWebsiteAsync(string url, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         await worker.ClearPopupWindows();//跳转操作总是使用主窗口
         return await worker.ExecuteTaskAsync(async webView => {
             var tcs = new TaskCompletionSource<NavigateResult>();
             webView.CoreWebView2.NavigationCompleted += OnCompleted;
             webView.CoreWebView2.Navigate(url);
 
-            var completed = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+            var completed = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10), cancellationToken));
+            webView.CoreWebView2.NavigationCompleted -= OnCompleted;
             if (completed != tcs.Task)
-                webView.CoreWebView2.NavigationCompleted -= OnCompleted;
-            return completed == tcs.Task ? await tcs.Task : new NavigateResult { Success = true, StatusCode = 0 };
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new NavigateResult { Success = true, StatusCode = 0 };
+            }
+            return await tcs.Task;
 
             void OnCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
             {
@@ -43,11 +49,11 @@ public class BrowserEngine : IAsyncDisposable
             }
         });
     }
-    public async Task<string> ReadWebsiteAsync(int page, int maxLength = 700)
+    public async Task<string> ReadWebsiteAsync(int page, int maxLength = 700, CancellationToken cancellationToken = default)
     {
         //等待页面稳定
         while (worker.IsNavigating)
-            await Task.Delay(300);
+            await Task.Delay(300, cancellationToken);
 
         string jsCode = $$"""
                           (function () {
@@ -177,9 +183,9 @@ public class BrowserEngine : IAsyncDisposable
                           })();
                           """;
 
-        return await RunWebsiteJsAsync(jsCode);
+        return await RunWebsiteJsAsync(jsCode, cancellationToken);
     }
-    public Task<string> GetElementInfoAsync(int id)
+    public Task<string> GetElementInfoAsync(int id, CancellationToken cancellationToken = default)
     {
         string jsCode = $$"""
                           (() => {
@@ -187,11 +193,12 @@ public class BrowserEngine : IAsyncDisposable
                               return el ? el.outerHTML : '[元素不存在]';
                           })();
                           """;
-        return RunWebsiteJsAsync(jsCode);
+        return RunWebsiteJsAsync(jsCode, cancellationToken);
     }
-    public Task<string> RunWebsiteJsAsync(string code)
+    public Task<string> RunWebsiteJsAsync(string code, CancellationToken cancellationToken = default)
     {
-        return worker.ExecuteTaskAsync(async webView => {
+        cancellationToken.ThrowIfCancellationRequested();
+        Task<string> task = worker.ExecuteTaskAsync(async webView => {
             string wrapperScript =
                 $$$"""
                    (function() {
@@ -250,6 +257,7 @@ public class BrowserEngine : IAsyncDisposable
             var ex = result.Exception;
             return $"[Error]\nName: {ex.Name}\nMessage: {ex.Message}\nDetail: {ex.ToJson}\nLocation: Line {ex.LineNumber}, Column {ex.ColumnNumber}";
         });
+        return cancellationToken.CanBeCanceled ? task.WaitAsync(cancellationToken) : task;
     }
 
     readonly BrowserWorker worker = new();
