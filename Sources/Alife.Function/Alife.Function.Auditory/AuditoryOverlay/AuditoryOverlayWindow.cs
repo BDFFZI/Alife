@@ -19,8 +19,8 @@ public sealed class AuditoryOverlayWindow(
     ILogger logger) : IAsyncDisposable
 {
     const string PluginId = "Alife.Function.Auditory";
-    const int OverlayWidth = 72;
-    const int OverlayHeight = 30;
+    const int OverlayWidth = 108;
+    const int OverlayHeight = 44;
 
     public async Task ResetWindowAsync()
     {
@@ -30,6 +30,21 @@ public sealed class AuditoryOverlayWindow(
         bounds = defaultBounds;
         await SetBoundsSafeAsync(bounds);
         SaveBounds();
+    }
+
+    public async Task SetTopMostAsync(bool topMost)
+    {
+        if (window == null)
+            return;
+
+        try
+        {
+            await window.SetTopMostAsync(topMost);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "设置听觉悬浮窗置顶失败。");
+        }
     }
 
     public async Task CreateAsync(Character character, CancellationToken cancellationToken)
@@ -66,7 +81,7 @@ public sealed class AuditoryOverlayWindow(
                 Title = "听觉控制",
                 Url = new Uri(indexPath).AbsoluteUri,
                 Bounds = bounds,
-                TopMost = true,
+                TopMost = auditoryService.Configuration.OverlayTopMost,
                 Resizable = false,
                 Transparent = true,
             });

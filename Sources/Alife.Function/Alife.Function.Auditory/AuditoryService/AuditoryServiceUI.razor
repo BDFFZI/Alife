@@ -83,6 +83,12 @@
                     <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                         识别电脑正在播放的声音，并按推送间隔合并发送给 AI。
                     </Text>
+                    @if (OperatingSystem.IsAndroid())
+                    {
+                        <span style="color: #d48806; font-size: 12px;">
+                            Android 系统内录必须获得“录屏/投屏”授权，这是系统限制；Windows 不需要。
+                        </span>
+                    }
                 </Flex>
 
                 <Flex Direction="FlexDirection.Horizontal" Align="FlexAlign.Start" Gap="@("24")">
@@ -129,6 +135,20 @@
                     <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
                         悬浮窗随本模块显示；扬声器按钮控制系统声音，麦克风按钮控制麦克风。按下立即开始，单击切换开关，长按临时说话、松手关闭。位置异常时可重置。
                     </Text>
+                    @if (OperatingSystem.IsAndroid())
+                    {
+                        <span style="font-size: 12px; color: rgba(0,0,0,0.45);">
+                            Android 悬浮窗本身始终显示在应用上层。
+                        </span>
+                    }
+                    else
+                    {
+                        <Flex Direction="FlexDirection.Horizontal" Align="@FlexAlign.Center" Gap="@("8")">
+                            <Switch Checked="@Configuration.OverlayTopMost"
+                                    CheckedChanged="@OnOverlayTopMostChanged"/>
+                            <Text>窗口置顶</Text>
+                        </Flex>
+                    }
                     <div>
                         <Button OnClick="@ResetOverlayWindow">重置悬浮窗位置</Button>
                     </div>
@@ -237,6 +257,14 @@
         {
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    async Task OnOverlayTopMostChanged(bool enabled)
+    {
+        Configuration.OverlayTopMost = enabled;
+        if (Module != null)
+            await Module.SetOverlayTopMostAsync(enabled);
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task ResetOverlayWindow()
