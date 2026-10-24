@@ -21,10 +21,10 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
                 onProgress?.Invoke((int)(read * 100 / total));
         });
 
-        // 直接启动安装包：本进程会在下面立即退出，安装包由安装器自己接管并静默安装、重启客户端。
+        // 启动安装包：显示安装向导，安装完成后由安装器启动客户端
         Process.Start(new ProcessStartInfo {
             FileName = packagePath,
-            Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+            Arguments = "/NORESTART",
             UseShellExecute = true
         });
         Environment.Exit(0);
