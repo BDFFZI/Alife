@@ -31,7 +31,7 @@ public class BrowserService(
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description($"返回当前打开网页的文本。其中可交互元素会以[{{交互类型}}{{id}}:{{描述}}]的格式返回。交互类型中：t=文本框，b=按钮；id则可在{nameof(GetElementInfo)}中用来查看对应元素的原始html信息")]
+    [Description($"返回当前打开网页的文本。其中可交互元素会以[{{交互类型}}{{id}}:{{描述}}]的格式返回。交互类型中：t=文本框，b=按钮，i=iframe；id则可在{nameof(GetElementInfo)}中用来查看对应元素的详细原始html信息")]
     public async Task ReadWebsite([Description("从1开始")] int page)
     {
         string result = await browser.ReadWebsiteAsync(page, Configuration.PageCharLimit);

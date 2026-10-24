@@ -126,6 +126,13 @@ public class BrowserEngine : IAsyncDisposable
                               function getFullDescription(el, hadDescription = '') {
                                   if (!canVisible(el)) return '';
 
+                                  //iframe 不展开，仅给简短标识，网址由 GetElementInfo 查看
+                                  if (el.tagName === 'IFRAME' || el.tagName === 'FRAME') {
+                                      el.setAttribute('data-alife-id', ++id);
+                                      const label = el.getAttribute('aria-label') || el.title || el.name || el.id || '';
+                                      return `[i${id}:${label}]`;
+                                  }
+
                                   //获取自身描述
                                   let selfDescription = getDescription(el).trim();
                                   //父元素可能包含子元素的描述
