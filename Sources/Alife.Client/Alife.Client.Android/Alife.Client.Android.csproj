@@ -10,8 +10,8 @@
         <ApplicationId>com.alife.client</ApplicationId>
         <ApplicationTitle>Alife</ApplicationTitle>
         <ApplicationVersion>1</ApplicationVersion>
-        <ApplicationDisplayVersion>5.0.2</ApplicationDisplayVersion>
-        <Version>5.0.2</Version>
+        <ApplicationDisplayVersion>5.1.0</ApplicationDisplayVersion>
+        <Version>5.1.0</Version>
         <AndroidManifest>Properties/AndroidManifest.xml</AndroidManifest>
         <AndroidPackageFormats>apk</AndroidPackageFormats>
         <PublishTrimmed>false</PublishTrimmed>
