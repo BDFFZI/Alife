@@ -9,7 +9,7 @@ using Alife.Foundation;
 using Alife.Framework;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
-using Alife.Function.AIModelUtility;
+using Alife.Function.Speech;
 using Alife.Function.SystemEvent;
 using Microsoft.Extensions.Logging;
 

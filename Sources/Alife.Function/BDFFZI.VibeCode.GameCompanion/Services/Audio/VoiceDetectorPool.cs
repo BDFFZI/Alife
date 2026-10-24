@@ -1,4 +1,4 @@
-using Alife.Function.AIModelUtility;
+using Alife.Function.Auditory;
 
 namespace BDFFZI.VibeCode.GameCompanion;
 

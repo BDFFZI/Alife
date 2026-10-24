@@ -12,7 +12,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj" />
     <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj" />
-    <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj" />
     <ProjectReference Include="..\Alife.Function.Auditory\Alife.Function.Auditory.csproj" />
     <ProjectReference Include="..\Alife.Function.Vision\Alife.Function.Vision.csproj" />
   </ItemGroup>

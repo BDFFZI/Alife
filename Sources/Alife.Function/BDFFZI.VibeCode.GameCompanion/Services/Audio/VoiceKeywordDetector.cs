@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Alife.Function.AIModelUtility;
+using Alife.Function.Auditory;
 
 namespace BDFFZI.VibeCode.GameCompanion;
 

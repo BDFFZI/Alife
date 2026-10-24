@@ -11,20 +11,36 @@ public partial class AuditoryService
         if (IsRunning)
             return;
 
-        if (!string.IsNullOrEmpty(Configuration.PushToTalkKey))
-            throw new PlatformNotSupportedException("Android 暂不支持全局键盘按键说话，请清空按键配置。");
         recorder ??= new SystemAudioRecorder();
         recorder.WaveformReady -= OnAndroidWaveform;
         recorder.WaveformReady += OnAndroidWaveform;
         await recorder.StartAsync("mic", DestroyCancellationToken);
         IsRunning = true;
+        SetListeningState(true);
     }
 
     public void StopRecording()
     {
+        if (IsRunning == false)
+            return;
+
         recorder?.Dispose();
         recorder = null;
+        try
+        {
+            auditoryModel.Flush();
+        }
+        catch
+        {
+        }
         IsRunning = false;
+        SetListeningState(false);
+    }
+
+    private partial bool StartPushToTalkMonitor() => false;
+
+    private partial void StopPushToTalkMonitor()
+    {
     }
 
     SystemAudioRecorder? recorder;

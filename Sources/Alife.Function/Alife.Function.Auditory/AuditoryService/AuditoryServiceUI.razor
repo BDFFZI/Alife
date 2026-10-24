@@ -37,6 +37,16 @@
                         关闭后不再监听麦克风。
                     </Text>
                 </Flex>
+
+                <Flex Direction="FlexDirection.Vertical" Gap="@("4")">
+                    <Text Strong>控制悬浮窗</Text>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 12px;">
+                        悬浮窗随本模块显示；系统声音需同时启用“音频识别”模块。点按切换、长按临时接收，位置异常时可重置。
+                    </Text>
+                    <div>
+                        <Button OnClick="@ResetOverlayWindow">重置悬浮窗位置</Button>
+                    </div>
+                </Flex>
             }
 
             @* 按键说话 *@
@@ -58,9 +68,9 @@
                     </Select>
                     @if (Module != null && Module.Configuration.PushToTalkKey == Configuration.PushToTalkKey && Configuration.PushToTalkKey != null)
                     {
-                        @if (Module.IsListening)
+                        @if (Module.IsRunning)
                         {
-                            <Badge Status="BadgeStatus.Processing" Text="按键已按下"/>
+                            <Badge Status="BadgeStatus.Processing" Text="监听中"/>
                         }
                         else
                         {
@@ -124,6 +134,12 @@
         {
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    async Task ResetOverlayWindow()
+    {
+        if (Module != null)
+            await Module.ResetOverlayWindowAsync();
     }
 
     void OnOutputTagsChanged(string value)

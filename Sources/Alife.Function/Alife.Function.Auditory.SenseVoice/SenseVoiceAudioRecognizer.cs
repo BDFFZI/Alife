@@ -11,7 +11,7 @@ namespace Alife.Function.Auditory.SenseVoice;
 /// <see cref="AcceptWaveform"/> 同步处理：喂入后立即切割并解码，识别到的语音段同步触发 <see cref="Recognized"/>。
 /// 内部使用复用缓冲，配合 (samples, length) 入参实现零分配。
 /// </summary>
-public class SenseVoiceAudioRecognizer(OfflineRecognizer recognizer, VadModelConfig vadConfig) : global::Alife.Function.AIModelUtility.IAudioRecognizer
+public class SenseVoiceAudioRecognizer(OfflineRecognizer recognizer, VadModelConfig vadConfig) : global::Alife.Function.Auditory.IAudioRecognizer
 {
     public event Action<string>? Recognized;
 

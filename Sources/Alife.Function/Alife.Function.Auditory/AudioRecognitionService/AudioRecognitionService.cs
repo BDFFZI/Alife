@@ -17,14 +17,14 @@ namespace Alife.Function.Auditory;
 public class AudioRecognitionService(
     XmlFunctionCaller functionCaller,
     Interactor<AudioRecognitionService> interactor,
-    global::Alife.Function.AIModelUtility.IAudioRecognizerProvider audioRecognizerProvider) :
+    global::Alife.Function.Auditory.IAudioRecognizerProvider audioRecognizerProvider) :
     ChatBehaviour,
     IConfigurable<AudioRecognitionServiceConfig>
 {
     public AudioRecognitionServiceConfig Configuration { get; set; } = null!;
 
     //以下属性暴露给 UI 监控
-    public bool IsListeningActive => listeningRecorder.IsRecording;
+    public bool IsListeningActive => listeningRecorder?.IsRecording == true;
 
     public string PendingPushText
     {
@@ -106,9 +106,9 @@ public class AudioRecognitionService(
     }
 
     //文件识别
-    global::Alife.Function.AIModelUtility.IAudioRecognizer oneShotRecognizer = null!;
+    global::Alife.Function.Auditory.IAudioRecognizer oneShotRecognizer = null!;
     //主动监听
-    global::Alife.Function.AIModelUtility.IAudioRecognizer listeningRecognizer = null!;
+    global::Alife.Function.Auditory.IAudioRecognizer listeningRecognizer = null!;
     SystemAudioRecorder listeningRecorder = null!; //复用对象化的系统录音器
     OccupationMarker? thinkingOccupationMarker;
     readonly Lock pendingLock = new(); //识别结果缓存（音频线程写，更新线程读）互斥

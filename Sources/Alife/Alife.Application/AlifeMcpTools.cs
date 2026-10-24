@@ -161,20 +161,7 @@ public class AlifeMcpTools(
                  2. 不要将插件id命名为`Alife.Function...`，模块代码中的默认分类也不要用`Alife官方`，因为这些都是官方插件的预设分类，第三方插件请使用自己的独创的域名和分类。
                  3. 如果模块实例被依赖（包括间接依赖，比如实现了模型接口，然后被其他模块通过接口捕获），那么模块重载后，依赖其的模块也必须重载（重载对应插件）。
                  4. ChatBehaviour不支持IDisposable等接口，请使用OnDestroy平替。只要OnAwake成功执行，OnDestroy就一定也会执行。请务必在此做好回收工作，否则会影响热更。
-
-                 ## 关键插件
-
-                 插件市场中有很多预设的官方插件，其中有几种可接入复用的实用基础类插件。
-
-                 - Alife.Function.FunctionCaller：帮你实现函数调用。
-                 - Alife.Function.MCPService：帮你接入MCP协议。
-                 - Alife.Function.AIModelUtility：借此替换官方模型。
-                 - Alife.Function.Language.OpenAI：预设的llm接入实现。
-
-                 此外还有些示例插件，你可以参考他们的写法，他们都是能体验出一些深入框架的实现思路
-
-                 - Alife.Function.Speech.VITS：其通过实现通用的模型接口扩展了模型选项，同时利用python管道程序来运行本地模型，此外还处理了依赖环境的自动下载。
-                 - Alife.Function.Memory：其通过ChatBot事件和llm对话申请机制实现了对llm交互的拦截处理，并通过直接读写对话上下文来实现记忆压缩，同时还实现了关键字检测后向AI发送额外提示词的功能。
+                 5. Alife是面向接口编程的框架，大量的官方插件或客户端功能都通过接口传递，你可以借此获取或替换官方实现，具体而且请检查项目源码包括插件源码。
                  """;
     }
     [McpServerTool]

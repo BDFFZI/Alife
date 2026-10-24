@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.AIModelUtility;
+using Alife.Function.Auditory;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;

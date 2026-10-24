@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
     <ProjectReference Include="..\Alife.Function.AIModelUtility\Alife.Function.AIModelUtility.csproj" />
+    <ProjectReference Include="..\Alife.Function.Speech\Alife.Function.Speech.csproj" />
   </ItemGroup>
 
 </Project>

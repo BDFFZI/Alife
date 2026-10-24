@@ -3,6 +3,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Alife.Foundation;
 using Windows.Media.Audio;
 using Windows.Media.Capture;
 using Windows.Media.MediaProperties;
@@ -48,10 +49,14 @@ public partial class AuditoryService
         graph.UnrecoverableErrorOccurred += OnUnrecoverableErrorOccurred;
 
         IsRunning = true;
+        SetListeningState(true);
     }
 
     public void StopRecording()
     {
+        if (IsRunning == false)
+            return;
+
         graph?.QuantumStarted -= OnQuantumStarted;
         graph?.UnrecoverableErrorOccurred -= OnUnrecoverableErrorOccurred;
         graph?.Stop();
@@ -62,8 +67,81 @@ public partial class AuditoryService
         inputNode = null;
         graph?.Dispose();
         graph = null;
+
+        try
+        {
+            auditoryModel.Flush();
+        }
+        catch (Exception ex)
+        {
+            AlifeLog.LogError(ex);
+        }
+
         IsRunning = false;
+        SetListeningState(false);
     }
+
+    private partial bool StartPushToTalkMonitor()
+    {
+        if (string.IsNullOrWhiteSpace(Configuration.PushToTalkKey) ||
+            Enum.TryParse(Configuration.PushToTalkKey, true, out ConsoleKey _) == false)
+            return false;
+
+        pushToTalkTimer ??= new System.Threading.Timer(_ => _ = UpdatePushToTalkAsync(), null, 0, 50);
+        return true;
+    }
+
+    private partial void StopPushToTalkMonitor()
+    {
+        pushToTalkTimer?.Dispose();
+        pushToTalkTimer = null;
+        if (pushToTalkHeld)
+        {
+            pushToTalkHeld = false;
+            _ = EndTemporaryMicAsync();
+        }
+    }
+
+    async Task UpdatePushToTalkAsync()
+    {
+        if (Interlocked.Exchange(ref pushToTalkUpdating, 1) == 1)
+            return;
+
+        try
+        {
+            bool held = false;
+            string? keyName = Configuration.PushToTalkKey;
+            if (string.IsNullOrWhiteSpace(keyName) == false &&
+                Enum.TryParse(keyName, true, out ConsoleKey key))
+                held = (GetAsyncKeyState((int)key) & 0x8000) != 0;
+
+            if (held == pushToTalkHeld)
+                return;
+
+            pushToTalkHeld = held;
+            if (held)
+                await BeginTemporaryMicAsync();
+            else
+                await EndTemporaryMicAsync();
+        }
+        catch (Exception ex)
+        {
+            AlifeLog.LogError(ex);
+            pushToTalkHeld = false;
+            await EndTemporaryMicAsync();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref pushToTalkUpdating, 0);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    static extern short GetAsyncKeyState(int vKey);
+
+    System.Threading.Timer? pushToTalkTimer;
+    int pushToTalkUpdating;
+    volatile bool pushToTalkHeld;
 
     AudioGraph? graph;
     AudioDeviceInputNode? inputNode;
@@ -71,8 +149,6 @@ public partial class AuditoryService
 
     unsafe void OnQuantumStarted(AudioGraph sender, object args)
     {
-        UpdateListeningState();
-
         if (outputNode == null)
         {
             Console.WriteLine("初始化异常，outputNode为空！");
@@ -108,12 +184,8 @@ public partial class AuditoryService
             if (sampleCount > 0)
             {
                 float[] samples = new float[sampleCount];
-
-                if (IsListening) // 按住时发送真实音频
-                {
-                    fixed (float* dest = samples)
-                        Buffer.MemoryCopy(dataInBytes, dest, capacityInBytes, capacityInBytes);
-                }
+                fixed (float* dest = samples)
+                    Buffer.MemoryCopy(dataInBytes, dest, capacityInBytes, capacityInBytes);
 
                 ThreadPool.QueueUserWorkItem(_ => {
                     auditoryModel.AcceptWaveform(samples, sampleCount);
@@ -123,33 +195,6 @@ public partial class AuditoryService
         finally
         {
             Marshal.Release(ptr);
-        }
-
-        void UpdateListeningState()
-        {
-            string? keyName = Configuration.PushToTalkKey;
-            bool newState;
-            if (string.IsNullOrEmpty(keyName))
-            {
-                newState = true;
-            }
-            else if (Enum.TryParse(keyName, true, out ConsoleKey key))
-            {
-                newState = (GetAsyncKeyState((int)key) & 0x8000) != 0;
-
-                [DllImport("user32.dll")]
-                static extern short GetAsyncKeyState(int vKey);
-            }
-            else
-            {
-                newState = true;
-            }
-
-            if (newState != IsListening)
-            {
-                IsListening = newState;
-                IsListeningChanged?.Invoke(IsListening);
-            }
         }
     }
 

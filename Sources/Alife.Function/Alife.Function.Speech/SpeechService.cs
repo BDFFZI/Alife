@@ -15,7 +15,7 @@ namespace Alife.Function.Speech;
 [Description("此服务让你获得能将文字以语音形式输出的能力。")]
 public partial class SpeechService(
     XmlFunctionCaller functionService,
-    global::Alife.Function.AIModelUtility.ISpeechModel speechModel,
+    global::Alife.Function.Speech.ISpeechModel speechModel,
     ILogger<SpeechService> logger) :
     ChatBehaviour,
     ISpeechService

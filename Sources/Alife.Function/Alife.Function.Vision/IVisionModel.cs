@@ -1,6 +1,11 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Alife.Function.Vision;
 
-/// <summary>兼容旧命名空间；新代码请使用 Alife.Function.AIModelUtility.IVisionModel。</summary>
-public interface IVisionModel : global::Alife.Function.AIModelUtility.IVisionModel
+/// <summary>视觉推理服务契约，支持本地模型或云端 API。</summary>
+public interface IVisionModel
 {
+    /// <summary>视觉问答：传入图片路径和问题，返回回答。</summary>
+    Task<string> QueryAsync(string imagePath, string question, int maxResponseTokens, CancellationToken cancellationToken = default);
 }

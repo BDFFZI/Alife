@@ -21,7 +21,7 @@ public record VisionServiceConfig
 public partial class VisionService(
     XmlFunctionCaller functionService,
     Interactor<VisionService> interactor,
-    global::Alife.Function.AIModelUtility.IVisionModel? visionModel = null) :
+    global::Alife.Function.Vision.IVisionModel? visionModel = null) :
     ChatBehaviour,
     IConfigurable<VisionServiceConfig>
 {
