@@ -63,14 +63,12 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
             "Alife.Function.Execution",
             "Alife.Function.TimedTask",
             "Alife.Function.Todo",
-            "Alife.Function.Vision",
             //交互
             "Alife.Function.DeskPet",
-            "Alife.Function.Speech",
-            //感官
             "Alife.Function.Language.OpenAI",
             "Alife.Function.Auditory.SenseVoice",
             "Alife.Function.Speech.VITS",
+            "Alife.Function.Vision",
         ];
     }
 
