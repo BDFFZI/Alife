@@ -14,8 +14,8 @@ namespace Alife.Function.Auditory.SenseVoice;
 public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
     ChatBehaviour,
     IConfigurable<SenseVoiceAuditoryModelConfig>,
-    global::Alife.Function.Auditory.IAuditoryModel,
-    global::Alife.Function.Auditory.IAudioRecognizerProvider
+    IAuditoryModel,
+    IAudioRecognizerProvider
 {
     public static bool ModelsExists
     {
@@ -35,7 +35,7 @@ public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
     public void AcceptWaveform(float[] samples, int length) => realtimeRecognizer.AcceptWaveform(samples, length);
     public void Flush() => realtimeRecognizer.Flush();
 
-    public global::Alife.Function.Auditory.IAudioRecognizer CreateAudioRecognizer() => new SenseVoiceAudioRecognizer(recognizer, vadConfig);
+    public IAudioRecognizer CreateAudioRecognizer() => new SenseVoiceAudioRecognizer(recognizer, vadConfig);
 
     const string SenseVoiceId = "pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue";
     const string VadId = "pengzhendong/silero-vad";
@@ -55,7 +55,7 @@ public class SenseVoiceAuditoryModel(IAlifeApplication alifeApplication) :
         config.ModelConfig.SenseVoice.Language = Configuration.Language;
         config.ModelConfig.SenseVoice.UseInverseTextNormalization = Configuration.UseInverseTextNormalization ? 1 : 0;
         config.ModelConfig.Tokens = Path.Combine(senseVoicePath, "tokens.txt");
-        config.ModelConfig.NumThreads = Configuration.NumThreads;
+        config.ModelConfig.NumThreads = 1;
         config.ModelConfig.Debug = 0;
         recognizer = new OfflineRecognizer(config);
 

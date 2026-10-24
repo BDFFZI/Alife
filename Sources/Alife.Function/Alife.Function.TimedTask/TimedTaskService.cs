@@ -55,7 +55,7 @@ public class TimedTaskService(
             Description = "当你需要主动控制你的日程，想保持活跃时，请使用该功能。",
             Explanation = Configuration.Explanation
         };
-        functionCaller.RegisterHandler(xmlHandler, DocumentMode.Implicit, cancellationToken: DestroyCancellationToken);
+        functionCaller.RegisterHandler(xmlHandler, cancellationToken: DestroyCancellationToken);
 
         return Task.CompletedTask;
     }

@@ -41,11 +41,6 @@
                     <Switch @bind-Value="@Configuration.UseInverseTextNormalization"/>
                 </FormItem>
             </GridCol>
-            <GridCol Span="12">
-                <FormItem Label="线程数">
-                    <InputNumber @bind-Value="@Configuration.NumThreads" Min="1" Max="8" Style="width: 100%;"/>
-                </FormItem>
-            </GridCol>
         </GridRow>
 
         <Title Level="5" Style="margin-top: 16px;">语音检测 (VAD) 参数</Title>
@@ -72,6 +67,6 @@
     </Form>
 
     <Text Type="TextElementType.Secondary" Style="margin-top: 8px; display: block;">
-        SenseVoice 是阿里的多语言语音识别模型，支持中英日韩粤语。参数修改后需重启插件生效。
+        SenseVoice 是阿里的多语言语音识别模型，支持中英日韩粤语。线程数不建议超过实际核心数的一半，避免与语音合成等任务争抢 CPU；参数修改后需重启插件生效。
     </Text>
 </div>
