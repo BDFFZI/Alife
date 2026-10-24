@@ -77,7 +77,7 @@ sealed class AndroidAlifeClient(AndroidAlifeFoundation foundation, IServiceProvi
             "Alife.Function.DeskPet",
             "Alife.Function.Language.OpenAI",
             "Alife.Function.Auditory.SenseVoice",
-            "Alife.Function.Speech.EdgeTTS",
+            "Alife.Function.Speech.VITS",
             "Alife.Function.Vision",
         ];
     }
