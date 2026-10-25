@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
@@ -40,7 +39,7 @@ public class ChatBehaviour : IAsyncDisposable
 
         try
         {
-            Console.WriteLine($"{GetType().Name}::OnAwake");
+            AlifeLog.LogInformation($"{GetType().Name}::OnAwake");
             await OnAwake();
             IsAwaked = true;
         }
@@ -55,7 +54,7 @@ public class ChatBehaviour : IAsyncDisposable
             return;
 
         UpdateContext = context;
-        
+
         if (!IsStarted)
         {
             try
@@ -88,6 +87,7 @@ public class ChatBehaviour : IAsyncDisposable
         {
             try
             {
+                AlifeLog.LogInformation($"{GetType().Name}::OnDestroy");
                 await OnDestroy();
             }
             catch (Exception e)

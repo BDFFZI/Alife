@@ -24,7 +24,11 @@ public class OpenAILanguageModelConfig
                                            "thinking": {"type": "disabled"}
                                          }
                                          """;
-    
-    public HashSet<string> enabledContentTypes = new();
-    public HashSet<string> enabledPersistentContentTypes = new();
+
+    public HashSet<string> enabledContentTypes = [
+        "图片输入"
+    ];
+    public HashSet<string> enabledPersistentContentTypes = [
+        "图片输入"
+    ];
 }

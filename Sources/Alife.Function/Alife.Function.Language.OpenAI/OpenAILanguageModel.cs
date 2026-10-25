@@ -10,6 +10,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
+using Alife.Function.Client.TokenStatistics;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
@@ -28,9 +29,11 @@ public class OpenAILanguageModel(
     StorageSystem storageSystem,
     ILogger<OpenAILanguageModel> logger) :
     ChatBehaviour,
-    ILanguageModel,
+    ILanguageModel, ITokenUser,
     IConfigurable<OpenAILanguageModelConfig>
 {
+    public event Action<TokenUsageContext>? TokenUsed;
+
     public OpenAILanguageModelConfig Configuration { get; set; } = null!;
 
     public OccupationNotepad GetThinkingRequester()
@@ -38,66 +41,102 @@ public class OpenAILanguageModel(
         return thinkingRequester;
     }
 
-    public async Task<string> ChatStreamingAsync(
+    public async Task<ChatResult> ChatStreamingAsync(
         ChatHistoryAgentThread chatHistoryAgentThread,
         Action<string>? textReceived = null,
         Action<string>? thinkReceived = null,
-        Action<TokenUsage>? tokenUsed = null,
-        Action<Exception>? exceptionThrow = null,
         CancellationToken cancellationToken = default)
     {
-        StringBuilder nonThinkingContent = new(); //用于存储不含思考过程的最终回复
-        bool thinking = GetThinkingRequester().IsOccupied;
+        StringBuilder aiMessageBuilder = new();
+        StringBuilder aiThinkingBuilder = new();
+        Exception? exception = null;
+        TokenUsage tokenUsageBuilder = new();
+
+        //计算用户消息
+        string userMessage;
+        {
+            int userMessageIndex = 0;
+            for (int i = chatHistoryAgentThread.ChatHistory.Count - 1; i >= 0; i--)
+            {
+                ChatMessageContent content = chatHistoryAgentThread.ChatHistory[i];
+                if (content.Role != AuthorRole.User)
+                {
+                    userMessageIndex = i + 1;
+                    break;
+                }
+            }
+            for (int i = userMessageIndex; i <= chatHistoryAgentThread.ChatHistory.Count; i++)
+            {
+                ChatMessageContent content = chatHistoryAgentThread.ChatHistory[i];
+                aiMessageBuilder.AppendLine(content.Content);
+            }
+
+            userMessage = aiMessageBuilder.ToString();
+            aiMessageBuilder.Clear();
+        }
 
         try
         {
-            TokenUsage tokenUsage = default;
-            using (HttpRequestMessage request = BuildRequest(chatHistoryAgentThread.ChatHistory, thinking))
-            using (HttpResponseMessage response = await httpClient.SendAsync(
-                       request, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+            bool thinking = GetThinkingRequester().IsOccupied;
+
+            using HttpRequestMessage request = BuildRequest(chatHistoryAgentThread.ChatHistory, thinking);
+            using HttpResponseMessage response = await httpClient.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (response.IsSuccessStatusCode == false)
             {
-                if (response.IsSuccessStatusCode == false)
-                {
-                    string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                    throw new HttpRequestException($"语言模型返回 {(int)response.StatusCode} ({response.ReasonPhrase}): {responseBody}");
-                }
-
-                await foreach (AlifeSseChunk chunk in AlifeSseParser.ParseAsync(
-                                   await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken))
-                {
-                    if (chunk.Error != null)
-                        throw new HttpRequestException($"语言模型流式返回错误: {chunk.Error}");
-
-                    //思考与正文由解析器直接从原生字段拆出，各自分发
-                    if (chunk.Reasoning != null)
-                    {
-                        thinkReceived?.Invoke(chunk.Reasoning);
-                    }
-
-                    if (chunk.Content != null)
-                    {
-                        nonThinkingContent.Append(chunk.Content);
-                        textReceived?.Invoke(chunk.Content);
-                    }
-
-                    if (chunk.Usage != null)
-                        tokenUsage = AlifeChatProtocol.ParseUsage(chunk.Usage);
-                }
+                string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"语言模型返回 {(int)response.StatusCode} ({response.ReasonPhrase}): {responseBody}");
             }
-            tokenUsed?.Invoke(tokenUsage);
+
+            await foreach (AlifeSseChunk chunk in AlifeSseParser.ParseAsync(
+                               await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken))
+            {
+                if (chunk.Error != null)
+                    throw new HttpRequestException($"语言模型流式返回错误: {chunk.Error}");
+
+                //思考与正文由解析器直接从原生字段拆出，各自分发
+                if (chunk.Reasoning != null)
+                {
+                    aiThinkingBuilder.Append(chunk.Reasoning);
+                    thinkReceived?.Invoke(chunk.Reasoning);
+                }
+
+                if (chunk.Content != null)
+                {
+                    aiMessageBuilder.Append(chunk.Content);
+                    textReceived?.Invoke(chunk.Content);
+                }
+
+                if (chunk.Usage != null)
+                    tokenUsageBuilder = AlifeChatProtocol.ParseUsage(chunk.Usage);
+            }
         }
         catch (Exception e)
         {
-            exceptionThrow?.Invoke(e);
+            exception = e;
         }
+
+        ChatResult chatResult = new() {
+            AIMessage = aiMessageBuilder.ToString(),
+            AIThinking = aiThinkingBuilder.ToString(),
+            Exception = exception
+        };
 
         //把 AI 回复写入对话历史，供下一轮对话继续参考（不含思考内容）；
         //取消/异常时也保留已输出的部分内容（与旧实现一致），仅当完全没有输出时不入史。
-        string aiMessage = nonThinkingContent.ToString();
-        if (string.IsNullOrEmpty(aiMessage) == false)
-            chatHistoryAgentThread.ChatHistory.AddAssistantMessage(aiMessage);
+        if (string.IsNullOrEmpty(chatResult.AIMessage) == false)
+            chatHistoryAgentThread.ChatHistory.AddAssistantMessage(chatResult.AIMessage);
 
-        return aiMessage;
+        TokenUsageContext tokenUsageContext = new() {
+            AIMessage = chatResult.AIMessage,
+            AIThinking = chatResult.AIThinking,
+            UserMessage = userMessage,
+            TokenUsage = tokenUsageBuilder
+        };
+        TokenUsed?.Invoke(tokenUsageContext);
+
+        return chatResult;
     }
 
     /// <summary>临时式补全：复用主线程，在锁内临时追加媒体为最新用户消息，调用 ChatStreamingAsync 后移除临时消息，不污染主历史。</summary>

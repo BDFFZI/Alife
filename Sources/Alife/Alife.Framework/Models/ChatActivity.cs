@@ -163,9 +163,7 @@ public class ChatActivity(
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);
@@ -195,12 +193,12 @@ public class ChatActivity(
         {
             foreach (Type moduleType in moduleTypes)
                 container.UnRegisterBuilder(moduleType);
-
             object[] invalidModules = container.Instances
-                .Where(instance => TypeUtility.IsInstanceUsingType(instance, moduleTypes))
+                .Where(o => moduleTypes.Contains(o.GetType()))
+                .Reverse()
                 .ToArray();
 
-            foreach (object instance in invalidModules.Reverse())
+            foreach (object instance in invalidModules)
                 await container.RemoveInstance(instance);
             await ResetLanguageModel();
         }
@@ -253,8 +251,7 @@ public class ChatActivity(
         {
             //logger功能
             container.RegisterBuilder(typeof(LoggerFactory), _ =>
-                Task.FromResult<object>(LoggerFactory.Create(builder =>
-                {
+                Task.FromResult<object>(LoggerFactory.Create(builder => {
                     builder.SetMinimumLevel(LogLevel.Information);
                     builder.AddProvider(new AlifeLogProvider());
                 }))
@@ -296,8 +293,7 @@ public class ChatActivity(
                          {Path.Combine(AlifePath.StorageFolderPath, Character.StorageKey, "Storage")}
                          """;
 
-        ChatBot.EditChatHistory(thread =>
-        {
+        ChatBot.EditChatHistory(thread => {
             if (thread.ChatHistory.Count == 0)
                 thread.ChatHistory.AddSystemMessage(prompt);
             else
@@ -308,7 +304,7 @@ public class ChatActivity(
     {
         try
         {
-            ChatBot.LanguageModel = (ILanguageModel)await container.RequireInstance(typeof(ILanguageModel), true);
+            ChatBot.LanguageModel = (ILanguageModel)await container.RequireInstance(typeof(ILanguageModel));
         }
         catch
         {

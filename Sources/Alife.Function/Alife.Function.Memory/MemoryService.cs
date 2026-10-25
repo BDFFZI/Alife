@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
+using Alife.Function.Client.TokenStatistics;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public class MemoryService(
     ILogger<MemoryService> logger,
     XmlFunctionCaller functionService,
     ILanguageModel languageModel,
+    ITokenUser tokenUser,
     IMessageFilterService messageFilterService) :
     ChatBehaviour,
     IConfigurable<MemoryConfig>
@@ -151,47 +153,14 @@ public class MemoryService(
 
         ChatBot.ChatSend += OnChatSend;
         ChatBot.ChatHistoryAdd += OnChatHistoryAdd; //每次对话后检测压缩
-        ChatBot.TokenUsed += OnTokenUsed; //监控上下文token消耗
+        tokenUser.TokenUsed += OnTokenUsed; //监控上下文token消耗
     }
-
-    /// <summary>
-    /// 解析用于压缩的语言模型：若配置了类名且类型存在，则从容器中获取，否则回退到默认语言模型。
-    /// </summary>
-    async Task<ILanguageModel> ResolveCompressModel()
-    {
-        string className = Configuration.CompressModelClassName;
-        if (string.IsNullOrWhiteSpace(className))
-            return languageModel;
-
-        Type? modelType = moduleSystem.GetAllModules()
-            .FirstOrDefault(type => type.Name == className || type.FullName == className);
-        if (modelType == null)
-        {
-            logger.LogWarning("未找到压缩语言模型类型“{ClassName}”，将使用默认语言模型。", className);
-            return languageModel;
-        }
-
-        try
-        {
-            object instance = await ChatActivity.Container.RequireInstance(modelType, true);
-            if (instance is ILanguageModel model)
-                return model;
-
-            logger.LogWarning("类型“{ClassName}”未实现 {Interface}，将使用默认语言模型。",
-                className, nameof(ILanguageModel));
-        }
-        catch (Exception e)
-        {
-            logger.LogWarning(e, "获取压缩语言模型“{ClassName}”失败，将使用默认语言模型。", className);
-        }
-
-        return languageModel;
-    }
-    protected override async Task OnDestroy()
+    protected override Task OnDestroy()
     {
         ChatBot.ChatSend -= OnChatSend;
         ChatBot.ChatHistoryAdd -= OnChatHistoryAdd;
-        ChatBot.TokenUsed -= OnTokenUsed;
+        tokenUser.TokenUsed -= OnTokenUsed;
+        return Task.CompletedTask;
     }
 
     string OnChatSend(string message)
@@ -256,19 +225,52 @@ public class MemoryService(
             Interlocked.Exchange(ref compressing, 0);
         }
     }
-
-    void OnTokenUsed(TokenUsage usage)
+    void OnTokenUsed(TokenUsageContext tokenUsageContext)
     {
-        if (usage.Total < Configuration.TokenWarningThreshold)
+        if (tokenUsageContext.TokenUsage.Total < Configuration.TokenWarningThreshold)
             return;
 
         logger.LogWarning($$"""
                             检测到上下文token已超过警告线，必须进行人工干涉！
-                            (当前上下文约 {{usage.Input}} tokens / 警告线 {{Configuration.TokenWarningThreshold}} tokens)
+                            (当前上下文约 {{tokenUsageContext.TokenUsage.Input}} tokens / 警告线 {{Configuration.TokenWarningThreshold}} tokens)
                             1. 检查完整背景中的永久（最高级）记忆，此记忆通常由AI自主记忆，必须由人工删除。
                             2. 如果自动压缩的记忆已达最高级，而造成记忆膨胀，请继续提高最大记忆压缩等级。
                             3. 如果你的模型实际上还有充足的token容量，且未觉得上下文异常，可以提高警告线数值。
                             """);
+    }
+
+    /// <summary>
+    /// 解析用于压缩的语言模型：若配置了类名且类型存在，则从容器中获取，否则回退到默认语言模型。
+    /// </summary>
+    async Task<ILanguageModel> ResolveCompressModel()
+    {
+        string className = Configuration.CompressModelClassName;
+        if (string.IsNullOrWhiteSpace(className))
+            return languageModel;
+
+        Type? modelType = moduleSystem.GetAllModules()
+            .FirstOrDefault(type => type.Name == className || type.FullName == className);
+        if (modelType == null)
+        {
+            logger.LogWarning("未找到压缩语言模型类型“{ClassName}”，将使用默认语言模型。", className);
+            return languageModel;
+        }
+
+        try
+        {
+            object instance = await ChatActivity.Container.RequireInstance(modelType, true);
+            if (instance is ILanguageModel model)
+                return model;
+
+            logger.LogWarning("类型“{ClassName}”未实现 {Interface}，将使用默认语言模型。",
+                className, nameof(ILanguageModel));
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "获取压缩语言模型“{ClassName}”失败，将使用默认语言模型。", className);
+        }
+
+        return languageModel;
     }
 }
 
@@ -293,23 +295,13 @@ class AlifeHistoryCompressor(
         {
             history.AddUserMessage(prompt);
 
-            AlifeLog.LogInformation("记忆压缩中......");
-            TokenUsage tokenUsage = new();
-            Exception? exception = null;
-            string response = await languageModel.ChatStreamingAsync(
-                chatHistoryAgentThread,
-                exceptionThrow: e => exception = e,
-                tokenUsed: usage => {
-                    tokenUsage += usage;
-                });
-            AlifeLog.LogInformation("压缩消耗：" + tokenUsage);
+            ChatResult result = await languageModel.ChatStreamingAsync(chatHistoryAgentThread);
+            if (result.Exception != null)
+                throw new Exception("记忆压缩失败！", innerException: result.Exception);
+            if (string.IsNullOrEmpty(result.AIMessage) || result.AIMessage.Length < 100)
+                throw new Exception($"记忆压缩失败！压缩结果长度过短：“{result}”");
 
-            if (exception != null)
-                throw new Exception("记忆压缩失败！", innerException: exception);
-            if (string.IsNullOrEmpty(response) || response.Length < 100)
-                throw new Exception($"记忆压缩失败！压缩结果长度过短：“{response}”");
-
-            return response;
+            return result.AIMessage;
         }
         finally
         {

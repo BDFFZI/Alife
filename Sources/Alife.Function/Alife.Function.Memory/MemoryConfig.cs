@@ -4,12 +4,12 @@ namespace Alife.Function.Memory;
 
 public record MemoryConfig
 {
-    public int Threshold { get; set; } = 100;
-    public int BatchSize { get; set; } = 70;
+    public int Threshold { get; set; } = 120;
+    public int BatchSize { get; set; } = 100;
     public float Probability { get; set; } = 0.4f;
     public int MaxCompressionLevel { get; set; } = 8;
 
-    public int TokenWarningThreshold { get; set; } = 120000; //上下文token警告线，超过此值时在日志中发出警告
+    public int TokenWarningThreshold { get; set; } = 200000; //上下文token警告线，超过此值时在日志中发出警告
 
     public bool ThinkingCompress { get; set; } = true;
 

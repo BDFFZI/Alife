@@ -49,6 +49,7 @@ public static class ClientChatStatistics
             SaveSettings();
         }
     }
+
     public static int MaxMessageCount
     {
         get => chatSettings.MaxMessageCount;
@@ -58,6 +59,7 @@ public static class ClientChatStatistics
             SaveSettings();
         }
     }
+
     public static bool ShowReasoning
     {
         get => chatSettings.ShowReasoning;
@@ -108,8 +110,7 @@ public static class ClientChatStatistics
         List<ChatMessage> messages = GetMessages(name);
         ChatbotMap[name] = activity.ChatBot; // 幂等：直接赋值覆盖，避免重复激活时抛异常
         ChatbotMapUpdated?.Invoke();
-        activity.ChatBot.ChatSent += message =>
-        {
+        activity.ChatBot.ChatSent += message => {
             lock (messages)
             {
                 messages.Add(new ChatMessage { Content = message, IsUser = true });
@@ -117,8 +118,7 @@ public static class ClientChatStatistics
 
                 if (activity.ChatBot.LanguageModel != null)
                 {
-                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list =>
-                    {
+                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
                         if (list.Count > 0)
                             thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
                     });
@@ -131,8 +131,7 @@ public static class ClientChatStatistics
             MessageChanged?.Invoke(name);
             UserMessageSent?.Invoke(name);
         };
-        activity.ChatBot.ChatReceived += (obj) =>
-        {
+        activity.ChatBot.ChatReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
@@ -141,8 +140,7 @@ public static class ClientChatStatistics
                 MessageChanged?.Invoke(name);
             }
         };
-        activity.ChatBot.ReasoningReceived += (obj) =>
-        {
+        activity.ChatBot.ReasoningReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
@@ -151,8 +149,7 @@ public static class ClientChatStatistics
                 MessageChanged?.Invoke(name);
             }
         };
-        activity.ChatBot.ChatOver += () =>
-        {
+        activity.ChatBot.ChatOver += () => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
@@ -161,7 +158,12 @@ public static class ClientChatStatistics
                 MessageChanged?.Invoke(name);
             }
         };
-        activity.ChatBot.ChatExceptionThrow += exception => ChatExceptionThrew?.Invoke(name, exception);
+        activity.ChatBot.ChatExceptionThrow += exception => {
+            if (exception is OperationCanceledException)
+                return;
+
+            ChatExceptionThrew?.Invoke(name, exception);
+        };
     }
     static void OnActivationFailed(Character arg1, Exception arg2)
     {

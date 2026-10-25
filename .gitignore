@@ -4,6 +4,7 @@
 !/Demos/*
 !/Tests/*
 !/Sources/*
+!/Publish/*
 !/开发规范/*
 
 !/.gitignore
@@ -11,7 +12,6 @@
 !/Directory.Build.props
 !/LICENSE.md
 !/README.md
-!/Publish
 
 obj/
 bin/

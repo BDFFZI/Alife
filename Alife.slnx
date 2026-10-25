@@ -37,6 +37,9 @@
     <Project Path="Sources/Alife.Function/Alife.Function.McAgent/Alife.Function.McAgent.csproj" />
     <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
   </Folder>
+  <Folder Name="/Sources/Alife.Function/Client/">
+    <Project Path="Sources/Alife.Function/Alife.Function.Client.TokenStatistics/Alife.Function.Client.TokenStatistics.csproj" />
+  </Folder>
   <Folder Name="/Sources/Alife.Function/Environment/">
     <Project Path="Sources/Alife.Function/Alife.Function.Memory/Alife.Function.Memory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.MessageFilter/Alife.Function.MessageFilter.csproj" />
@@ -60,6 +63,7 @@
   <Folder Name="/Sources/Alife.Function/Interaction/">
     <Project Path="Sources/Alife.Function/Alife.Function.Auditory/Alife.Function.Auditory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Language/Alife.Function.Language.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />

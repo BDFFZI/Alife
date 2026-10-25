@@ -41,7 +41,6 @@ public class ChatBot : IAsyncDisposable
 
     public event Action<ChatMessageContent>? ChatHistoryAdd; //对话产生的消息块（如果手动插入且不更新结束索引，则也将记录）
     public event Action<Exception>? ChatExceptionThrow; //对话中出现的异常
-    public event Action<TokenUsage>? TokenUsed; //对话产生的Token消耗
 
     public event Action<ChatContext>? ChatFinished; //对话结束
     public event Func<ChatContext, Task>? ChatFinishedAsync; //对话结束(异步)
@@ -112,7 +111,7 @@ public class ChatBot : IAsyncDisposable
         await chatSemaphore.WaitAsync(cancellationToken);
         try
         {
-            using (ResourceOccupiedReason.Rent("发送消息"))
+            using (ResourceOccupiedReason.Rent("准备对话"))
             {
                 //附加Poke消息
                 string? poke = FlushPokeMessage();
@@ -170,16 +169,14 @@ public class ChatBot : IAsyncDisposable
                 }
             }
 
-            Exception? error = null;
-            TokenUsage tokenUsage = new();
-            string aiMessage = "";
-            StringBuilder aiThinking = new();
-            //装载AI消息
-            await EditChatHistoryAsync(async thread => {
-                if (languageModel == null)
-                    error = new Exception("未检测到可用的语言模型");
-                else
-                    aiMessage = await languageModel.ChatStreamingAsync(
+            ChatResult? chatResult = null;
+            using (ResourceOccupiedReason.Rent("执行对话"))
+            {
+                await EditChatHistoryAsync(async thread => {
+                    if (languageModel == null)
+                        throw new Exception("未检测到可用的语言模型");
+
+                    chatResult = await languageModel.ChatStreamingAsync(
                         thread,
                         text => {
                             try
@@ -194,7 +191,6 @@ public class ChatBot : IAsyncDisposable
                         think => {
                             try
                             {
-                                aiThinking.Append(think);
                                 ReasoningReceived?.Invoke(think);
                             }
                             catch (Exception e)
@@ -202,19 +198,15 @@ public class ChatBot : IAsyncDisposable
                                 AlifeLog.LogError(e);
                             }
                         },
-                        usage => {
-                            tokenUsage += usage;
-                        },
-                        exception => {
-                            if (exception is not OperationCanceledException)
-                                error = exception;
-                        },
                         cancellationToken
                     );
-                ChaseChatHistory(thread);
-            }, "接收回复");
+                    ChaseChatHistory(thread);
+                }, "接收回复");
+            }
+            if (chatResult == null)
+                throw new Exception("执行对话失败，无法获取到结果！");
 
-            using (ResourceOccupiedReason.Rent("分析对话"))
+            using (ResourceOccupiedReason.Rent("完成对话"))
             {
                 //对话通讯结束
                 try
@@ -226,11 +218,11 @@ public class ChatBot : IAsyncDisposable
                     AlifeLog.LogError(e);
                 }
 
-                if (error != null)
+                if (chatResult.Value.Exception != null)
                 {
                     try
                     {
-                        ChatExceptionThrow?.Invoke(error);
+                        ChatExceptionThrow?.Invoke(chatResult.Value.Exception);
                     }
                     catch (Exception ex)
                     {
@@ -238,21 +230,11 @@ public class ChatBot : IAsyncDisposable
                     }
                 }
 
-                try
-                {
-                    AlifeLog.LogInformation("[ChatBot] " + tokenUsage);
-                    TokenUsed?.Invoke(tokenUsage);
-                }
-                catch (Exception ex)
-                {
-                    AlifeLog.LogError(ex);
-                }
-
                 //对话完全结束
                 {
                     ChatContext chatContext = new() {
                         UserMessage = message.Content ?? "",
-                        AIMessage = aiMessage,
+                        AIMessage = chatResult.Value.AIMessage,
                         CancellationToken = cancellationToken,
                     };
 
@@ -278,14 +260,10 @@ public class ChatBot : IAsyncDisposable
                     {
                         AlifeLog.LogError(ex);
                     }
-
-                    return new ChatResult {
-                        AIMessage = aiMessage,
-                        AIThinking = aiThinking.ToString(),
-                        Exception = error
-                    };
                 }
             }
+
+            return chatResult.Value;
         }
         finally
         {
