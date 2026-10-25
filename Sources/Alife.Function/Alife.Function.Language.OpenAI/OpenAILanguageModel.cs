@@ -65,7 +65,7 @@ public class OpenAILanguageModel(
                     break;
                 }
             }
-            for (int i = userMessageIndex; i <= chatHistoryAgentThread.ChatHistory.Count; i++)
+            for (int i = userMessageIndex; i < chatHistoryAgentThread.ChatHistory.Count; i++)
             {
                 ChatMessageContent content = chatHistoryAgentThread.ChatHistory[i];
                 aiMessageBuilder.AppendLine(content.Content);

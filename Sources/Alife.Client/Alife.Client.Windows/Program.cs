@@ -44,8 +44,8 @@ static class Program
 
     static void UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        HandleException(e.Exception, nameof(UnobservedTaskException), false);
-        e.SetObserved();
+        // HandleException(e.Exception, nameof(UnobservedTaskException), false);
+        // e.SetObserved();
     }
     static void UnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
