@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Alife.Function.Client.TokenStatistics;
+namespace Alife.Function.TokenStatistics;
 
 public record struct TokenUsage
 {

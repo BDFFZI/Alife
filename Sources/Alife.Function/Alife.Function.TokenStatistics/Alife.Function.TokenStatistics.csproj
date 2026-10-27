@@ -1,0 +1,14 @@
+
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+      <RootNamespace>Alife.Function.TokenStatistics</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj"/>
+        <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj"/>
+        <ProjectReference Include="..\Alife.Function.FunctionCaller\Alife.Function.FunctionCaller.csproj"/>
+    </ItemGroup>
+
+</Project>

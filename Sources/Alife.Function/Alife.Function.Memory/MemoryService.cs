@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
-using Alife.Function.Client.TokenStatistics;
+using Alife.Function.TokenStatistics;
 using Alife.Function.FunctionCaller;
 using Alife.Function.MessageFilter;
 using Microsoft.Extensions.Logging;

@@ -10,7 +10,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Alife.Framework;
-using Alife.Function.Client.TokenStatistics;
+using Alife.Function.TokenStatistics;
 using Alife.Function.FunctionCaller;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;

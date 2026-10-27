@@ -1,3 +1,4 @@
+@attribute [SystemMenu("mirror","镜像配置","cloud-download",typeof(MirrorSettingsTab),10)]
 @inject INotificationService NotificationService
 
 <div style="padding: 24px; height: 100%; overflow-y: auto;">
@@ -26,11 +27,11 @@
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                 <Input Value="@item.Key" Style="flex: 1; font-size: 12px;" 
                        Placeholder="原始地址"
-                       OnChange="(string value) => OnKeyChanged(item.Key, value)"/>
+                       OnChange="@((string value) => OnKeyChanged(item.Key, value))"/>
                 <Icon Type="@IconType.Outline.ArrowRight" Style="flex-shrink: 0;"/>
                 <Input Value="@item.Value" Style="flex: 1; font-size: 12px;" 
                        Placeholder="镜像地址"
-                       OnChange="(string value) => OnValueChanged(item.Key, value)"/>
+                       OnChange="@((string value) => OnValueChanged(item.Key, value))"/>
                 <Button Danger Size="@ButtonSize.Small" Icon="@IconType.Outline.Delete" 
                         OnClick="() => OnRemoveUrlMap(item.Key)"/>
             </div>
@@ -54,11 +55,11 @@
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                 <Input Value="@item.Key" Style="flex: 1; font-size: 12px;" 
                        Placeholder="变量名"
-                       OnChange="(string value) => OnEnvKeyChanged(item.Key, value)"/>
+                       OnChange="@((string value) => OnEnvKeyChanged(item.Key, value))"/>
                 <Icon Type="@IconType.Outline.ArrowRight" Style="flex-shrink: 0;"/>
                 <Input Value="@item.Value" Style="flex: 2; font-size: 12px;" 
                        Placeholder="变量值"
-                       OnChange="(string value) => OnEnvValueChanged(item.Key, value)"/>
+                       OnChange="@((string value) => OnEnvValueChanged(item.Key, value))"/>
                 <Button Danger Size="@ButtonSize.Small" Icon="@IconType.Outline.Delete" 
                         OnClick="() => OnRemoveEnvVar(item.Key)"/>
             </div>

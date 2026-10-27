@@ -38,7 +38,7 @@
     <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Client/">
-    <Project Path="Sources/Alife.Function/Alife.Function.Client.TokenStatistics/Alife.Function.Client.TokenStatistics.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.TokenStatistics/Alife.Function.TokenStatistics.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Environment/">
     <Project Path="Sources/Alife.Function/Alife.Function.Memory/Alife.Function.Memory.csproj" />

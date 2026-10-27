@@ -3,6 +3,6 @@
   "Dependencies": {
     "Alife.Function.FunctionCaller": "",
     "Alife.Function.MessageFilter": "",
-    "Alife.Function.Client.TokenStatistics": ""
+    "Alife.Function.TokenStatistics": ""
   }
 }

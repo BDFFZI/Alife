@@ -1,5 +1,9 @@
+
 @page "/system"
 @implements IDisposable
+@using Alife.Framework
+@using System.Reflection
+@using System.Runtime.Loader
 
 <div
     style="height: calc(100vh - 24px); margin: 12px; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; animation: fadeIn 0.5s ease-out;">
@@ -10,65 +14,20 @@
 
     <div style="flex: 1; overflow: hidden;">
         <Tabs @bind-ActiveKey="activeKey" TabPosition="@TabPosition.Left" Style="height: 100%;">
-            <TabPane Key="overview">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.Home"/>
-                        <span style="font-size: 12px">系统配置</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <OverviewTab/>
-                </ChildContent>
-            </TabPane>
-
-            <TabPane Key="mirror">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.CloudDownload"/>
-                        <span style="font-size: 12px">镜像配置</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <MirrorSettingsTab/>
-                </ChildContent>
-            </TabPane>
-
-            <TabPane Key="module">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.AppstoreAdd"/>
-                        <span style="font-size: 12px">功能管理</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <ModuleCenterTab/>
-                </ChildContent>
-            </TabPane>
-
-            <TabPane Key="plugin">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.Shop"/>
-                        <span style="font-size: 12px">插件市场</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <PluginMarketTab/>
-                </ChildContent>
-            </TabPane>
-
-            <TabPane Key="pluginContext">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.Api"/>
-                        <span style="font-size: 12px">插件环境</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <PluginContextTab/>
-                </ChildContent>
-            </TabPane>
+            @foreach (var item in ScanMenuItems())
+            {
+                <TabPane Key="@item.Key">
+                    <TabTemplate>
+                        <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
+                            <Icon Type="@item.IconType"/>
+                            <span style="font-size: 12px">@item.Name</span>
+                        </Flex>
+                    </TabTemplate>
+                    <ChildContent>
+                        <DynamicComponent Type="@item.ContentComponent"/>
+                    </ChildContent>
+                </TabPane>
+            }
         </Tabs>
     </div>
 </div>
@@ -93,6 +52,57 @@
 
 @code {
     string activeKey = "overview";
+
+    /// <summary>菜单项快照（仅本界面消费，无需独立服务）。</summary>
+    sealed record MenuItem(string Key, string Name, string IconType, Type ContentComponent, int Order);
+
+    /// <summary>
+    /// 扫描所有已加载程序集中标记了 SystemMenuAttribute 的组件类型，按 Order 排序。
+    /// 扫描源用 AssemblyLoadContext.All：内置在 Default 上下文，插件在各自独立上下文，仅扫 AppDomain 会漏插件程序集。
+    /// </summary>
+    IReadOnlyList<MenuItem> ScanMenuItems()
+    {
+        List<MenuItem> items = new();
+        HashSet<Assembly> visited = new();
+
+        foreach (AssemblyLoadContext context in AssemblyLoadContext.All)
+        {
+            foreach (Assembly assembly in context.Assemblies)
+            {
+                if (!visited.Add(assembly))
+                    continue;
+
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException)
+                {
+                    continue;
+                }
+
+                foreach (Type type in types)
+                {
+                    SystemMenuAttribute? attribute = type.GetCustomAttribute<SystemMenuAttribute>();
+                    if (attribute == null)
+                        continue;
+
+                    items.Add(new MenuItem(
+                        attribute.Key,
+                        attribute.Name,
+                        attribute.IconType,
+                        attribute.ContentComponent,
+                        attribute.Order));
+                }
+            }
+        }
+
+        return items
+            .OrderBy(item => item.Order)
+            .ThenBy(item => item.Key, StringComparer.Ordinal)
+            .ToList();
+    }
 
     protected override void OnInitialized()
     {

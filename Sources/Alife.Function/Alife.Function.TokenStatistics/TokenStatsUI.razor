@@ -1,0 +1,193 @@
+
+@namespace Alife.Function.TokenStatistics
+@using Alife.Framework
+@using AntDesign
+@using AntDesign.TableModels
+@using DailyStat = Alife.Function.TokenStatistics.TokenStatisticsService.DailyStat
+@using TagStat = Alife.Function.TokenStatistics.TokenStatisticsService.TagStat
+@using PriceConfig = Alife.Function.TokenStatistics.TokenStatisticsService.PriceConfig
+@inject ChatActivitySystem ChatActivitySystem
+
+@attribute [SystemMenu("tokenStats","Token统计","bar-chart",typeof(TokenStatsUI),50)]
+
+<div style="padding: 24px; height: 100%; overflow-y: auto;">
+    <Title Level="4" Style="margin-bottom: 24px;">Token 统计</Title>
+
+    @if (characterStats.Count == 0)
+    {
+        <Empty Description="@("暂无角色统计数据")"/>
+    }
+    else
+    {
+        <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+            <Card Style="flex: 1; min-width: 200px;">
+                <Statistic Title="总花费" Value="@totalCost.ToString("F4")" Prefix="¥"/>
+            </Card>
+            <Card Style="flex: 1; min-width: 200px;">
+                <Statistic Title="总发言次数" Value="@totalChatCount"/>
+            </Card>
+            <Card Style="flex: 1; min-width: 200px;">
+                <Statistic Title="平均命中率" Value="@averageHitRateText"/>
+            </Card>
+        </div>
+
+        <Card Title="价格配置（每千Token单价，元）" Style="margin-bottom: 24px;">
+            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <Text>输入:</Text>
+                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.InputPricePerK"
+                                           Min="0" Step="0.001" Style="width: 120px;"/>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <Text>输出:</Text>
+                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.OutputPricePerK"
+                                           Min="0" Step="0.001" Style="width: 120px;"/>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <Text>缓存:</Text>
+                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.CachedPricePerK"
+                                           Min="0" Step="0.001" Style="width: 120px;"/>
+                </div>
+                <Button Type="@ButtonType.Primary" OnClick="SavePriceConfig">保存</Button>
+            </div>
+        </Card>
+
+        @foreach (var cs in characterStats)
+        {
+            <Card Title="@cs.CharacterName" Style="margin-bottom: 24px;">
+                @if (cs.DailyStats.Count > 0)
+                {
+                    <div style="margin-bottom: 16px;">
+                        <Text Strong>每日统计</Text>
+                        <Table TItem="DailyStat" DataSource="cs.DailyStats" Size="@TableSize.Small"
+                               Bordered Style="margin-top: 8px;">
+                            <Column Title="日期" TData="DailyStat">
+                                @((MarkupString)context.Date.ToString("yyyy-MM-dd"))
+                            </Column>
+                            <Column Title="总Token" TData="DailyStat">
+                                @((MarkupString)context.TotalTokens.ToString())
+                            </Column>
+                            <Column Title="输入" TData="DailyStat">
+                                @((MarkupString)context.InputTokens.ToString())
+                            </Column>
+                            <Column Title="输出" TData="DailyStat">
+                                @((MarkupString)context.OutputTokens.ToString())
+                            </Column>
+                            <Column Title="缓存" TData="DailyStat">
+                                @((MarkupString)context.CachedTokens.ToString())
+                            </Column>
+                            <Column Title="发言次数" TData="DailyStat">
+                                @((MarkupString)context.ChatCount.ToString())
+                            </Column>
+                            <Column Title="命中率" TData="DailyStat">
+                                @((MarkupString)context.HitRate.ToString("P1"))
+                            </Column>
+                            <Column Title="花费(元)" TData="DailyStat">
+                                @((MarkupString)context.Cost.ToString("F4"))
+                            </Column>
+                        </Table>
+                    </div>
+                }
+
+                @if (cs.TagStats.Count > 0)
+                {
+                    <div>
+                        <Text Strong>标签占比</Text>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                            @foreach (var tag in cs.TagStats)
+                            {
+                                <Tag Color="@TagColor.Default">@tag.Tag : @tag.Count</Tag>
+                            }
+                        </div>
+                    </div>
+                }
+            </Card>
+        }
+    }
+</div>
+
+@code {
+    List<CharacterStat> characterStats = new();
+    double totalCost;
+    int totalChatCount;
+    string averageHitRateText = "0.0%";
+    PriceConfig priceConfig = new();
+
+    protected override void OnInitialized()
+    {
+        LoadData();
+    }
+
+    void LoadData()
+    {
+        characterStats.Clear();
+        totalCost = 0;
+        totalChatCount = 0;
+        double hitRateSum = 0;
+        int hitRateCount = 0;
+        PriceConfig? firstPriceConfig = null;
+
+        foreach (var activity in ChatActivitySystem.GetAllChatActivities())
+        {
+            var module = activity.Container.Instances
+                .OfType<TokenStatisticsModule>()
+                .FirstOrDefault();
+
+            if (module?.Service == null) continue;
+
+            var service = module.Service;
+            var dailyStats = service.GetDailyStats().ToList();
+            var tagStats = service.GetTagStats().ToList();
+            var overview = service.GetOverview();
+
+            var charName = activity.Character?.Name ?? "未知角色";
+            characterStats.Add(new CharacterStat
+            {
+                CharacterName = charName,
+                DailyStats = dailyStats,
+                TagStats = tagStats
+            });
+
+            totalCost += overview.TotalCost;
+            totalChatCount += overview.TotalChatCount;
+            if (overview.AverageHitRate > 0)
+            {
+                hitRateSum += overview.AverageHitRate;
+                hitRateCount++;
+            }
+
+            if (firstPriceConfig == null)
+            {
+                firstPriceConfig = service.GetPriceConfig();
+            }
+        }
+
+        double averageHitRate = hitRateCount > 0 ? hitRateSum / hitRateCount : 0;
+        averageHitRateText = averageHitRate.ToString("P1");
+        priceConfig = firstPriceConfig ?? new PriceConfig();
+    }
+
+    void SavePriceConfig()
+    {
+        foreach (var activity in ChatActivitySystem.GetAllChatActivities())
+        {
+            var module = activity.Container.Instances
+                .OfType<TokenStatisticsModule>()
+                .FirstOrDefault();
+
+            if (module?.Service != null)
+            {
+                module.Service.SetPriceConfig(priceConfig);
+            }
+        }
+        LoadData();
+        StateHasChanged();
+    }
+
+    class CharacterStat
+    {
+        public string CharacterName { get; set; } = "";
+        public List<DailyStat> DailyStats { get; set; } = new();
+        public List<TagStat> TagStats { get; set; } = new();
+    }
+}
