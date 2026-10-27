@@ -1,7 +1,6 @@
 
 @page "/system"
 @implements IDisposable
-@using Alife.Framework
 @using System.Reflection
 @using System.Runtime.Loader
 
@@ -24,7 +23,7 @@
                         </Flex>
                     </TabTemplate>
                     <ChildContent>
-                        <DynamicComponent Type="@item.ContentComponent"/>
+                        <DynamicComponent Type="@item.ContentType"/>
                     </ChildContent>
                 </TabPane>
             }
@@ -54,7 +53,7 @@
     string activeKey = "overview";
 
     /// <summary>菜单项快照（仅本界面消费，无需独立服务）。</summary>
-    sealed record MenuItem(string Key, string Name, string IconType, Type ContentComponent, int Order);
+    sealed record MenuItem(string Key, string Name, string IconType, Type ContentType, int Order);
 
     /// <summary>
     /// 扫描所有已加载程序集中标记了 SystemMenuAttribute 的组件类型，按 Order 排序。
@@ -92,7 +91,7 @@
                         attribute.Key,
                         attribute.Name,
                         attribute.IconType,
-                        attribute.ContentComponent,
+                        type,
                         attribute.Order));
                 }
             }

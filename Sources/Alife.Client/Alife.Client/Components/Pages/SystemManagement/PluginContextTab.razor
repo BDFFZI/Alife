@@ -1,5 +1,4 @@
-
-@attribute [SystemMenu("pluginContext","插件环境","api",typeof(PluginContextTab),40)]
+@attribute [SystemMenu("pluginContext", "插件环境", "api", 40)]
 @inject PluginContext PluginContext
 @inject PluginSystem PluginSystem
 @inject INotificationService NotificationService
@@ -172,8 +171,7 @@
 
     void OnPluginEnvironmentSynced(PluginSyncReport obj)
     {
-        InvokeAsync(() =>
-        {
+        InvokeAsync(() => {
             LoadPlugins();
             StateHasChanged();
         });

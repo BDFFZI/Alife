@@ -1,5 +1,4 @@
-
-@attribute [SystemMenu("plugin","插件市场","shop",typeof(PluginMarketTab),30)]
+@attribute [SystemMenu("plugin", "插件市场", "shop", 30)]
 @inject PluginSystem PluginSystem
 @inject IJSRuntime JsRuntime
 @inject StorageSystem StorageSystem
@@ -13,7 +12,8 @@
         <div style="display: flex; align-items: center; gap: 4px;">
             <Title Level="4" Style="margin: 0;">插件市场</Title>
             <Tooltip Title="使用插件前必读的安全须知">
-                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.InfoCircle" OnClick="@(() => showNoticeModal = true)"
+                <Button Type="@ButtonType.Link" Icon="@IconType.Outline.InfoCircle"
+                        OnClick="@(() => showNoticeModal = true)"
                         Class="@("notice-btn" + (showNoticeModal || hideNoticeAnimation ? " notice-paused" : ""))">
                     使用须知
                 </Button>
@@ -237,7 +237,8 @@
        Width="560"
        Centered="true">
     <div style="height: 420px; overflow-y: auto; line-height: 1.9; font-size: 14px;">
-        <Alert Message="插件极其危险" Description="任何人都可以开发插件，因此要小心存在不法分子的情况。优先选择熟知，来源可信，结构干净的插件。同时，使用前一定要先让 AI 分析其源码，然后再谨慎使用。如果遇到有问题的插件，请及时在 Github 页或用其他途径向官方反馈。"
+        <Alert Message="插件极其危险"
+               Description="任何人都可以开发插件，因此要小心存在不法分子的情况。优先选择熟知，来源可信，结构干净的插件。同时，使用前一定要先让 AI 分析其源码，然后再谨慎使用。如果遇到有问题的插件，请及时在 Github 页或用其他途径向官方反馈。"
                Type="@AlertType.Error" ShowIcon="true" Style="margin-bottom: 16px;"/>
         <Divider Style="margin: 16px 0;"/>
         <div style="padding: 4px 0;">
@@ -507,7 +508,7 @@
             return columns * rows;
         }
     }
-    
+
     async Task FetchOnlinePlugin()
     {
         isFetching = true;
@@ -529,6 +530,7 @@
     }
 
     #region 页面功能回调
+
     void OpenPluginFolder()
     {
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
@@ -551,13 +553,14 @@
         PagePlugins();
     }
 
-void OnHideNoticeAnimationChanged(bool checkedValue)
+    void OnHideNoticeAnimationChanged(bool checkedValue)
     {
         var config = StorageSystem.GetObject("Settings/PluginNoticeConfig", new NoticeAnimationConfig()) ?? new NoticeAnimationConfig();
         config.HideNoticeAnimation = hideNoticeAnimation;
         StorageSystem.SetObject("Settings/PluginNoticeConfig", config);
         StateHasChanged();
     }
+
     #endregion
 
     class NoticeAnimationConfig
@@ -566,6 +569,7 @@ void OnHideNoticeAnimationChanged(bool checkedValue)
     }
 
     #region 插件选项回调
+
     void ToggleCart(PluginPackage plugin, bool addToCart)
     {
         if (addToCart)
@@ -583,6 +587,7 @@ void OnHideNoticeAnimationChanged(bool checkedValue)
     {
         inspectingPlugin = pluginPackage;
     }
+
     #endregion
 
     readonly string[] tagColorPool = ["#f50", "#2db7f5", "#87d068", "#108ee9", "#f56a00", "#722ed1", "#eb2f96", "#52c41a", "#1890ff", "#faad14"];
