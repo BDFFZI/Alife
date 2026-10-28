@@ -56,7 +56,14 @@
     <div style="flex: 1; overflow: auto; min-width: 0; padding: 16px 0;">
         @if (moduleAttribute.EditorUI != null && typeof(IComponent).IsAssignableFrom(moduleAttribute.EditorUI))
         {
-            <DynamicComponent Type="moduleAttribute.EditorUI" Parameters="@(GetParameters()!)"/>
+            <PluginErrorBoundary @key="@("editor#" + boundaryRevision)">
+                <ChildContent>
+                    <DynamicComponent Type="moduleAttribute.EditorUI" Parameters="@(GetParameters()!)"/>
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <PluginErrorPanel Value="ex" OnRetry="@(() => boundaryRevision++)"/>
+                </ErrorContent>
+            </PluginErrorBoundary>
         }
         else
         {
@@ -77,6 +84,8 @@
 </div>
 
 @code {
+    // 插件界面出错后重新加载时递增，用于强制重建错误边界
+    int boundaryRevision;
     [Parameter] public Type ModuleType { get; set; } = null!;
     [Parameter] public ChatActivity? ChatActivity { get; set; }
     [Parameter] public Character? Character { get; set; }

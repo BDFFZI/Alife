@@ -1,0 +1,74 @@
+@namespace Alife.Client.Components.Shared.Common
+
+@* 插件界面渲染失败时的占位面板：只展示信息与重试，不打断其它功能。 *@
+@if (Silent)
+{
+    @* 静默模式：仅由 PluginErrorBoundary 写日志，不渲染任何内容（用于全局浮层）。 *@
+}
+else
+{
+    <div class="plugin-error-panel">
+        <div class="plugin-error-head">
+            <Icon Type="@IconType.Outline.Warning" Style="color:#faad14; margin-right:6px;"/>
+            <span class="plugin-error-title">该插件界面加载失败</span>
+        </div>
+        <div class="plugin-error-message">@(Value?.Message ?? "未知错误")</div>
+        <div class="plugin-error-hint">错误已写入日志，不影响其它功能。常见原因：插件编译产物与当前框架版本不匹配，或界面参数不合法。</div>
+        @if (OnRetry.HasDelegate)
+        {
+            <Button Size="@ButtonSize.Small" OnClick="OnRetry">重新加载该界面</Button>
+        }
+    </div>
+}
+
+<style>
+    .plugin-error-panel {
+        margin: 16px;
+        padding: 14px 16px;
+        border: 1px solid #ffe58f;
+        background: #fffbe6;
+        border-radius: 8px;
+        color: rgba(0,0,0,0.75);
+    }
+
+    .plugin-error-head {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .plugin-error-title {
+        font-weight: 600;
+        font-size: 13px;
+        color: rgba(0,0,0,0.85);
+    }
+
+    .plugin-error-message {
+        font-size: 12px;
+        color: #d4380d;
+        word-break: break-word;
+        margin-bottom: 6px;
+        font-family: Consolas, "Courier New", monospace;
+    }
+
+    .plugin-error-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+        margin-bottom: 10px;
+        line-height: 1.6;
+    }
+</style>
+
+@code {
+    /// <summary>出错的异常。</summary>
+    [Parameter]
+    public Exception? Value { get; set; }
+
+    /// <summary>是否静默（不渲染界面，只写日志）。</summary>
+    [Parameter]
+    public bool Silent { get; set; }
+
+    /// <summary>重试回调。</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+}

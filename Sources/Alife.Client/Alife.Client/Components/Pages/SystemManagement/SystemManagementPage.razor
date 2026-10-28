@@ -1,6 +1,8 @@
 
 @page "/system"
 @implements IDisposable
+@using Alife.Foundation
+@using System.Linq
 @using System.Reflection
 @using System.Runtime.Loader
 
@@ -23,7 +25,14 @@
                         </Flex>
                     </TabTemplate>
                     <ChildContent>
-                        <DynamicComponent Type="@item.ContentType"/>
+                        <PluginErrorBoundary @key="@(item.Key + "#" + boundaryRevision)">
+                            <ChildContent>
+                                <DynamicComponent Type="@item.ContentType"/>
+                            </ChildContent>
+                            <ErrorContent Context="ex">
+                                <PluginErrorPanel Value="ex" OnRetry="@(() => boundaryRevision++)"/>
+                            </ErrorContent>
+                        </PluginErrorBoundary>
                     </ChildContent>
                 </TabPane>
             }
@@ -37,20 +46,27 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        /* flex 子项默认 min-width:auto 会被内容撑宽，导致内容溢出到窗口右侧 */
+        min-width: 0;
     }
 
     .ant-tabs-content {
         height: 100%;
+        min-width: 0;
     }
 
     .ant-tabs-tabpane {
         height: 100%;
         overflow: hidden;
+        min-width: 0;
     }
 </style>
 
 @code {
     string activeKey = "overview";
+
+    // 插件界面出错后“重新加载”时递增，用于强制重建错误边界与其内容
+    int boundaryRevision;
 
     /// <summary>菜单项快照（仅本界面消费，无需独立服务）。</summary>
     sealed record MenuItem(string Key, string Name, string IconType, Type ContentType, int Order);
@@ -76,14 +92,33 @@
                 {
                     types = assembly.GetTypes();
                 }
-                catch (ReflectionTypeLoadException)
+                catch (ReflectionTypeLoadException e)
                 {
+                    //部分类型加载失败时，用能加载的那部分继续，不整体丢弃
+                    AlifeLog.LogError(new Exception($"扫描菜单时程序集 {assembly.GetName().Name} 部分类型加载失败。", e));
+                    types = e.Types.OfType<Type>().ToArray();
+                }
+                catch (Exception e)
+                {
+                    //插件与当前框架不兼容（如方法签名已变化、依赖缺失）时，整个程序集跳过，避免界面崩溃
+                    AlifeLog.LogError(new Exception($"扫描菜单时程序集 {assembly.GetName().Name} 加载失败，已跳过该程序集。", e));
                     continue;
                 }
 
                 foreach (Type type in types)
                 {
-                    SystemMenuAttribute? attribute = type.GetCustomAttribute<SystemMenuAttribute>();
+                    //单个类型的特性读取可能因签名不匹配而失败（如插件按旧版 SystemMenuAttribute 构造签名编译），只跳过该类型
+                    SystemMenuAttribute? attribute;
+                    try
+                    {
+                        attribute = type.GetCustomAttribute<SystemMenuAttribute>();
+                    }
+                    catch (Exception e)
+                    {
+                        AlifeLog.LogError(new Exception($"读取类型 {type.FullName} 的 SystemMenu 特性失败，已跳过该类型。", e));
+                        continue;
+                    }
+
                     if (attribute == null)
                         continue;
 

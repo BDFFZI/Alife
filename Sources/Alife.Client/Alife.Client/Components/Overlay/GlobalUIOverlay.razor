@@ -1,9 +1,16 @@
-﻿@inject ModuleSystem ModuleSystem
+@inject ModuleSystem ModuleSystem
 @implements IDisposable
 
 @foreach (var (moduleType, componentType) in components)
 {
-    <DynamicComponent @key="moduleType" Type="componentType"/>
+    <PluginErrorBoundary @key="@("overlay#" + moduleType.FullName)">
+        <ChildContent>
+            <DynamicComponent @key="moduleType" Type="componentType"/>
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <PluginErrorPanel Value="ex" Silent="true"/>
+        </ErrorContent>
+    </PluginErrorBoundary>
 }
 
 @code {
