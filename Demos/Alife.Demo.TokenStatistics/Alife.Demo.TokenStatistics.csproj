@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Sources\Alife.Function\Alife.Function.TokenStatistics\Alife.Function.TokenStatistics.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -1,193 +1,3112 @@
-
 @namespace Alife.Function.TokenStatistics
 @using Alife.Framework
 @using AntDesign
-@using AntDesign.TableModels
-@using DailyStat = Alife.Function.TokenStatistics.TokenStatisticsService.DailyStat
-@using TagStat = Alife.Function.TokenStatistics.TokenStatisticsService.TagStat
-@using PriceConfig = Alife.Function.TokenStatistics.TokenStatisticsService.PriceConfig
-@inject ChatActivitySystem ChatActivitySystem
+@inject IServiceProvider ServiceProvider
 
-@attribute [SystemMenu("tokenStats","Token统计","bar-chart",typeof(TokenStatsUI),50)]
+@attribute [SystemMenu("tokenStats","Token统计","bar-chart",50)]
 
-<div style="padding: 24px; height: 100%; overflow-y: auto;">
-    <Title Level="4" Style="margin-bottom: 24px;">Token 统计</Title>
+<div class="ts-page">
+    <div class="ts-head">
+        <div class="ts-head-main">
+            <div class="ts-title">Token 统计</div>
+            <div class="ts-sub">按角色与时间段分析对话开销、标签与函数分布。数据直接读取角色记录，未激活角色同样可查看。</div>
+        </div>
+        <div class="ts-head-actions">
+            <span class="ts-label">角色</span>
+            <Select TItemValue="string" TItem="string"
+                    DataSource="@characters"
+                    @bind-Value="selectedCharacter"
+                    @bind-Value:after="OnCharacterChanged"
+                    Placeholder="选择角色"
+                    Style="width: 160px;"/>
+            <Button Icon="@IconType.Outline.Reload" OnClick="@Reload">刷新</Button>
+        </div>
+    </div>
 
-    @if (characterStats.Count == 0)
+    @if (characters.Count == 0)
     {
-        <Empty Description="@("暂无角色统计数据")"/>
+        <div class="ts-empty">
+            <Empty Description="@("还没有任何角色数据")"/>
+        </div>
     }
     else
     {
-        <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
-            <Card Style="flex: 1; min-width: 200px;">
-                <Statistic Title="总花费" Value="@totalCost.ToString("F4")" Prefix="¥"/>
-            </Card>
-            <Card Style="flex: 1; min-width: 200px;">
-                <Statistic Title="总发言次数" Value="@totalChatCount"/>
-            </Card>
-            <Card Style="flex: 1; min-width: 200px;">
-                <Statistic Title="平均命中率" Value="@averageHitRateText"/>
-            </Card>
-        </div>
-
-        <Card Title="价格配置（每千Token单价，元）" Style="margin-bottom: 24px;">
-            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <Text>输入:</Text>
-                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.InputPricePerK"
-                                           Min="0" Step="0.001" Style="width: 120px;"/>
+            <div class="ts-card ts-price-card">
+                <div class="ts-card-head">
+                    <div class="ts-card-title">价格配置</div>
+                    <div class="ts-card-sub">配置库全局共享；每个角色各自记住选用的配置</div>
+                    <div style="flex:1;"></div>
+                    @if (PriceDirty)
+                    {
+                        <span class="ts-pc-dirty">未保存</span>
+                    }
+                    <Button Size="@ButtonSize.Small" OnClick="TogglePriceConfig">@(showPriceConfig ? "收起" : "编辑")</Button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <Text>输出:</Text>
-                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.OutputPricePerK"
-                                           Min="0" Step="0.001" Style="width: 120px;"/>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <Text>缓存:</Text>
-                    <AntDesign.InputNumber TValue="double" @bind-Value="priceConfig.CachedPricePerK"
-                                           Min="0" Step="0.001" Style="width: 120px;"/>
-                </div>
-                <Button Type="@ButtonType.Primary" OnClick="SavePriceConfig">保存</Button>
-            </div>
-        </Card>
 
-        @foreach (var cs in characterStats)
-        {
-            <Card Title="@cs.CharacterName" Style="margin-bottom: 24px;">
-                @if (cs.DailyStats.Count > 0)
-                {
-                    <div style="margin-bottom: 16px;">
-                        <Text Strong>每日统计</Text>
-                        <Table TItem="DailyStat" DataSource="cs.DailyStats" Size="@TableSize.Small"
-                               Bordered Style="margin-top: 8px;">
-                            <Column Title="日期" TData="DailyStat">
-                                @((MarkupString)context.Date.ToString("yyyy-MM-dd"))
-                            </Column>
-                            <Column Title="总Token" TData="DailyStat">
-                                @((MarkupString)context.TotalTokens.ToString())
-                            </Column>
-                            <Column Title="输入" TData="DailyStat">
-                                @((MarkupString)context.InputTokens.ToString())
-                            </Column>
-                            <Column Title="输出" TData="DailyStat">
-                                @((MarkupString)context.OutputTokens.ToString())
-                            </Column>
-                            <Column Title="缓存" TData="DailyStat">
-                                @((MarkupString)context.CachedTokens.ToString())
-                            </Column>
-                            <Column Title="发言次数" TData="DailyStat">
-                                @((MarkupString)context.ChatCount.ToString())
-                            </Column>
-                            <Column Title="命中率" TData="DailyStat">
-                                @((MarkupString)context.HitRate.ToString("P1"))
-                            </Column>
-                            <Column Title="花费(元)" TData="DailyStat">
-                                @((MarkupString)context.Cost.ToString("F4"))
-                            </Column>
-                        </Table>
-                    </div>
-                }
-
-                @if (cs.TagStats.Count > 0)
-                {
-                    <div>
-                        <Text Strong>标签占比</Text>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                            @foreach (var tag in cs.TagStats)
+                <div class="ts-pc-row">
+                    <div class="ts-pc-label">当前配置</div>
+                    <div class="ts-pc-value">
+                        <RadioGroup TValue="string" Value="@selectedProfileId" ValueChanged="@OnProfileChanged" ButtonStyle="@RadioButtonStyle.Solid">
+                            @foreach (var profile in priceProfiles)
                             {
-                                <Tag Color="@TagColor.Default">@tag.Tag : @tag.Count</Tag>
+                                <Radio RadioButton Value="@profile.Id">@profile.Name</Radio>
+                            }
+                        </RadioGroup>
+                        <Button Size="@ButtonSize.Small" OnClick="DuplicateProfile">复制当前</Button>
+                        <Button Size="@ButtonSize.Small" OnClick="DeleteProfile" Disabled="@priceProfile.IsDefault">删除</Button>
+                    </div>
+                </div>
+
+                @if (showPriceConfig)
+                {
+                    <div class="ts-pc-section">
+                        <div class="ts-pc-section-head">
+                            <span class="ts-pc-section-title">基线单价</span>
+                            <span class="ts-pc-section-hint">没有命中任何覆盖规则时使用（元 / 百万 tokens）</span>
+                        </div>
+
+                        <div class="ts-pc-row">
+                            <div class="ts-pc-label">缓存命中</div>
+                            <div class="ts-pc-value">
+                                <InputNumber TValue="double" Min="0" Step="0.01" @bind-Value="priceProfile.Baseline.InputHitPerM" Style="width:120px;" />
+                            </div>
+                        </div>
+                        <div class="ts-pc-row">
+                            <div class="ts-pc-label">输入未命中</div>
+                            <div class="ts-pc-value">
+                                <InputNumber TValue="double" Min="0" Step="0.1" @bind-Value="priceProfile.Baseline.InputMissPerM" Style="width:120px;" />
+                            </div>
+                        </div>
+                        <div class="ts-pc-row">
+                            <div class="ts-pc-label">输出</div>
+                            <div class="ts-pc-value">
+                                <InputNumber TValue="double" Min="0" Step="0.1" @bind-Value="priceProfile.Baseline.OutputPerM" Style="width:120px;" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ts-pc-section">
+                        <div class="ts-pc-section-head">
+                            <span class="ts-pc-section-title">时间覆盖规则</span>
+                            <span class="ts-pc-section-hint">在这些时段改用另一套单价；留空则全时段按基线价</span>
+                        </div>
+
+                        @for (int i = 0; i < ruleEdits.Count; i++)
+                        {
+                            var edit = ruleEdits[i];
+                            int ruleIndex = i + 1;
+                            <div class="ts-pc-rule">
+                                <div class="ts-pc-rule-head">
+                                    <span class="ts-pc-rule-index">规则 @ruleIndex</span>
+                                    <span class="ts-pc-inline-label">名称</span>
+                                    <Input @bind-Value="edit.Rule.Name" Style="width:120px;" />
+                                    <Checkbox @bind-Value="edit.Rule.WorkdaysOnly">仅工作日</Checkbox>
+                                    <div style="flex:1;"></div>
+                                    <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" OnClick="@(() => RemoveRule(edit))">删除规则</Button>
+                                </div>
+
+                                <div class="ts-pc-row">
+                                    <div class="ts-pc-label">时段</div>
+                                    <div class="ts-pc-value ts-pc-windows">
+                                        @for (int w = 0; w < edit.Windows.Count; w++)
+                                        {
+                                            var window = edit.Windows[w];
+                                            <span class="ts-pc-window">
+                                                <Input @bind-Value="window.StartText" Style="width:76px;" />
+                                                <span class="ts-pc-unit">—</span>
+                                                <Input @bind-Value="window.EndText" Style="width:76px;" />
+                                                <Button Type="@ButtonType.Link" Danger="true" Size="@ButtonSize.Small" OnClick="@(() => RemoveWindow(edit, window))">×</Button>
+                                            </span>
+                                        }
+                                        <Button Size="@ButtonSize.Small" OnClick="@(() => AddWindow(edit))">+ 加时段</Button>
+                                    </div>
+                                </div>
+
+                                <div class="ts-pc-row">
+                                    <div class="ts-pc-label">单价</div>
+                                    <div class="ts-pc-value">
+                                        <span class="ts-pc-inline-label">缓存</span>
+                                        <InputNumber TValue="double" Min="0" Step="0.01" @bind-Value="edit.Rule.Prices.InputHitPerM" Style="width:110px;" />
+                                        <span class="ts-pc-inline-label">输入</span>
+                                        <InputNumber TValue="double" Min="0" Step="0.1" @bind-Value="edit.Rule.Prices.InputMissPerM" Style="width:110px;" />
+                                        <span class="ts-pc-inline-label">输出</span>
+                                        <InputNumber TValue="double" Min="0" Step="0.1" @bind-Value="edit.Rule.Prices.OutputPerM" Style="width:110px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (ruleEdits.Count == 0)
+                        {
+                            <div class="ts-pc-empty">当前配置没有覆盖规则，全时段按基线价（大多数模型就是这样）。</div>
+                        }
+
+                        <div class="ts-pc-row">
+                            <div class="ts-pc-label"></div>
+                            <div class="ts-pc-value">
+                                <Button Size="@ButtonSize.Small" OnClick="AddRule">+ 加一个覆盖规则</Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ts-pc-actions">
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="SavePriceProfile">保存并重算</Button>
+                        <Button Size="@ButtonSize.Small" OnClick="ResetPriceProfile" Disabled="@(!priceProfile.IsDefault)">恢复内置默认</Button>
+                        <div style="flex:1;"></div>
+                        <span class="ts-pc-hint">节假日：@holidayStatus</span>
+                        <Button Size="@ButtonSize.Small" OnClick="RefreshHolidays">刷新节假日</Button>
+                    </div>
+
+                    <div class="ts-pc-footer">
+                        <div>库文件：@ShortenPath(TokenStatisticsLocator.PriceProfilesFile)</div>
+                        <div>本角色选择：@ShortenPath(TokenStatisticsLocator.PriceFileFor(selectedCharacter))</div>
+                        <div>
+                            节假日缓存：@HolidayCalendar.CacheTtlDays 天过期
+                            @if (holidayRefreshedAt.HasValue)
+                            {
+                                <text> · 上次读取 @holidayRefreshedAt.Value.ToString("MM-dd HH:mm:ss")</text>
                             }
                         </div>
                     </div>
                 }
-            </Card>
+                else
+                {
+                    <div class="ts-pc-summary">
+                        <span class="ts-pc-chip">基线 · 缓存 ¥@priceProfile.Baseline.InputHitPerM / 输入 ¥@priceProfile.Baseline.InputMissPerM / 输出 ¥@priceProfile.Baseline.OutputPerM</span>
+                        <span class="ts-pc-chip">覆盖 · @OverrideText(priceProfile)</span>
+                        <span class="ts-pc-chip">节假日 · @holidayStatus</span>
+                    </div>
+                }
+            </div>
+
+        <div class="ts-card">
+            <div class="ts-card-head">
+                <div class="ts-card-title">时间范围</div>
+                <div class="ts-card-sub">下面三块（总览 / 用量走势 / 诊断摘要）都按这个范围统计</div>
+            </div>
+        <div class="ts-toolbar">
+            <div class="ts-tool-group">
+                <span class="ts-label">基准日</span>
+                <DatePicker TValue="DateTime?" Value="@RangeAnchorDate" ValueChanged="@OnRangeAnchorChanged"
+                            Format="yyyy-MM-dd" Style="width: 150px;" />
+            </div>
+
+            <div class="ts-tool-group">
+                <span class="ts-label">跨度</span>
+                <RadioGroup TValue="int" Value="@spanDays" ValueChanged="@(OnSpanDaysChanged)" ButtonStyle="@RadioButtonStyle.Solid">
+                    <Radio RadioButton Value="1">1 天</Radio>
+                    <Radio RadioButton Value="7">7 天</Radio>
+                    <Radio RadioButton Value="30">30 天</Radio>
+                </RadioGroup>
+                <InputNumber TValue="int" Min="1" Max="365" @bind-Value="SpanInput" Style="width: 88px;" />
+                <span class="ts-label">天</span>
+            </div>
+
+            <div class="ts-tool-group">
+                <Button Size="@ButtonSize.Small" OnClick="PagePreviousRange">上一段</Button>
+                <Button Size="@ButtonSize.Small" OnClick="PageNextRange" Disabled="@(!CanPageNext)">下一段</Button>
+            </div>
+
+            <div class="ts-tool-group">
+                <span class="ts-range-text">@RangeText</span>
+            </div>
+        </div>
+
+        </div>
+
+
+        @if (summary.ChatCount == 0)
+        {
+            <div class="ts-empty">
+                <Empty Description="@("该时间段内没有对话记录")"/>
+                <div class="ts-empty-tip">
+                    @if (HasRecordsInWindow)
+                    {
+                        <text>当前「记录区间」里没有数据，把上面的区间滑块拉开或点「重置」即可恢复。</text>
+                    }
+                    else
+                    {
+                        <text>角色下次对话后会自动生成记录；记录保存在 @RecordsHint</text>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="ts-kpis">
+                @foreach (var kpi in kpis)
+                {
+                    <div class="ts-kpi">
+                        <div class="ts-kpi-label">@kpi.Label</div>
+                        <div class="ts-kpi-value">@kpi.Value</div>
+                        <div class="ts-kpi-foot">@kpi.Foot</div>
+                    </div>
+                }
+            </div>
+
+
+            <div class="ts-card">
+                <div class="ts-card-head">
+                <div class="ts-card-title">用量走势</div>
+                    <div class="ts-mode-toggles">
+                        <Checkbox @bind-Value="normalizeMode">归一化</Checkbox>
+                        <Checkbox @bind-Value="costMode">按价格口径</Checkbox>
+                    </div>
+                </div>
+
+                <div class="ts-legend" style="margin-bottom:6px;">
+                    <span class="ts-legend-item">
+                        <span class="ts-legend-dot" style="background:#36cfc9"></span>
+                        <Checkbox @bind-Value="showCached">缓存</Checkbox>
+                    </span>
+                    <span class="ts-legend-item">
+                        <span class="ts-legend-dot" style="background:#1677ff"></span>
+                        <Checkbox @bind-Value="showInput">输入</Checkbox>
+                    </span>
+                    <span class="ts-legend-item">
+                        <span class="ts-legend-dot" style="background:#9254de"></span>
+                        <Checkbox @bind-Value="showOutput">输出</Checkbox>
+                    </span>
+                </div>
+                <div class="ts-chart-caption">@DisplayModeCaption</div>
+
+                <div class="ts-chart">
+                    <div class="ts-chart-axis">
+                        <span>@AxisTopText</span>
+                        <span>@AxisMidText</span>
+                        <span>0</span>
+                    </div>
+                    <div class="ts-chart-body">
+                        <div class="ts-grid-line" style="top: 0;"></div>
+                        <div class="ts-grid-line" style="top: 50%;"></div>
+                        <div class="ts-grid-line" style="top: 100%;"></div>
+                        <div class="ts-bars">
+                            @foreach (var bucket in buckets)
+                            {
+                                <div class="ts-bar-col">
+                                    <div class="ts-bar-holder">
+                                        @foreach (var series in ActiveSeries)
+                                        {
+                                            <div class="ts-bar" style="@BarStyle(bucket, series)" title="@($"{series.Label}: {FormatSeriesValue(series, bucket)}")"></div>
+                                        }
+                                    </div>
+                                    <div class="ts-bar-label">@(ShouldShowLabel(bucket) ? bucket.Label : "")</div>
+
+                                    <div class="ts-tip">
+                                        <div class="ts-tip-title">@bucket.FullLabel</div>
+                                        <div class="ts-tip-row"><span>对话次数</span><b>@bucket.ChatCount</b></div>
+                                        @if (showCached)
+                                        {
+                                            <div class="ts-tip-row"><span>缓存</span><b>@bucket.InputCached.ToString("N0")（¥@bucket.InputHitCost.ToString("F4")）</b></div>
+                                        }
+                                        @if (showInput)
+                                        {
+                                            <div class="ts-tip-row"><span>输入</span><b>@((bucket.InputTotal - bucket.InputCached).ToString("N0"))（¥@bucket.InputMissCost.ToString("F4")）</b></div>
+                                        }
+                                        @if (showOutput)
+                                        {
+                                            <div class="ts-tip-row"><span>输出</span><b>@bucket.OutputTotal.ToString("N0")（¥@bucket.OutputCost.ToString("F4")）</b></div>
+                                        }
+                                        <div class="ts-tip-row"><span>命中率</span><b>@BucketHitRate(bucket)</b></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    @if (ShowRightAxis)
+                    {
+                        <div class="ts-chart-axis ts-chart-axis-right">
+                            <span>@FormatCostValue(niceCostMax)</span>
+                            <span>@FormatCostValue(niceCostMax / 2)</span>
+                            <span>0</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="ts-card">
+                <div class="ts-card-head">
+                    <div class="ts-card-title">诊断摘要</div>
+                    <div class="ts-card-sub">基于上方时间范围自动生成</div>
+                </div>
+                @if (insights.Count == 0)
+                {
+                    <div style="color: rgba(0,0,0,0.35); font-size: 12px;">该范围内数据不足，暂无法诊断</div>
+                }
+                else
+                {
+                    @foreach (var insight in insights)
+                    {
+                        <div class="ts-insight @InsightClass(insight.Level)">
+                            <div class="ts-insight-title">@insight.Title</div>
+                            <div class="ts-insight-detail">@insight.Detail</div>
+                            <div class="ts-insight-advice">→ @insight.Advice</div>
+                            <div class="ts-insight-basis">@insight.Basis</div>
+                        </div>
+                    }
+                }
+            </div>
+
+        <div class="ts-divider"></div>
+
+        <div class="ts-card">
+            <div class="ts-card-head">
+                <div class="ts-card-title">明细筛选</div>
+                <div class="ts-card-sub">在上面的对话里再收窄，只影响「排行榜 / 对话记录」</div>
+            </div>
+                    <div class="ts-record-range">
+                        <div class="ts-record-range-head">
+                            <span class="ts-label">记录区间</span>
+                            <span class="ts-record-range-text">@recordsFrom.ToString("MM-dd HH:mm") ~ @recordsTo.ToString("MM-dd HH:mm")</span>
+                            <Button Size="@ButtonSize.Small" OnClick="ResetRecordRange">重置</Button>
+                        </div>
+                        <Slider TValue="(double, double)" Range="true" Min="0" Max="1000" Step="1"
+                                Value="@recordRange" OnAfterChange="@OnRecordRangeChanged" TipFormatter="@FormatRangeTip" />
+                        <div class="ts-slider-scale">
+                            <span>@viewFrom.ToString("MM-dd HH:mm")</span>
+                            <span>@SliderMidTime.ToString("MM-dd HH:mm")</span>
+                            <span>@viewTo.ToString("MM-dd HH:mm")</span>
+                        </div>
+                    </div>
+                        <div class="ts-filter">
+                            <div class="ts-filter-card">
+                                <div class="ts-filter-card-head">
+                                    <span class="ts-filter-card-title">参与统计的名字</span>
+                                    <span class="ts-filter-card-desc">蓝色=参与 · 灰色划线=已排除（不计入排行与分摊，原始记录不受影响）。点名字可单独排除该来源</span>
+                                    <Button Size="@ButtonSize.Small" Type="@ButtonType.Link" Style="margin-left:auto; padding:0;"
+                                            OnClick="ResetExcluded">全部恢复参与</Button>
+                                </div>
+                                <div class="ts-chips">
+                                    @foreach (string name in knownNames)
+                                    {
+                                        <Button Size="@ButtonSize.Small" Class="@ChipClass(!IsExcluded(name))"
+                                                OnClick="@(() => SetExcluded(name, IsExcluded(name)))">@name</Button>
+                                    }
+                                </div>
+                            </div>
+    
+                            @if (parameterizedNames.Count > 0)
+                            {
+                                <div class="ts-filter-card">
+                                    <div class="ts-filter-card-head">
+                                        <span class="ts-filter-card-title">忽略参数</span>
+                                        <span class="ts-filter-card-desc">忽略后「名称(参数)」合并成「名称」（默认忽略「时间」，避免每条时间戳各占一行）</span>
+                                    </div>
+                                    <div class="ts-chips">
+                                        @foreach (string baseName in parameterizedNames)
+                                        {
+                                            <Button Size="@ButtonSize.Small" Class="@ChipClass(ignoredParamNames.Contains(baseName))"
+                                                    OnClick="@(() => SetIgnoreParams(baseName, !ignoredParamNames.Contains(baseName)))">@baseName</Button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+            <div class="ts-scope-summary">
+                <span class="ts-scope-label">当前生效</span>
+                <span>@RangeText</span>
+                <span class="ts-scope-dot">·</span>
+                <span>基础 @summary.ChatCount 条</span>
+                <span class="ts-scope-dot">·</span>
+                <span>明细 @filteredRecords.Count 条</span>
+                <span class="ts-scope-dot">·</span>
+                <span>排除 @excludedNames.Count 个名字</span>
+                <span class="ts-scope-dot">·</span>
+                <span>忽略参数 @ignoredParamNames.Count 个</span>
+                @if (dominantTagFilter != null || dominantFuncFilter != null)
+                {
+                    <span class="ts-scope-dot">·</span>
+                    <span class="ts-scope-drill">下钻：@(dominantTagFilter ?? dominantFuncFilter)</span>
+                    <Button Size="@ButtonSize.Small" Type="@ButtonType.Link" Style="padding:0;" OnClick="ClearDominantFilter">清除</Button>
+                }
+            </div>
+        </div>
+            <div class="ts-rank-hint">点击表头切换排序（再点一次反向）；「占比 / 累计」按当前排序列计算。想看谁最耗输出，点「输出¥」列排序即可</div>
+
+            <div class="ts-rank-grid">
+                @foreach (var group in rankGroups)
+                {
+
+                    <div class="ts-card">
+                        <div class="ts-card-head">
+                            <div class="ts-card-title">@group.Title</div>
+                            <div class="ts-card-sub">按明细筛选后分摊 · 点击名称可下钻到下方对话记录</div>
+                        </div>
+
+                        @{ List<RankRowView> ranked = RankRows(group); }
+
+                        @if (ranked.Count == 0)
+                        {
+                            <div style="color: rgba(0,0,0,0.35); font-size: 12px; padding: 12px 0;">该范围内没有可归类的@(group.NameLabel)</div>
+                        }
+                        else
+                        {
+                            <table class="ts-rank-table">
+                                <thead>
+                                    <tr>
+                                        <th class="ts-rank-idx">#</th>
+                                        <th>
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Name)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Name))">@($"{group.NameLabel}{SortArrow(RankSortColumn.Name)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Count)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Count))">@($"次数{SortArrow(RankSortColumn.Count)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Cached)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Cached))">@($"缓存{SortArrow(RankSortColumn.Cached)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.CachedCost)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.CachedCost))">@($"缓存¥{SortArrow(RankSortColumn.CachedCost)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Input)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Input))">@($"输入{SortArrow(RankSortColumn.Input)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.InputCost)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.InputCost))">@($"输入¥{SortArrow(RankSortColumn.InputCost)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Output)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Output))">@($"输出{SortArrow(RankSortColumn.Output)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.OutputCost)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.OutputCost))">@($"输出¥{SortArrow(RankSortColumn.OutputCost)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Total)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Total))">@($"合计¥{SortArrow(RankSortColumn.Total)}")</Button>
+                                        </th>
+                                        <th class="ts-rank-num">占比</th>
+                                        <th class="ts-rank-num">累计</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < ranked.Count && i < 12; i++)
+                                    {
+                                        var view = ranked[i];
+                                        var row = view.Row;
+                                        bool selected = group.Kind == "tag" ? dominantTagFilter == row.Name : dominantFuncFilter == row.Name;
+                                        <tr class="@(selected ? "ts-rank-row-active" : "")">
+                                            <td class="ts-rank-idx">@view.Rank</td>
+                                            <td>
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="padding:0; height:auto;"
+                                                        OnClick="@(() => OnRankClicked(group.Kind, row.Name))">
+                                                    @row.Name
+                                                </Button>
+                                                <div class="ts-rank-bar">
+                                                    <div class="ts-rank-bar-fill" style="@BarWidth(view.Share)"></div>
+                                                </div>
+                                            </td>
+                                            <td class="ts-rank-num">@row.ChatCount</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(row.CachedTokens)</td>
+                                            <td class="ts-rank-num">@row.HitCost.ToString("F4")</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(row.InputMissTokens)</td>
+                                            <td class="ts-rank-num">@row.MissCost.ToString("F4")</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(row.OutputTokens)</td>
+                                            <td class="ts-rank-num">@row.OutputCost.ToString("F4")</td>
+                                            <td class="ts-rank-num">@row.Cost.ToString("F4")</td>
+                                            <td class="ts-rank-num">@view.Share.ToString("P1")</td>
+                                            <td class="ts-rank-num">@view.Cumulative.ToString("P1")</td>
+                                        </tr>
+                                    }
+
+                                    @if (ranked.Count > 12)
+                                    {
+                                        var restRow = SumRest([.. ranked.Skip(12)]);
+                                        double restShare = 1 - ranked[11].Cumulative;
+                                        <tr class="ts-rank-rest">
+                                            <td class="ts-rank-idx">…</td>
+                                            <td>@restRow.Name</td>
+                                            <td class="ts-rank-num">@restRow.ChatCount</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(restRow.CachedTokens)</td>
+                                            <td class="ts-rank-num">@Money(restRow.HitCost)</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(restRow.InputMissTokens)</td>
+                                            <td class="ts-rank-num">@Money(restRow.MissCost)</td>
+                                            <td class="ts-rank-num">@FormatTokenValue(restRow.OutputTokens)</td>
+                                            <td class="ts-rank-num">@Money(restRow.OutputCost)</td>
+                                            <td class="ts-rank-num">@Money(restRow.Cost)</td>
+                                            <td class="ts-rank-num">@restShare.ToString("P1")</td>
+                                            <td class="ts-rank-num">100.0%</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="ts-card">
+                <div class="ts-card-head">
+                    <div class="ts-card-title">对话记录</div>
+                    <div class="ts-card-sub">@filteredRecords.Count 条 · @(recordSortMode == "cost" ? "按开销降序" : "按时间正序") · 第 @(pageIndex + 1) 页</div>
+                </div>
+
+                @if (dominantTagFilter != null || dominantFuncFilter != null)
+                {
+                    <div class="ts-active-filter">
+                        <span class="ts-label">仅看</span>
+                        @if (dominantTagFilter != null)
+                        {
+                            <Tag Color="@("blue")">标签 · @dominantTagFilter</Tag>
+                        }
+                        @if (dominantFuncFilter != null)
+                        {
+                            <Tag Color="@("green")">函数 · @dominantFuncFilter</Tag>
+                        }
+                        <Button Size="@ButtonSize.Small" OnClick="ClearDominantFilter">清除筛选</Button>
+                    </div>
+                }
+
+
+                <div class="ts-controls">
+                    <RadioGroup TValue="string" Value="@viewMode" ValueChanged="@(OnViewModeChanged)" ButtonStyle="@RadioButtonStyle.Solid">
+                        <Radio RadioButton Value="@("all")">全部</Radio>
+                        <Radio RadioButton Value="@("input")">只看输入</Radio>
+                        <Radio RadioButton Value="@("output")">只看输出</Radio>
+                    </RadioGroup>
+                    <RadioGroup TValue="string" Value="@recordSortMode" ValueChanged="@(OnRecordSortChanged)" ButtonStyle="@RadioButtonStyle.Solid">
+                        <Radio RadioButton Value="@("time")">按时间</Radio>
+                        <Radio RadioButton Value="@("cost")">按开销</Radio>
+                    </RadioGroup>
+                    <Checkbox @bind-Value="hideThinking">隐藏思考</Checkbox>
+                    <Button Size="@ButtonSize.Small" OnClick="ExpandAllTurns">全部展开</Button>
+                    <Button Size="@ButtonSize.Small" OnClick="CollapseAllTurns">全部折叠</Button>
+                </div>
+
+
+                <div class="ts-turns">
+                    @foreach (var view in pageRecords)
+                    {
+                        bool collapsed = expandedTurns.Contains(view.Record.Id) == false;
+                        <div class="ts-turn-card">
+                            <div class="ts-turn-head">
+                                <div class="ts-head-row">
+                                    <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="padding:0 4px; height:auto;"
+                                            OnClick="@(() => ToggleTurn(view.Record.Id))">@(collapsed ? "▸" : "▾")</Button>
+                                    <span class="ts-turn-time">@view.Record.Time.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                    @if (costRanks.TryGetValue(view.Record.Id, out int costRank))
+                                    {
+                                        <span class="ts-rank-badge">开销第 @costRank</span>
+                                    }
+                                </div>
+
+                                <div class="ts-head-row">
+                                    <span class="ts-head-label">内容</span>
+                                    @if (view.TagWeights.Count == 0 && view.FuncWeights.Count == 0)
+                                    {
+                                        <span class="ts-dominant ts-dominant-none">无内容可归属</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var share in MergedShares(view.TagWeights, view.FuncWeights))
+                                        {
+                                            <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : (share.IsFunc ? "ts-dominant ts-dominant-func" : "ts-dominant"))">@ChipName(share.Name) @share.Percent%</span>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="ts-head-row ts-head-tokens">
+                                    <span>缓存 @view.Record.InputCached.ToString("N0")（¥@Money(view.HitCost)）</span>
+                                    <span class="ts-head-dot">·</span>
+                                    <span>输入 @((view.Record.InputTotal - view.Record.InputCached).ToString("N0"))（¥@Money(view.MissCost)）</span>
+                                    <span class="ts-head-dot">·</span>
+                                    <span>输出 @view.Record.OutputTotal.ToString("N0")（¥@Money(view.OutputCost)）</span>
+                                    <span class="ts-head-dot">·</span>
+                                    <span class="ts-head-total">共 ¥@Money(view.Cost)</span>
+                                </div>
+                            </div>
+
+                            @if (collapsed == false)
+                            {
+                                <div class="ts-turn-body">
+                                    @if (viewMode != "output")
+                                    {
+                                        <div class="ts-row ts-row-input">
+                                            <div class="ts-bubble ts-bubble-in">
+                                                <div class="ts-bubble-head">
+                                                    @if (view.TagWeights.Count == 0)
+                                                    {
+                                                        <span class="ts-dominant ts-dominant-none">无标签</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        @foreach (var share in MergedShares(view.TagWeights, []))
+                                                        {
+                                                            <span class="ts-dominant">@ChipName(share.Name) @share.Percent%</span>
+                                                        }
+                                                    }
+                                                </div>
+                                                <pre class="ts-text">@view.Record.UserMessage</pre>
+                                                <div class="ts-bubble-meta">
+                                                    <span>缓存 @view.Record.InputCached.ToString("N0")（¥@Money(view.HitCost)）</span>
+                                                    <span>输入 @((view.Record.InputTotal - view.Record.InputCached).ToString("N0"))（¥@Money(view.MissCost)）</span>
+                                                    <span>命中率 @view.HitRate.ToString("P1")</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @if (viewMode != "input")
+                                    {
+                                        <div class="ts-row ts-row-output">
+                                            <div class="ts-bubble ts-bubble-out">
+                                                <div class="ts-bubble-head">
+                                                    @if (view.FuncWeights.Count == 0)
+                                                    {
+                                                        <span class="ts-dominant ts-dominant-none">纯文本（无函数调用）</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        @foreach (var share in MergedShares([], view.FuncWeights))
+                                                        {
+                                                            <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : "ts-dominant ts-dominant-func")">@ChipName(share.Name) @share.Percent%</span>
+                                                        }
+                                                    }
+                                                </div>
+
+                                                @if (!hideThinking && string.IsNullOrWhiteSpace(view.Record.AiThinking) == false)
+                                                {
+                                                    bool expanded = expandedThinking.Contains(view.Record.Id);
+                                                    <div class="ts-thinking">
+                                                        <Button Type="@ButtonType.Link" Size="@ButtonSize.Small"
+                                                                OnClick="@(() => ToggleThinking(view.Record.Id))">
+                                                            @(expanded ? "▾ 收起思考" : "▸ 展开思考")
+                                                        </Button>
+                                                        @if (expanded)
+                                                        {
+                                                            <pre class="ts-thinking-body">@view.Record.AiThinking</pre>
+                                                        }
+                                                    </div>
+                                                }
+
+                                                <pre class="ts-text">@view.Record.AiMessage</pre>
+                                                <div class="ts-bubble-meta ts-meta-right">
+                                                    <span>输出 @view.Record.OutputTotal.ToString("N0")（¥@Money(view.OutputCost)）</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (filteredRecords.Count > pageSize)
+                {
+                    <div class="ts-pager">
+                        <Pagination Current="pageIndex + 1" Total="filteredRecords.Count" PageSize="pageSize"
+                                    OnChange="@OnPageChanged" ShowSizeChanger="false"/>
+                    </div>
+                }
+            </div>
         }
     }
 </div>
 
+<style>
+    .ts-page {
+        padding: 20px 24px 32px;
+        height: 100%;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: #f5f7fa;
+    }
+
+    .ts-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        min-width: 0;
+    }
+
+    .ts-head-main {
+        flex: 1 1 320px;
+        min-width: 0;
+    }
+
+    .ts-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 0 0 auto;
+    }
+
+    .ts-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.88);
+    }
+
+    .ts-sub {
+        margin-top: 4px;
+        font-size: 12px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ts-label {
+        font-size: 13px;
+        color: rgba(0,0,0,0.65);
+    }
+
+    .ts-range-text {
+        font-size: 12px;
+        color: rgba(0,0,0,0.65);
+        font-variant-numeric: tabular-nums;
+        background: #f5f7fa;
+        border-radius: 6px;
+        padding: 2px 10px;
+    }
+    .ts-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+    }
+
+    .ts-tool-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .ts-timeline {
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 12px 16px 6px;
+        margin-bottom: 12px;
+    }
+
+    .ts-timeline-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: rgba(0,0,0,0.65);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ts-timeline-span {
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-timeline-edit {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding-bottom: 8px;
+    }
+
+    .ts-timeline-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.35);
+    }
+
+    .ts-kpis {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .ts-kpi {
+        flex: 1 1 132px;
+        min-width: 0;
+        max-width: 100%;
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 14px 16px;
+    }
+
+    .ts-kpi-label {
+        font-size: 12px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-kpi-value {
+        margin-top: 6px;
+        font-size: 22px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.88);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+    }
+
+    .ts-kpi-foot {
+        margin-top: 4px;
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-card {
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .ts-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .ts-card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.88);
+    }
+
+    .ts-card-sub {
+        font-size: 12px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-chart {
+        display: flex;
+        gap: 8px;
+        height: 240px;
+    }
+
+    .ts-chart-axis {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
+        font-size: 11px;
+        color: rgba(0,0,0,0.35);
+        font-variant-numeric: tabular-nums;
+        padding-bottom: 22px;
+        min-width: 52px;
+    }
+
+    .ts-chart-body {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ts-grid-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 0;
+        border-top: 1px dashed #f0f0f0;
+    }
+
+    .ts-bars {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: stretch;
+        gap: 3px;
+    }
+
+    .ts-bar-col {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+    }
+
+    .ts-bar-holder {
+        width: 100%;
+        height: calc(100% - 22px);
+        display: flex;
+        flex-direction: column-reverse;
+        justify-content: flex-start;
+        align-items: stretch;
+        position: relative;
+    }
+
+    .ts-bar {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        border-top: 1px solid rgba(255,255,255,0.65);
+        transition: height 0.25s ease, filter 0.15s ease;
+    }
+
+        .ts-bar:last-child {
+            border-radius: 2px 2px 0 0;
+        }
+
+    .ts-bar-col:hover .ts-bar {
+        filter: brightness(1.15);
+    }
+
+    .ts-bar-col {
+        position: relative;
+    }
+
+    .ts-tip {
+        display: none;
+        position: absolute;
+        bottom: calc(100% - 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 30;
+        background: rgba(0,0,0,0.85);
+        color: #fff;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 11px;
+        line-height: 1.7;
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    }
+
+    .ts-bar-col:hover .ts-tip {
+        display: block;
+    }
+
+    .ts-tip-title {
+        font-weight: 600;
+        margin-bottom: 2px;
+        color: rgba(255,255,255,0.92);
+    }
+
+    .ts-tip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: rgba(255,255,255,0.75);
+    }
+
+        .ts-tip-row b {
+            color: #fff;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+    .ts-profile-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .ts-price-windows {
+        min-width: 220px;
+    }
+    /* ── 价格配置面板（按行排列） ───────────────────────────── */
+    .ts-price-card .ts-card-head {
+        margin-bottom: 4px;
+    }
+
+    .ts-pc-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+        min-width: 0;
+    }
+
+    .ts-pc-label {
+        flex: 0 0 84px;
+        width: 84px;
+        font-size: 12px;
+        color: rgba(0,0,0,0.55);
+        text-align: right;
+        padding-right: 2px;
+    }
+
+    .ts-pc-value {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1 1 auto;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+
+    .ts-pc-unit {
+        font-size: 11px;
+        color: rgba(0,0,0,0.35);
+        white-space: nowrap;
+    }
+
+    .ts-pc-inline-label {
+        font-size: 12px;
+        color: rgba(0,0,0,0.55);
+        white-space: nowrap;
+    }
+
+    .ts-pc-section {
+        margin-top: 10px;
+        padding-top: 12px;
+        border-top: 1px dashed #eef0f3;
+    }
+
+    .ts-pc-section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+    }
+
+    .ts-pc-section-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.78);
+    }
+
+    .ts-pc-section-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.38);
+    }
+
+    .ts-pc-rule {
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        background: #fafbfc;
+        padding: 10px 12px 6px;
+        margin-bottom: 10px;
+    }
+
+    .ts-pc-rule-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-bottom: 8px;
+        margin-bottom: 2px;
+        border-bottom: 1px dashed #eef0f3;
+    }
+
+    .ts-pc-rule-index {
+        font-size: 11px;
+        color: #1677ff;
+        background: #e6f4ff;
+        border: 1px solid #bae0ff;
+        border-radius: 6px;
+        padding: 0 7px;
+        line-height: 18px;
+        white-space: nowrap;
+    }
+
+    .ts-pc-dirty {
+        font-size: 11px;
+        color: #d46b08;
+        background: #fff7e6;
+        border: 1px solid #ffd591;
+        border-radius: 6px;
+        padding: 1px 8px;
+        margin-right: 8px;
+        white-space: nowrap;
+    }
+
+    .ts-pc-rule:hover {
+        border-color: #d6e4ff;
+        background: #fbfdff;
+    }
+    .ts-pc-windows {
+        row-gap: 8px;
+    }
+
+    .ts-pc-window {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding-right: 2px;
+    }
+    .ts-pc-empty {
+        font-size: 12px;
+        color: rgba(0,0,0,0.4);
+        background: #fafafa;
+        border: 1px dashed #eef0f3;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+
+    .ts-pc-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px dashed #eef0f3;
+    }
+
+    .ts-pc-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .ts-pc-footer {
+        margin-top: 8px;
+        font-size: 10.5px;
+        color: rgba(0,0,0,0.32);
+        line-height: 1.8;
+        word-break: break-all;
+    }
+
+    .ts-pc-summary {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding-top: 2px;
+    }
+
+    .ts-pc-chip {
+        display: inline-flex;
+        align-items: center;
+        font-size: 12px;
+        color: rgba(0,0,0,0.62);
+        background: #f5f7fa;
+        border: 1px solid #eef0f3;
+        border-radius: 6px;
+        padding: 2px 10px;
+        font-variant-numeric: tabular-nums;
+    }
+    .ts-price-grid {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .ts-price-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .ts-price-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.75);
+    }
+
+    .ts-price-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ts-price-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .ts-price-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.4);
+        word-break: break-all;
+    }
+
+    .ts-price-summary {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: rgba(0,0,0,0.65);
+        font-variant-numeric: tabular-nums;
+    }
+    .ts-insight {
+        border-left: 3px solid #1677ff;
+        background: #f7fbff;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+    }
+
+    .ts-insight-warning {
+        border-left-color: #faad14;
+        background: #fffbe6;
+    }
+
+    .ts-insight-critical {
+        border-left-color: #ff4d4f;
+        background: #fff1f0;
+    }
+
+    .ts-insight-basis {
+        margin-top: 2px;
+        font-size: 10.5px;
+        color: rgba(0,0,0,0.35);
+    }
+    .ts-insight-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.85);
+        margin-bottom: 4px;
+    }
+
+    .ts-insight-detail {
+        font-size: 12px;
+        color: rgba(0,0,0,0.65);
+        line-height: 1.7;
+    }
+
+    .ts-insight-advice {
+        margin-top: 4px;
+        font-size: 12px;
+        color: #1677ff;
+        line-height: 1.7;
+    }
+    .ts-mode-toggles {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .ts-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .ts-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .ts-legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        display: inline-block;
+    }
+
+    .ts-chart-caption {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+        margin: 4px 0 12px;
+    }
+
+    .ts-chart-axis-right {
+        align-items: flex-start;
+        text-align: left;
+        padding-left: 4px;
+    }
+
+    .ts-bar-label {
+        height: 22px;
+        line-height: 22px;
+        font-size: 10px;
+        color: rgba(0,0,0,0.45);
+        white-space: nowrap;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* 总览区与细节区之间的分线 */
+
+    /* 贯穿全宽的极淡基线，保证两端不断开 */
+
+    /* 中段加厚并两端渐隐，形成中间宽的视觉 */
+
+
+    /* 分区线：两端渐隐、中间最清楚的细线（最初那版） */
+    .ts-divider {
+        height: 1px;
+        margin: 22px 0 18px;
+        background: linear-gradient(to right, rgba(0,0,0,0.02), rgba(0,0,0,0.12) 12%, rgba(0,0,0,0.12) 88%, rgba(0,0,0,0.02));
+    }
+
+    /* 两层的分组标题，让"谁能影响谁"一眼可见 */
+    .ts-layer-label {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 14px 0 8px;
+        padding-left: 8px;
+        border-left: 3px solid #91caff;
+    }
+
+    .ts-layer-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: #0958d9;
+    }
+
+    .ts-layer-desc {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    /* 作用域摘要：一句话说清"下面所有数据基于什么" */
+    .ts-scope-summary {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #f0f7ff;
+        border: 1px solid #d6e8ff;
+        font-size: 12px;
+        color: rgba(0,0,0,0.6);
+    }
+
+    .ts-scope-label {
+        font-weight: 600;
+        color: #0958d9;
+    }
+
+    .ts-scope-dot {
+        padding: 0 2px;
+        color: rgba(0,0,0,0.2);
+    }
+
+    .ts-scope-drill {
+        color: #0958d9;
+        font-weight: 500;
+    }
+
+    .ts-record-range {
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        padding: 8px 12px 2px;
+        margin-bottom: 12px;
+        background: #fafafa;
+    }
+
+    .ts-record-range-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 2px;
+    }
+
+    .ts-record-range-text {
+        font-size: 12px;
+        color: rgba(0,0,0,0.6);
+        font-variant-numeric: tabular-nums;
+    }
+    .ts-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f5f5f5;
+        margin-bottom: 12px;
+    }
+
+    .ts-filter {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    /* 功能区按卡片分区：一张卡一个主题（参与统计 / 忽略参数） */
+    .ts-filter-card {
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #fcfcfc;
+    }
+
+    .ts-filter-card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    .ts-filter-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.78);
+    }
+
+    .ts-filter-card-desc {
+        font-size: 11px;
+        color: rgba(0,0,0,0.42);
+    }
+
+    /* 可点击的标签胶囊：外形是 Tag，点击走 Button 回调（本插件里原生点击不可靠） */
+    .ts-chip-btn.ant-btn {
+        border-radius: 11px;
+        height: 23px;
+        padding: 0 10px;
+        font-size: 12px;
+        line-height: 21px;
+        box-shadow: none;
+    }
+
+    .ts-chip-btn-on.ant-btn {
+        background: #e6f4ff;
+        border-color: #91caff;
+        color: #0958d9;
+    }
+
+    .ts-chip-btn-on.ant-btn:hover {
+        background: #bae0ff;
+        border-color: #69b1ff;
+        color: #0958d9;
+    }
+
+    .ts-chip-btn-off.ant-btn {
+        background: #fafafa;
+        border-color: #f0f0f0;
+        color: rgba(0,0,0,0.35);
+        text-decoration: line-through;
+    }
+
+    .ts-chip-btn-off.ant-btn:hover {
+        background: #f5f5f5;
+        border-color: #d9d9d9;
+        color: rgba(0,0,0,0.45);
+        text-decoration: line-through;
+    }
+
+    .ts-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        max-height: 180px;
+        overflow-y: auto;
+    }
+
+
+    .ts-chip-func {
+        background: #f6ffed;
+        color: #389e0d;
+    }
+
+    .ts-turns {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .ts-turn {
+        border-left: 2px solid #f0f0f0;
+        padding-left: 12px;
+    }
+
+    .ts-turn-time {
+        font-size: 11px;
+        color: rgba(0,0,0,0.35);
+        margin-bottom: 6px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ts-row {
+        display: flex;
+        margin-bottom: 8px;
+    }
+
+    .ts-row-input {
+        justify-content: flex-end;
+    }
+
+    .ts-row-output {
+        justify-content: flex-start;
+    }
+
+    .ts-bubble {
+        max-width: 76%;
+        border-radius: 10px;
+        padding: 10px 12px;
+        border: 1px solid transparent;
+    }
+
+    .ts-bubble-in {
+        background: #f0f7ff;
+        border-color: #d6e4ff;
+    }
+
+    .ts-bubble-out {
+        background: #fafafa;
+        border-color: #f0f0f0;
+    }
+
+    .ts-bubble-head {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+
+    .ts-dominant {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 1px 8px;
+        border-radius: 9px;
+        background: #1677ff;
+        color: #fff;
+        white-space: nowrap;
+    }
+
+    .ts-dominant-func {
+        background: #52c41a;
+    }
+
+    .ts-dominant-none {
+        background: #d9d9d9;
+        color: rgba(0,0,0,0.55);
+        font-weight: 400;
+    }
+
+    .ts-text {
+        margin: 0;
+        font-family: inherit;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: rgba(0,0,0,0.82);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .ts-bubble-meta {
+        margin-top: 8px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ts-meta-right {
+        justify-content: flex-end;
+    }
+
+    .ts-thinking {
+        margin: 4px 0 8px;
+    }
+
+    .ts-thinking-toggle {
+        border: 1px dashed #d9d9d9;
+        background: #fff;
+        border-radius: 6px;
+        font-size: 11px;
+        color: rgba(0,0,0,0.55);
+        padding: 2px 8px;
+        cursor: pointer;
+    }
+
+    .ts-thinking-body {
+        margin: 6px 0 0;
+        padding: 8px 10px;
+        background: #fafafa;
+        border-left: 2px solid #d9d9d9;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 12px;
+        line-height: 1.6;
+        color: rgba(0,0,0,0.55);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .ts-pager {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 14px;
+    }
+
+    .ts-rank-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+        .ts-rank-grid > .ts-card {
+            width: 100%;
+            min-width: 0;
+        }
+
+    .ts-rank-badge {
+        font-size: 10px;
+        padding: 0 6px;
+        border-radius: 8px;
+        background: #fff1f0;
+        color: #cf1322;
+        border: 1px solid #ffccc7;
+        margin-left: 6px;
+        white-space: nowrap;
+    }
+    .ts-rank-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+        margin-bottom: 10px;
+    }
+
+    .ts-rank-note {
+        font-size: 11px;
+        color: rgba(0,0,0,0.4);
+    }
+
+    .ts-rank-detail {
+        font-size: 11.5px;
+        color: rgba(0,0,0,0.65);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .ts-rank-hint {
+        font-size: 11px;
+        color: rgba(0,0,0,0.4);
+        margin-top: 14px;
+        margin-bottom: 8px;
+    }
+
+    .ts-rank-rest td {
+        color: rgba(0,0,0,0.45);
+        background: #fafafa;
+        border-top: 1px dashed #eef0f3;
+        font-style: italic;
+    }
+    .ts-rank-num {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+        .ts-rank-num .ant-btn-link {
+            padding: 0;
+            height: auto;
+        }
+    .ts-rank-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+        .ts-rank-table th {
+            text-align: left;
+            font-weight: 500;
+            color: rgba(0,0,0,0.45);
+            font-size: 11px;
+            padding: 4px 6px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+    /* 表头与内容对齐：.ts-rank-table th 的具体性高于 .ts-rank-num，这里显式覆盖 */
+    .ts-rank-table th.ts-rank-num {
+        text-align: right;
+    }
+
+    .ts-rank-table th.ts-rank-idx {
+        text-align: left;
+    }
+
+    /* 表头按钮不要带内边距，否则文字会比下面的数字缩进 */
+    .ts-rank-table th .ant-btn-link {
+        padding: 0;
+        margin: 0;
+        height: auto;
+        line-height: 1.4;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+    }
+
+        .ts-rank-table td {
+            padding: 6px;
+            border-bottom: 1px solid #fafafa;
+            color: rgba(0,0,0,0.75);
+            font-variant-numeric: tabular-nums;
+        }
+
+    .ts-rank-idx {
+        color: rgba(0,0,0,0.35);
+        width: 28px;
+    }
+
+    .ts-rank-name {
+        font-weight: 500;
+        color: rgba(0,0,0,0.85);
+        word-break: break-all;
+    }
+
+    .ts-rank-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: #e6f4ff;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+
+    .ts-rank-bar-fill {
+        height: 4px;
+        background: #1677ff;
+    }
+
+    .ts-empty {
+        background: #fff;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 48px 16px;
+        text-align: center;
+    }
+
+    .ts-empty-tip {
+        margin-top: 8px;
+        font-size: 11px;
+        color: rgba(0,0,0,0.35);
+        word-break: break-all;
+    }
+    .ts-turn-card {
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        background: #fff;
+        margin-bottom: 10px;
+        overflow: hidden;
+    }
+
+        .ts-turn-card:hover {
+            border-color: #d6e4ff;
+        }
+
+    .ts-turn-head {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 12px;
+        background: #fafafa;
+        border-bottom: 1px solid #f5f5f5;
+    }
+
+    /* 一行一件事：时间+徽标 / 标签 / 函数 / token 摘要，避免挤在一行互相遮挡 */
+    .ts-head-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 20px;
+    }
+
+    .ts-head-label {
+        font-size: 11px;
+        color: rgba(0,0,0,0.32);
+        min-width: 26px;
+    }
+
+    .ts-head-tokens {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ts-head-dot {
+        color: rgba(0,0,0,0.18);
+    }
+
+    .ts-head-total {
+        color: rgba(0,0,0,0.68);
+        font-weight: 600;
+    }
+
+
+    .ts-turn-body {
+        padding: 12px;
+    }
+
+    .ts-active-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        background: #f0f7ff;
+        border: 1px solid #d6e4ff;
+        border-radius: 8px;
+    }
+
+    .ts-slider-scale {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: rgba(0,0,0,0.35);
+        margin-top: -6px;
+        padding-bottom: 6px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ts-rank-row-active td {
+        background: #f0f7ff;
+    }
+</style>
+
 @code {
-    List<CharacterStat> characterStats = new();
-    double totalCost;
-    int totalChatCount;
-    string averageHitRateText = "0.0%";
-    PriceConfig priceConfig = new();
+    const int DefaultPageSize = 20;
+
+    readonly List<string> characters = new();
+    string selectedCharacter = "";
+
+    bool showInput = true;
+    bool showCached = true;
+    bool showOutput = true;
+
+    // 柱状图两个独立开关：归一化（按堆叠总量 100% 堆叠）与按价格口径（Token 折算成元），可同时生效
+    bool normalizeMode;
+    bool costMode;
+    string viewMode = "all";
+    bool hideThinking;
+
+    // 对话记录排序：time（默认，按时间正序）/ cost（按开销降序）
+    string recordSortMode = "time";
+
+
+
+    TokenStatisticsService? service;
+
+    // 全局价格配置库 + 本角色选用的配置
+    List<PriceProfile> priceProfiles = [];
+    string selectedProfileId = "";
+    string priceProfilesCharacter = "";
+    PriceProfile priceProfile = PriceCalculator.CreateDefaultProfile();
+
+    // 编辑中的覆盖规则（时段以文本形式编辑，保存时再解析回模型）
+    List<RuleEdit> ruleEdits = [];
+
+
+    // 打开编辑面板时的快照，用于提示"未保存改动"
+    string priceSnapshot = "";
+    // 节假日日历（判断"工作日"用；未加载时按星期判断）
+    HolidayCalendar? holidayCalendar;
+    string holidayCharacter = "";
+    string holidayStatus = "未加载";
+    DateTime? holidayRefreshedAt;
+    readonly HashSet<int> holidayRequestedYears = new();
+
+    IHolidayCalendar EffectiveCalendar => holidayCalendar is null ? NoHolidayCalendar.Instance : holidayCalendar;
+
+    // 价格配置面板是否展开
+    bool showPriceConfig;
+
+    string PriceFileHint => selectedCharacter == "" ? "" : TokenStatisticsLocator.PriceFileFor(selectedCharacter);
+    DateTimeOffset spanFrom;
+    DateTimeOffset spanTo;
+    DateTimeOffset viewFrom;
+    DateTimeOffset viewTo;
+
+    TokenStatisticsService.RangeSummary summary = new(0, 0, 0, 0, 0, 0, 0);
+    List<TokenStatisticsService.Bucket> buckets = new();
+    List<TokenStatisticsService.RecordView> filteredRecords = new();
+
+    // 基础范围（基准日 + 跨度）内的全部记录：总览、柱状图、诊断摘要只看这个
+    List<TokenStatisticsService.RecordView> baseRecords = new();
+    List<TokenStatisticsService.RecordView> pageRecords = new();
+    List<string> knownNames = new();
+    List<Kpi> kpis = new();
+    List<TokenStatisticsDiagnostics.Insight> insights = new();
+    List<RankGroup> rankGroups = new();
+
+    // 排行榜的排序 / 占比指标（默认按价格）
+    // 排行榜排序：点表头切换列 + 正/倒序；占比与累计按当前排序列计算
+    RankSortColumn rankSort = RankSortColumn.Total;
+    bool rankSortDesc = true;
+
+    readonly HashSet<string> excludedNames = new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> expandedThinking = new(StringComparer.Ordinal);
+
+    int pageIndex;
+    int pageSize = DefaultPageSize;
+
+    double niceTokenMax = 1;
+    double niceCostMax = 1;
+
+    (double Low, double High) recordRange = (0, 1000);
+
+    // 点击排行榜下钻：只看某个主导标签/函数的对话
+    // 下钻筛选：只看"包含该标签/函数"的对话（不再是主导）
+    string? dominantTagFilter;
+    string? dominantFuncFilter;
+
+    // 排除统计的名字 / 忽略参数的基础名（都可界面上改；默认只忽略「时间」的参数）
+    readonly List<string> parameterizedNames = [];
+    readonly HashSet<string> ignoredParamNames = new(TagFilter.DefaultIgnoreParams, StringComparer.OrdinalIgnoreCase);
+
+    // 折叠的对话卡片（默认展开，记录折叠 id）
+    // 默认折叠：只有显式展开过的对话才放进这个集合
+    readonly HashSet<string> expandedTurns = new(StringComparer.Ordinal);
+    // 当前范围内"最贵的 N 条对话"名次，卡片头上标注
+    readonly Dictionary<string, int> costRanks = new(StringComparer.Ordinal);
+    DateTimeOffset recordsFrom;
+    DateTimeOffset recordsTo;
+
+    int totalTokens => summary.InputTotal + summary.OutputTotal;
+
+    string RecordsHint => selectedCharacter == "" ? "" : TokenStatisticsLocator.RecordsFolderFor(selectedCharacter);
+
+
+
 
     protected override void OnInitialized()
     {
-        LoadData();
+
+        ResetExcluded();
+        LoadCharacters();
+        ApplyRange();
     }
 
-    void LoadData()
+    void SetIgnoreParams(string baseName, bool ignore)
     {
-        characterStats.Clear();
-        totalCost = 0;
-        totalChatCount = 0;
-        double hitRateSum = 0;
-        int hitRateCount = 0;
-        PriceConfig? firstPriceConfig = null;
+        if (ignore)
+            ignoredParamNames.Add(baseName);
+        else
+            ignoredParamNames.Remove(baseName);
 
-        foreach (var activity in ChatActivitySystem.GetAllChatActivities())
+        pageIndex = 0;
+        Reload();
+    }
+
+    void ResetExcluded()
+    {
+        excludedNames.Clear();
+        foreach (string name in TagFilter.DefaultExcluded)
+            excludedNames.Add(name);
+    }
+
+    void LoadCharacters()
+    {
+        characters.Clear();
+        HashSet<string> seen = new(StringComparer.Ordinal);
+
+        // 已注册角色（含未激活）
+        object? resolved = ServiceProvider.GetService(typeof(CharacterSystem));
+        if (resolved is CharacterSystem characterSystem)
         {
-            var module = activity.Container.Instances
-                .OfType<TokenStatisticsModule>()
-                .FirstOrDefault();
-
-            if (module?.Service == null) continue;
-
-            var service = module.Service;
-            var dailyStats = service.GetDailyStats().ToList();
-            var tagStats = service.GetTagStats().ToList();
-            var overview = service.GetOverview();
-
-            var charName = activity.Character?.Name ?? "未知角色";
-            characterStats.Add(new CharacterStat
+            foreach (Character character in characterSystem.GetAllCharacters())
             {
-                CharacterName = charName,
-                DailyStats = dailyStats,
-                TagStats = tagStats
-            });
-
-            totalCost += overview.TotalCost;
-            totalChatCount += overview.TotalChatCount;
-            if (overview.AverageHitRate > 0)
-            {
-                hitRateSum += overview.AverageHitRate;
-                hitRateCount++;
-            }
-
-            if (firstPriceConfig == null)
-            {
-                firstPriceConfig = service.GetPriceConfig();
+                if (seen.Add(character.Name))
+                    characters.Add(character.Name);
             }
         }
 
-        double averageHitRate = hitRateCount > 0 ? hitRateSum / hitRateCount : 0;
-        averageHitRateText = averageHitRate.ToString("P1");
-        priceConfig = firstPriceConfig ?? new PriceConfig();
+        // 磁盘上存在的角色（保证未注册/未激活也能看到历史）
+        foreach (string name in TokenStatisticsLocator.ListStoredCharacterNames())
+        {
+            if (seen.Add(name))
+                characters.Add(name);
+        }
+
+        characters.Sort(StringComparer.Ordinal);
+
+        // 默认选中"有记录"的角色，避免打开就是空页面
+        string? withRecords = characters.FirstOrDefault(TokenStatisticsLocator.HasRecords);
+        selectedCharacter = withRecords ?? (characters.Count > 0 ? characters[0] : "");
     }
 
-    void SavePriceConfig()
+    void OnCharacterChanged()
     {
-        foreach (var activity in ChatActivitySystem.GetAllChatActivities())
-        {
-            var module = activity.Container.Instances
-                .OfType<TokenStatisticsModule>()
-                .FirstOrDefault();
+        pageIndex = 0;
+        ApplyRange();
+        Reload();
+    }
 
-            if (module?.Service != null)
-            {
-                module.Service.SetPriceConfig(priceConfig);
-            }
+
+    void OnViewModeChanged(string value) => viewMode = value;
+
+
+
+
+
+    void OnRankClicked(string kind, string name)
+    {
+        if (kind == "tag")
+            dominantTagFilter = dominantTagFilter == name ? null : name;
+        else
+            dominantFuncFilter = dominantFuncFilter == name ? null : name;
+
+        pageIndex = 0;
+        Reload();
+    }
+
+    void ClearDominantFilter()
+    {
+        dominantTagFilter = null;
+        dominantFuncFilter = null;
+        pageIndex = 0;
+        Reload();
+    }
+
+    void ToggleTurn(string id)
+    {
+        if (expandedTurns.Contains(id))
+            expandedTurns.Remove(id);
+        else
+            expandedTurns.Add(id);
+    }
+
+    void ExpandAllTurns()
+    {
+        foreach (var view in filteredRecords)
+            expandedTurns.Add(view.Record.Id);
+    }
+    void CollapseAllTurns() => expandedTurns.Clear();
+
+    DateTimeOffset SliderMidTime => viewFrom + (viewTo - viewFrom) / 2;
+
+    /// <summary>
+    /// 滑块气泡：AntDesign 的 TipFormatter 是 Func&lt;double,string&gt;，每个手柄各自回调标量值。
+    /// 这里把 0-1000 的刻度换算成具体时间，避免拖拽时只看到数字。
+    /// </summary>
+    string FormatRangeTip(double value)
+    {
+        long totalTicks = viewTo.UtcTicks - viewFrom.UtcTicks;
+        DateTimeOffset time = viewFrom.AddTicks((long)(totalTicks * Math.Clamp(value, 0, 1000) / 1000));
+        return time.ToString("MM-dd HH:mm");
+    }
+
+    void OnRecordRangeChanged((double, double) value)
+    {
+        double low = Math.Clamp(value.Item1, 0, 999);
+        double high = Math.Clamp(value.Item2, 1, 1000);
+        if (high <= low)
+            high = Math.Min(1000, low + 1);
+        recordRange = (low, high);
+        ApplyRecordRange();
+        pageIndex = 0;
+        Reload();
+    }
+
+    void ResetRecordRange()
+    {
+        recordRange = (0, 1000);
+        ApplyRecordRange();
+        pageIndex = 0;
+        Reload();
+    }
+
+    /// <summary>窗口内有记录、但被「记录区间」滑块裁成 0 条——用来提示"把滑块拉开"而不是"没数据"。</summary>
+    bool HasRecordsInWindow => service != null && service.Summarize(viewFrom, viewTo).ChatCount > 0;
+
+    void ApplyRecordRange()
+    {
+        long totalTicks = viewTo.UtcTicks - viewFrom.UtcTicks;
+        recordsFrom = viewFrom.AddTicks((long)(totalTicks * recordRange.Low / 1000));
+        recordsTo = viewFrom.AddTicks((long)(totalTicks * recordRange.High / 1000));
+        if (recordsTo <= recordsFrom)
+            recordsTo = recordsFrom.AddMinutes(1);
+    }
+
+    void OnPageChanged(PaginationEventArgs args)
+    {
+        pageIndex = args.Page - 1;
+        SlicePage();
+    }
+
+    void SetExcluded(string name, bool included)
+    {
+        // 用完整名（源(BrowserService)），不截成基础名（源），否则会连带排除同类全部来源
+        string key = name;
+        if (included)
+            excludedNames.Remove(key);
+        else
+            excludedNames.Add(key);
+        pageIndex = 0;
+        Reload();
+    }
+
+    bool IsExcluded(string name) => excludedNames.Contains(name);
+
+    void ToggleThinking(string id)
+    {
+        if (expandedThinking.Contains(id))
+            expandedThinking.Remove(id);
+        else
+            expandedThinking.Add(id);
+    }
+
+    static string BaseName(string name)
+    {
+        int paren = name.IndexOfAny(['(', '（']);
+        return paren >= 0 ? name.Substring(0, paren) : name;
+    }
+
+    // ── 时间范围：基准日（窗口右端，不动）+ 跨度（往前回溯 N 天）+ 翻页 ──
+
+    /// <summary>
+    /// 基准日：窗口的右端（含当日）。改跨度时这个日期保持不动，窗口往前扩张。
+    /// </summary>
+    DateTime rangeAnchor = DateTime.Today;
+
+    /// <summary>跨度（天）：从基准日往前回溯的天数。</summary>
+    int spanDays = 1;
+
+    /// <summary>跨度输入框：直接改数字即生效，与预设按钮共用同一套逻辑。</summary>
+    int SpanInput
+    {
+        get => spanDays;
+        set
+        {
+            if (value > 0 && value != spanDays)
+                ChangeSpan(value);
         }
-        LoadData();
+    }
+
+    DateTime? RangeAnchorDate => rangeAnchor;
+
+    /// <summary>窗口左端（含当日）。</summary>
+    DateTime WindowStartDate => rangeAnchor.AddDays(-(spanDays - 1));
+
+    bool CanPageNext => rangeAnchor.Date < DateTime.Today;
+
+    string RangeText => spanDays == 1
+        ? $"{rangeAnchor:MM-dd} 单日"
+        : $"{WindowStartDate:MM-dd} ~ {rangeAnchor:MM-dd}（{spanDays} 天）";
+
+    void OnRangeAnchorChanged(DateTime? value)
+    {
+        if (value.HasValue == false)
+            return;
+        rangeAnchor = value.Value.Date;
+        ApplyRange();
+    }
+
+    /// <summary>切换跨度时基准日不动，窗口往前扩张/收缩。</summary>
+    void OnSpanDaysChanged(int value) => ChangeSpan(value);
+
+    void ChangeSpan(int days)
+    {
+        spanDays = Math.Clamp(days, 1, 365);
+        ApplyRange();
+    }
+
+    void PagePreviousRange()
+    {
+        rangeAnchor = rangeAnchor.AddDays(-spanDays);
+        ApplyRange();
+    }
+
+    void PageNextRange()
+    {
+        if (CanPageNext == false)
+            return;
+        rangeAnchor = rangeAnchor.AddDays(spanDays);
+        if (rangeAnchor.Date > DateTime.Today)
+            rangeAnchor = DateTime.Today;
+        ApplyRange();
+    }
+
+    /// <summary>按当前基准日与跨度重算查询窗口，并把记录区间滑块复位。</summary>
+    void ApplyRange()
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        viewFrom = new DateTimeOffset(WindowStartDate, now.Offset);
+        viewTo = new DateTimeOffset(rangeAnchor.AddDays(1), now.Offset);
+        spanFrom = viewFrom;
+        spanTo = viewTo;
+        recordRange = (0, 1000);
+        pageIndex = 0;
+        Reload();
+    }
+
+    /// <summary>当前窗口覆盖到的年份（含今年与去年），节假日按需加载。</summary>
+    List<int> HolidayYearsInRange()
+    {
+        int first = viewFrom.Year;
+        int last = viewTo.AddTicks(-1).Year;
+        int thisYear = DateTime.Now.Year;
+
+        HashSet<int> years = [thisYear, thisYear - 1];
+        for (int year = first; year <= last; year++)
+            years.Add(year);
+
+        return [.. years.OrderBy(year => year)];
+    }
+
+    /// <summary>首次进入某角色：创建日历并补齐窗口涉及的年份。</summary>
+    async Task LoadHolidaysAsync(string characterName)
+    {
+        HolidayCalendar calendar = TokenStatisticsLocator.CreateHolidayCalendar(characterName);
+        await EnsureHolidayYearsAsync(calendar, force: false);
+
+        await InvokeAsync(() => {
+            if (string.Equals(holidayCharacter, characterName, StringComparison.Ordinal) == false)
+                return;
+            holidayCalendar = calendar;
+            UpdateHolidayStatus();
+            Reload();
+        });
+    }
+
+    /// <summary>按需补齐年份；force=true 用于面板上手动刷新。</summary>
+    async Task EnsureHolidayYearsAsync(HolidayCalendar calendar, bool force)
+    {
+        List<int> pending = [];
+        foreach (int year in HolidayYearsInRange())
+        {
+            if (force)
+            {
+                pending.Add(year);
+                continue;
+            }
+
+            if (calendar.LoadedYears.Contains(year) || calendar.MissingYears.Contains(year))
+                continue;
+            if (holidayRequestedYears.Contains(year))
+                continue;
+
+            holidayRequestedYears.Add(year);
+            pending.Add(year);
+        }
+
+        foreach (int year in pending)
+            await calendar.EnsureYearAsync(year, force: force);
+    }
+
+    /// <summary>窗口跨到新年份时补加载；有新增年份则刷新一次界面。</summary>
+    async Task EnsureHolidayYearsFromRangeAsync()
+    {
+        if (holidayCalendar is null)
+            return;
+
+        int before = holidayCalendar.LoadedYears.Count;
+        await EnsureHolidayYearsAsync(holidayCalendar, force: false);
+        if (holidayCalendar.LoadedYears.Count == before)
+            return;
+
+        await InvokeAsync(() => {
+            UpdateHolidayStatus();
+            Reload();
+        });
+    }
+
+    void UpdateHolidayStatus()
+    {
+        if (holidayCalendar is null)
+        {
+            holidayStatus = "加载中…";
+            return;
+        }
+
+        holidayRefreshedAt = DateTime.Now;
+        List<int> loaded = [.. holidayCalendar.LoadedYears];
+        List<int> missing = [.. holidayCalendar.MissingYears];
+
+        string loadedText = loaded.Count > 0 ? string.Join("/", loaded) : "无";
+        holidayStatus = missing.Count == 0
+            ? $"{loadedText} 已加载"
+            : $"{loadedText} 已加载；{string.Join("/", missing)} 不可用（按星期判断）";
+    }
+
+    /// <summary>面板按钮：强制重拉节假日（应对公告后续修订）。</summary>
+    async Task RefreshHolidays()
+    {
+        if (holidayCalendar is null || string.IsNullOrEmpty(holidayCharacter))
+            return;
+
+        holidayStatus = "刷新中…";
         StateHasChanged();
+
+        await EnsureHolidayYearsAsync(holidayCalendar, force: true);
+        await InvokeAsync(() => {
+            UpdateHolidayStatus();
+            Reload();
+        });
     }
 
-    class CharacterStat
+    /// <summary>把编辑结果写回全局配置库（所有角色共享），并记住本角色的选择。</summary>
+    /// <summary>把编辑结果写回全局配置库（所有角色共享），并记住本角色的选择。</summary>
+    void SavePriceProfile()
     {
-        public string CharacterName { get; set; } = "";
-        public List<DailyStat> DailyStats { get; set; } = new();
-        public List<TagStat> TagStats { get; set; } = new();
+        if (string.IsNullOrEmpty(selectedCharacter))
+            return;
+
+        ApplyRuleEdits();
+        PriceProfileStore.Save(TokenStatisticsLocator.PriceProfilesFile, priceProfiles);
+        TokenPriceStore.SaveProfileId(TokenStatisticsLocator.PriceFileFor(selectedCharacter), priceProfile.Id);
+        selectedProfileId = priceProfile.Id;
+        priceSnapshot = PriceProfileStore.Serialize(priceProfiles);
+        Reload();
     }
+
+    /// <summary>把当前配置恢复成内置默认值（只对两个内置配置有效）。</summary>
+    void ResetPriceProfile()
+    {
+        PriceProfile? builtin = PriceProfileStore.CreateDefaults().FirstOrDefault(item => item.Id == priceProfile.Id);
+        if (builtin is null)
+            return;
+
+        int index = priceProfiles.FindIndex(item => item.Id == priceProfile.Id);
+        if (index >= 0)
+            priceProfiles[index] = builtin;
+        else
+            priceProfiles.Add(builtin);
+
+        priceProfile = builtin;
+        LoadRuleEdits();
+        SavePriceProfile();
+    }
+
+    /// <summary>切换本角色使用的价格配置。</summary>
+    void OnProfileChanged(string profileId)
+    {
+        if (string.IsNullOrEmpty(profileId) || string.IsNullOrEmpty(selectedCharacter))
+            return;
+
+        PriceProfile? target = priceProfiles.FirstOrDefault(item => item.Id == profileId);
+        if (target is null)
+            return;
+
+        selectedProfileId = profileId;
+        priceProfile = target;
+        TokenPriceStore.SaveProfileId(TokenStatisticsLocator.PriceFileFor(selectedCharacter), profileId);
+        LoadRuleEdits();
+        Reload();
+    }
+
+    /// <summary>基于当前配置复制一份新配置（想改价格又不想动内置配置时用）。</summary>
+    void DuplicateProfile()
+    {
+        PriceProfile copy = new()
+        {
+            Id = Guid.NewGuid().ToString("N")[..8],
+            Name = priceProfile.Name + " 副本",
+            IsDefault = false,
+            Baseline = ClonePrices(priceProfile.Baseline),
+            Overrides = [.. priceProfile.Overrides.Select(rule => new PriceRule {
+                Name = rule.Name,
+                WorkdaysOnly = rule.WorkdaysOnly,
+                Windows = [.. rule.Windows],
+                Prices = ClonePrices(rule.Prices),
+            })],
+        };
+
+        priceProfiles.Add(copy);
+        priceProfile = copy;
+        selectedProfileId = copy.Id;
+        LoadRuleEdits();
+        SavePriceProfile();
+    }
+
+    static UnitPrices ClonePrices(UnitPrices source) => new()
+    {
+        InputHitPerM = source.InputHitPerM,
+        InputMissPerM = source.InputMissPerM,
+        OutputPerM = source.OutputPerM,
+    };
+
+    /// <summary>删除自定义配置（两个内置配置不可删）。</summary>
+    void DeleteProfile()
+    {
+        if (priceProfile.IsDefault || priceProfiles.Count <= 1)
+            return;
+
+        priceProfiles.RemoveAll(item => item.Id == priceProfile.Id);
+        priceProfile = priceProfiles[0];
+        selectedProfileId = priceProfile.Id;
+        LoadRuleEdits();
+        SavePriceProfile();
+    }
+
+    void TogglePriceConfig()
+    {
+        showPriceConfig = !showPriceConfig;
+        if (showPriceConfig)
+        {
+            LoadRuleEdits();
+            priceSnapshot = PriceProfileStore.Serialize(priceProfiles);
+        }
+        else
+        {
+            priceSnapshot = "";
+        }
+    }
+
+    /// <summary>是否有未保存的改动（仅编辑面板展开时计算）。</summary>
+    bool PriceDirty => showPriceConfig && priceSnapshot.Length > 0
+        && string.Equals(priceSnapshot, PriceProfileStore.Serialize(priceProfiles), StringComparison.Ordinal) == false;
+
+    /// <summary>把覆盖规则的时段转成文本编辑框（只影响界面，保存时才写回模型）。</summary>
+    void LoadRuleEdits()
+    {
+        ruleEdits = [.. priceProfile.Overrides.Select(rule => new RuleEdit {
+            Rule = rule,
+            Windows = [.. rule.Windows.Select(window => new WindowEdit {
+                StartText = MinutesToText(window.StartMinute),
+                EndText = MinutesToText(window.EndMinute),
+            })],
+        })];
+    }
+
+    void AddRule()
+    {
+        PriceRule rule = new()
+        {
+            Name = "覆盖",
+            WorkdaysOnly = true,
+            Prices = ClonePrices(priceProfile.Baseline),
+            Windows = [new TimeWindow(9 * 60, 12 * 60)],
+        };
+
+        priceProfile.Overrides.Add(rule);
+        ruleEdits.Add(new RuleEdit {
+            Rule = rule,
+            Windows = [new WindowEdit { StartText = "09:00", EndText = "12:00" }],
+        });
+    }
+
+    void RemoveRule(RuleEdit edit)
+    {
+        priceProfile.Overrides.Remove(edit.Rule);
+        ruleEdits.Remove(edit);
+    }
+
+    void AddWindow(RuleEdit edit)
+    {
+        edit.Windows.Add(new WindowEdit { StartText = "09:00", EndText = "12:00" });
+    }
+
+    void RemoveWindow(RuleEdit edit, WindowEdit window) => edit.Windows.Remove(window);
+
+    /// <summary>把文本编辑框写回各规则的 Windows（解析失败或区间非法的行忽略）。</summary>
+    void ApplyRuleEdits()
+    {
+        foreach (RuleEdit edit in ruleEdits)
+        {
+            List<TimeWindow> windows = [];
+            foreach (WindowEdit window in edit.Windows)
+            {
+                if (TryParseMinutes(window.StartText, out int start) == false)
+                    continue;
+                if (TryParseMinutes(window.EndText, out int end) == false)
+                    continue;
+                if (end <= start)
+                    continue;
+                windows.Add(new TimeWindow(start, end));
+            }
+
+            windows.Sort((left, right) => left.StartMinute.CompareTo(right.StartMinute));
+            edit.Rule.Windows = windows;
+        }
+
+        priceProfile.Overrides = [.. ruleEdits.Select(edit => edit.Rule)];
+    }
+
+    /// <summary>
+    /// 单条对话的金额自适应精度：金额很小时（缓存费常见 1e-5 量级）多给几位小数，
+    /// 否则四舍五入会把"便宜但有值"的数字抹成 0。
+    /// </summary>
+    static string Money(double value) => value switch
+    {
+        >= 1 => value.ToString("F4"),
+        >= 0.01 => value.ToString("F5"),
+        >= 0.0001 => value.ToString("F6"),
+        _ => value.ToString("F7"),
+    };
+    /// <summary>把 Storage 根目录前缀去掉，界面上显示相对路径更易读。</summary>
+    static string ShortenPath(string path)
+    {
+        string root = Alife.Foundation.AlifePath.StorageFolderPath;
+        if (string.IsNullOrEmpty(root))
+            return path;
+        string prefix = root.TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
+        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? "Storage" + System.IO.Path.DirectorySeparatorChar + path[prefix.Length..]
+            : path;
+    }
+
+    static string MinutesToText(int minutes) => $"{minutes / 60:00}:{minutes % 60:00}";
+
+    static bool TryParseMinutes(string? text, out int minutes)
+    {
+        minutes = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        string[] parts = text.Split(':', '：');
+        if (parts.Length != 2)
+            return false;
+        if (int.TryParse(parts[0], out int hour) == false || int.TryParse(parts[1], out int minute) == false)
+            return false;
+        if (hour < 0 || hour > 24 || minute < 0 || minute > 59)
+            return false;
+
+        minutes = Math.Clamp(hour * 60 + minute, 0, 1440);
+        return true;
+    }
+
+    /// <summary>面板展示用：把覆盖规则拼成 "高峰（仅工作日 09:00-12:00、14:00-18:00）"。</summary>
+    static string OverrideText(PriceProfile? profile)
+    {
+        if (profile is null)
+            return "—";
+        if (profile.Overrides.Count == 0)
+            return "无（全时段基线价）";
+
+        List<string> parts = [];
+        foreach (PriceRule rule in profile.Overrides)
+        {
+            string windows = rule.Windows.Count == 0
+                ? "未设时段"
+                : string.Join("、", rule.Windows.Select(window =>
+                    $"{MinutesToText(window.StartMinute)}-{MinutesToText(window.EndMinute)}"));
+            parts.Add($"{rule.Name}{(rule.WorkdaysOnly ? "（仅工作日）" : "")} {windows}");
+        }
+        return string.Join("；", parts);
+    }
+
+    sealed class RuleEdit
+    {
+        public PriceRule Rule { get; set; } = new();
+        public List<WindowEdit> Windows { get; set; } = [];
+    }
+
+    sealed class WindowEdit
+    {
+        public string StartText { get; set; } = "";
+        public string EndText { get; set; } = "";
+    }
+
+
+    void Reload()
+    {
+        if (string.IsNullOrEmpty(selectedCharacter))
+            return;
+
+        // 全局配置库只读一次；角色切换时重新解析"用的是哪个配置"
+        if (priceProfiles.Count == 0)
+            priceProfiles = TokenStatisticsLocator.LoadPriceProfiles();
+
+        if (string.Equals(priceProfilesCharacter, selectedCharacter, StringComparison.Ordinal) == false)
+        {
+            priceProfilesCharacter = selectedCharacter;
+            priceProfile = TokenStatisticsLocator.ResolvePriceProfile(selectedCharacter, priceProfiles);
+            selectedProfileId = priceProfile.Id;
+            LoadRuleEdits();
+        }
+
+        if (string.Equals(holidayCharacter, selectedCharacter, StringComparison.Ordinal) == false)
+        {
+            holidayCharacter = selectedCharacter;
+            holidayCalendar = null;
+            holidayStatus = "加载中…";
+            _ = LoadHolidaysAsync(selectedCharacter);
+        }
+
+        service = TokenStatisticsLocator.CreateService(selectedCharacter, holidayCalendar, priceProfile);
+        _ = EnsureHolidayYearsFromRangeAsync();
+
+        ApplyRecordRange();
+
+        TagFilter filter = new(excludedNames, ignoredParamNames);
+        filteredRecords = service.QueryRecords(recordsFrom, recordsTo, filter).ToList();
+
+        // 排行榜下钻：只看选中的主导标签/函数
+        if (dominantTagFilter != null)
+            filteredRecords = filteredRecords.Where(view => view.HasTag(dominantTagFilter)).ToList();
+        if (dominantFuncFilter != null)
+            filteredRecords = filteredRecords.Where(view => view.HasFunc(dominantFuncFilter)).ToList();
+
+
+        // 两层数据：
+        //   基础范围（基准日 + 跨度，不做名称筛选、不含记录区间滑块）→ 总览 KPI、柱状图、诊断摘要
+        //   明细筛选（基础范围 ∩ 记录区间 ∩ 名称筛选 ∩ 下钻）→ 排行榜、对话记录
+        baseRecords = service.QueryRecords(viewFrom, viewTo, new TagFilter([], ignoredParamNames)).ToList();
+
+        summary = new TokenStatisticsService.RangeSummary(
+            baseRecords.Count,
+            (int)baseRecords.Sum(view => (long)view.Record.InputTotal),
+            (int)baseRecords.Sum(view => (long)view.Record.InputCached),
+            (int)baseRecords.Sum(view => (long)view.Record.OutputTotal),
+            baseRecords.Sum(view => view.MissCost),
+            baseRecords.Sum(view => view.HitCost),
+            baseRecords.Sum(view => view.OutputCost));
+
+        // 给每条记录标上"开销第 N"（按当前筛选结果降序），不再只标前 10 条
+        costRanks.Clear();
+        foreach (var view in filteredRecords.OrderByDescending(view => view.Cost))
+            costRanks[view.Record.Id] = costRanks.Count + 1;
+
+        // 记录区间内的合计，用于"每条记录占所选范围"的百分比
+        knownNames = [.. service.KnownNames(spanFrom, spanTo, filter)];
+        parameterizedNames.Clear();
+        parameterizedNames.AddRange(service.ParameterizedBaseNames(spanFrom, spanTo));
+
+        long tokens = summary.InputTotal + summary.OutputTotal;
+        long missTokens = summary.InputMissTokens;
+        kpis =
+        [
+            new Kpi("对话条数", summary.ChatCount.ToString("N0"), "时间范围内的对话数"),
+            new Kpi("缓存", summary.InputCached.ToString("N0"),
+                    "¥" + summary.HitCost.ToString("F4") + " · 命中率 " + summary.HitRate.ToString("P1")),
+            new Kpi("输入", missTokens.ToString("N0"),
+                    "¥" + summary.MissCost.ToString("F4") + " · 与缓存各自计费"),
+            new Kpi("输出", summary.OutputTotal.ToString("N0"),
+                    "¥" + summary.OutputCost.ToString("F4") + " · 占总量 " + FormatShare(summary.OutputTotal, tokens)),
+            new Kpi("总花费", "¥" + summary.Cost.ToString("F4"), "平均每次 ¥" + summary.AverageCost.ToString("F5")),
+        ];
+
+        // 与上一段同长度窗口对比（诊断只做对比，不用拍脑袋阈值）
+        // 诊断也属于"基础范围"层：本期 = 基准日+跨度内的全部对话；基线 = 紧邻的等长窗口
+        List<TokenStatisticsService.RecordView> baselineRecords =
+            service.QueryRecords(viewFrom - (viewTo - viewFrom), viewFrom, new TagFilter([], ignoredParamNames)).ToList();
+
+        // "缓存优化空间"的目标值来自历史：近 30 天里样本够、命中率最高的一天
+        TokenStatisticsService.HitRateTarget? hitRateTarget = service.BestDailyHitRate(
+            viewFrom.AddDays(-TokenStatisticsDiagnostics.LookbackDays), viewFrom, TokenStatisticsDiagnostics.MinSamplesForTrend);
+
+        insights = TokenStatisticsDiagnostics.Analyze(baseRecords, baselineRecords, viewTo - viewFrom,
+            time => priceProfile.IsOverridden(time, EffectiveCalendar), holidayStatus, hitRateTarget).ToList();
+        BuildRankGroups();
+        RefreshBuckets();
+        SlicePage();
+    }
+
+    void RefreshBuckets()
+    {
+        if (service == null)
+            return;
+
+        // 图表属于"基础范围"层：时间轴与数据都只用基准日 + 跨度，不受记录区间/名称筛选影响
+        TimeSpan span = viewTo - viewFrom;
+        if (span <= TimeSpan.Zero)
+            span = TimeSpan.FromHours(1);
+        TimeSpan width;
+        BucketLabelMode labelMode;
+
+        if (span.TotalHours <= 36)
+        {
+            width = TimeSpan.FromHours(1);
+            labelMode = BucketLabelMode.Hour;
+        }
+        else if (span.TotalDays <= 92)
+        {
+            width = TimeSpan.FromDays(1);
+            labelMode = BucketLabelMode.Day;
+        }
+        else
+        {
+            width = TimeSpan.FromDays(7);
+            labelMode = BucketLabelMode.Day;
+        }
+
+        buckets = service.Bucketize(baseRecords, viewFrom, viewTo, width, labelMode).ToList();
+        double tokenMax = 0;
+        double costMax = 0;
+        foreach (var bucket in buckets)
+        {
+            // 柱高 = 缓存 + 未命中输入 + 输出 = InputTotal + OutputTotal；纵轴按这个总量取整，柱子才不会顶到顶或过矮
+            tokenMax = Math.Max(tokenMax, (double)bucket.InputTotal + bucket.OutputTotal);
+            costMax = Math.Max(costMax, bucket.Cost);
+        }
+        niceTokenMax = NiceCeiling(tokenMax);
+        niceCostMax = NiceCeiling(costMax);
+    }
+
+    void OnRecordSortChanged(string mode)
+    {
+        recordSortMode = mode;
+        pageIndex = 0;
+        SlicePage();
+    }
+
+    /// <summary>按当前排序方式给出记录顺序：时间正序（默认）或开销降序。</summary>
+    IEnumerable<TokenStatisticsService.RecordView> OrderedRecords()
+        => recordSortMode == "cost"
+            ? filteredRecords.OrderByDescending(view => view.Cost)
+            : filteredRecords;
+
+    void SlicePage()
+    {
+        int maxPage = Math.Max(0, (filteredRecords.Count - 1) / pageSize);
+        if (pageIndex > maxPage)
+            pageIndex = maxPage;
+
+        pageRecords = OrderedRecords()
+            .Skip(pageIndex * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    string BarStyle(TokenStatisticsService.Bucket bucket, SeriesDef series)
+    {
+        double value = series.Value(bucket);
+        double ratio = series.Max <= 0 ? 0 : value / series.Max;
+        double percent = Math.Clamp(ratio * 100, 0, 100);
+        return $"height:{percent:F1}%; background:{series.Color};";
+    }
+
+    string DisplayModeCaption => (normalizeMode, costMode) switch
+    {
+        (true, true) => $"共 {buckets.Count} 个时段；每根柱子按「缓存 / 输入 / 输出」的费用构成做 100% 堆叠（看结构）。",
+        (true, false) => $"共 {buckets.Count} 个时段；每根柱子按「缓存 / 输入 / 输出」的 Token 构成做 100% 堆叠（看结构）。",
+        (false, true) => $"共 {buckets.Count} 个时段；三段已按当前峰谷单价折算为金额（元）后堆叠，柱高即该时段花费。",
+        _ => $"共 {buckets.Count} 个时段；每根柱子堆叠「缓存 / 输入 / 输出」的 Token 数，柱高为三者之和。鼠标悬停查看明细。",
+    };
+
+    string AxisTopText => normalizeMode ? "100%" : (costMode ? FormatCostValue(niceCostMax) : FormatTokenValue(niceTokenMax));
+
+    string AxisMidText => normalizeMode ? "50%" : (costMode ? FormatCostValue(niceCostMax / 2) : FormatTokenValue(niceTokenMax / 2));
+
+    bool ShowRightAxis => false;
+
+    static string BucketHitRate(TokenStatisticsService.Bucket bucket)
+        => bucket.InputTotal > 0 ? ((double)bucket.InputCached / bucket.InputTotal).ToString("P1") : "—";
+
+    /// <summary>堆叠柱的三个分段：输入未命中、输入缓存命中、输出。每次渲染重算，勾选变化即时生效。</summary>
+    List<SeriesDef> ActiveSeries => BuildSeries();
+
+    List<SeriesDef> BuildSeries()
+    {
+        List<SeriesDef> list = new();
+        if (buckets.Count == 0)
+            return list;
+
+        // 堆叠总量：按价格口径用金额总量，否则用 Token 总量（输入含缓存，故 = InputTotal + OutputTotal）
+        double maxTotal = buckets.Max(b => costMode ? b.Cost : b.InputTotal + b.OutputTotal);
+
+        // 归一化时每段取"该时段内部占比"，柱高合计恒为 100%
+        double TokenTotal(TokenStatisticsService.Bucket b) => Math.Max(1d, b.InputTotal + b.OutputTotal);
+        double CostTotal(TokenStatisticsService.Bucket b) => b.Cost <= 0 ? 1d : b.Cost;
+
+        if (showInput)
+        {
+            list.Add(costMode
+                ? new SeriesDef("输入未命中", "#1677ff",
+                    b => normalizeMode ? b.InputMissCost / CostTotal(b) : b.InputMissCost,
+                    normalizeMode ? 1 : maxTotal, true)
+                : new SeriesDef("输入未命中", "#1677ff",
+                    b => normalizeMode ? (b.InputTotal - b.InputCached) / TokenTotal(b) : b.InputTotal - b.InputCached,
+                    normalizeMode ? 1 : maxTotal, false));
+        }
+
+        if (showCached)
+        {
+            list.Add(costMode
+                ? new SeriesDef("输入缓存命中", "#36cfc9",
+                    b => normalizeMode ? b.InputHitCost / CostTotal(b) : b.InputHitCost,
+                    normalizeMode ? 1 : maxTotal, true)
+                : new SeriesDef("输入缓存命中", "#36cfc9",
+                    b => normalizeMode ? b.InputCached / TokenTotal(b) : b.InputCached,
+                    normalizeMode ? 1 : maxTotal, false));
+        }
+
+        if (showOutput)
+        {
+            list.Add(costMode
+                ? new SeriesDef("输出", "#9254de",
+                    b => normalizeMode ? b.OutputCost / CostTotal(b) : b.OutputCost,
+                    normalizeMode ? 1 : maxTotal, true)
+                : new SeriesDef("输出", "#9254de",
+                    b => normalizeMode ? b.OutputTotal / TokenTotal(b) : b.OutputTotal,
+                    normalizeMode ? 1 : maxTotal, false));
+        }
+
+        return list;
+    }
+
+    string FormatSeriesValue(SeriesDef series, TokenStatisticsService.Bucket bucket)
+    {
+        double value = series.Value(bucket);
+        if (normalizeMode)
+            return value.ToString("P1");
+        return series.IsCost ? "¥" + value.ToString("F5") : value.ToString("N0");
+    }
+
+    sealed record SeriesDef(string Label, string Color, Func<TokenStatisticsService.Bucket, double> Value, double Max, bool IsCost);
+
+    bool ShouldShowLabel(TokenStatisticsService.Bucket bucket)
+    {
+        if (buckets.Count == 0)
+            return false;
+        int index = buckets.IndexOf(bucket);
+        int step = Math.Max(1, (int)Math.Ceiling(buckets.Count / 12.0));
+        if (buckets.Count <= 12)
+            return true;
+        return index % step == 0;
+    }
+
+    static string FormatTokenValue(double value)
+    {
+        if (value >= 1_000_000)
+            return (value / 1_000_000d).ToString("0.##") + "M";
+        if (value >= 10_000)
+            return (value / 1000d).ToString("0.#") + "k";
+        return value.ToString("N0");
+    }
+
+    static string FormatCostValue(double value)
+        => value >= 0.01 ? value.ToString("F2") : value.ToString("F4");
+
+    static string FormatShare(long part, long total) => total <= 0 ? "—" : (part / (double)total).ToString("P1");
+
+    static double NiceCeiling(double value)
+    {
+        if (value <= 0)
+            return 1;
+
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(value)));
+        double normalized = value / magnitude;
+        double niceNormalized = normalized switch
+        {
+            <= 1 => 1,
+            <= 2 => 2,
+            <= 5 => 5,
+            _ => 10,
+        };
+        return niceNormalized * magnitude;
+    }
+
+    /// <summary>
+    /// 标签/函数的显示名：源(ExecutionService) → 源·ExecutionService。
+    /// 直接取括号前会丢掉关键信息（所有来源都变成"源"），这里把参数并进名字里。
+    /// </summary>
+    static string ChipName(string name)
+    {
+        int open = name.IndexOfAny(['(', '（']);
+        int close = name.LastIndexOfAny([')', '）']);
+        if (open < 0 || close <= open)
+            return name;
+
+        string inner = name.Substring(open + 1, close - open - 1);
+        if (inner.Length > 16)
+            inner = inner[..16] + "…";
+        return name.Substring(0, open) + "·" + inner;
+    }
+    static string InsightClass(TokenStatisticsDiagnostics.Severity level) => level switch
+    {
+        TokenStatisticsDiagnostics.Severity.Critical => "ts-insight-critical",
+        TokenStatisticsDiagnostics.Severity.Warning => "ts-insight-warning",
+        _ => "ts-insight-info",
+    };
+
+    void BuildRankGroups()
+    {
+        if (service is null)
+        {
+            rankGroups = [];
+            return;
+        }
+
+        rankGroups =
+        [
+            new RankGroup("标签排行", "每条对话按各标签字节占比分摊（可多选并存）", "标签", "tag", service.RankByTags(filteredRecords)),
+            new RankGroup("函数排行", "每条对话按各函数字节占比分摊（可多选并存）", "函数", "func", service.RankByFunctions(filteredRecords)),
+        ];
+    }
+
+    /// <summary>点表头：同一列再点一次反向，换列时数值默认倒序、名称默认正序。</summary>
+    void OnRankSort(RankSortColumn column)
+    {
+        if (rankSort == column)
+        {
+            rankSortDesc = !rankSortDesc;
+            return;
+        }
+
+        rankSort = column;
+        rankSortDesc = column != RankSortColumn.Name;
+    }
+
+    string SortArrow(RankSortColumn column)
+        => rankSort == column ? (rankSortDesc ? " ▼" : " ▲") : "";
+
+    string SortHeaderStyle(RankSortColumn column)
+        => rankSort == column
+            ? "padding:0; height:auto; font-weight:600; color:#1677ff;"
+            : "padding:0; height:auto; color:rgba(0,0,0,0.65);";
+
+    static double SortValue(TokenStatisticsService.RankRow row, RankSortColumn column) => column switch
+    {
+        RankSortColumn.Count => row.ChatCount,
+        RankSortColumn.Cached => row.CachedTokens,
+        RankSortColumn.CachedCost => row.HitCost,
+        RankSortColumn.Input => row.InputMissTokens,
+        RankSortColumn.InputCost => row.MissCost,
+        RankSortColumn.Output => row.OutputTokens,
+        RankSortColumn.OutputCost => row.OutputCost,
+        _ => row.Cost,
+    };
+
+    /// <summary>按当前排序列排好，并算出占比与累计（都基于排序列的合计）。</summary>
+    List<RankRowView> RankRows(RankGroup group)
+    {
+        List<TokenStatisticsService.RankRow> rows = rankSort == RankSortColumn.Name
+            ? (rankSortDesc
+                ? [.. group.Rows.OrderByDescending(row => row.Name, StringComparer.Ordinal)]
+                : [.. group.Rows.OrderBy(row => row.Name, StringComparer.Ordinal)])
+            : (rankSortDesc
+                ? [.. group.Rows.OrderByDescending(row => SortValue(row, rankSort)).ThenByDescending(row => row.ChatCount)]
+                : [.. group.Rows.OrderBy(row => SortValue(row, rankSort)).ThenByDescending(row => row.ChatCount)]);
+
+        double total = rankSort == RankSortColumn.Name
+            ? rows.Sum(row => row.Cost)
+            : rows.Sum(row => SortValue(row, rankSort));
+
+        double cumulative = 0;
+        List<RankRowView> list = new(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            double value = rankSort == RankSortColumn.Name ? rows[i].Cost : SortValue(rows[i], rankSort);
+            double share = total > 0 ? value / total : 0;
+            cumulative += share;
+            list.Add(new RankRowView(rows[i], i + 1, share, cumulative));
+        }
+        return list;
+    }
+
+    /// <summary>前 12 行之外的汇总（保证"可见行之和 + 其余 = 总额"）。</summary>
+    static TokenStatisticsService.RankRow SumRest(List<RankRowView> rest)
+        => new(
+            $"其余 {rest.Count} 项",
+            rest.Sum(view => view.Row.ChatCount),
+            rest.Sum(view => view.Row.CachedTokens),
+            rest.Sum(view => view.Row.InputMissTokens),
+            rest.Sum(view => view.Row.OutputTokens),
+            rest.Sum(view => view.Row.HitCost),
+            rest.Sum(view => view.Row.MissCost),
+            rest.Sum(view => view.Row.OutputCost));
+
+    /// <summary>
+    /// 把一组权重换算成整数百分比，用"最大余数法"分配四舍五入的误差，
+    /// 保证同一维度（标签 或 函数）内所有百分比相加正好 100%。
+    /// </summary>
+    static IReadOnlyList<(string Name, int Percent)> ChipShares(IReadOnlyList<TokenStatisticsService.WeightedName> weights)
+    {
+        if (weights.Count == 0)
+            return [];
+
+        double total = weights.Sum(item => item.Weight);
+        if (total <= 0)
+            return [.. weights.Select(item => (item.Name, 0))];
+
+        double[] exact = [.. weights.Select(item => item.Weight / total * 100)];
+        int[] percent = [.. exact.Select(value => (int)Math.Floor(value))];
+        int remainder = 100 - percent.Sum();
+
+        if (remainder > 0)
+        {
+            // 余数按小数部分从大到小分配（最多 100 个名额，够用）
+            int[] order = [.. Enumerable.Range(0, exact.Length)
+                .OrderByDescending(index => exact[index] - Math.Floor(exact[index]))];
+            for (int i = 0; i < remainder && i < order.Length; i++)
+                percent[order[i]]++;
+        }
+        else if (remainder < 0)
+        {
+            int[] order = [.. Enumerable.Range(0, exact.Length)
+                .OrderBy(index => exact[index] - Math.Floor(exact[index]))];
+            for (int i = 0; i < -remainder && i < order.Length && percent[order[i]] > 0; i++)
+                percent[order[i]]--;
+        }
+
+        return [.. weights.Select((item, index) => (item.Name, percent[index]))];
+    }
+
+    /// <summary>
+    /// 把「标签 + 函数 + 思考」合并成一行占比：全部按 UTF-8 字节数算，
+    /// 排序后取整（最大余数法），保证同一张卡上这些百分比相加正好 100%。
+    /// </summary>
+    static IReadOnlyList<(string Name, int Percent, bool IsFunc)> MergedShares(
+        IReadOnlyList<TokenStatisticsService.WeightedName> tags,
+        IReadOnlyList<TokenStatisticsService.WeightedName> funcs)
+    {
+        List<(string Name, int Bytes, bool IsFunc)> items =
+        [
+            .. tags.Select(item => (item.Name, item.Bytes, false)),
+            .. funcs.Select(item => (item.Name, item.Bytes, true)),
+        ];
+
+        int total = items.Sum(item => item.Bytes);
+        if (total <= 0)
+            return [.. items.Select(item => (item.Name, 0, item.IsFunc))];
+
+        double[] exact = [.. items.Select(item => (double)item.Bytes / total * 100)];
+        int[] percent = [.. exact.Select(value => (int)Math.Floor(value))];
+        int remainder = 100 - percent.Sum();
+
+        if (remainder > 0)
+        {
+            int[] order = [.. Enumerable.Range(0, exact.Length)
+                .OrderByDescending(index => exact[index] - Math.Floor(exact[index]))];
+            for (int i = 0; i < remainder && i < order.Length; i++)
+                percent[order[i]]++;
+        }
+        else if (remainder < 0)
+        {
+            int[] order = [.. Enumerable.Range(0, exact.Length)
+                .OrderBy(index => exact[index] - Math.Floor(exact[index]))];
+            for (int i = 0; i < -remainder && i < order.Length && percent[order[i]] > 0; i++)
+                percent[order[i]]--;
+        }
+
+        return [.. items
+            .Select((item, index) => (item.Name, percent[index], item.IsFunc))
+            .OrderByDescending(entry => entry.Item2)];
+    }
+
+    /// <summary>胶囊状态样式：蓝色=参与/已忽略，灰色划线=已排除/未忽略。</summary>
+    static string ChipClass(bool isOn) => isOn ? "ts-chip-btn ts-chip-btn-on" : "ts-chip-btn ts-chip-btn-off";
+
+    static string BarWidth(double share) => $"width:{Math.Clamp(share * 100, 0, 100):F1}%";
+
+    sealed record Kpi(string Label, string Value, string Foot);
+
+    /// <summary>排行榜可排序的列。</summary>
+    enum RankSortColumn
+    {
+        Name,
+        Count,
+        Cached,
+        CachedCost,
+        Input,
+        InputCost,
+        Output,
+        OutputCost,
+        Total,
+    }
+
+    /// <summary>排行中的一行 + 名次 + 占比（都按当前排序列算）。</summary>
+    sealed record RankRowView(TokenStatisticsService.RankRow Row, int Rank, double Share, double Cumulative);
+
+    sealed record RankGroup(
+        string Title,
+        string Sub,
+        string NameLabel,
+        string Kind,
+        IReadOnlyList<TokenStatisticsService.RankRow> Rows);
 }
