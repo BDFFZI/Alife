@@ -1,17 +1,17 @@
-/*/*
-/*.*
+/*
 
-!/Demos/*
-!/Tests/*
-!/Sources/*
-!/Publish/*
-!/开发规范/*
+!/Demos/
+!/Tests/
+!/Sources/
+!/Publish/
+!/.agents/
 
 !/.gitignore
 !/Alife.slnx
 !/Directory.Build.props
-!/LICENSE.md
 !/README.md
+!/LICENSE.md
+!/AGENTS.md
 
 obj/
 bin/
