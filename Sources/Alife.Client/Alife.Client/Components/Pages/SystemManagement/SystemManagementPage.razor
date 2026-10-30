@@ -1,10 +1,7 @@
 
 @page "/system"
 @implements IDisposable
-@using Alife.Foundation
-@using System.Linq
-@using System.Reflection
-@using System.Runtime.Loader
+@inject UIAttributeSystem UIAttributeSystem
 
 <div
     style="height: calc(100vh - 24px); margin: 12px; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; animation: fadeIn 0.5s ease-out;">
@@ -14,20 +11,21 @@
     </div>
 
     <div style="flex: 1; overflow: hidden;">
-        <Tabs @bind-ActiveKey="activeKey" TabPosition="@TabPosition.Left" Style="height: 100%;">
-            @foreach (var item in ScanMenuItems())
+        @* 菜单集合变化时重建 Tabs：AntDesign 的 Tabs 按面板序号记忆当前面板，增删面板会让它和 ActiveKey 错位 *@
+        <Tabs @key="@tabsKey" @bind-ActiveKey="activeKey" TabPosition="@TabPosition.Left" Style="height: 100%;">
+            @foreach (MenuItem item in menuItems)
             {
-                <TabPane Key="@item.Key">
+                <TabPane Key="@item.Menu.Key">
                     <TabTemplate>
                         <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                            <Icon Type="@item.IconType"/>
-                            <span style="font-size: 12px">@item.Name</span>
+                            <Icon Type="@item.Menu.IconType"/>
+                            <span style="font-size: 12px">@item.Menu.Name</span>
                         </Flex>
                     </TabTemplate>
                     <ChildContent>
-                        <PluginErrorBoundary @key="@(item.Key + "#" + boundaryRevision)">
+                        <PluginErrorBoundary @key="@(item.Menu.Key + "#" + boundaryRevision)">
                             <ChildContent>
-                                <DynamicComponent Type="@item.ContentType"/>
+                                <DynamicComponent Type="@item.ComponentType"/>
                             </ChildContent>
                             <ErrorContent Context="ex">
                                 <PluginErrorPanel Value="ex" OnRetry="@(() => boundaryRevision++)"/>
@@ -68,88 +66,55 @@
     // 插件界面出错后“重新加载”时递增，用于强制重建错误边界与其内容
     int boundaryRevision;
 
-    /// <summary>菜单项快照（仅本界面消费，无需独立服务）。</summary>
-    sealed record MenuItem(string Key, string Name, string IconType, Type ContentType, int Order);
+    /// <summary>本页自己的菜单视图模型：键名、文字、图标、排序都是 SystemMenuAttribute 的字段，不在框架层统一。</summary>
+    sealed record MenuItem(SystemMenuAttribute Menu, Type ComponentType);
 
-    /// <summary>
-    /// 扫描所有已加载程序集中标记了 SystemMenuAttribute 的组件类型，按 Order 排序。
-    /// 扫描源用 AssemblyLoadContext.All：内置在 Default 上下文，插件在各自独立上下文，仅扫 AppDomain 会漏插件程序集。
-    /// </summary>
-    IReadOnlyList<MenuItem> ScanMenuItems()
-    {
-        List<MenuItem> items = new();
-        HashSet<Assembly> visited = new();
+    /// <summary>左侧菜单项快照（含插件菜单，已按开关过滤）。</summary>
+    IReadOnlyList<MenuItem> menuItems = [];
 
-        foreach (AssemblyLoadContext context in AssemblyLoadContext.All)
-        {
-            foreach (Assembly assembly in context.Assemblies)
-            {
-                if (!visited.Add(assembly))
-                    continue;
-
-                Type[] types;
-                try
-                {
-                    types = assembly.GetTypes();
-                }
-                catch (ReflectionTypeLoadException e)
-                {
-                    //部分类型加载失败时，用能加载的那部分继续，不整体丢弃
-                    AlifeLog.LogError(new Exception($"扫描菜单时程序集 {assembly.GetName().Name} 部分类型加载失败。", e));
-                    types = e.Types.OfType<Type>().ToArray();
-                }
-                catch (Exception e)
-                {
-                    //插件与当前框架不兼容（如方法签名已变化、依赖缺失）时，整个程序集跳过，避免界面崩溃
-                    AlifeLog.LogError(new Exception($"扫描菜单时程序集 {assembly.GetName().Name} 加载失败，已跳过该程序集。", e));
-                    continue;
-                }
-
-                foreach (Type type in types)
-                {
-                    //单个类型的特性读取可能因签名不匹配而失败（如插件按旧版 SystemMenuAttribute 构造签名编译），只跳过该类型
-                    SystemMenuAttribute? attribute;
-                    try
-                    {
-                        attribute = type.GetCustomAttribute<SystemMenuAttribute>();
-                    }
-                    catch (Exception e)
-                    {
-                        AlifeLog.LogError(new Exception($"读取类型 {type.FullName} 的 SystemMenu 特性失败，已跳过该类型。", e));
-                        continue;
-                    }
-
-                    if (attribute == null)
-                        continue;
-
-                    items.Add(new MenuItem(
-                        attribute.Key,
-                        attribute.Name,
-                        attribute.IconType,
-                        type,
-                        attribute.Order));
-                }
-            }
-        }
-
-        return items
-            .OrderBy(item => item.Order)
-            .ThenBy(item => item.Key, StringComparer.Ordinal)
-            .ToList();
-    }
+    /// <summary>当前菜单键名集合，作为 Tabs 的 key：集合一变就重建，保证重建后仍停在 ActiveKey 上。</summary>
+    string tabsKey = "";
 
     protected override void OnInitialized()
     {
+        UIAttributeSystem.RegistrationsChanged += OnRegistrationsChanged;
         ClientNavigation.RegisterNavigator(OnNavigationRequested);
+        RefreshMenuItems();
     }
     public void Dispose()
     {
+        UIAttributeSystem.RegistrationsChanged -= OnRegistrationsChanged;
         ClientNavigation.UnregisterNavigator(OnNavigationRequested);
     }
 
+    void OnRegistrationsChanged()
+    {
+        InvokeAsync(() =>
+        {
+            RefreshMenuItems();
+            StateHasChanged();
+        });
+    }
     void OnNavigationRequested(string path)
     {
         activeKey = path;
         InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// 重新取用菜单项。插件界面被关闭或卸载后，当前选中的菜单可能已经不存在，此时退回第一个可用菜单。
+    /// </summary>
+    void RefreshMenuItems()
+    {
+        menuItems = UIAttributeSystem.GetEnabledRegistrations<SystemMenuAttribute>()
+            .Select(registration => new MenuItem((SystemMenuAttribute)registration.Attribute, registration.ComponentType))
+            .OrderBy(item => item.Menu.Order)
+            .ThenBy(item => item.Menu.Key, StringComparer.Ordinal)
+            .ToList();
+        tabsKey = string.Join('|', menuItems.Select(item => item.Menu.Key));
+        if (menuItems.Count == 0 || menuItems.Any(item => item.Menu.Key == activeKey))
+            return;
+
+        activeKey = menuItems[0].Menu.Key;
     }
 }

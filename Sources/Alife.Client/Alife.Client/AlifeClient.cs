@@ -53,10 +53,6 @@ public static class AlifeClient
             progress?.Report("初始化客户端功能...");
 
             ChatActivitySystem chatActivitySystem = provider.GetRequiredService<ChatActivitySystem>();
-            StorageSystem storageSystem = provider.GetRequiredService<StorageSystem>();
-
-            //初始化对话统计功能
-            ClientChatStatistics.Initialize(chatActivitySystem, storageSystem);
             //增加额外的基于客户端的功能
             chatActivitySystem.InjectedObjects.Add(provider.GetRequiredService<IAlifeClient>());
         }

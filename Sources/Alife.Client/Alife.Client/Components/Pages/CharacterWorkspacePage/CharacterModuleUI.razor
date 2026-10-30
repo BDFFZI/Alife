@@ -1,4 +1,6 @@
-﻿@inject CharacterSystem CharacterSystem
+@inherits CharacterMenu
+@attribute [CharacterMenu("modules","功能检视","build",30)]
+@inject CharacterSystem CharacterSystem
 @implements IDisposable
 
 <div style="flex: 1; overflow: hidden;">
@@ -10,9 +12,6 @@
 </div>
 
 @code{
-
-    [Parameter] public Character Character { get; set; } = null!;
-    [Parameter] public ChatActivity? ChatActivity { get; set; }
 
     HashSet<string> enabledModules = new();
 

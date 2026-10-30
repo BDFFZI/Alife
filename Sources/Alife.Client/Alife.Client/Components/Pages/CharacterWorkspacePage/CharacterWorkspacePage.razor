@@ -5,6 +5,7 @@
 @inject INotificationService NotificationService
 @inject NavigationManager Navigation
 @inject IAlifeApplication AlifeApplication
+@inject UIAttributeSystem UIAttributeSystem
 @using System.IO
 @implements IDisposable
 
@@ -39,26 +40,17 @@ else
                 </div>
             </div>
 
-            @* 功能菜单 *@
+            @* 功能菜单：内置项与插件项都由 CharacterMenuAttribute 声明，本页只负责渲染 *@
             <div style="flex: 1; padding: 12px 0; overflow-y: auto; overflow-x: hidden;">
-                <Menu Mode="@MenuMode.Inline" SelectedKeys="@(new[] { activeTab })"
+                <Menu Mode="@MenuMode.Inline" SelectedKeys="@(new[] { activeMenuKey })"
                       Style="background: transparent;">
-                    <MenuItem Key="info" OnClick="@(() => activeTab = "info")">
-                        <Icon Type="@IconType.Outline.Dashboard"/>
-                        <span>角色设定</span>
-                    </MenuItem>
-                    <MenuItem Key="chat" OnClick="@(() => activeTab = "chat")">
-                        <Icon Type="@IconType.Outline.Comment"/>
-                        <span>对话看板</span>
-                    </MenuItem>
-                    <MenuItem Key="history" OnClick="@(() => activeTab = "history")">
-                        <Icon Type="@IconType.Outline.Book"/>
-                        <span>完整背景</span>
-                    </MenuItem>
-                    <MenuItem Key="modules" OnClick="@(() => activeTab = "modules")">
-                        <Icon Type="@IconType.Outline.Build"/>
-                        <span>功能检视</span>
-                    </MenuItem>
+                        @foreach (MenuItem item in menuItems)
+                    {
+                        <MenuItem Key="@item.Menu.Key" OnClick="@(() => activeMenuKey = item.Menu.Key)">
+                            <Icon Type="@item.Menu.IconType"/>
+                            <span>@item.Menu.Name</span>
+                        </MenuItem>
+                    }
                 </Menu>
             </div>
 
@@ -97,27 +89,17 @@ else
         <div @key="@Name"
              style="flex: 1; display: flex; flex-direction: column;justify-content: center; overflow: hidden; background: #fff">
 
-            @switch (activeTab)
+            @if (activeItem != null)
             {
-                case "info":
-                    <CharacterConfigUI @ref="characterConfigUI" Character="character"/>
-                    break;
-                case "chat":
-                    <ChatWindowUI Character="@character" ChatActivity="@activity"/>
-                    break;
-                case "history":
-                    @if (activity != null)
-                    {
-                        <ChatHistoryUI ChatActivity="@activity"></ChatHistoryUI>
-                    }
-                    else
-                    {
-                        <Empty Description="@("启动角色后才可查看对话上下文喵！")"/>
-                    }
-                    break;
-                case "modules":
-                    <CharacterModuleUI Character="@character" ChatActivity="@activity"></CharacterModuleUI>
-                    break;
+                <PluginErrorBoundary @key="@(Name + activeItem.Menu.Key + "#" + boundaryRevision)">
+                    <ChildContent>
+                        <DynamicComponent Type="@activeItem.ComponentType"
+                                          Parameters="@(MenuParameters())"/>
+                    </ChildContent>
+                    <ErrorContent Context="ex">
+                        <PluginErrorPanel Value="ex" OnRetry="@(() => boundaryRevision++)"/>
+                    </ErrorContent>
+                </PluginErrorBoundary>
             }
 
         </div>
@@ -130,16 +112,25 @@ else
     Character? character;
     ChatActivity? activity;
 
-    CharacterConfigUI? characterConfigUI;
-
     bool isStopping;
-    string activeTab = "info";
+    int boundaryRevision;
+    string activeMenuKey = "";
+
+    /// <summary>本页自己的菜单视图模型：键名、文字、图标、排序都是 CharacterMenuAttribute 的字段，不在框架层统一。</summary>
+    sealed record MenuItem(CharacterMenuAttribute Menu, Type ComponentType);
+
+    /// <summary>角色菜单项（内置 + 插件，已按开关过滤）。</summary>
+    IReadOnlyList<MenuItem> menuItems = [];
+
+    MenuItem? activeItem => menuItems.FirstOrDefault(item => item.Menu.Key == activeMenuKey);
 
     protected override void OnInitialized()
     {
         ChatActivitySystem.Activated += OnChatActivityActivated;
         ChatActivitySystem.Deactivated += OnChatActivityDeactivated;
         ChatActivitySystem.Deactivating += OnChatActivityDeactivating;
+        UIAttributeSystem.RegistrationsChanged += OnRegistrationsChanged;
+        RefreshMenuItems();
     }
     protected override void OnParametersSet()
     {
@@ -151,8 +142,43 @@ else
         ChatActivitySystem.Activated -= OnChatActivityActivated;
         ChatActivitySystem.Deactivated -= OnChatActivityDeactivated;
         ChatActivitySystem.Deactivating -= OnChatActivityDeactivating;
+        UIAttributeSystem.RegistrationsChanged -= OnRegistrationsChanged;
     }
 
+    void OnRegistrationsChanged()
+    {
+        InvokeAsync(() =>
+        {
+            RefreshMenuItems();
+            StateHasChanged();
+        });
+    }
+    /// <summary>
+    /// 重新取用菜单项。插件界面被关闭或卸载后，当前选中的菜单可能已经不存在，此时退回第一个可用菜单。
+    /// </summary>
+    void RefreshMenuItems()
+    {
+        menuItems = UIAttributeSystem.GetEnabledRegistrations<CharacterMenuAttribute>()
+            .Select(registration => new MenuItem((CharacterMenuAttribute)registration.Attribute, registration.ComponentType))
+            .OrderBy(item => item.Menu.Order)
+            .ThenBy(item => item.Menu.Key, StringComparer.Ordinal)
+            .ToList();
+        if (menuItems.Count == 0 || menuItems.Any(item => item.Menu.Key == activeMenuKey))
+            return;
+
+        activeMenuKey = menuItems[0].Menu.Key;
+    }
+    /// <summary>
+    /// 按 CharacterMenu 基类的约定喂给菜单内容组件的参数：DynamicComponent 只认 Parameters 字典，不接受同名属性。
+    /// 渲染到此处时 character 必然存在（外层已按空角色分支）。
+    /// </summary>
+    Dictionary<string, object?> MenuParameters()
+    {
+        return new Dictionary<string, object?> {
+            { "Character", character! },
+            { "ChatActivity", activity },
+        };
+    }
     void OnChatActivityActivated(ChatActivity chatActivity)
     {
         if (chatActivity.Character != character)
@@ -199,8 +225,11 @@ else
         if (character == null || activity != null)
             return;
 
-        characterConfigUI?.SaveCharacter();
-        Task.Run(() => ChatActivitySystem.Activate(character));
+        //角色设定直接绑在 Character 实例上，激活前落盘一次，避免未点“应用设定”的改动只留在内存里
+        Task.Run(async () => {
+            await CharacterSystem.SaveCharacter(character);
+            await ChatActivitySystem.Activate(character);
+        });
     }
     void DeactivateCharacter()
     {

@@ -20,7 +20,7 @@ Sources/
     Alife.Foundation           基础设施：日志、配置、上下文、镜像
     Alife.Framework            核心功能（M）：Models（ModuleAttribute、IConfigurable、Interactor）、Services（`*System`，DI 单例注册）、Utility
     Alife.PluginSystem         插件机制：PluginContext（C# 编译、依赖解析、AssemblyLoadContext 隔离加载）、PluginMarket（安装与提供）
-    Alife.Application          跨平台应用层：Abstract（IAlifeApplication / IAlifeWindow / IAlifeProcess）、ClientUI（ModuleUIBase）、PluginEnvironment（NuGet / pip 安装器）
+    Alife.Application          跨平台应用层：Abstract（IAlifeApplication / IAlifeWindow / IAlifeProcess）、ClientUI（UIAttribute / UIAttributeSystem、ModuleUIBase、CharacterMenu）、PluginEnvironment（NuGet / pip 安装器）
   Alife.Client/                宿主（P + V）
     Alife.Client               Blazor 共享 UI 库（AntDesign；Components/Pages 下 `*Page`，界面组件 `*UI`）
     Alife.Client.Windows       Windows 宿主：WinForms + WebView2 + Blazor Hybrid
@@ -42,7 +42,8 @@ Alife.Function.*（插件）
 ```
 
 - 插件之间允许直接项目引用，现有公共底座插件：`FunctionCaller`、`MessageFilter`、`Speech`、`Vision`、`AIModelUtility` 等；任何插件不得引用宿主与 `Alife.Client`。
-- 运行链路：宿主 `Program` 组装 DI 容器 → `ModuleSystem` 发现并注册 `[Module]` 类 → `SystemManagement`、`CharacterWorkspace` 等页面依据 `ModuleAttribute`（`editorUI` / `globalUI`）渲染模块界面。
+- 运行链路：宿主 `Program` 组装 DI 容器 → `ModuleSystem` 发现并注册 `[Module]` 类 → 模块界面依据 `ModuleAttribute`（`editorUI` / `globalUI`）渲染；宿主界面自身的菜单是插拔式的，`UIAttributeSystem` 统计所有 `UIAttribute`（`SystemMenuAttribute` / `CharacterMenuAttribute`）并按开关交给宿主页面用 `DynamicComponent` 渲染。
+- 插件可用的扩展点只有三类：`[Module]`（功能注入点，由 `ModuleSystem` 按加载上下文注册/卸载）、`[InitializeOnLoad]` / `[UninitializeOnUnload]`（成对的公开静态生命周期函数，进程级挂接与摘除，见 §9）、`UIAttribute` 派生特性（声明一个可插拔界面）。除此之外不要为插件开新的入口。
 - 开发插件前端（Blazor UI）前先完整阅读 `.agents/skills/alife-blazor-plugin-ui/SKILL.md`。
 - 发布新版本前先完整阅读 `.agents/skills/alife-publish/SKILL.md`。
 
@@ -209,3 +210,39 @@ if (c == false) return;
 - 没有框架是最好的框架。不要提前设计全局框架，先接到需求、实现功能、按需复用与调整。
 - 不写 Demo 版代码，不做“以后要重构”的临时实现。
 - 改动范围最小，不顺手修改无关代码。
+
+## 9. 运行与验证
+
+“验证”不是构建通过，而是把“扫描—注册—渲染”这条链路真跑一遍。下面是实测可用的流程与踩过的坑。
+
+### 9.1 启动前先把插件编出来
+
+- `PluginContext.GetPluginFiles` 在 Debug 下只保留 `obj\Debug\**\generated`（Razor 源生成器产出的 `.g.cs`），其余 `bin`、`obj` 一律跳过。所以含 `.razor` 的插件**必须先 `dotnet build`（Debug）生成 g.cs**，运行时才编得过；否则日志全是「模块编译失败」，插件界面集体缺席，真问题被噪音盖住。
+
+```powershell
+Get-ChildItem Sources\Alife.Function -Recurse -Filter *.csproj |
+    ForEach-Object { dotnet build $_.FullName -v q --nologo }
+```
+
+- 生成后在「系统管理 → 插件环境」点「重新编译所有插件」（等价 `ClearAllPluginDll` + `SyncPluginEnvironment`）。
+- 合格线：`alife.log` 里「模块编译失败」「加载 xxx 插件失败」计数为 0。环境正常之后再去看功能，否则任何界面缺失都说明不了问题。
+- Release 不做上面的目录过滤，插件目录里留构建产物会被重复加载：别把 `bin`、`obj` 留在插件目录。
+
+### 9.2 启动与驱动界面
+
+```powershell
+$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
+dotnet run --no-build --project Sources\Alife.Client\Alife.Client.Windows\Alife.Client.Windows.csproj
+```
+
+- 首次启动要编译并加载全部插件，等 45–60 秒再看界面。
+- `http://127.0.0.1:9222/json` 取 page target，用 CDP `Runtime.evaluate`（`awaitPromise: true`）点导航、切 tab、读 DOM，这是验证 Blazor 界面最直接的手段。脚本文件保持 ASCII，中文写成 `\uXXXX`，否则 here-string 落盘即乱码。
+- 截图别用 `Page.captureScreenshot`（窗口隐藏或被遮挡时会一直挂着）：先 `ShowWindow(SW_MAXIMIZE)` + `SetWindowPos(HWND_TOPMOST)`，再用 GDI `Graphics.CopyFromScreen` 抓窗口矩形，抓完还原 `HWND_NOTOPMOST`。抓图的进程必须先 `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)`，否则 `GetWindowRect` 拿到的是缩放后的虚拟坐标，只能截到窗口左上角一块。
+- 锁屏（`LogonUI` 在跑）时屏幕合成暂停，GDI 与 CDP 截出来都是全黑；先确认已解锁再截图。截图产物别放在应用的 Temp 目录下，应用启动会清空它。
+- 路径：日志 `C:\Users\13309\Temp\alife.log`（进程独占写，自己读时要用 `FileShare.ReadWrite`）；`config.json` 在宿主基目录（`dotnet run` 时是 `bin\Debug\...`，发布产物在 `Outputs\...`），`UIAttribute:` 前缀的键就是界面开关状态，验证完复原。
+
+### 9.3 必须覆盖的验证路径
+
+- 开关类功能要看“效果”而不是“值”：关掉某个界面后，声明它的宿主页面上那个 tab 必须真的消失，开回来必须真的回来。
+- 插件是运行期增删的，所以“启动时扫一遍”的写法不可信：把探针插件在启动后放进 `Sources\Alife.Function`，点「同步环境」看它是否被登记、`[InitializeOnLoad]` 是否被执行；再点「重载此插件」，应当看到成对的 `[UninitializeOnUnload]` → `[InitializeOnLoad]`；删掉插件目录再同步，应当只有 `[UninitializeOnUnload]`。这两个特性都按加载上下文增量执行（内置代码在 `InitAlife` 末尾扫 `Default`，插件在 `PluginLoadedAsync` / `PluginUnloadedAsync` 里扫各自上下文），这样运行期新增、重载、卸载三条路径都覆盖得到。
+- 探针、临时插件这类验证产物，交付前必须清掉。`Remove-Item` 会被安全策略拦，未跟踪目录用 `git clean -fd -- <路径>` 删除。

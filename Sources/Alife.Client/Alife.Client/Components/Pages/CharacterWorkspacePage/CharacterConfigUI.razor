@@ -1,3 +1,5 @@
+@inherits CharacterMenu
+@attribute [CharacterMenu("info","角色设定","dashboard",0)]
 @using System.Reflection
 @inject ModuleSystem ModuleSystem
 @inject CharacterSystem CharacterSystem
@@ -55,8 +57,6 @@
 
 @code
 {
-    [Parameter] public Character Character { get; set; } = null!;
-
     bool isLoading;
 
     string GetModuleName(string fullName)
@@ -67,7 +67,7 @@
         return attr?.Name ?? type.Name;
     }
 
-    public async Task SaveCharacter()
+    async Task SaveCharacter()
     {
         isLoading = true;
 

@@ -1,3 +1,5 @@
+@inherits CharacterMenu
+@attribute [CharacterMenu("chat","对话看板","comment",10)]
 @implements IDisposable
 @inject IJSRuntime JsRuntime
 @inject IAlifeApplication AlifeApplication
@@ -530,9 +532,6 @@
 </script>
 
 @code {
-    [Parameter] public Character Character { get; set; } = null!;
-    [Parameter] public ChatActivity? ChatActivity { get; set; }
-
     string inputText = "";
     bool isWorking;
     List<ChatMessage>? messages;

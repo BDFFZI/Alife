@@ -19,12 +19,13 @@ public class ChatMessage
     public bool IsReasoning { get; set; }
 }
 
-/// <summary>
-/// UI层的聊天消息状态管理。在角色激活后立即挂接事件，确保后台对话也能被记录。
-/// 采用名称索引以确保在活动重启（Character对象被Clone）时记录依然能够持久。
-/// </summary>
 public static class ClientChatStatistics
 {
+    /// <summary>
+    /// UI层的聊天消息状态管理。在角色激活后立即挂接事件，确保后台对话也能被记录。
+    /// 采用名称索引以确保在活动重启（Character对象被Clone）时记录依然能够持久。
+    /// </summary>
+    [InitializeOnLoad]
     public static void Initialize(ChatActivitySystem system, StorageSystem storageSystem)
     {
         system.ActivatingCreated += OnActivityCreated;

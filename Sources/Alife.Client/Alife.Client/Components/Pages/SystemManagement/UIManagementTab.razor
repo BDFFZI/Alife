@@ -1,0 +1,104 @@
+@attribute [SystemMenu("ui","界面管理","layout",45,Closable = false)]
+@inject UIAttributeSystem UIAttributeSystem
+@implements IDisposable
+
+<div style="padding: 24px; height: 100%; overflow-y: auto;">
+    <div style="margin-bottom: 24px;">
+        <Title Level="4" Style="margin: 0;">界面管理</Title>
+        <Text Type="@TextElementType.Secondary">
+            所有由 UIAttribute 声明的插拔式界面。关闭某个界面后，它不会再出现在声明它的宿主界面上，可用来排除冲突或让位给自定义界面；关掉以后回不来的页面（界面管理、插件市场、插件环境）不提供开关。
+        </Text>
+    </div>
+
+    @foreach (IGrouping<string, UIRegistration> group in GetAttributeGroups())
+    {
+        <div style="margin-bottom: 24px;">
+            <Title Level="5" Style="margin-bottom: 12px;">@group.Key</Title>
+            <div style="border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden;">
+                <div class="ui-row ui-row-head">
+                    <div>界面组件</div>
+                    <div>来源</div>
+                    <div class="ui-row-switch">启用</div>
+                </div>
+                @foreach (UIRegistration registration in group.OrderBy(item => item.ComponentType.FullName, StringComparer.Ordinal))
+                {
+                    <div class="ui-row">
+                        <div>
+                            <Text Style="font-size: 13px">@registration.ComponentType.FullName</Text>
+                        </div>
+                        <div>
+                            <Tag Color="@(registration.PluginId == null ? "default" : "blue")" Style="margin: 0;">
+                                @(registration.PluginId == null ? "客户端自带" : $"插件：{registration.PluginId}")
+                            </Tag>
+                        </div>
+                        <div class="ui-row-switch">
+                            <Switch Value="@registration.IsEnabled"
+                                    Disabled="@(registration.Attribute.Closable == false)"
+                                    ValueChanged="@((bool enabled) => UIAttributeSystem.SetEnabled(registration, enabled))"/>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .ui-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        min-width: 0;
+    }
+
+    .ui-row:last-child {
+        border-bottom: none;
+    }
+
+    .ui-row > div:nth-child(1) {
+        flex: 3;
+        min-width: 0;
+        word-break: break-all;
+    }
+
+    .ui-row > div:nth-child(2) {
+        flex: 2;
+        min-width: 0;
+    }
+
+    .ui-row-switch {
+        width: 64px;
+        text-align: right;
+    }
+
+    .ui-row-head {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.45);
+        background: #fafafa;
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UIAttributeSystem.RegistrationsChanged += OnRegistrationsChanged;
+    }
+    public void Dispose()
+    {
+        UIAttributeSystem.RegistrationsChanged -= OnRegistrationsChanged;
+    }
+
+    /// <summary>开关别的界面后，本列表也要跟着刷新（启用状态来自登记结果）。</summary>
+    void OnRegistrationsChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>按声明特性的类型分组：系统菜单与角色菜单各自成表，本页面不认识它们各自的字段。</summary>
+    List<IGrouping<string, UIRegistration>> GetAttributeGroups()
+    {
+        return UIAttributeSystem.GetAllRegistrations()
+            .GroupBy(registration => registration.Attribute.GetType().FullName)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .ToList();
+    }
+}
