@@ -1,10 +1,11 @@
 @using System.Linq
+@using Alife.Client.Components.Pages.SystemManagement
 @inject CharacterSystem CharacterSystem
 @inject ModuleSystem ModuleSystem
 @inject NavigationManager Navigation
 
 <div class="step-content">
-    <div class="step-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+    <div class="step-icon" style="background:var(--alife-success-bg);color:var(--alife-success);">
         <Icon Type="@IconType.Outline.CheckCircle" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">配置完成</h2>
@@ -12,7 +13,7 @@
 
     <div class="nav-cards">
         <div class="nav-card">
-            <div class="nc-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+            <div class="nc-icon" style="background:var(--alife-primary-border);color:var(--alife-primary);">
                 <Icon Type="@IconType.Outline.User"/>
             </div>
             <div class="nc-body">
@@ -22,7 +23,7 @@
             </div>
         </div>
         <div class="nav-card">
-            <div class="nc-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+            <div class="nc-icon" style="background:var(--alife-success-bg);color:var(--alife-success);">
                 <Icon Type="@IconType.Outline.Build"/>
             </div>
             <div class="nc-body">
@@ -32,7 +33,7 @@
             </div>
         </div>
         <div class="nav-card">
-            <div class="nc-icon" style="background:rgba(250,173,20,.1);color:#faad14;">
+            <div class="nc-icon" style="background:var(--alife-warning-bg);color:var(--alife-warning);">
                 <Icon Type="@IconType.Outline.Shop"/>
             </div>
             <div class="nc-body">
@@ -77,13 +78,13 @@
 
     void GoToPluginMarket()
     {
-        ClientNavigation.RequestNavigation("plugin");
+        ClientNavigation.RequestNavigation(typeof(PluginMarketTab));
         Navigation.NavigateTo("/system");
     }
 
     void GoToModuleCenter()
     {
-        ClientNavigation.RequestNavigation("module");
+        ClientNavigation.RequestNavigation(typeof(ModuleCenterTab));
         Navigation.NavigateTo("/system");
     }
 }
@@ -103,14 +104,14 @@
         margin: 0 0 8px;
         font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
+        color: var(--alife-text);
         text-align: center;
     }
 
     .step-desc {
         margin: 0 0 20px;
         font-size: 13px;
-        color: rgba(0, 0, 0, .45);
+        color: var(--alife-text-tertiary);
         text-align: center;
     }
 
@@ -122,15 +123,15 @@
 
     .nav-card {
         padding: 14px;
-        background: rgba(0, 0, 0, .02);
-        border: 1px solid rgba(0, 0, 0, .04);
+        background: var(--alife-bg-subtle);
+        border: 1px solid var(--alife-bg-hover);
         border-radius: 10px;
         transition: all 0.2s ease;
     }
 
     .nav-card:hover {
-        border-color: rgba(24, 144, 255, .2);
-        background: rgba(24, 144, 255, .02);
+        border-color: var(--alife-primary-border);
+        background: var(--alife-primary-bg);
     }
 
     .nc-icon {
@@ -148,13 +149,13 @@
         margin: 0 0 4px;
         font-size: 13px;
         font-weight: 600;
-        color: #1a1a1a;
+        color: var(--alife-text);
     }
 
     .nc-desc {
         margin: 0 0 8px;
         font-size: 11px;
-        color: rgba(0, 0, 0, .35);
+        color: var(--alife-text-tertiary);
         line-height: 1.4;
     }
 

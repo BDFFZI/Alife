@@ -9,7 +9,7 @@ else
 {
     <div class="plugin-error-panel">
         <div class="plugin-error-head">
-            <Icon Type="@IconType.Outline.Warning" Style="color:#faad14; margin-right:6px;"/>
+            <Icon Type="@IconType.Outline.Warning" Style="color:var(--alife-warning); margin-right:6px;"/>
             <span class="plugin-error-title">该插件界面加载失败</span>
         </div>
         <div class="plugin-error-message">@(Value?.Message ?? "未知错误")</div>
@@ -25,10 +25,10 @@ else
     .plugin-error-panel {
         margin: 16px;
         padding: 14px 16px;
-        border: 1px solid #ffe58f;
-        background: #fffbe6;
+        border: 1px solid var(--alife-warning-border);
+        background: var(--alife-warning-bg);
         border-radius: 8px;
-        color: rgba(0,0,0,0.75);
+        color: var(--alife-text);
     }
 
     .plugin-error-head {
@@ -40,12 +40,12 @@ else
     .plugin-error-title {
         font-weight: 600;
         font-size: 13px;
-        color: rgba(0,0,0,0.85);
+        color: var(--alife-text);
     }
 
     .plugin-error-message {
         font-size: 12px;
-        color: #d4380d;
+        color: var(--alife-error);
         word-break: break-word;
         margin-bottom: 6px;
         font-family: Consolas, "Courier New", monospace;
@@ -53,7 +53,7 @@ else
 
     .plugin-error-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
         margin-bottom: 10px;
         line-height: 1.6;
     }

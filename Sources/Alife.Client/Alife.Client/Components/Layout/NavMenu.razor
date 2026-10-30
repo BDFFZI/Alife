@@ -2,54 +2,54 @@
 @inject ChatActivitySystem ChatActivitySystem
 @inject NavigationManager Navigation
 @inject ClientDataStore ClientDataStore
+@inject UIAttributeSystem UIAttributeSystem
 @implements IDisposable
 
-<Flex Direction="FlexDirection.Vertical" Gap="@("12")" Style="width: 100%; align-items: center;">
+<div class="alife-rail">
+    @* 侧栏按钮由 SideBarItemAttribute 声明，本处只排序并渲染；按钮长什么样、点了做什么，全在组件自己身上 *@
+    <div class="alife-rail-group">
+        @foreach (UIRegistration registration in sidebarItems)
+        {
+            <PluginErrorBoundary @key="@registration.ComponentType">
+                <ChildContent>
+                    <DynamicComponent Type="@registration.ComponentType"/>
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <PluginErrorPanel Value="ex" Silent="true"/>
+                </ErrorContent>
+            </PluginErrorBoundary>
+        }
+    </div>
 
-    <!-- 系统入口组 -->
-    <Tooltip Title="@("欢迎")" Placement="Placement.Right">
-        <NavLink href="/welcome" Class="nav-item-icon" ActiveClass="active">
-            <Icon Type="@IconType.Outline.Rocket" Style="font-size: 24px"/>
-        </NavLink>
-    </Tooltip>
+    <div class="alife-rail-split"></div>
 
-    <Tooltip Title="@("系统管理")" Placement="Placement.Right">
-        <NavLink href="/system" Class="nav-item-icon" ActiveClass="active">
-            <Icon Type="@IconType.Outline.Setting" Style="font-size: 24px"/>
-        </NavLink>
-    </Tooltip>
-
-    <Divider Style="margin: 4px 0; background: rgba(255,255,255,0.1)"/>
-
-    <!-- 角色列表 -->
-    @foreach (Character character in CharacterSystem.GetAllCharacters())
-    {
-        bool isActive = ChatActivitySystem.IsActivated(character);
-        <Tooltip Title="@(character.Name)" Placement="@Placement.Right">
-            <NavLink href="@($"/agent/{character.Name}")" Class="nav-item-icon character-item"
-                     ActiveClass="active"
-                     @onclick="@(() => ClientDataStore.SetLastCharacter(character))">
-                <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                    <Avatar Size="@AvatarSize.Large" Style="background: #1890ff; color: #fff; font-weight: bold;">
-                        @(character.Name.FirstOrDefault())
-                    </Avatar>
-
+    <div class="alife-rail-scroll">
+        @foreach (Character character in CharacterSystem.GetAllCharacters())
+        {
+            bool isActive = ChatActivitySystem.IsActivated(character);
+            <Tooltip Title="@character.Name" Placement="Placement.Right">
+                <NavLink href="@($"/agent/{character.Name}")" Class="alife-rail-item" ActiveClass="active"
+                         @onclick="@(() => ClientDataStore.SetLastCharacter(character))">
+                    <Avatar Size="@AvatarSize.Large"
+                            Style="background: var(--alife-primary); color: var(--alife-text-inverse); font-weight: 600;">@(character.Name.FirstOrDefault())</Avatar>
                     @if (isActive)
                     {
-                        <StatusDot Online="true" Style="position: absolute; bottom: 0; right: 0;"/>
+                        <StatusDot Online="true" Style="position: absolute; bottom: 2px; right: 2px;"/>
                     }
-                </div>
-            </NavLink>
-        </Tooltip>
-    }
+                </NavLink>
+            </Tooltip>
+        }
 
-    <Tooltip Title="@("创建新角色")" Placement="@Placement.Right">
-        <div @onclick="@(() => isCreating = true)" class="nav-item-icon"
-             style="border: 1px dashed rgba(255,255,255,0.3);">
-            <Icon Type="@IconType.Outline.Plus" Style="font-size: 20px; color: rgba(255,255,255,0.5);"/>
-        </div>
-    </Tooltip>
-</Flex>
+        @* 创建新角色排在角色列表末尾：和上面的角色是同一类东西 *@
+        <Tooltip Title="@("创建新角色")" Placement="Placement.Right">
+            <div class="alife-rail-item alife-rail-add" @onclick="@(() => isCreating = true)">
+                <Icon Type="@IconType.Outline.Plus"/>
+            </div>
+        </Tooltip>
+    </div>
+
+    <div class="alife-rail-split"></div>
+</div>
 
 <Modal Title="创建新角色"
        Visible="@isCreating"
@@ -62,47 +62,43 @@
     </AntDesign.Text>
 </Modal>
 
-<style>
-    .nav-item-icon {
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        color: rgba(255, 255, 255, 0.6);
-        cursor: pointer;
-        position: relative;
-    }
-
-    .nav-item-icon:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fff;
-        transform: scale(1.1);
-    }
-
-</style>
-
 @code {
     bool isCreating;
     string newCharacterName = "";
+
+    /// <summary>侧栏按钮（内置 + 插件，已按开关过滤并排好序）。</summary>
+    IReadOnlyList<UIRegistration> sidebarItems = [];
 
     protected override void OnInitialized()
     {
         CharacterSystem.CharacterListChanged += OnCharacterListChanged;
         ChatActivitySystem.Activated += OnActivityChanged;
         ChatActivitySystem.Deactivated += OnActivityChanged;
+        UIAttributeSystem.RegistrationsChanged += OnRegistrationsChanged;
+        RefreshSidebarItems();
     }
     public void Dispose()
     {
         CharacterSystem.CharacterListChanged -= OnCharacterListChanged;
         ChatActivitySystem.Activated -= OnActivityChanged;
         ChatActivitySystem.Deactivated -= OnActivityChanged;
+        UIAttributeSystem.RegistrationsChanged -= OnRegistrationsChanged;
     }
 
+    void OnRegistrationsChanged() => InvokeAsync(() => {
+        RefreshSidebarItems();
+        StateHasChanged();
+    });
     void OnActivityChanged(ChatActivity _) => OnCharacterListChanged();
     void OnCharacterListChanged() => InvokeAsync(StateHasChanged);
+
+    void RefreshSidebarItems()
+    {
+        sidebarItems = UIAttributeSystem.GetEnabledRegistrations<SideBarItemAttribute>()
+            .OrderByDescending(registration => ((SideBarItemAttribute)registration.Attribute).Order)
+            .ThenBy(registration => UIAttribute.IdentityOf(registration.ComponentType), StringComparer.Ordinal)
+            .ToList();
+    }
 
     async void OnConfirmCreate()
     {

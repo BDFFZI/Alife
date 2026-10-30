@@ -2,7 +2,7 @@
 @using AntDesign
 @inherits Alife.Framework.ModuleUIBase<Alife.Function.Memory.MemoryService, Alife.Function.Memory.MemoryConfig>
 
-<div style="background: #fff; padding: 20px; border-radius: 8px;">
+<div style="background: var(--alife-bg-container); padding: 20px; border-radius: 8px;">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
         <Title Level="4" Style="margin: 0;">分层记忆系统配置</Title>
     </Flex>
@@ -91,7 +91,7 @@
     @if (Module != null)
     {
         <Divider>插入记忆存档</Divider>
-        <Card Size="CardSize.Small" Style="background: #fafafa; border-radius: 8px; border: 1px dashed #d9d9d9;">
+        <Card Size="CardSize.Small" Style="background: var(--alife-bg-subtle); border-radius: 8px; border: 1px dashed var(--alife-border-strong);">
             <Flex Direction="FlexDirection.Vertical" Gap="@("12")">
                 <div style="padding: 12px;">
                     <Text Strong>手动插入核心记忆</Text>

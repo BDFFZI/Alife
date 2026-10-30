@@ -38,16 +38,26 @@ Invoke-RestMethod -Uri "http://127.0.0.1:9222/json/list" -TimeoutSec 5 | Select-
 
 **注意**：`Start-Job`/前台调用启动的进程会随 PowerShell 会话结束被杀掉；要用 `Start-Process` 让它独立存活。
 
-### 1.2 MCP（插件热重载）
+### 1.2 MCP（改数据、重载插件）
 
-插件有 MCP 服务（默认 `http://127.0.0.1:18765/mcp`），常用工具：
+客户端自身就是一个 MCP 服务（默认 `http://127.0.0.1:18765/mcp`，Streamable HTTP，工具定义见 `Alife.Application\AlifeMcpTools.cs`），共 30 个业务工具。常用：
 
 | 工具 | 用途 |
 |---|---|
 | `reload_plugin` | 重新加载指定插件（改完代码后） |
-| 其它 | 取决于插件自己暴露了什么 |
+| `list_modules_in_system` / `list_modules_in_character` | 看模块注册情况 |
+| `get_module_config` / `set_module_config` | 直接读写模块配置，省去手点界面 |
+| `list_plugins_in_system` / `reload_plugin_environment` | 看插件、重建插件环境 |
 
-**连接失败的两种情况**：① 客户端没启动；② 客户端刚启动还没监听（等 30~60 秒）。先 `Get-NetTCPConnection -LocalPort 18765` 确认端口在监听再重试。
+连接走标准握手：POST `initialize` → 从响应头取 `Mcp-Session-Id` → POST `notifications/initialized` → 之后每个请求都带 `Mcp-Session-Id`；`Accept` 写 `application/json, text/event-stream`，响应可能是 SSE，取 `data:` 行再解析。
+
+**它只能动业务，动不了界面**：没有截图、没有点击、读不到 DOM，看渲染效果仍然得靠 1.1 的调试端口。
+
+**连接失败的两种情况**：① 客户端没启动；② 客户端刚启动还没监听。别按秒数盲等，轮询端口即可：
+
+```powershell
+while (-not (Get-NetTCPConnection -LocalPort 18765 -State Listen -ErrorAction SilentlyContinue)) { Start-Sleep -Milliseconds 500 }
+```
 
 ---
 
@@ -69,11 +79,11 @@ MCP: reload_plugin                    ← 有时要调用两次（见 2.1）
 
 **症状**：代码改了、build 也过了、页面却像没生效（某个改动"消失"了）。
 
-**原因**：热重载有时加载到上一次的程序集。
+**原因**：应用把插件源码编到 `Runtime\CompiledPlugins\<插件>.dll` 并优先加载它；这份缓存只在客户端大版本变化或点「重新编译所有插件」时清空，`dotnet build` 插件工程不会让它失效。热重载本身也可能再拿一次旧程序集。
 
 **识别与处理**：
 1. 先在 DOM 里断言"新加的元素/类名/文本"是否存在；
-2. 不存在 → 再 `reload_plugin` 一次，然后重新导航；
+2. 不存在 → 先在「系统管理 → 插件环境」点「重新编译所有插件」（或删掉 `CompiledPlugins\*.dll`）再 `reload_plugin`，然后重新导航；
 3. 还不行 → 重启客户端。
 
 真实案例：一次 UI 改动后「思考」这个分类从排行里消失，排查半小时发现服务层输出正常，是插件加载了上一版 DLL；干净重载后立刻恢复正常。**结论：改动"没生效"时，先怀疑重载，不要先怀疑逻辑。**
@@ -82,14 +92,23 @@ MCP: reload_plugin                    ← 有时要调用两次（见 2.1）
 
 ## 3. 这套环境里 Razor 的已知限制（最重要的一节）
 
-### 3.1 原生 `@on*` 事件在插件里不生效
+### 3.1 事件：原生 `@on*` 能用（旧结论已作废）
+
+> 早先这里写的是"插件里原生 `@on*` 不生效、必须用组件回调"，**这个结论在 5.1.0 复测时不成立**。
+> 实测：侧栏入口 `VirtualWorldGlobalUI`（插件里的组件）用 `<div @onclick="ToggleDrawer">` 开合抽屉正常，
+> 它生成的 g.cs 里是真正的 `EventCallback.Factory.Create<MouseEventArgs>(...)`，不是字面属性。
 
 ```razor
-<!-- ✗ 不生效：编译成字面属性，永远不触发 -->
-<div @onclick="() => DoSomething()">点击</div>
+<!-- ✓ 可用：生成的 g.cs 里是真正的 EventCallback -->
+<div class="alife-rail-item" @onclick="ToggleDrawer">
 ```
 
-**必须用组件的回调参数**。可用清单（都在本仓库验证过）：
+点了真的没反应时，按这两条查，别先怀疑编译：
+
+1. 祖先元素上有没有 `pointer-events: none`（全局浮层 `.overlay-layer` 就是这样），点击到不了这个元素；
+2. 状态改了但没触发重渲染——由 JS 调用的方法（`[JSInvokable]`）不会自动重渲染，要自己 `InvokeAsync(StateHasChanged)`。
+
+AntDesign 控件仍然推荐用它的回调参数（省得和组件内部的事件处理打架）。可用清单（都在本仓库验证过）：
 
 | 组件 | 用法 |
 |---|---|
@@ -102,7 +121,7 @@ MCP: reload_plugin                    ← 有时要调用两次（见 2.1）
 | `InputNumber` / `Input` | `@bind-Value="field"` |
 | `Select` | `Value="@v" ValueChanged="@Handler"` |
 
-### 3.2 有些组件的"内置点击"也不可靠
+### 3.2 有些 AntDesign 组件的"内置点击"不可靠
 
 `AntDesign.Tag` 的 `Checkable` 在插件运行时**有时点了没反应**（同一份代码在不同会话里表现不一致）。
 
@@ -203,6 +222,13 @@ $ws.ConnectAsync([Uri]$page.webSocketDebuggerUrl, [System.Threading.Cancellation
 | 卡片头部一行塞太多，徽标/百分比被挤掉 | 单行 flex + `flex-wrap` 宽度不够 | 改成多行：`.ts-head-row { display:flex; flex-wrap:wrap; gap:6px }`，一行一件事 |
 | 数字列宽度跳动、看着不对齐 | 比例字体 | `font-variant-numeric: tabular-nums` |
 | 中间加粗的分隔线"像拖拽手柄" | 视觉语义误导 | 用两端渐隐的细线：`height:1px` + 水平渐变 |
+| 黑夜模式下某一块还是白底/灰字 | 写死了 `#fff`、`rgba(0,0,0,.45)` 这类字面色 | 颜色只写 `alife-theme.css` 的 `--alife-*` 令牌；SVG `stroke`、图表系列色等不吃 CSS 变量的场景才允许字面色 |
+
+**宿主给插件的契约**（除了这些不要依赖宿主内部结构）：
+
+- 配色令牌 `--alife-*`：背景 `--alife-bg-layout/-container/-subtle`、文字 `--alife-text/-secondary/-tertiary`、语义 `--alife-primary/-success/-warning/-error`（各有 `-bg`、`-border` 配套）、圆角 `--alife-radius`。
+- 侧栏按钮：声明 `[SideBarItem]` 就行，身份就是组件类型本身；宿主只按 `Order` 排序、按开关过滤，然后把组件渲染进侧栏，不喂任何参数、也没有基类——图标、提示文字、点击行为全部写在组件自己身上（元素用 `.alife-rail-item` 拿样式，`Tooltip` 自己套）。点开后是导航还是覆盖层，由组件自己决定。`Order` 越大越靠上，默认 0 落在最下面，所以插件不写就是排末尾，想插队才写中间值。
+- 共用浏览器模块 `./_content/Alife.Client/alife-chat.js`：贴底跟随（`setupStream` / `scrollToLatest`，按消息区 id 多实例并存）、回车与输入法（`setupEnter`）、粘贴与拖拽（`setupPaste`）、消息区高度拖拽（`setupSplitter`）。自己再写一遍这些行为就是重复造轮子。
 
 **分区线的推荐写法**（试过虚线/中间加粗/椭圆裁切，最后选这个）：
 
@@ -297,8 +323,10 @@ $ws.ConnectAsync([Uri]$page.webSocketDebuggerUrl, [System.Threading.Cancellation
 ```
 [ ] dotnet build 0 error，且没有新增 warning（CS9113/CS8602 都要清）
 [ ] 服务层断言全绿
+[ ] 改过插件源码 → 点过「重新编译所有插件」（或删 `CompiledPlugins\*.dll`）后才开始验证
 [ ] 干净 reload 后，DOM 断言确认新元素存在（排除"加载了旧 DLL"）
 [ ] 截图确认排版：无横向溢出、无被遮挡、对齐正确
+[ ] 明、暗两种主题各截图一次，没有写死的颜色残留
 [ ] 窗口最大化 / 缩窄各看一次（max-width、换行）
 [ ] 空状态、单条数据、超长文本各试一次
 [ ] 所有筛选控件在 0 条数据时仍可用

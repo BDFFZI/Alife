@@ -98,7 +98,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    background: linear-gradient(135deg, rgba(24,144,255,.03) 0%, rgba(24,144,255,.08) 50%, rgba(24,144,255,.03) 100%);
+    background: linear-gradient(135deg, var(--alife-primary-bg) 0%, var(--alife-primary-bg) 50%, var(--alife-primary-bg) 100%);
     padding: 24px;
     overflow-y: auto;
 }
@@ -106,7 +106,7 @@
 .welcome-bubble {
     width: 100%;
     max-width: 600px;
-    background: #fff;
+    background: var(--alife-bg-container);
     border-radius: 20px;
     box-shadow: 0 8px 32px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
     overflow: hidden;
@@ -129,16 +129,16 @@
 
 .step-dot {
     width: 32px; height: 32px; border-radius: 50%;
-    background: #f0f0f0; color: rgba(0,0,0,.25);
+    background: var(--alife-border); color: var(--alife-text-disabled);
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 600; transition: all 0.3s ease;
 }
 
-.step-dot.active { background: #1890ff; color: #fff; box-shadow: 0 2px 8px rgba(24,144,255,.3); }
-.step-dot.completed { background: #52c41a; color: #fff; }
+.step-dot.active { background: var(--alife-primary); color: var(--alife-text-inverse); box-shadow: 0 2px 8px rgba(24,144,255,.3); }
+.step-dot.completed { background: var(--alife-success); color: var(--alife-text-inverse); }
 
-.step-line { width: 40px; height: 2px; background: #e8e8e8; margin: 0 8px; transition: background 0.3s ease; }
-.step-line.completed { background: #52c41a; }
+.step-line { width: 40px; height: 2px; background: var(--alife-border); margin: 0 8px; transition: background 0.3s ease; }
+.step-line.completed { background: var(--alife-success); }
 
 .bubble-body {
     padding: 24px 32px;

@@ -3,7 +3,7 @@
 @using AntDesign
 @inject IServiceProvider ServiceProvider
 
-@attribute [SystemMenu("tokenStats","Token统计","bar-chart",50)]
+@attribute [SystemMenu("Token统计","bar-chart")]
 
 <div class="ts-page">
     <div class="ts-head">
@@ -260,7 +260,7 @@
                         <Checkbox @bind-Value="showCached">缓存</Checkbox>
                     </span>
                     <span class="ts-legend-item">
-                        <span class="ts-legend-dot" style="background:#1677ff"></span>
+                        <span class="ts-legend-dot" style="background:var(--alife-primary)"></span>
                         <Checkbox @bind-Value="showInput">输入</Checkbox>
                     </span>
                     <span class="ts-legend-item">
@@ -331,7 +331,7 @@
                 </div>
                 @if (insights.Count == 0)
                 {
-                    <div style="color: rgba(0,0,0,0.35); font-size: 12px;">该范围内数据不足，暂无法诊断</div>
+                    <div style="color: var(--alife-text-tertiary); font-size: 12px;">该范围内数据不足，暂无法诊断</div>
                 }
                 else
                 {
@@ -438,7 +438,7 @@
 
                         @if (ranked.Count == 0)
                         {
-                            <div style="color: rgba(0,0,0,0.35); font-size: 12px; padding: 12px 0;">该范围内没有可归类的@(group.NameLabel)</div>
+                            <div style="color: var(--alife-text-tertiary); font-size: 12px; padding: 12px 0;">该范围内没有可归类的@(group.NameLabel)</div>
                         }
                         else
                         {
@@ -721,7 +721,7 @@
         box-sizing: border-box;
         overflow-y: auto;
         overflow-x: hidden;
-        background: #f5f7fa;
+        background: var(--alife-bg-layout);
     }
 
     .ts-head {
@@ -749,13 +749,13 @@
     .ts-title {
         font-size: 20px;
         font-weight: 600;
-        color: rgba(0,0,0,0.88);
+        color: var(--alife-text);
     }
 
     .ts-sub {
         margin-top: 4px;
         font-size: 12px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-head-actions {
@@ -766,14 +766,14 @@
 
     .ts-label {
         font-size: 13px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
     }
 
     .ts-range-text {
         font-size: 12px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
         font-variant-numeric: tabular-nums;
-        background: #f5f7fa;
+        background: var(--alife-bg-layout);
         border-radius: 6px;
         padding: 2px 10px;
     }
@@ -782,8 +782,8 @@
         align-items: center;
         gap: 20px;
         flex-wrap: wrap;
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 10px;
         padding: 12px 16px;
         margin-bottom: 12px;
@@ -797,8 +797,8 @@
     }
 
     .ts-timeline {
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 10px;
         padding: 12px 16px 6px;
         margin-bottom: 12px;
@@ -808,12 +808,12 @@
         display: flex;
         justify-content: space-between;
         font-size: 12px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
         font-variant-numeric: tabular-nums;
     }
 
     .ts-timeline-span {
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-timeline-edit {
@@ -826,7 +826,7 @@
 
     .ts-timeline-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-kpis {
@@ -840,22 +840,22 @@
         flex: 1 1 132px;
         min-width: 0;
         max-width: 100%;
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 10px;
         padding: 14px 16px;
     }
 
     .ts-kpi-label {
         font-size: 12px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-kpi-value {
         margin-top: 6px;
         font-size: 22px;
         font-weight: 600;
-        color: rgba(0,0,0,0.88);
+        color: var(--alife-text);
         font-variant-numeric: tabular-nums;
         line-height: 1.2;
     }
@@ -863,12 +863,12 @@
     .ts-kpi-foot {
         margin-top: 4px;
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-card {
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 10px;
         padding: 16px;
         margin-bottom: 12px;
@@ -886,12 +886,12 @@
     .ts-card-title {
         font-size: 14px;
         font-weight: 600;
-        color: rgba(0,0,0,0.88);
+        color: var(--alife-text);
     }
 
     .ts-card-sub {
         font-size: 12px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-chart {
@@ -906,7 +906,7 @@
         justify-content: space-between;
         align-items: flex-end;
         font-size: 11px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         font-variant-numeric: tabular-nums;
         padding-bottom: 22px;
         min-width: 52px;
@@ -923,7 +923,7 @@
         left: 0;
         right: 0;
         height: 0;
-        border-top: 1px dashed #f0f0f0;
+        border-top: 1px dashed var(--alife-border);
     }
 
     .ts-bars {
@@ -981,8 +981,8 @@
         left: 50%;
         transform: translateX(-50%);
         z-index: 30;
-        background: rgba(0,0,0,0.85);
-        color: #fff;
+        background: var(--alife-text);
+        color: var(--alife-text-inverse);
         border-radius: 6px;
         padding: 8px 10px;
         font-size: 11px;
@@ -999,18 +999,18 @@
     .ts-tip-title {
         font-weight: 600;
         margin-bottom: 2px;
-        color: rgba(255,255,255,0.92);
+        color: var(--alife-text-inverse);
     }
 
     .ts-tip-row {
         display: flex;
         justify-content: space-between;
         gap: 12px;
-        color: rgba(255,255,255,0.75);
+        color: var(--alife-text-inverse);
     }
 
         .ts-tip-row b {
-            color: #fff;
+            color: var(--alife-text-inverse);
             font-weight: 600;
             font-variant-numeric: tabular-nums;
         }
@@ -1043,7 +1043,7 @@
         flex: 0 0 84px;
         width: 84px;
         font-size: 12px;
-        color: rgba(0,0,0,0.55);
+        color: var(--alife-text-secondary);
         text-align: right;
         padding-right: 2px;
     }
@@ -1059,20 +1059,20 @@
 
     .ts-pc-unit {
         font-size: 11px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         white-space: nowrap;
     }
 
     .ts-pc-inline-label {
         font-size: 12px;
-        color: rgba(0,0,0,0.55);
+        color: var(--alife-text-secondary);
         white-space: nowrap;
     }
 
     .ts-pc-section {
         margin-top: 10px;
         padding-top: 12px;
-        border-top: 1px dashed #eef0f3;
+        border-top: 1px dashed var(--alife-bg-subtle);
     }
 
     .ts-pc-section-head {
@@ -1086,18 +1086,18 @@
     .ts-pc-section-title {
         font-size: 12.5px;
         font-weight: 600;
-        color: rgba(0,0,0,0.78);
+        color: var(--alife-text);
     }
 
     .ts-pc-section-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.38);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-pc-rule {
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--alife-border);
         border-radius: 8px;
-        background: #fafbfc;
+        background: var(--alife-bg-subtle);
         padding: 10px 12px 6px;
         margin-bottom: 10px;
     }
@@ -1109,14 +1109,14 @@
         flex-wrap: wrap;
         padding-bottom: 8px;
         margin-bottom: 2px;
-        border-bottom: 1px dashed #eef0f3;
+        border-bottom: 1px dashed var(--alife-bg-subtle);
     }
 
     .ts-pc-rule-index {
         font-size: 11px;
-        color: #1677ff;
-        background: #e6f4ff;
-        border: 1px solid #bae0ff;
+        color: var(--alife-primary);
+        background: var(--alife-primary-bg);
+        border: 1px solid var(--alife-primary-border);
         border-radius: 6px;
         padding: 0 7px;
         line-height: 18px;
@@ -1125,9 +1125,9 @@
 
     .ts-pc-dirty {
         font-size: 11px;
-        color: #d46b08;
-        background: #fff7e6;
-        border: 1px solid #ffd591;
+        color: var(--alife-warning);
+        background: var(--alife-warning-bg);
+        border: 1px solid var(--alife-warning-border);
         border-radius: 6px;
         padding: 1px 8px;
         margin-right: 8px;
@@ -1135,8 +1135,8 @@
     }
 
     .ts-pc-rule:hover {
-        border-color: #d6e4ff;
-        background: #fbfdff;
+        border-color: var(--alife-primary-border);
+        background: var(--alife-primary-bg);
     }
     .ts-pc-windows {
         row-gap: 8px;
@@ -1150,9 +1150,9 @@
     }
     .ts-pc-empty {
         font-size: 12px;
-        color: rgba(0,0,0,0.4);
-        background: #fafafa;
-        border: 1px dashed #eef0f3;
+        color: var(--alife-text-tertiary);
+        background: var(--alife-bg-subtle);
+        border: 1px dashed var(--alife-bg-subtle);
         border-radius: 8px;
         padding: 10px 12px;
         margin-bottom: 10px;
@@ -1165,18 +1165,18 @@
         flex-wrap: wrap;
         margin-top: 12px;
         padding-top: 12px;
-        border-top: 1px dashed #eef0f3;
+        border-top: 1px dashed var(--alife-bg-subtle);
     }
 
     .ts-pc-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-pc-footer {
         margin-top: 8px;
         font-size: 10.5px;
-        color: rgba(0,0,0,0.32);
+        color: var(--alife-text-tertiary);
         line-height: 1.8;
         word-break: break-all;
     }
@@ -1192,9 +1192,9 @@
         display: inline-flex;
         align-items: center;
         font-size: 12px;
-        color: rgba(0,0,0,0.62);
-        background: #f5f7fa;
-        border: 1px solid #eef0f3;
+        color: var(--alife-text-secondary);
+        background: var(--alife-bg-layout);
+        border: 1px solid var(--alife-bg-subtle);
         border-radius: 6px;
         padding: 2px 10px;
         font-variant-numeric: tabular-nums;
@@ -1215,7 +1215,7 @@
     .ts-price-title {
         font-size: 12px;
         font-weight: 600;
-        color: rgba(0,0,0,0.75);
+        color: var(--alife-text);
     }
 
     .ts-price-row {
@@ -1233,7 +1233,7 @@
 
     .ts-price-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.4);
+        color: var(--alife-text-tertiary);
         word-break: break-all;
     }
 
@@ -1242,12 +1242,12 @@
         gap: 24px;
         flex-wrap: wrap;
         font-size: 12px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
         font-variant-numeric: tabular-nums;
     }
     .ts-insight {
-        border-left: 3px solid #1677ff;
-        background: #f7fbff;
+        border-left: 3px solid var(--alife-primary);
+        background: var(--alife-primary-bg);
         border-radius: 6px;
         padding: 10px 12px;
         margin-bottom: 8px;
@@ -1255,36 +1255,36 @@
 
     .ts-insight-warning {
         border-left-color: #faad14;
-        background: #fffbe6;
+        background: var(--alife-warning-bg);
     }
 
     .ts-insight-critical {
         border-left-color: #ff4d4f;
-        background: #fff1f0;
+        background: var(--alife-error-bg);
     }
 
     .ts-insight-basis {
         margin-top: 2px;
         font-size: 10.5px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
     }
     .ts-insight-title {
         font-size: 13px;
         font-weight: 600;
-        color: rgba(0,0,0,0.85);
+        color: var(--alife-text);
         margin-bottom: 4px;
     }
 
     .ts-insight-detail {
         font-size: 12px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
         line-height: 1.7;
     }
 
     .ts-insight-advice {
         margin-top: 4px;
         font-size: 12px;
-        color: #1677ff;
+        color: var(--alife-primary);
         line-height: 1.7;
     }
     .ts-mode-toggles {
@@ -1314,7 +1314,7 @@
 
     .ts-chart-caption {
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
         margin: 4px 0 12px;
     }
 
@@ -1328,7 +1328,7 @@
         height: 22px;
         line-height: 22px;
         font-size: 10px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
         white-space: nowrap;
         text-align: center;
         font-variant-numeric: tabular-nums;
@@ -1345,7 +1345,7 @@
     .ts-divider {
         height: 1px;
         margin: 22px 0 18px;
-        background: linear-gradient(to right, rgba(0,0,0,0.02), rgba(0,0,0,0.12) 12%, rgba(0,0,0,0.12) 88%, rgba(0,0,0,0.02));
+        background: linear-gradient(to right, var(--alife-bg-subtle), rgba(0,0,0,0.12) 12%, rgba(0,0,0,0.12) 88%, var(--alife-bg-subtle));
     }
 
     /* 两层的分组标题，让"谁能影响谁"一眼可见 */
@@ -1355,18 +1355,18 @@
         gap: 10px;
         margin: 14px 0 8px;
         padding-left: 8px;
-        border-left: 3px solid #91caff;
+        border-left: 3px solid var(--alife-primary-border);
     }
 
     .ts-layer-name {
         font-size: 12px;
         font-weight: 600;
-        color: #0958d9;
+        color: var(--alife-primary);
     }
 
     .ts-layer-desc {
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
     }
 
     /* 作用域摘要：一句话说清"下面所有数据基于什么" */
@@ -1378,33 +1378,33 @@
         margin-top: 10px;
         padding: 8px 12px;
         border-radius: 8px;
-        background: #f0f7ff;
-        border: 1px solid #d6e8ff;
+        background: var(--alife-primary-bg);
+        border: 1px solid var(--alife-primary-border);
         font-size: 12px;
-        color: rgba(0,0,0,0.6);
+        color: var(--alife-text-secondary);
     }
 
     .ts-scope-label {
         font-weight: 600;
-        color: #0958d9;
+        color: var(--alife-primary);
     }
 
     .ts-scope-dot {
         padding: 0 2px;
-        color: rgba(0,0,0,0.2);
+        color: var(--alife-text-disabled);
     }
 
     .ts-scope-drill {
-        color: #0958d9;
+        color: var(--alife-primary);
         font-weight: 500;
     }
 
     .ts-record-range {
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--alife-border);
         border-radius: 8px;
         padding: 8px 12px 2px;
         margin-bottom: 12px;
-        background: #fafafa;
+        background: var(--alife-bg-subtle);
     }
 
     .ts-record-range-head {
@@ -1416,7 +1416,7 @@
 
     .ts-record-range-text {
         font-size: 12px;
-        color: rgba(0,0,0,0.6);
+        color: var(--alife-text-secondary);
         font-variant-numeric: tabular-nums;
     }
     .ts-controls {
@@ -1425,7 +1425,7 @@
         gap: 12px;
         flex-wrap: wrap;
         padding-bottom: 12px;
-        border-bottom: 1px solid #f5f5f5;
+        border-bottom: 1px solid var(--alife-bg-subtle);
         margin-bottom: 12px;
     }
 
@@ -1438,10 +1438,10 @@
 
     /* 功能区按卡片分区：一张卡一个主题（参与统计 / 忽略参数） */
     .ts-filter-card {
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--alife-border);
         border-radius: 8px;
         padding: 10px 12px;
-        background: #fcfcfc;
+        background: var(--alife-bg-subtle);
     }
 
     .ts-filter-card-head {
@@ -1455,12 +1455,12 @@
     .ts-filter-card-title {
         font-size: 12px;
         font-weight: 600;
-        color: rgba(0,0,0,0.78);
+        color: var(--alife-text);
     }
 
     .ts-filter-card-desc {
         font-size: 11px;
-        color: rgba(0,0,0,0.42);
+        color: var(--alife-text-tertiary);
     }
 
     /* 可点击的标签胶囊：外形是 Tag，点击走 Button 回调（本插件里原生点击不可靠） */
@@ -1474,28 +1474,28 @@
     }
 
     .ts-chip-btn-on.ant-btn {
-        background: #e6f4ff;
-        border-color: #91caff;
-        color: #0958d9;
+        background: var(--alife-primary-bg);
+        border-color: var(--alife-primary-border);
+        color: var(--alife-primary);
     }
 
     .ts-chip-btn-on.ant-btn:hover {
-        background: #bae0ff;
-        border-color: #69b1ff;
-        color: #0958d9;
+        background: var(--alife-primary-border);
+        border-color: var(--alife-primary);
+        color: var(--alife-primary);
     }
 
     .ts-chip-btn-off.ant-btn {
-        background: #fafafa;
-        border-color: #f0f0f0;
-        color: rgba(0,0,0,0.35);
+        background: var(--alife-bg-subtle);
+        border-color: var(--alife-border);
+        color: var(--alife-text-tertiary);
         text-decoration: line-through;
     }
 
     .ts-chip-btn-off.ant-btn:hover {
-        background: #f5f5f5;
-        border-color: #d9d9d9;
-        color: rgba(0,0,0,0.45);
+        background: var(--alife-bg-subtle);
+        border-color: var(--alife-border-strong);
+        color: var(--alife-text-tertiary);
         text-decoration: line-through;
     }
 
@@ -1509,8 +1509,8 @@
 
 
     .ts-chip-func {
-        background: #f6ffed;
-        color: #389e0d;
+        background: var(--alife-success-bg);
+        color: var(--alife-success);
     }
 
     .ts-turns {
@@ -1520,13 +1520,13 @@
     }
 
     .ts-turn {
-        border-left: 2px solid #f0f0f0;
+        border-left: 2px solid var(--alife-border);
         padding-left: 12px;
     }
 
     .ts-turn-time {
         font-size: 11px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         margin-bottom: 6px;
         font-variant-numeric: tabular-nums;
     }
@@ -1552,13 +1552,13 @@
     }
 
     .ts-bubble-in {
-        background: #f0f7ff;
-        border-color: #d6e4ff;
+        background: var(--alife-primary-bg);
+        border-color: var(--alife-primary-border);
     }
 
     .ts-bubble-out {
-        background: #fafafa;
-        border-color: #f0f0f0;
+        background: var(--alife-bg-subtle);
+        border-color: var(--alife-border);
     }
 
     .ts-bubble-head {
@@ -1574,18 +1574,18 @@
         font-weight: 600;
         padding: 1px 8px;
         border-radius: 9px;
-        background: #1677ff;
-        color: #fff;
+        background: var(--alife-primary);
+        color: var(--alife-text-inverse);
         white-space: nowrap;
     }
 
     .ts-dominant-func {
-        background: #52c41a;
+        background: var(--alife-success);
     }
 
     .ts-dominant-none {
-        background: #d9d9d9;
-        color: rgba(0,0,0,0.55);
+        background: var(--alife-border-strong);
+        color: var(--alife-text-secondary);
         font-weight: 400;
     }
 
@@ -1594,7 +1594,7 @@
         font-family: inherit;
         font-size: 12.5px;
         line-height: 1.6;
-        color: rgba(0,0,0,0.82);
+        color: var(--alife-text);
         white-space: pre-wrap;
         word-break: break-word;
         max-height: 260px;
@@ -1607,7 +1607,7 @@
         gap: 12px;
         flex-wrap: wrap;
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
         font-variant-numeric: tabular-nums;
     }
 
@@ -1620,11 +1620,11 @@
     }
 
     .ts-thinking-toggle {
-        border: 1px dashed #d9d9d9;
-        background: #fff;
+        border: 1px dashed var(--alife-border-strong);
+        background: var(--alife-bg-container);
         border-radius: 6px;
         font-size: 11px;
-        color: rgba(0,0,0,0.55);
+        color: var(--alife-text-secondary);
         padding: 2px 8px;
         cursor: pointer;
     }
@@ -1632,13 +1632,13 @@
     .ts-thinking-body {
         margin: 6px 0 0;
         padding: 8px 10px;
-        background: #fafafa;
-        border-left: 2px solid #d9d9d9;
+        background: var(--alife-bg-subtle);
+        border-left: 2px solid var(--alife-border-strong);
         border-radius: 4px;
         font-family: inherit;
         font-size: 12px;
         line-height: 1.6;
-        color: rgba(0,0,0,0.55);
+        color: var(--alife-text-secondary);
         white-space: pre-wrap;
         word-break: break-word;
         max-height: 200px;
@@ -1666,9 +1666,9 @@
         font-size: 10px;
         padding: 0 6px;
         border-radius: 8px;
-        background: #fff1f0;
-        color: #cf1322;
-        border: 1px solid #ffccc7;
+        background: var(--alife-error-bg);
+        color: var(--alife-error);
+        border: 1px solid var(--alife-error-border);
         margin-left: 6px;
         white-space: nowrap;
     }
@@ -1683,26 +1683,26 @@
 
     .ts-rank-note {
         font-size: 11px;
-        color: rgba(0,0,0,0.4);
+        color: var(--alife-text-tertiary);
     }
 
     .ts-rank-detail {
         font-size: 11.5px;
-        color: rgba(0,0,0,0.65);
+        color: var(--alife-text-secondary);
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
     .ts-rank-hint {
         font-size: 11px;
-        color: rgba(0,0,0,0.4);
+        color: var(--alife-text-tertiary);
         margin-top: 14px;
         margin-bottom: 8px;
     }
 
     .ts-rank-rest td {
-        color: rgba(0,0,0,0.45);
-        background: #fafafa;
-        border-top: 1px dashed #eef0f3;
+        color: var(--alife-text-tertiary);
+        background: var(--alife-bg-subtle);
+        border-top: 1px dashed var(--alife-bg-subtle);
         font-style: italic;
     }
     .ts-rank-num {
@@ -1724,10 +1724,10 @@
         .ts-rank-table th {
             text-align: left;
             font-weight: 500;
-            color: rgba(0,0,0,0.45);
+            color: var(--alife-text-tertiary);
             font-size: 11px;
             padding: 4px 6px;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--alife-border);
         }
 
     /* 表头与内容对齐：.ts-rank-table th 的具体性高于 .ts-rank-num，这里显式覆盖 */
@@ -1751,38 +1751,38 @@
 
         .ts-rank-table td {
             padding: 6px;
-            border-bottom: 1px solid #fafafa;
-            color: rgba(0,0,0,0.75);
+            border-bottom: 1px solid var(--alife-bg-subtle);
+            color: var(--alife-text);
             font-variant-numeric: tabular-nums;
         }
 
     .ts-rank-idx {
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         width: 28px;
     }
 
     .ts-rank-name {
         font-weight: 500;
-        color: rgba(0,0,0,0.85);
+        color: var(--alife-text);
         word-break: break-all;
     }
 
     .ts-rank-bar {
         height: 4px;
         border-radius: 2px;
-        background: #e6f4ff;
+        background: var(--alife-primary-bg);
         overflow: hidden;
         margin-top: 4px;
     }
 
     .ts-rank-bar-fill {
         height: 4px;
-        background: #1677ff;
+        background: var(--alife-primary);
     }
 
     .ts-empty {
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 10px;
         padding: 48px 16px;
         text-align: center;
@@ -1791,19 +1791,19 @@
     .ts-empty-tip {
         margin-top: 8px;
         font-size: 11px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         word-break: break-all;
     }
     .ts-turn-card {
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--alife-border);
         border-radius: 8px;
-        background: #fff;
+        background: var(--alife-bg-container);
         margin-bottom: 10px;
         overflow: hidden;
     }
 
         .ts-turn-card:hover {
-            border-color: #d6e4ff;
+            border-color: var(--alife-primary-border);
         }
 
     .ts-turn-head {
@@ -1811,8 +1811,8 @@
         flex-direction: column;
         gap: 4px;
         padding: 8px 12px;
-        background: #fafafa;
-        border-bottom: 1px solid #f5f5f5;
+        background: var(--alife-bg-subtle);
+        border-bottom: 1px solid var(--alife-bg-subtle);
     }
 
     /* 一行一件事：时间+徽标 / 标签 / 函数 / token 摘要，避免挤在一行互相遮挡 */
@@ -1826,22 +1826,22 @@
 
     .ts-head-label {
         font-size: 11px;
-        color: rgba(0,0,0,0.32);
+        color: var(--alife-text-tertiary);
         min-width: 26px;
     }
 
     .ts-head-tokens {
         font-size: 11px;
-        color: rgba(0,0,0,0.45);
+        color: var(--alife-text-tertiary);
         font-variant-numeric: tabular-nums;
     }
 
     .ts-head-dot {
-        color: rgba(0,0,0,0.18);
+        color: var(--alife-text-disabled);
     }
 
     .ts-head-total {
-        color: rgba(0,0,0,0.68);
+        color: var(--alife-text-secondary);
         font-weight: 600;
     }
 
@@ -1857,8 +1857,8 @@
         flex-wrap: wrap;
         margin-bottom: 10px;
         padding: 8px 12px;
-        background: #f0f7ff;
-        border: 1px solid #d6e4ff;
+        background: var(--alife-primary-bg);
+        border: 1px solid var(--alife-primary-border);
         border-radius: 8px;
     }
 
@@ -1866,14 +1866,14 @@
         display: flex;
         justify-content: space-between;
         font-size: 10px;
-        color: rgba(0,0,0,0.35);
+        color: var(--alife-text-tertiary);
         margin-top: -6px;
         padding-bottom: 6px;
         font-variant-numeric: tabular-nums;
     }
 
     .ts-rank-row-active td {
-        background: #f0f7ff;
+        background: var(--alife-primary-bg);
     }
 </style>
 
@@ -2947,8 +2947,8 @@
 
     string SortHeaderStyle(RankSortColumn column)
         => rankSort == column
-            ? "padding:0; height:auto; font-weight:600; color:#1677ff;"
-            : "padding:0; height:auto; color:rgba(0,0,0,0.65);";
+            ? "padding:0; height:auto; font-weight:600; color:var(--alife-primary);"
+            : "padding:0; height:auto; color:var(--alife-text-secondary);";
 
     static double SortValue(TokenStatisticsService.RankRow row, RankSortColumn column) => column switch
     {

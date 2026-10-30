@@ -2,7 +2,7 @@
 
 <div class="step-content">
     <ErrorWindowUI @bind-Value="@installException"/>
-    <div class="step-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+    <div class="step-icon" style="background:var(--alife-primary-border);color:var(--alife-primary);">
         <Icon Type="@IconType.Outline.CloudDownload" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">配置运行环境</h2>
@@ -178,21 +178,21 @@
         margin: 0 0 8px;
         font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
+        color: var(--alife-text);
         text-align: center;
     }
 
     .step-desc {
         margin: 0 0 20px;
         font-size: 13px;
-        color: rgba(0, 0, 0, .45);
+        color: var(--alife-text-tertiary);
         text-align: center;
     }
 
     .step-hint {
         margin: -12px 0 16px;
         font-size: 11px;
-        color: #faad14;
+        color: var(--alife-warning);
         text-align: center;
     }
 
@@ -208,7 +208,7 @@
         align-items: center;
         gap: 8px;
         padding: 8px 12px;
-        background: rgba(0, 0, 0, .02);
+        background: var(--alife-bg-subtle);
         border-radius: 8px;
         font-size: 13px;
     }
@@ -223,26 +223,26 @@
         width: 16px;
         justify-content: center;
         flex-shrink: 0;
-        color: rgba(0, 0, 0, .2);
+        color: var(--alife-text-disabled);
     }
 
     .ev-ok {
-        color: #52c41a;
+        color: var(--alife-success);
     }
 
     .ev-err {
-        color: #ff4d4f;
+        color: var(--alife-error);
     }
 
     .ev-name {
         font-weight: 500;
-        color: #333;
+        color: var(--alife-text);
     }
 
     .ev-tag {
         font-size: 10px;
-        background: #f0f0f0;
-        color: rgba(0, 0, 0, .35);
+        background: var(--alife-border);
+        color: var(--alife-text-tertiary);
         padding: 2px 6px;
         border-radius: 4px;
         line-height: 16px;
@@ -251,7 +251,7 @@
     .ev-msg {
         margin-left: auto;
         font-size: 11px;
-        color: rgba(0, 0, 0, .3);
+        color: var(--alife-text-tertiary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -261,11 +261,11 @@
     .progress-tip {
         margin-bottom: 12px;
         padding: 8px 12px;
-        background: rgba(24, 144, 255, .04);
-        border: 1px solid rgba(24, 144, 255, .1);
+        background: var(--alife-primary-bg);
+        border: 1px solid var(--alife-primary-border);
         border-radius: 8px;
         font-size: 12px;
-        color: #1890ff;
+        color: var(--alife-primary);
         display: flex;
         align-items: center;
         gap: 6px;

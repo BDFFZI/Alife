@@ -42,7 +42,7 @@ Alife.Function.*（插件）
 ```
 
 - 插件之间允许直接项目引用，现有公共底座插件：`FunctionCaller`、`MessageFilter`、`Speech`、`Vision`、`AIModelUtility` 等；任何插件不得引用宿主与 `Alife.Client`。
-- 运行链路：宿主 `Program` 组装 DI 容器 → `ModuleSystem` 发现并注册 `[Module]` 类 → 模块界面依据 `ModuleAttribute`（`editorUI` / `globalUI`）渲染；宿主界面自身的菜单是插拔式的，`UIAttributeSystem` 统计所有 `UIAttribute`（`SystemMenuAttribute` / `CharacterMenuAttribute`）并按开关交给宿主页面用 `DynamicComponent` 渲染。
+- 运行链路：宿主 `Program` 组装 DI 容器 → `ModuleSystem` 发现并注册 `[Module]` 类 → 模块界面依据 `ModuleAttribute`（`editorUI` / `globalUI`）渲染；宿主界面自身的菜单是插拔式的，`UIAttributeSystem` 统计所有 `UIAttribute`（`SideBarItemAttribute` 侧栏按钮 / `SystemMenuAttribute` 系统管理菜单 / `CharacterMenuAttribute` 角色工作区菜单）并按开关交给宿主页面用 `DynamicComponent` 渲染。菜单的身份一律是组件类型本身（`UIAttribute.IdentityOf`），特性只带显示与排序字段：`SystemMenu` / `CharacterMenu` 是「声明 + 内容组件」一对（宿主画菜单、组件是内容），`SideBarItem` 只有排序，按钮长相与点击行为全写在组件里（不继承任何基类）。三者的 `Order` 语义一致：越大越靠上，默认 0 落在最下面，所以客户端自带界面一律 ≥ 10、插件插队用中间值，插件不写 `Order` 就自动排在末尾。
 - 插件可用的扩展点只有三类：`[Module]`（功能注入点，由 `ModuleSystem` 按加载上下文注册/卸载）、`[InitializeOnLoad]` / `[UninitializeOnUnload]`（成对的公开静态生命周期函数，进程级挂接与摘除，见 §9）、`UIAttribute` 派生特性（声明一个可插拔界面）。除此之外不要为插件开新的入口。
 - 开发插件前端（Blazor UI）前先完整阅读 `.agents/skills/alife-blazor-plugin-ui/SKILL.md`。
 - 发布新版本前先完整阅读 `.agents/skills/alife-publish/SKILL.md`。
@@ -227,6 +227,7 @@ Get-ChildItem Sources\Alife.Function -Recurse -Filter *.csproj |
 - 生成后在「系统管理 → 插件环境」点「重新编译所有插件」（等价 `ClearAllPluginDll` + `SyncPluginEnvironment`）。
 - 合格线：`alife.log` 里「模块编译失败」「加载 xxx 插件失败」计数为 0。环境正常之后再去看功能，否则任何界面缺失都说明不了问题。
 - Release 不做上面的目录过滤，插件目录里留构建产物会被重复加载：别把 `bin`、`obj` 留在插件目录。
+- **改完插件源码，光 `dotnet build` 不够**：应用把插件编到 `Runtime\CompiledPlugins\<插件>.dll` 并优先加载它，只有客户端大版本变化或点「重新编译所有插件」才会清空。跳过这步的典型症状是 razor 改了、界面行为还是旧的（实测踩过：世界群聊侧栏入口仍在跑改造前的脚本）。重启前删掉 `CompiledPlugins\*.dll` 或点那个按钮，别拿旧 DLL 下结论。
 
 ### 9.2 启动与驱动界面
 
@@ -235,14 +236,48 @@ $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
 dotnet run --no-build --project Sources\Alife.Client\Alife.Client.Windows\Alife.Client.Windows.csproj
 ```
 
-- 首次启动要编译并加载全部插件，等 45–60 秒再看界面。
+- 启动后不要盲等秒数，轮询到就绪即可动手（首次启动还要编译并加载全部插件，通常 40 秒内完成）：
+
+```powershell
+# 目标页出现（WebView2 建窗时就有了）且 .alife-rail 渲染出来，才算初始化结束、路由已可用
+$deadline = (Get-Date).AddSeconds(120)
+while ((Get-Date) -lt $deadline) {
+    try { if (Invoke-CdpEval "!!document.querySelector('.alife-rail')") { break } } catch {}
+    Start-Sleep -Milliseconds 500
+}
+```
+
 - `http://127.0.0.1:9222/json` 取 page target，用 CDP `Runtime.evaluate`（`awaitPromise: true`）点导航、切 tab、读 DOM，这是验证 Blazor 界面最直接的手段。脚本文件保持 ASCII，中文写成 `\uXXXX`，否则 here-string 落盘即乱码。
-- 截图别用 `Page.captureScreenshot`（窗口隐藏或被遮挡时会一直挂着）：先 `ShowWindow(SW_MAXIMIZE)` + `SetWindowPos(HWND_TOPMOST)`，再用 GDI `Graphics.CopyFromScreen` 抓窗口矩形，抓完还原 `HWND_NOTOPMOST`。抓图的进程必须先 `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)`，否则 `GetWindowRect` 拿到的是缩放后的虚拟坐标，只能截到窗口左上角一块。
-- 锁屏（`LogonUI` 在跑）时屏幕合成暂停，GDI 与 CDP 截出来都是全黑；先确认已解锁再截图。截图产物别放在应用的 Temp 目录下，应用启动会清空它。
+- 现成脚本在 `C:\AlifeTest`，dot-source 后直接用，别重写：`cdp.ps1`（`Invoke-Cdp` / `Invoke-CdpEval`）、`cdpshot.ps1`（整窗截图）、`cdpclip.ps1 -OutFile x.png -X -Y -W -H -Scale`（区域放大截图，查像素级问题靠它）、`mcp.ps1`（`Invoke-McpTool` / `Get-McpTools`）。
+- 截图优先 CDP `Page.captureScreenshot`：它取的是 WebView2 自己的合成结果，锁屏（`LogonUI` 在跑、GDI 只能截到全黑）时照样能拿到页面图，验证明暗主题这类纯界面问题基本不依赖桌面状态。
+- 窗口最小化或被遮挡时 CDP 会一直挂着，此时改用 GDI：先 `ShowWindow(SW_MAXIMIZE)` + `SetWindowPos(HWND_TOPMOST)`，再 `Graphics.CopyFromScreen` 抓窗口矩形，抓完还原 `HWND_NOTOPMOST`。抓图进程必须先 `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)`，否则 `GetWindowRect` 拿到的是缩放后的虚拟坐标，只能截到窗口左上角一块。窗口句柄用 `Get-Process` 的 `MainWindowHandle`，`FindWindow` 按标题匹配不到。
+- 截图产物别放在应用的 Temp 目录下，应用启动会把它整个清空（`InitAlifeFoundation` 递归删除 `TempFolderPath`）。
+- 截图只读 DOM，不要为了取干净的图去改运行中页面的样式（例如 `style.display='none'` 藏掉装饰元素）：改动会留在用户正看着的那个窗口里，看起来就像功能坏了。
 - 路径：日志 `C:\Users\13309\Temp\alife.log`（进程独占写，自己读时要用 `FileShare.ReadWrite`）；`config.json` 在宿主基目录（`dotnet run` 时是 `bin\Debug\...`，发布产物在 `Outputs\...`），`UIAttribute:` 前缀的键就是界面开关状态，验证完复原。
 
-### 9.3 必须覆盖的验证路径
+### 9.3 MCP：程序化控制客户端
+
+客户端启动时自带 MCP 服务（`AlifeMcpTools`，默认 `http://127.0.0.1:18765/mcp`，Streamable HTTP），验证时可以用它代替手工点界面读写系统状态。
+
+- 三步连接：POST `initialize`（从响应头取 `Mcp-Session-Id`）→ POST `notifications/initialized` → 之后每个请求都带上 `Mcp-Session-Id`。`Accept` 写 `application/json, text/event-stream`，响应可能是 SSE，取 `data:` 那行再解析。
+- 工具名是 snake_case，共 30 个（`tools/list` 取全量）。常用：`list_characters_in_system`、`list_modules_in_system`、`get_module_config` / `set_module_config`、`activate_character` / `deactivate_character`、`list_plugins_in_system`、`reload_plugin`、`reload_plugin_environment`、`chat_with_character`。
+- 它能做的止于**业务**：没有截图、没有点击、读不到 DOM。看界面效果仍然只能靠 §9.2 的 CDP，两者配合用：MCP 改数据，CDP 看渲染。
+- 端口连不上（`Test-NetConnection 127.0.0.1 -Port 18765` 为 False）只有两种可能：客户端没启动，或刚启动还没监听（等 30–60 秒）。改完插件可以 `reload_plugin` 省一次重启，但先确认 §9.1 的旧 DLL 缓存已经清掉。
+
+### 9.4 静态资源放哪
+
+- 宿主与插件共用的浏览器脚本放在 `Alife.Client\wwwroot`（`alife-theme.css` / `alife-theme.js` / `alife-chat.js`），插件按固定 URL 取用：`import("./_content/Alife.Client/alife-chat.js")`。这只是运行时地址，插件不引用 `Alife.Client` 工程，分层不破。
+- **不要给 `Alife.Application` 加 `wwwroot`**：把它改成 Razor SDK 之后，凡是引用它的 `Microsoft.NET.Sdk.Razor` 插件工程都会在 `DiscoverPrecompressedAssets` 上抛「An item with the same key has already been added」，构建直接失败（同一份资源被聚合了两遍，清 obj、关压缩都躲不开）。
+
+### 9.5 前端主题
+
+- 颜色只有 `alife-theme.css` 里的 `--alife-*` 令牌一个来源，宿主与插件界面都只写令牌；出现 `#1890ff`、`rgba(0,0,0,.45)` 这类字面色，黑夜模式就必然有一块不跟随（SVG `stroke`、图表系列色、终端 ANSI 色这类运行时不吃 CSS 变量的除外）。
+- 明暗切换：`UIThemeSystem` 是唯一状态源（存 `config.json`），`alife-theme.js` 负责换 AntDesign 的整张样式表并把 `data-theme` 打到 `<html>` 上，顺带写 `localStorage` 让首帧不闪。组件里不要再自己判断明暗。
+- 宿主给插件的 DOM 契约：`.alife-rail-item`（侧栏入口样式）、`--alife-*`（配色）。契约之外的选择器不要依赖。
+
+### 9.6 必须覆盖的验证路径
 
 - 开关类功能要看“效果”而不是“值”：关掉某个界面后，声明它的宿主页面上那个 tab 必须真的消失，开回来必须真的回来。
+- 侧栏按钮（`SideBarItemAttribute`）同样是插件可声明项：关掉后侧栏上那个按钮必须真的消失，卸载插件后必须真的消失，`Closable = false` 的按钮不出现开关。
 - 插件是运行期增删的，所以“启动时扫一遍”的写法不可信：把探针插件在启动后放进 `Sources\Alife.Function`，点「同步环境」看它是否被登记、`[InitializeOnLoad]` 是否被执行；再点「重载此插件」，应当看到成对的 `[UninitializeOnUnload]` → `[InitializeOnLoad]`；删掉插件目录再同步，应当只有 `[UninitializeOnUnload]`。这两个特性都按加载上下文增量执行（内置代码在 `InitAlife` 末尾扫 `Default`，插件在 `PluginLoadedAsync` / `PluginUnloadedAsync` 里扫各自上下文），这样运行期新增、重载、卸载三条路径都覆盖得到。
 - 探针、临时插件这类验证产物，交付前必须清掉。`Remove-Item` 会被安全策略拦，未跟踪目录用 `git clean -fd -- <路径>` 删除。

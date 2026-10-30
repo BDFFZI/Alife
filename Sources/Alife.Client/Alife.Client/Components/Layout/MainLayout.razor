@@ -1,18 +1,19 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject CharacterSystem CharacterSystem
 @inject NavigationManager NavigationManager
 @inject ClientDataStore ClientDataStore
+@inject UIThemeSystem UITheme
+@inject IJSRuntime JsRuntime
 
-<div class="app-container">
-    <!-- 侧边栏导航 -->
-    <div class="global-sidebar" style="width: 80px; flex-shrink: 0; padding-top: 24px;">
+<div class="app-shell">
+    <nav class="app-sidebar">
         <NavMenu/>
-    </div>
+    </nav>
 
-    <!-- 主内容区 -->
-    <div class="main-content">
+    <section class="app-main">
         @Body
-    </div>
+    </section>
 </div>
 
 <div class="overlay-layer">
@@ -23,38 +24,37 @@
 </div>
 
 <style>
+    .app-shell {
+        height: 100vh;
+        display: flex;
+        overflow: hidden;
+        background: var(--alife-bg-layout);
+    }
+
+    .app-sidebar {
+        flex: 0 0 auto;
+        width: var(--alife-sidebar-width);
+        display: flex;
+        flex-direction: column;
+        /* 底部留出与侧栏上边距对称的空白，日志入口落在这一格里 */
+        padding-bottom: 12px;
+        background: var(--alife-sidebar-bg);
+        border-right: 1px solid var(--alife-sidebar-border);
+    }
+
+    .app-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        position: relative;
+        overflow: hidden;
+        background: var(--alife-bg-layout);
+    }
+
     .overlay-layer {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 1000;
-    }
-
-    .app-container {
-        height: 100vh;
-        width: 100vw;
-        display: flex;
-        overflow: hidden;
-        backdrop-filter: blur(10px);
-        background: rgba(0, 0, 0, 0.4);
-    }
-
-    .global-sidebar {
-        background: #001529 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 16px 0;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
-
-    .main-content {
-        flex: 1;
-        background: #f0f2f5;
-        overflow: hidden;
-        position: relative;
     }
 </style>
 
@@ -71,5 +71,21 @@
             }
         }
     }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender == false)
+            return;
 
+        UITheme.ThemeChanged += OnThemeChanged;
+        await ApplyThemeAsync();
+    }
+    public void Dispose()
+    {
+        UITheme.ThemeChanged -= OnThemeChanged;
+    }
+
+    void OnThemeChanged() => InvokeAsync(ApplyThemeAsync);
+
+    /// <summary>样式表切换只能在浏览器侧完成（AntDesign 主题是编译期 CSS），C# 这边只管状态。</summary>
+    Task ApplyThemeAsync() => JsRuntime.InvokeVoidAsync("alifeTheme.apply", UITheme.Mode).AsTask();
 }

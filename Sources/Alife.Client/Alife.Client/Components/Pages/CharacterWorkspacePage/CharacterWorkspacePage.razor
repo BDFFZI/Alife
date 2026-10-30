@@ -11,42 +11,34 @@
 
 @if (character == null)
 {
-    <div style="padding: 50px; text-align: center; color: #fff;">
-        <Icon Type="loading" Style="font-size: 32px"/>
-        <p>正在寻找角色喵...</p>
+    <div class="workspace-loading">
+        <Icon Type="@IconType.Outline.Loading" Style="font-size: 28px;"/>
+        <span>正在寻找角色喵...</span>
     </div>
 }
 else
 {
-    <div
-        style="height: calc(100vh - 24px); margin: 12px; display: flex; overflow: hidden; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0;">
-
-        <!-- 角色侧边二级导航 -->
-        <div
-            style="width: 200px; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; background: #fafafa;">
-
-            @* 角色头像状态 *@
-            <div style="padding: 24px; text-align: center; border-bottom: 1px solid #f0f0f0">
+    <div class="alife-shell alife-shell-row">
+        @* 角色侧边二级导航：身份信息 + 菜单 + 常用操作 *@
+        <aside class="alife-pane-side">
+            <div class="workspace-id">
                 <Avatar Size="@AvatarSize.Large"
-                        Style="background: #1890ff; width: 64px; height: 64px; line-height: 64px; font-size: 24px;">
+                        Style="background: var(--alife-primary); width: 56px; height: 56px; line-height: 56px; font-size: 22px;">
                     @(character.Name.FirstOrDefault())
                 </Avatar>
-                <Title Level="4" Style="margin-top: 12px; margin-bottom: 0;">@character.Name</Title>
-                <div
-                    style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+                <div class="workspace-name">@character.Name</div>
+                <div class="workspace-state">
                     <StatusDot Online="@(activity != null)"/>
-                    <Text Type="@TextElementType.Secondary"
-                          Style="font-size: 12px">@(activity != null ? "正在运行" : "待机中")</Text>
+                    <span>@(activity != null ? "正在运行" : "待机中")</span>
                 </div>
             </div>
 
             @* 功能菜单：内置项与插件项都由 CharacterMenuAttribute 声明，本页只负责渲染 *@
-            <div style="flex: 1; padding: 12px 0; overflow-y: auto; overflow-x: hidden;">
-                <Menu Mode="@MenuMode.Inline" SelectedKeys="@(new[] { activeMenuKey })"
-                      Style="background: transparent;">
-                        @foreach (MenuItem item in menuItems)
+            <div class="workspace-menu">
+                <Menu Mode="@MenuMode.Inline" SelectedKeys="@(new[] { activeMenuKey })" Style="background: transparent;">
+                    @foreach (MenuItem item in menuItems)
                     {
-                        <MenuItem Key="@item.Menu.Key" OnClick="@(() => activeMenuKey = item.Menu.Key)">
+                        <MenuItem Key="@UIAttribute.IdentityOf(item.ComponentType)" OnClick="@(() => activeMenuKey = UIAttribute.IdentityOf(item.ComponentType))">
                             <Icon Type="@item.Menu.IconType"/>
                             <span>@item.Menu.Name</span>
                         </MenuItem>
@@ -55,10 +47,8 @@ else
             </div>
 
             @* 常用功能快捷访问 *@
-            <div style="padding: 16px; border-top: 1px solid #f0f0f0">
-                <Button Block Style="margin-bottom: 12px;" Icon="@IconType.Outline.FolderOpen"
-                        OnClick="@(OpenStorageDirectory)">打开存储目录
-                </Button>
+            <div class="workspace-actions">
+                <Button Block Icon="@IconType.Outline.FolderOpen" OnClick="@(OpenStorageDirectory)">打开存储目录</Button>
 
                 @if (activity == null)
                 {
@@ -74,24 +64,21 @@ else
                     </Button>
                     @if (isStopping && !isCancelled)
                     {
-                        <Button Danger Block Style="margin-top: 8px;"
+                        <Button Danger Block
                                 OnClick="@(() => activity.ChatBot.ChatBreakTokenSource.Cancel())">
                             打断对话
                         </Button>
                     }
                 }
 
-                <Button Danger Block Style="margin-top: 12px;" OnClick="@DeleteCharacter">删除角色</Button>
+                <Button Danger Block OnClick="@DeleteCharacter">删除角色</Button>
             </div>
-        </div>
+        </aside>
 
-        <!-- 角色工作区内容 -->
-        <div @key="@Name"
-             style="flex: 1; display: flex; flex-direction: column;justify-content: center; overflow: hidden; background: #fff">
-
+        <div class="alife-pane-body" @key="@Name">
             @if (activeItem != null)
             {
-                <PluginErrorBoundary @key="@(Name + activeItem.Menu.Key + "#" + boundaryRevision)">
+                <PluginErrorBoundary @key="@(Name + UIAttribute.IdentityOf(activeItem.ComponentType) + "#" + boundaryRevision)">
                     <ChildContent>
                         <DynamicComponent Type="@activeItem.ComponentType"
                                           Parameters="@(MenuParameters())"/>
@@ -101,10 +88,87 @@ else
                     </ErrorContent>
                 </PluginErrorBoundary>
             }
-
         </div>
     </div>
 }
+
+<style>
+    .workspace-loading {
+        height: calc(100vh - 24px);
+        margin: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: var(--alife-text-tertiary);
+    }
+
+    .workspace-id {
+        padding: 20px 16px;
+        text-align: center;
+        border-bottom: 1px solid var(--alife-border);
+    }
+
+    .workspace-name {
+        margin-top: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--alife-text);
+        overflow-wrap: anywhere;
+    }
+
+    .workspace-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--alife-text-secondary);
+    }
+
+    .workspace-menu {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 8px 0;
+    }
+
+    .workspace-actions {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+        border-top: 1px solid var(--alife-border);
+    }
+
+    /* 内联菜单换成胶囊样式：侧栏已有分隔线，不需要 AntDesign 那条右侧竖线 */
+    .workspace-menu .ant-menu-inline {
+        border-right: none;
+        background: transparent;
+    }
+
+    .workspace-menu .ant-menu-item {
+        margin: 2px 8px;
+        width: calc(100% - 16px);
+        height: 36px;
+        line-height: 36px;
+        border-radius: var(--alife-radius-sm);
+    }
+
+    .workspace-menu .ant-menu-item::after {
+        display: none;
+    }
+
+    .workspace-menu .ant-menu-item-selected {
+        background: var(--alife-primary-bg);
+        color: var(--alife-primary);
+        font-weight: 600;
+    }
+</style>
 
 @code {
     [Parameter] public string Name { get; set; } = "";
@@ -122,7 +186,7 @@ else
     /// <summary>角色菜单项（内置 + 插件，已按开关过滤）。</summary>
     IReadOnlyList<MenuItem> menuItems = [];
 
-    MenuItem? activeItem => menuItems.FirstOrDefault(item => item.Menu.Key == activeMenuKey);
+    MenuItem? activeItem => menuItems.FirstOrDefault(item => UIAttribute.IdentityOf(item.ComponentType) == activeMenuKey);
 
     protected override void OnInitialized()
     {
@@ -160,13 +224,13 @@ else
     {
         menuItems = UIAttributeSystem.GetEnabledRegistrations<CharacterMenuAttribute>()
             .Select(registration => new MenuItem((CharacterMenuAttribute)registration.Attribute, registration.ComponentType))
-            .OrderBy(item => item.Menu.Order)
-            .ThenBy(item => item.Menu.Key, StringComparer.Ordinal)
+            .OrderByDescending(item => item.Menu.Order)
+            .ThenBy(item => UIAttribute.IdentityOf(item.ComponentType), StringComparer.Ordinal)
             .ToList();
-        if (menuItems.Count == 0 || menuItems.Any(item => item.Menu.Key == activeMenuKey))
+        if (menuItems.Count == 0 || menuItems.Any(item => UIAttribute.IdentityOf(item.ComponentType) == activeMenuKey))
             return;
 
-        activeMenuKey = menuItems[0].Menu.Key;
+        activeMenuKey = UIAttribute.IdentityOf(menuItems[0].ComponentType);
     }
     /// <summary>
     /// 按 CharacterMenu 基类的约定喂给菜单内容组件的参数：DynamicComponent 只认 Parameters 字典，不接受同名属性。

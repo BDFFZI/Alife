@@ -18,12 +18,12 @@
                                 @(idx == 0 ? "异常" : $"内部异常 {idx}")
                             </TabTemplate>
                             <ChildContent>
-                                <div style="padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
-                                    <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
+                                <div style="padding: 16px; border: 1px solid var(--alife-error-border); background: var(--alife-error-bg); border-radius: 8px;">
+                                    <div style="font-weight: bold; color: var(--alife-error); font-size: 16px; margin-bottom: 8px;">
                                         <Icon Type="warning"/> @Title
                                     </div>
                                     <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@ex.Message</div>
-                                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@ex.StackTrace</pre>
+                                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: var(--alife-bg-hover); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@ex.StackTrace</pre>
                                 </div>
                             </ChildContent>
                         </TabPane>
@@ -32,12 +32,12 @@
             }
             else
             {
-                <div style="padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
-                    <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
+                <div style="padding: 16px; border: 1px solid var(--alife-error-border); background: var(--alife-error-bg); border-radius: 8px;">
+                    <div style="font-weight: bold; color: var(--alife-error); font-size: 16px; margin-bottom: 8px;">
                         <Icon Type="warning"/> @Title
                     </div>
                     <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@Value.Message</div>
-                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@Value.StackTrace</pre>
+                    <pre style="max-height: 300px; overflow-y: auto; font-size: 11px; background: var(--alife-bg-hover); padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px;">@Value.StackTrace</pre>
                 </div>
             }
         }

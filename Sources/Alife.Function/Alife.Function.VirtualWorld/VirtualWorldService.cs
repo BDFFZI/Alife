@@ -98,8 +98,7 @@ public partial class VirtualWorldService
 
 [Module("虚拟世界",
     "将Alife作为一个虚拟世界平台，使其中的角色可以互相通讯，并接受统一的公告。",
-    defaultCategory: "Alife 官方/生活环境",
-    globalUI: typeof(VirtualWorldGlobalUI))]
+    defaultCategory: "Alife 官方/生活环境")]
 public partial class VirtualWorldService(
     XmlFunctionCaller functionService,
     CharacterSystem characterSystem,

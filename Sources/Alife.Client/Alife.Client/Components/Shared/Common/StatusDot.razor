@@ -1,19 +1,5 @@
 <span class="status-dot @(Online ? "status-online" : "")" style="@Style"></span>
 
-<style>
-    .status-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        border: 2px solid #fff;
-    }
-
-    .status-online {
-        background-color: #52c41a;
-    }
-</style>
-
 @code {
     [Parameter] public bool Online { get; set; }
     [Parameter] public string Style { get; set; } = "";

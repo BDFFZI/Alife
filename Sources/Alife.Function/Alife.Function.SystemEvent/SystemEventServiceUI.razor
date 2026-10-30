@@ -3,7 +3,7 @@
 @implements IDisposable
 @using AntDesign
 
-<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+<div style="background: var(--alife-bg-subtle); padding: 24px; border-radius: 12px; border: 1px solid var(--alife-border);">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
 
         <!-- 下次报点时间 -->
@@ -33,7 +33,7 @@
                         </Text>
                     </Flex>
                     <div
-                        style="margin-top: 12px; font-size: 12px; color: #8c8c8c; border-top: 1px solid #f5f5f5; padding-top: 8px;">
+                        style="margin-top: 12px; font-size: 12px; color: var(--alife-text-secondary); border-top: 1px solid var(--alife-border); padding-top: 8px;">
                         当前报点次数: @Module.CurrentReportCount
                     </div>
                 </Card>

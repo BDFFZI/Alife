@@ -35,7 +35,9 @@ else
     <Launching SubTitle="@launchingProgress"/>
 }
 
+@* 运行日志是全局能力：入口固定在侧栏那一列的下方，加载页也照样显示 *@
 <LogOverlay/>
+
 <AntContainer/>
 <ErrorWindowUI @bind-Value="@exception" Title="系统初始化异常"/>
 

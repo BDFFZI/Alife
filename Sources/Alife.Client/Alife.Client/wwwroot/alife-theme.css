@@ -1,0 +1,495 @@
+/* Alife 客户端统一外观令牌。
+   所有界面只引用这里的变量，不再各写各的颜色：
+   切换黑夜模式时，AntDesign 换成 dark.css，本文件的 [data-theme="dark"] 变量同步翻转。 */
+
+:root {
+    color-scheme: light;
+
+    /* 背景 */
+    --alife-bg-layout: #f5f7fa;
+    --alife-bg-container: #ffffff;
+    --alife-bg-subtle: rgba(0, 0, 0, 0.02);
+    --alife-bg-hover: rgba(0, 0, 0, 0.04);
+    --alife-bg-elevated: #ffffff;
+
+    /* 文字 */
+    --alife-text: rgba(0, 0, 0, 0.88);
+    --alife-text-secondary: rgba(0, 0, 0, 0.65);
+    --alife-text-tertiary: rgba(0, 0, 0, 0.45);
+    --alife-text-disabled: rgba(0, 0, 0, 0.25);
+    --alife-text-inverse: #ffffff;
+
+    /* 线条与阴影 */
+    --alife-border: #d9d9d9;
+    --alife-border-strong: #bfbfbf;
+    --alife-split: rgba(5, 5, 5, 0.12);
+    --alife-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+    --alife-shadow-float: 0 6px 16px rgba(0, 0, 0, 0.08);
+
+    /* 主色与语义色（与 AntDesign 默认一致） */
+    --alife-primary: #1890ff;
+    --alife-primary-hover: #40a9ff;
+    --alife-primary-bg: rgba(24, 144, 255, 0.06);
+    --alife-primary-border: rgba(24, 144, 255, 0.25);
+    --alife-success: #52c41a;
+    --alife-warning: #faad14;
+    --alife-error: #ff4d4f;
+    --alife-success-bg: #f6ffed;
+    --alife-success-border: #b7eb8f;
+    --alife-warning-bg: #fffbe6;
+    --alife-warning-border: #ffe58f;
+    --alife-error-bg: #fff1f0;
+    --alife-error-border: #ffccc7;
+
+    /* 圆角与间距 */
+    --alife-radius-sm: 6px;
+    --alife-radius: 10px;
+    --alife-radius-lg: 14px;
+    --alife-gap: 12px;
+    --alife-page-padding: 20px 24px 32px;
+
+    /* 侧边栏（深色导航是有意为之，两种模式下都保持深色） */
+    --alife-sidebar-width: 76px;
+    --alife-sidebar-bg: #001529;
+    --alife-sidebar-border: rgba(255, 255, 255, 0.1);
+    --alife-sidebar-icon: rgba(255, 255, 255, 0.6);
+    --alife-sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+    --alife-sidebar-hover-icon: #ffffff;
+    --alife-sidebar-active-bg: #1890ff;
+    --alife-sidebar-active-icon: #ffffff;
+    --alife-scrollbar: #d9d9d9;
+    --alife-scrollbar-hover: #bfbfbf;
+
+    /* 对话气泡 */
+    --alife-bubble-user-bg: #95ec69;
+    --alife-bubble-user-text: rgba(0, 0, 0, 0.85);
+    --alife-bubble-ai-bg: var(--alife-bg-container);
+    --alife-bubble-ai-text: var(--alife-text);
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --alife-bg-layout: #141414;
+    --alife-bg-container: #1f1f1f;
+    --alife-bg-subtle: rgba(255, 255, 255, 0.04);
+    --alife-bg-hover: rgba(255, 255, 255, 0.08);
+    --alife-bg-elevated: #1f1f1f;
+
+    --alife-text: rgba(255, 255, 255, 0.85);
+    --alife-text-secondary: rgba(255, 255, 255, 0.65);
+    --alife-text-tertiary: rgba(255, 255, 255, 0.45);
+    --alife-text-disabled: rgba(255, 255, 255, 0.25);
+    --alife-text-inverse: rgba(255, 255, 255, 0.85);
+
+    --alife-border: #303030;
+    --alife-border-strong: #434343;
+    --alife-split: rgba(255, 255, 255, 0.12);
+    --alife-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --alife-shadow-float: 0 6px 16px rgba(0, 0, 0, 0.45);
+
+    --alife-primary: #177ddc;
+    --alife-primary-hover: #095cb5;
+    --alife-primary-bg: rgba(23, 125, 220, 0.15);
+    --alife-primary-border: rgba(23, 125, 220, 0.4);
+    --alife-success: #49aa19;
+    --alife-warning: #d89614;
+    --alife-error: #d32029;
+    --alife-success-bg: rgba(73, 170, 25, 0.15);
+    --alife-success-border: rgba(73, 170, 25, 0.4);
+    --alife-warning-bg: rgba(216, 150, 20, 0.15);
+    --alife-warning-border: rgba(216, 150, 20, 0.45);
+    --alife-error-bg: rgba(211, 32, 41, 0.15);
+    --alife-error-border: rgba(211, 32, 41, 0.45);
+
+    --alife-sidebar-bg: #1f1f1f;
+    --alife-sidebar-border: #303030;
+    --alife-sidebar-icon: rgba(255, 255, 255, 0.55);
+    --alife-sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+    --alife-sidebar-hover-icon: #ffffff;
+    --alife-sidebar-active-bg: #177ddc;
+    --alife-sidebar-active-icon: #ffffff;
+    --alife-scrollbar: #434343;
+    --alife-scrollbar-hover: #5a5a5a;
+
+    --alife-bubble-user-bg: #274916;
+    --alife-bubble-user-text: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- 基础 ---------- */
+
+body {
+    background: var(--alife-bg-layout);
+    color: var(--alife-text);
+}
+
+/* 全局滚动条：所有滚动区域统一，黑夜模式下不会留一条亮色轨道 */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--alife-scrollbar);
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--alife-scrollbar-hover);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+/* ---------- 侧栏导航条（宿主与插件共用：SideBarItemAttribute 声明的入口都用 .alife-rail-item 拿样式） ---------- */
+.alife-rail {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 0 12px;
+    gap: 6px;
+}
+
+.alife-rail-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.alife-rail-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2px 0;
+}
+
+.alife-rail-split {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 1px;
+    background: var(--alife-sidebar-border);
+    margin: 6px 0;
+}
+
+.alife-rail-item {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 12px;
+    color: var(--alife-sidebar-icon);
+    font-size: 22px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.alife-rail-item:hover {
+    background: var(--alife-sidebar-hover-bg);
+    color: var(--alife-sidebar-hover-icon);
+}
+
+.alife-rail-item.active {
+    background: var(--alife-sidebar-active-bg);
+    color: var(--alife-sidebar-active-icon);
+}
+
+.alife-rail-add {
+    border: 1px dashed var(--alife-sidebar-border);
+    font-size: 18px;
+}
+
+/* ---------- 页面骨架 ---------- */
+
+.alife-page {
+    height: 100%;
+    min-width: 0;
+    padding: var(--alife-page-padding);
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--alife-bg-layout);
+    box-sizing: border-box;
+}
+
+/* 表单类页面（角色设定）：自己控制排版，不在页面级滚动 */
+.alife-page-form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 占满面板的容器：顶部标题栏 + 下方列表，列表内部滚动 */
+.alife-pane-fill {
+    height: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--alife-bg-layout);
+    box-sizing: border-box;
+}
+
+/* 宿主页面外壳：替代各处手写的 calc(100vh - 24px) 容器 */
+.alife-shell {
+    height: calc(100vh - 24px);
+    margin: 12px;
+    display: flex;
+    overflow: hidden;
+    background: var(--alife-bg-container);
+    border: 1px solid var(--alife-border);
+    border-radius: var(--alife-radius);
+}
+
+.alife-shell-col {
+    flex-direction: column;
+}
+
+.alife-shell-row {
+    flex-direction: row;
+}
+
+.alife-shell-head {
+    flex: 0 0 auto;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--alife-border);
+}
+
+.alife-shell-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.alife-page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    min-width: 0;
+}
+
+.alife-page-title {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--alife-text);
+}
+
+.alife-page-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--alife-text-tertiary);
+}
+
+/* ---------- 排版辅助 ---------- */
+
+.alife-label {
+    font-size: 13px;
+    color: var(--alife-text-secondary);
+}
+
+.alife-hint {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--alife-text-tertiary);
+}
+
+.alife-text {
+    color: var(--alife-text);
+}
+
+.alife-text-secondary {
+    color: var(--alife-text-secondary);
+}
+
+.alife-text-tertiary {
+    color: var(--alife-text-tertiary);
+}
+
+.alife-spacer {
+    flex: 1 1 auto;
+}
+
+.alife-divider {
+    height: 1px;
+    background: var(--alife-split);
+    margin: 16px 0;
+}
+
+/* 状态点：侧栏角色与世界状态共用。未运行的灰点也得看得见，否则“待机中”只剩一行字；
+   描边跟随容器背景色以免与底色糊在一起。
+   描边用 box-shadow 画在盒子外面而不是 border：盒子保持 8×8，125% 缩放下正好是 10 个设备像素。
+   若用 10×10 + border（12.5 设备像素），宽高会各自取整到 12/13，栅格化出来就是横向压扁的椭圆 */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 0 2px var(--alife-bg-container);
+    background-color: var(--alife-text-tertiary);
+}
+
+.status-online {
+    background-color: var(--alife-success);
+}
+
+/* ---------- 配置项（系统配置、角色设定等表单页面） ---------- */
+
+.alife-field {
+    min-width: 0;
+    margin-bottom: 20px;
+}
+
+.alife-field-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.alife-field-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--alife-text);
+}
+
+.alife-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    min-width: 0;
+}
+
+.alife-section-title {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--alife-text);
+}
+
+/* ---------- 工作区侧栏（角色二级导航） ---------- */
+
+.alife-pane-side {
+    width: 208px;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--alife-bg-layout);
+    border-right: 1px solid var(--alife-border);
+}
+
+.alife-pane-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ---------- AntDesign 跟随主题 ---------- */
+
+.ant-modal-content,
+.ant-drawer-content {
+    border-radius: var(--alife-radius-lg);
+}
+
+/* 左侧标签页（系统管理中心）：标签是 flex 容器，AntDesign 的 text-align:center 管不到里面的按钮，
+   要靠 justify-content；图标在文字上方，AntDesign 给横向排列留的 12px 右间距会把图标顶偏，得清掉。
+   标签本身就是「图标 + 文字」的两行块，默认 10px 上下内边距让相邻按钮间隔很大，收到 8px。 */
+.ant-tabs-left > .ant-tabs-nav .ant-tabs-tab {
+    padding: 8px 14px;
+    justify-content: center;
+}
+
+.ant-tabs-left > .ant-tabs-nav .ant-tabs-tab .anticon {
+    margin-right: 0;
+}
+
+/* 标签之间留一小段间距（AntDesign 默认 16px）；顶部则单独给标签栏留白，
+   否则首个标签直接贴住内容区上沿，看起来比下面的间距还窄 */
+.ant-tabs-left > .ant-tabs-nav .ant-tabs-tab + .ant-tabs-tab {
+    margin-top: 8px;
+}
+
+.ant-tabs-left > .ant-tabs-nav {
+    padding-top: 16px;
+}
+
+/* 面板自带 24px 左内边距，和页面自己的 padding 叠成一条 48px 的空白，去掉一层 */
+.ant-tabs-left > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane {
+    padding-left: 0;
+}
+
+.ant-tabs-content-holder,
+.ant-tabs-content,
+.ant-tabs-tabpane {
+    min-width: 0;
+}
+
+.ant-tabs-content-holder {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ant-tabs-content {
+    height: 100%;
+}
+
+.ant-tabs-tabpane {
+    height: 100%;
+    overflow: hidden;
+}
+
+
+/* ---------- 模块目录树（系统管理的功能管理与角色页的功能检视共用同一个组件）：压缩行高与内边距，一屏列出更多模块 ---------- */
+
+.module-tree-container .ant-tree-treenode {
+    min-height: 28px;
+    padding-bottom: 0;
+    align-items: center;
+}
+
+.module-tree-container .ant-tree-node-content-wrapper,
+.module-tree-container .ant-tree-switcher {
+    min-height: 28px;
+    height: 28px;
+    line-height: 28px;
+}
+
+.module-tree-container .ant-tree-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.module-tree-container .ant-tree-indent-unit {
+    width: 20px;
+}

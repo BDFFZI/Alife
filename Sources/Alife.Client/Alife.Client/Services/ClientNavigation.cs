@@ -2,7 +2,8 @@ namespace Alife.Client;
 
 public static class ClientNavigation
 {
-    public static void RegisterNavigator(Action<string> handler)
+    /// <summary>请求导航到「系统管理中心」的某个菜单页，按内容组件的类型定位，改名不影响调用方。</summary>
+    public static void RegisterNavigator(Action<Type> handler)
     {
         TabRequested += handler;
         if (pendingTab != null)
@@ -11,18 +12,18 @@ public static class ClientNavigation
             pendingTab = null;
         }
     }
-    public static void UnregisterNavigator(Action<string> handler) => TabRequested -= handler;
-    public static void RequestNavigation(string path)
+    public static void UnregisterNavigator(Action<Type> handler) => TabRequested -= handler;
+    public static void RequestNavigation(Type target)
     {
         if (TabRequested == null)
         {
-            pendingTab = path;
+            pendingTab = target;
             return;
         }
 
-        TabRequested.Invoke(path);
+        TabRequested.Invoke(target);
     }
 
-    static event Action<string>? TabRequested;
-    static string? pendingTab;
+    static event Action<Type>? TabRequested;
+    static Type? pendingTab;
 }

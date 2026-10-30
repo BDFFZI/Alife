@@ -23,6 +23,7 @@ public static class AlifeClient
         services.AddSingletonChain<IAlifeClient, TAlifeClient>();
         services.AddSingleton<AlifeClientConfig>();
         services.AddSingleton<ClientDataStore>();
+        services.AddSingleton<UIThemeSystem>();
     }
     public static async Task InitAlifeClient(this IServiceProvider provider, IProgress<string>? progress = null)
     {

@@ -13,7 +13,7 @@
         @if (isMajorUpdate)
         {
             <div
-                style="background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; color: #096dd9;">
+                style="background: var(--alife-primary-bg); border: 1px solid var(--alife-primary-border); border-radius: 4px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; color: var(--alife-primary);">
                 <Icon Type="@IconType.Outline.InfoCircle" Style="margin-right: 4px;"/>
                 此次为非兼容性更新，部分第三方插件可能不支持，官方插件也需在更新后立即升级。
             </div>
@@ -38,8 +38,8 @@ else if (showPluginUpgrade)
         <HeaderContent>
             @if (hasForceUpgrade)
             {
-                <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-bottom: 12px; line-height: 1.8;">
-                    <b style="color: #ff4d4f;">检测到存在非兼容插件，必须升级才能正常使用。</b>
+                <div style="font-size: 12px; color: var(--alife-text-tertiary); margin-bottom: 12px; line-height: 1.8;">
+                    <b style="color: var(--alife-error);">检测到存在非兼容插件，必须升级才能正常使用。</b>
                 </div>
             }
             else

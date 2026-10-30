@@ -3,15 +3,15 @@
 
 <ErrorWindowUI Title="模块重载失败喵！" @bind-Value="@reloadException"></ErrorWindowUI>
 
-<div style="display: flex; height: 100%; background: #fff; overflow: hidden;">
+<div style="display: flex; height: 100%; background: var(--alife-bg-container); overflow: hidden;">
     <!-- 左侧：目录树 -->
     <div
-        style="width: 300px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; background: #fafafa;">
+        style="width: 300px; flex-shrink: 0; border-right: 1px solid var(--alife-border); display: flex; flex-direction: column; background: var(--alife-bg-subtle);">
         <div
-            style="border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; justify-content: space-between; align-items: flex-start;">
+            style="border-bottom: 1px solid var(--alife-border); background: var(--alife-bg-container); display: flex; justify-content: space-between; align-items: flex-start;">
             <Title Level="4" Style="margin: 12px;">功能管理</Title>
         </div>
-        <div style="flex: 1; overflow-y: auto; padding: 12px 8px; background: #fff; min-height: 0;">
+        <div style="flex: 1; overflow-y: auto; padding: 8px 6px; background: var(--alife-bg-container); min-height: 0;">
             <ModuleFolderUI
                 Context="@ModuleSystem.GetModuleFolder()"
                 IsReadOnly="@IsReadOnly"
@@ -21,7 +21,7 @@
     </div>
 
     <!-- 右侧：详情与配置 -->
-    <div style="flex: 1; background: #fff; min-height: 0; min-width: 0; display: flex; flex-direction: column;">
+    <div style="flex: 1; background: var(--alife-bg-container); min-height: 0; min-width: 0; display: flex; flex-direction: column;">
         @if (selectedModuleId != null && ModuleSystem.GetModule(selectedModuleId) != null)
         {
             <div style="flex: 1; padding: 32px; max-width: 1200px; min-height: 0; height: 100%;">

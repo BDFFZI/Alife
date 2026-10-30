@@ -16,12 +16,12 @@
     </div>
     @foreach (var c in charactersToActivate)
     {
-        <div style="padding: 4px 0; color: rgba(0,0,0,0.85);">- @c.Name</div>
+        <div style="padding: 4px 0; color: var(--alife-text);">- @c.Name</div>
     }
     <div style="margin-top: 16px; text-align: center;">
         <Progress Type="ProgressType.Circle" Percent="@CountdownPercent" Width="80"
                   Format="@((_) => countdown.ToString())"></Progress>
-        <div style="color: rgba(0,0,0,0.45); font-size: 12px; margin-top: 8px;">
+        <div style="color: var(--alife-text-tertiary); font-size: 12px; margin-top: 8px;">
             @countdown 秒后自动启动
         </div>
     </div>

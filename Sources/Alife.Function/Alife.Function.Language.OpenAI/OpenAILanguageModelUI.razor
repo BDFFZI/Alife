@@ -7,7 +7,7 @@
 @implements IDisposable
 @inject IMessageService MessageService
 
-<div style="background: #fff; padding: 20px; border-radius: 8px; overflow: hidden;">
+<div style="background: var(--alife-bg-container); padding: 20px; border-radius: 8px; overflow: hidden;">
     @* ───── 运行时状态 ───── *@
     @if (Module != null)
     {
@@ -36,12 +36,12 @@
                         请求原因:
                     </AntDesign.Text>
                     <div
-                        style="max-height: 100px; overflow-y: auto; background: #f6f8fa; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px dashed #d9d9d9; margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">
+                        style="max-height: 100px; overflow-y: auto; background: var(--alife-bg-subtle); padding: 6px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px dashed var(--alife-border-strong); margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">
                         @if (thinkingMarkers != null)
                         {
                             @foreach (var marker in thinkingMarkers)
                             {
-                                <div style="color: #52c41a; margin-bottom: 2px;">@marker.Reason</div>
+                                <div style="color: var(--alife-success); margin-bottom: 2px;">@marker.Reason</div>
                             }
                         }
                     </div>
@@ -117,15 +117,15 @@
                 {
                     string key = contentType.SwitchId!;
                     <div
-                        style="border: 1px solid #e8e8e8; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
+                        style="border: 1px solid var(--alife-border); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                             <div>
                                 <div style="font-weight: 500;">@contentType.DisplayName</div>
-                                <div style="font-size: 12px; color: #999; margin-top: 2px;">
+                                <div style="font-size: 12px; color: var(--alife-text-tertiary); margin-top: 2px;">
                                     协议类型
                                     <span
-                                        style="font-family: monospace; background: #f6f8fa; padding: 0 4px; border-radius: 3px; border: 1px dashed #d9d9d9;">@contentType.ProtocolTypeName</span>
+                                        style="font-family: monospace; background: var(--alife-bg-subtle); padding: 0 4px; border-radius: 3px; border: 1px dashed var(--alife-border-strong);">@contentType.ProtocolTypeName</span>
                                 </div>
                             </div>
                             <div style="display: flex; gap: 20px; align-items: center;">

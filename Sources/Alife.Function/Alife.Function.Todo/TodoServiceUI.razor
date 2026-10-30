@@ -2,7 +2,7 @@
 @using AntDesign
 @inherits Alife.Framework.ModuleUIBase<Alife.Function.Todo.TodoService>
 
-<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+<div style="background: var(--alife-bg-subtle); padding: 24px; border-radius: 12px; border: 1px solid var(--alife-border);">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px;">
         <Title Level="4" Style="margin: 0;">待办事项</Title>
         <Space>
@@ -19,18 +19,18 @@
     {
         @if (items.Count == 0)
         {
-            <div style="padding: 16px; background: #fff; border-radius: 8px; border: 1px dashed #d9d9d9; margin-bottom: 16px;">
+            <div style="padding: 16px; background: var(--alife-bg-container); border-radius: 8px; border: 1px dashed var(--alife-border-strong); margin-bottom: 16px;">
                 <Text Type="TextElementType.Secondary">暂无待办事项</Text>
             </div>
         }
         else
         {
-            <div style="background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; margin-bottom: 16px;">
+            <div style="background: var(--alife-bg-container); border-radius: 8px; border: 1px solid var(--alife-border); margin-bottom: 16px;">
                 @for (int i = 0; i < items.Count; i++)
                 {
                     var index = i;
                     var item = items[index];
-                    <div style="padding: 8px 12px; border-bottom: 1px solid #f0f0f0;">
+                    <div style="padding: 8px 12px; border-bottom: 1px solid var(--alife-border);">
                         <Flex Align="FlexAlign.Center" Gap="@("8")">
                             <Checkbox Checked="@item.Completed" CheckedChanged="@(value => { item.Completed = value; })"/>
                             <Input @bind-Value="@item.Content" Style="flex: 1;"/>

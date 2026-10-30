@@ -4,7 +4,7 @@
 @using System.IO
 @using System.Linq
 
-<div style="background: #fff; padding: 20px; border-radius: 8px;">
+<div style="background: var(--alife-bg-container); padding: 20px; border-radius: 8px;">
     <Title Level="4" Style="margin-bottom: 24px;">VITS语音合成配置</Title>
 
     <Alert Type="@(VitsSpeechModel.IsModelReady(Configuration) ? AlertType.Success : AlertType.Warning)"
@@ -66,11 +66,11 @@
            DestroyOnClose="true">
         <Input Placeholder="输入角色姓名或 ID 搜索..." @bind-Value="@searchQuery" Style="margin-bottom: 16px;"/>
         <div
-            style="max-height: 400px; overflow-y: auto; border: 1px solid #f0f0f0; border-radius: 4px; padding: 8px; background: #fff;">
+            style="max-height: 400px; overflow-y: auto; border: 1px solid var(--alife-border); border-radius: 4px; padding: 8px; background: var(--alife-bg-container);">
             @foreach (var speaker in filteredSpeakers)
             {
                 <div
-                    style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border-bottom: 1px solid #f0f0f0;">
+                    style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border-bottom: 1px solid var(--alife-border);">
                     <div>
                         <Tag Color="TagColor.Blue">ID: @speaker.Id</Tag>
                         <span style="font-weight: 500; font-size: 14px; margin-left: 8px;">@speaker.Name</span>

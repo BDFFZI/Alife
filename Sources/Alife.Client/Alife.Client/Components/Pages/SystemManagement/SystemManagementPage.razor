@@ -3,19 +3,20 @@
 @implements IDisposable
 @inject UIAttributeSystem UIAttributeSystem
 
-<div
-    style="height: calc(100vh - 24px); margin: 12px; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; animation: fadeIn 0.5s ease-out;">
-    <div
-        style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
-        <Title Level="3" Style="margin: 0;">系统管理中心</Title>
+<div class="alife-shell alife-shell-col workspace-fade">
+    <div class="alife-shell-head">
+        <div>
+            <div class="alife-page-title">系统管理中心</div>
+            <div class="alife-page-sub">配置、镜像、插件与界面开关</div>
+        </div>
     </div>
 
-    <div style="flex: 1; overflow: hidden;">
+    <div class="alife-shell-body">
         @* 菜单集合变化时重建 Tabs：AntDesign 的 Tabs 按面板序号记忆当前面板，增删面板会让它和 ActiveKey 错位 *@
         <Tabs @key="@tabsKey" @bind-ActiveKey="activeKey" TabPosition="@TabPosition.Left" Style="height: 100%;">
             @foreach (MenuItem item in menuItems)
             {
-                <TabPane Key="@item.Menu.Key">
+                <TabPane Key="@UIAttribute.IdentityOf(item.ComponentType)">
                     <TabTemplate>
                         <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
                             <Icon Type="@item.Menu.IconType"/>
@@ -23,7 +24,7 @@
                         </Flex>
                     </TabTemplate>
                     <ChildContent>
-                        <PluginErrorBoundary @key="@(item.Menu.Key + "#" + boundaryRevision)">
+                        <PluginErrorBoundary @key="@(UIAttribute.IdentityOf(item.ComponentType) + "#" + boundaryRevision)">
                             <ChildContent>
                                 <DynamicComponent Type="@item.ComponentType"/>
                             </ChildContent>
@@ -39,6 +40,21 @@
 </div>
 
 <style>
+    .workspace-fade {
+        animation: workspace-fade-in 0.35s ease-out;
+    }
+
+    @@keyframes workspace-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
     .ant-tabs-content-holder {
         height: 100%;
         display: flex;
@@ -95,9 +111,9 @@
             StateHasChanged();
         });
     }
-    void OnNavigationRequested(string path)
+    void OnNavigationRequested(Type target)
     {
-        activeKey = path;
+        activeKey = UIAttribute.IdentityOf(target);
         InvokeAsync(StateHasChanged);
     }
 
@@ -108,13 +124,13 @@
     {
         menuItems = UIAttributeSystem.GetEnabledRegistrations<SystemMenuAttribute>()
             .Select(registration => new MenuItem((SystemMenuAttribute)registration.Attribute, registration.ComponentType))
-            .OrderBy(item => item.Menu.Order)
-            .ThenBy(item => item.Menu.Key, StringComparer.Ordinal)
+            .OrderByDescending(item => item.Menu.Order)
+            .ThenBy(item => UIAttribute.IdentityOf(item.ComponentType), StringComparer.Ordinal)
             .ToList();
-        tabsKey = string.Join('|', menuItems.Select(item => item.Menu.Key));
-        if (menuItems.Count == 0 || menuItems.Any(item => item.Menu.Key == activeKey))
+        tabsKey = string.Join('|', menuItems.Select(item => UIAttribute.IdentityOf(item.ComponentType)));
+        if (menuItems.Count == 0 || menuItems.Any(item => UIAttribute.IdentityOf(item.ComponentType) == activeKey))
             return;
 
-        activeKey = menuItems[0].Menu.Key;
+        activeKey = UIAttribute.IdentityOf(menuItems[0].ComponentType);
     }
 }

@@ -14,6 +14,12 @@ public abstract class UIAttribute : Attribute
     /// 是否允许在「界面管理」里被关闭。关掉就再也进不去的页面（界面管理、插件市场、插件环境）声明为 false。
     /// </summary>
     public bool Closable { get; set; } = true;
+
+    /// <summary>
+    /// 界面身份：内容组件的类型名。宿主界面用它做菜单项与标签页的键，界面的开关存档键也用它，
+    /// 这样身份随类型走，显示名可以随便改。
+    /// </summary>
+    public static string IdentityOf(Type componentType) => componentType.FullName!;
 }
 
 /// <summary>
@@ -66,8 +72,14 @@ public class UIAttributeSystem
     public UIAttributeSystem(PluginSystem pluginSystem)
     {
         this.pluginSystem = pluginSystem;
-        //插件增删重载会改变登记集合，下一次取用时重新扫描
-        pluginSystem.PluginSynced += () => declared = null;
+        //插件增删重载会改变登记集合：丢掉缓存，并让已打开的宿主界面重新取用
+        pluginSystem.PluginSynced += OnPluginSynced;
+    }
+
+    void OnPluginSynced()
+    {
+        declared = null;
+        RegistrationsChanged?.Invoke();
     }
 
     /// <summary>扫描到的原始登记，不含开关状态：开关状态每次读取时按存档换算。</summary>
@@ -116,5 +128,5 @@ public class UIAttributeSystem
 
     /// <summary>一条登记的身份 = 声明特性的类型 + 内容组件的类型，两者都是稳定名字，插件重载后开关状态仍然对得上。</summary>
     static string SettingKey(Type declarationType, Type componentType)
-        => $"UIAttribute:{declarationType.FullName}:{componentType.FullName}";
+        => $"UIAttribute:{declarationType.FullName}:{UIAttribute.IdentityOf(componentType)}";
 }

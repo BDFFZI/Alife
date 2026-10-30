@@ -9,7 +9,7 @@
         }
         <Badge Status="@(hasUpdate ? BadgeStatus.Warning : BadgeStatus.Success)" Dot="@(isInstalled)">
             <div class="plugin-icon">
-                <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: #1890ff;"/>
+                <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: var(--alife-primary);"/>
             </div>
         </Badge>
         <div class="plugin-info">
@@ -40,8 +40,8 @@
 
 <style>
     .plugin-card {
-        background: #fff;
-        border: 1px solid #f0f0f0;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
         border-radius: 6px;
         padding: 10px;
         cursor: pointer;
@@ -52,7 +52,7 @@
     }
 
     .plugin-card:hover {
-        border-color: #1890ff;
+        border-color: var(--alife-primary);
         box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
         transform: translateY(-1px);
     }
@@ -67,7 +67,7 @@
     .plugin-icon {
         width: 32px;
         height: 32px;
-        background: #e6f7ff;
+        background: var(--alife-primary-bg);
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -82,7 +82,7 @@
     .plugin-name {
         font-size: 13px;
         font-weight: 600;
-        color: rgba(0, 0, 0, 0.85);
+        color: var(--alife-text);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -90,7 +90,7 @@
 
     .plugin-author {
         font-size: 11px;
-        color: rgba(0, 0, 0, 0.45);
+        color: var(--alife-text-tertiary);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;

@@ -1,0 +1,8 @@
+@attribute [SideBarItem(Order = 10, Closable = false)]
+
+@* 系统管理是界面开关等设置的唯一入口，关掉就再也回不来，所以不允许在界面管理里关闭 *@
+<Tooltip Title="系统管理" Placement="Placement.Right">
+    <NavLink href="/system" Class="alife-rail-item" ActiveClass="active">
+        <Icon Type="@IconType.Outline.Setting"/>
+    </NavLink>
+</Tooltip>

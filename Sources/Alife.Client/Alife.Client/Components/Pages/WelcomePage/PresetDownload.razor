@@ -5,7 +5,7 @@
 
 <div class="step-content">
     <ErrorWindowUI @bind-Value="@operException"/>
-    <div class="step-icon" style="background:rgba(250,173,20,.1);color:#faad14;">
+    <div class="step-icon" style="background:var(--alife-warning-bg);color:var(--alife-warning);">
         <Icon Type="@IconType.Outline.Appstore" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">安装官方推荐插件</h2>
@@ -24,7 +24,7 @@
     else if (installDone)
     {
         <div class="preset-status">
-            <Icon Type="@IconType.Outline.CheckCircle" Style="color:#52c41a;font-size:16px;"/>
+            <Icon Type="@IconType.Outline.CheckCircle" Style="color:var(--alife-success);font-size:16px;"/>
             <span>推荐插件安装完成！共安装 @installedCount 个插件</span>
         </div>
     }
@@ -194,14 +194,14 @@
         margin: 0 0 8px;
         font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
+        color: var(--alife-text);
         text-align: center;
     }
 
     .step-desc {
         margin: 0 0 20px;
         font-size: 13px;
-        color: rgba(0, 0, 0, .45);
+        color: var(--alife-text-tertiary);
         text-align: center;
     }
 
@@ -212,22 +212,22 @@
         gap: 6px;
         padding: 8px 12px;
         margin-bottom: 16px;
-        background: rgba(82, 196, 26, .06);
-        border: 1px solid rgba(82, 196, 26, .15);
+        background: var(--alife-success-bg);
+        border: 1px solid var(--alife-success-bg);
         border-radius: 8px;
         font-size: 13px;
-        color: #52c41a;
+        color: var(--alife-success);
         font-weight: 500;
     }
 
     .progress-tip {
         margin-bottom: 12px;
         padding: 8px 12px;
-        background: rgba(24, 144, 255, .04);
-        border: 1px solid rgba(24, 144, 255, .1);
+        background: var(--alife-primary-bg);
+        border: 1px solid var(--alife-primary-border);
         border-radius: 8px;
         font-size: 12px;
-        color: #1890ff;
+        color: var(--alife-primary);
         display: flex;
         align-items: center;
         gap: 6px;
@@ -259,7 +259,7 @@
     }
 
     .plugin-check-item:hover {
-        background: rgba(0, 0, 0, .03);
+        background: var(--alife-bg-subtle);
     }
 
     .plugin-check-item.installed {
@@ -278,11 +278,11 @@
 
     .pc-name {
         font-weight: 500;
-        color: #333;
+        color: var(--alife-text);
     }
 
     .pc-id {
         font-size: 11px;
-        color: rgba(0, 0, 0, .3);
+        color: var(--alife-text-tertiary);
     }
 </style>

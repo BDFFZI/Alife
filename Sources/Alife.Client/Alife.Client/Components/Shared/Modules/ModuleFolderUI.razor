@@ -22,7 +22,6 @@
         align-items: center;
         gap: 8px;
         width: 100%;
-        padding-bottom: 4px;
         border-radius: 4px;
         transition: all 0.2s;
         user-select: none;
@@ -38,18 +37,26 @@
 
     .node-dragging {
         opacity: 0.5;
-        background: #e6f7ff;
-        border: 1px dashed #1890ff;
+        background: var(--alife-primary-bg);
+        border: 1px dashed var(--alife-primary);
     }
 
     .node-drop-target {
-        background: #f6ffed;
-        border: 1px solid #52c41a;
+        background: var(--alife-success-bg);
+        border: 1px solid var(--alife-success);
     }
 
     .node-actions {
         opacity: 0;
         transition: opacity 0.2s;
+        /* 按钮是 inline-block，作为块级元素的子节点时行盒会按基线再留 1.6px，把 24px 的行撑高 */
+        display: flex;
+        align-items: center;
+    }
+
+    .node-actions .ant-space-item {
+        display: flex;
+        align-items: center;
     }
 
     .node-item:hover .node-actions {

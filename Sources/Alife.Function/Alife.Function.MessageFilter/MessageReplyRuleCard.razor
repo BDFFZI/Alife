@@ -2,7 +2,7 @@
 @using AntDesign
 @using static Alife.Function.MessageFilter.MessageFilterServiceConfig
 
-<div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e8e8e8; margin-bottom: 12px;">
+<div style="background: var(--alife-bg-container); padding: 16px; border-radius: 8px; border: 1px solid var(--alife-border); margin-bottom: 12px;">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px;">
         <Flex Align="FlexAlign.Center" Gap="@("8")">
             <Switch @bind-Checked="@Rule.Enabled"/>

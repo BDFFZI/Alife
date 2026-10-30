@@ -4,7 +4,7 @@
 
 <div class="step-content">
     <ErrorWindowUI @bind-Value="@operException"/>
-    <div class="step-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+    <div class="step-icon" style="background:var(--alife-success-bg);color:var(--alife-success);">
         <Icon Type="@IconType.Outline.Setting" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">配置 LLM 信息</h2>
@@ -162,14 +162,14 @@
         margin: 0 0 8px;
         font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
+        color: var(--alife-text);
         text-align: center;
     }
 
     .step-desc {
         margin: 0 0 20px;
         font-size: 13px;
-        color: rgba(0, 0, 0, .45);
+        color: var(--alife-text-tertiary);
         text-align: center;
     }
 

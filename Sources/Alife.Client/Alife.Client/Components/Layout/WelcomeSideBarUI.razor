@@ -1,0 +1,8 @@
+@attribute [SideBarItem(Order = 20, Closable = false)]
+
+@* 欢迎页只有这一个入口，关掉就再也进不去，所以不允许在界面管理里关闭 *@
+<Tooltip Title="欢迎" Placement="Placement.Right">
+    <NavLink href="/welcome" Class="alife-rail-item" ActiveClass="active">
+        <Icon Type="@IconType.Outline.Rocket"/>
+    </NavLink>
+</Tooltip>

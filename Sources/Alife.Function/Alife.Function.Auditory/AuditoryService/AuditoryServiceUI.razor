@@ -6,7 +6,7 @@
 @implements IDisposable
 @inject ILogger<AuditoryServiceUI> Logger
 
-<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+<div style="background: var(--alife-bg-subtle); padding: 24px; border-radius: 12px; border: 1px solid var(--alife-border);">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
         <div>
             <Title Level="4" Style="margin-bottom: 16px;">听觉能力</Title>
@@ -85,7 +85,7 @@
                     </Text>
                     @if (OperatingSystem.IsAndroid())
                     {
-                        <span style="color: #d48806; font-size: 12px;">
+                        <span style="color: var(--alife-warning); font-size: 12px;">
                             Android 系统内录必须获得“录屏/投屏”授权，这是系统限制；Windows 不需要。
                         </span>
                     }
@@ -103,11 +103,11 @@
                         <Card Size="CardSize.Small" Title="当前缓存内容（待推送）" Style="border-radius: 8px;">
                             @if (string.IsNullOrEmpty(Module.PendingPushText))
                             {
-                                <span style="color: rgba(0,0,0,0.45); font-size: 13px;">暂无缓存内容</span>
+                                <span style="color: var(--alife-text-tertiary); font-size: 13px;">暂无缓存内容</span>
                             }
                             else
                             {
-                                <pre style="max-height: 220px; overflow: auto; background: #f8f8f8; padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; margin: 0;">@Module.PendingPushText</pre>
+                                <pre style="max-height: 220px; overflow: auto; background: var(--alife-bg-subtle); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; margin: 0;">@Module.PendingPushText</pre>
                             }
                         </Card>
                     </div>

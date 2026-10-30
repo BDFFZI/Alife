@@ -34,7 +34,7 @@
                                 @if (GetDescription(prop) is { } desc)
                                 {
                                     <div
-                                        style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
+                                        style="font-size: 12px; color: var(--alife-text-tertiary); font-weight: normal; margin-top: 2px;">@desc</div>
                                 }
                             </div>
                         </LabelTemplate>
@@ -344,7 +344,7 @@
         }
         else
         {
-            <span style="color: rgba(0,0,0,0.45); font-style: italic;">
+            <span style="color: var(--alife-text-tertiary); font-style: italic;">
                 @(value?.ToString() ?? "null")
             </span>
         }
@@ -358,7 +358,7 @@
         var list = value as IList;
         var isSimpleType = IsSimpleType(elementType);
 
-        <div style="border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px;">
+        <div style="border: 1px solid var(--alife-border); border-radius: 8px; padding: 12px;">
             @if (isSimpleType)
             {
                 @if (list != null)
@@ -464,11 +464,11 @@
 
         if (subProps.Count == 0)
         {
-            <span style="color: rgba(0,0,0,0.45);">无可配置项</span>
+            <span style="color: var(--alife-text-tertiary);">无可配置项</span>
             return;
         }
 
-        <details style="border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px;">
+        <details style="border: 1px solid var(--alife-border); border-radius: 8px; padding: 12px;">
             <summary style="cursor: pointer; font-weight: 500; padding: 8px 0;">
                 @GetLabel(prop)
             </summary>
@@ -482,7 +482,7 @@
                                 @if (GetDescription(subProp) is { } desc)
                                 {
                                     <div
-                                        style="font-size: 12px; color: rgba(0,0,0,0.45); font-weight: normal; margin-top: 2px;">@desc</div>
+                                        style="font-size: 12px; color: var(--alife-text-tertiary); font-weight: normal; margin-top: 2px;">@desc</div>
                                 }
                             </div>
                         </LabelTemplate>
@@ -548,7 +548,7 @@
         }
         else
         {
-            <span style="color: rgba(0,0,0,0.45); font-style: italic;">
+            <span style="color: var(--alife-text-tertiary); font-style: italic;">
                 @(value?.ToString() ?? "null")
             </span>
         }

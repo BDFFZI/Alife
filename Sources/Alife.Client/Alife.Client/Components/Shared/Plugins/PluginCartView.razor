@@ -25,19 +25,19 @@
                 bool isInstalled = PluginSystem.IsInstalled(item.Id);
                 bool hasUpdate = PluginSystem.HasUpdate(item);
                 string status = isInstalled ? (hasUpdate ? "待升级" : "可重装") : "待安装";
-                string statusColor = isInstalled ? (hasUpdate ? "#faad14" : "#52c41a") : "#1890ff";
+                string statusColor = isInstalled ? (hasUpdate ? "var(--alife-warning)" : "var(--alife-success)") : "var(--alife-primary)";
 
                 <div
-                    style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                    style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--alife-border);">
                     <div
-                        style="flex-shrink: 0; width: 32px; height: 32px; background: #e6f7ff; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                        <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: #1890ff;"/>
+                        style="flex-shrink: 0; width: 32px; height: 32px; background: var(--alife-primary-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: var(--alife-primary);"/>
                     </div>
                     <div style="flex: 1; min-width: 0;">
                         <div
-                            style="font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@item.Name</div>
+                            style="font-size: 13px; font-weight: 600; color: var(--alife-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@item.Name</div>
                         <div
-                            style="font-size: 11px; color: rgba(0,0,0,0.45); display: flex; align-items: center; gap: 8px;">
+                            style="font-size: 11px; color: var(--alife-text-tertiary); display: flex; align-items: center; gap: 8px;">
                             <span>@item.Id</span>
                             <span style="color: @statusColor;">@status</span>
                         </div>
@@ -50,7 +50,7 @@
             }
         </div>
 
-        <div style="flex-shrink: 0; padding: 12px 0; border-top: 1px solid #f0f0f0; display: flex; gap: 8px;">
+        <div style="flex-shrink: 0; padding: 12px 0; border-top: 1px solid var(--alife-border); display: flex; gap: 8px;">
             <Button Danger OnClick="@ClearCart" Disabled="@isOperating" Style="flex: 1;">
                 清空
             </Button>

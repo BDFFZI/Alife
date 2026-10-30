@@ -3,15 +3,15 @@
 @inject IJSRuntime JsRuntime
 @implements IDisposable
 
-<div class="log-floating-button" @onclick="@OpenModal">
-    <Icon Type="@IconType.Outline.FileText" Style="font-size: 20px; color: white;"/>
+<div class="alife-rail-item log-entry" @onclick="@OpenModal">
+    <Icon Type="@IconType.Outline.FileText"/>
     @if (errorBadge > 0)
     {
-        <span class="log-fab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+        <span class="log-fab-badge" style="background: var(--alife-error);">@BadgeText(errorBadge)</span>
     }
     else if (warningBadge > 0)
     {
-        <span class="log-fab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+        <span class="log-fab-badge" style="background: var(--alife-warning);">@BadgeText(warningBadge)</span>
     }
     <div class="log-new-indicator" @key="@flashKey"></div>
 </div>
@@ -44,7 +44,7 @@
                         警告
                         @if (warningBadge > 0)
                         {
-                            <span class="log-tab-badge" style="background: #faad14;">@BadgeText(warningBadge)</span>
+                            <span class="log-tab-badge" style="background: var(--alife-warning);">@BadgeText(warningBadge)</span>
                         }
                     </span>
                 </TabTemplate>
@@ -55,7 +55,7 @@
                         错误
                         @if (errorBadge > 0)
                         {
-                            <span class="log-tab-badge" style="background: #ff4d4f;">@BadgeText(errorBadge)</span>
+                            <span class="log-tab-badge" style="background: var(--alife-error);">@BadgeText(errorBadge)</span>
                         }
                     </span>
                 </TabTemplate>
@@ -90,41 +90,39 @@
 </Modal>
 
 <style>
-    .log-floating-button {
+    /* 日志入口不是侧栏的一部分，而是全局悬浮按钮：固定在侧栏那一列的下方，加载页也显示。
+       样式按 AntDesign 主按钮来（主色底、白图标、悬停换一档），并压在遮罩、抽屉这些层之上 */
+    .log-entry,
+    .log-entry:hover {
         position: fixed;
-        bottom: 24px;
-        left: 16px;
-        width: 48px;
-        height: 48px;
+        left: calc((var(--alife-sidebar-width) - 46px) / 2);
+        bottom: 12px;
+        font-size: 20px;
+        z-index: 1100;
+        /* 圆形：右上角的新日志提示点和 45° 半径端点正好重合，不会飘在方圆交界外面 */
         border-radius: 50%;
-        background: #1890ff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 99999;
-        transition: all 0.2s;
+        color: var(--alife-sidebar-active-icon);
+        background: var(--alife-primary);
     }
 
-    .log-floating-button:hover {
-        background: #40a9ff;
-        transform: scale(1.1);
+    .log-entry:hover {
+        background: var(--alife-primary-hover);
     }
 
     .log-fab-badge {
         position: absolute;
-        bottom: -4px;
-        right: -4px;
+        /* 18px 的计数徽标正好压在底部 45° 半径端点上，和右上角的新日志提示点对称 */
+        bottom: -2px;
+        right: -2px;
         min-width: 18px;
         height: 18px;
         padding: 0 5px;
         border-radius: 9px;
-        color: #fff;
+        color: var(--alife-text-inverse);
         font-size: 11px;
         line-height: 18px;
         text-align: center;
-        box-shadow: 0 0 0 2px #fff;
+        box-shadow: 0 0 0 2px var(--alife-primary);
     }
 
     .log-tab-label {
@@ -139,7 +137,7 @@
         height: 16px;
         padding: 0 4px;
         border-radius: 8px;
-        color: #fff;
+        color: var(--alife-text-inverse);
         font-size: 10px;
         line-height: 16px;
         text-align: center;
@@ -173,7 +171,7 @@
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: #52c41a;
+        background: var(--alife-success);
         animation: indicator-flash 0.7s forwards;
     }
 

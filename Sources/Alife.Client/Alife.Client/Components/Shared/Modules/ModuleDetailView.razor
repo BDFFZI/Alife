@@ -9,12 +9,12 @@
 
 <div style="display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden;">
     @* ═══ 页头：元数据（固定） ═══ *@
-    <div style="flex-shrink: 0; background: #fafafa; padding: 24px; border-radius: 8px; border: 1px solid #f0f0f0;">
+    <div style="flex-shrink: 0; background: var(--alife-bg-subtle); padding: 24px; border-radius: 8px; border: 1px solid var(--alife-border);">
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Start">
             <div>
                 <Title Level="3" Style="margin: 0 0 4px 0;">@moduleAttribute.Name</Title>
                 <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                    <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: rgba(0,0,0,0.45);"/>
+                    <Icon Type="@IconType.Outline.Appstore" Style="font-size: 14px; color: var(--alife-text-tertiary);"/>
                     @if (attachedPluginId == null)
                     {
                         <AntDesign.Text Type="@TextElementType.Secondary">内置插件</AntDesign.Text>
@@ -40,7 +40,7 @@
             }
         </Flex>
 
-        <Paragraph Style="margin-top: 16px; color: rgba(0,0,0,0.65); white-space: pre-wrap">
+        <Paragraph Style="margin-top: 16px; color: var(--alife-text-secondary); white-space: pre-wrap">
             @moduleAttribute.Description
         </Paragraph>
 
@@ -74,7 +74,7 @@
     @* ═══ 页尾：配置保存（固定） ═══ *@
     @if (configuration != null)
     {
-        <div style="flex-shrink: 0; padding: 16px 0; border-top: 1px solid #f0f0f0;">
+        <div style="flex-shrink: 0; padding: 16px 0; border-top: 1px solid var(--alife-border);">
             <ConfigSaveUI ConfigurableModuleType="@ModuleType"
                           Configuration="@configuration"
                           OnConfigurationChanged="@ConfigurationChanged"

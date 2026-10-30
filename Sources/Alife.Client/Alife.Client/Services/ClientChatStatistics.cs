@@ -17,6 +17,8 @@ public class ChatMessage
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
     public bool IsReasoning { get; set; }
+    /// <summary>思考过程是否展开。新消息按全局开关初始化，之后由用户点击决定，渲染不再覆盖。</summary>
+    public bool ReasoningExpanded { get; set; }
 }
 
 public static class ClientChatStatistics
@@ -125,7 +127,12 @@ public static class ClientChatStatistics
                     });
                 }
 
-                messages.Add(new ChatMessage { IsUser = false, IsInputting = true, ThinkingReason = thinkingReason });
+                messages.Add(new ChatMessage {
+                    IsUser = false,
+                    IsInputting = true,
+                    ThinkingReason = thinkingReason,
+                    ReasoningExpanded = chatSettings.ShowReasoning,
+                });
                 TrimMessages(name);
             }
 

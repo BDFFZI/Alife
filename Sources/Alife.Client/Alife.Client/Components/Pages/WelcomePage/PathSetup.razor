@@ -1,7 +1,7 @@
 @inject IAlifeClient AlifeClient
 
 <div class="step-content">
-    <div class="step-icon" style="background:rgba(255,165,0,.1);color:#ffa500;">
+    <div class="step-icon" style="background:var(--alife-warning-bg);color:var(--alife-warning);">
         <Icon Type="@IconType.Outline.FolderOpen" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">路径配置</h2>
@@ -10,7 +10,7 @@
     @if (hasNonAsciiPath)
     {
         <div class="path-error">
-            <Icon Type="@IconType.Outline.CloseCircle" Style="color:#ff4d4f;"/>
+            <Icon Type="@IconType.Outline.CloseCircle" Style="color:var(--alife-error);"/>
             <div>
                 <div style="font-weight:500;">检测到以下路径包含中文字符</div>
                 <div style="margin-top:4px;">请修改为纯英文路径，否则部分功能将无法正常使用！</div>
@@ -171,25 +171,25 @@
         margin: 0 0 8px;
         font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
+        color: var(--alife-text);
         text-align: center;
     }
 
     .step-desc {
         margin: 0 0 20px;
         font-size: 13px;
-        color: rgba(0, 0, 0, .45);
+        color: var(--alife-text-tertiary);
         text-align: center;
     }
 
     .path-error {
         margin-bottom: 12px;
         padding: 10px 12px;
-        background: #fff2f0;
-        border: 1px solid #ffccc7;
+        background: var(--alife-error-bg);
+        border: 1px solid var(--alife-error-border);
         border-radius: 8px;
         font-size: 12px;
-        color: #a8071a;
+        color: var(--alife-error);
         display: flex;
         align-items: flex-start;
         gap: 8px;
@@ -204,9 +204,9 @@
 
     .path-item {
         padding: 12px;
-        background: rgba(0, 0, 0, .02);
+        background: var(--alife-bg-subtle);
         border-radius: 8px;
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--alife-border);
     }
 
     .path-header {
@@ -219,7 +219,7 @@
     .path-label {
         font-weight: 500;
         font-size: 13px;
-        color: #333;
+        color: var(--alife-text);
     }
 
     .path-status {
@@ -229,20 +229,20 @@
     }
 
     .path-status.ok {
-        background: #f6ffed;
-        color: #52c41a;
-        border: 1px solid #b7eb8f;
+        background: var(--alife-success-bg);
+        color: var(--alife-success);
+        border: 1px solid var(--alife-success-border);
     }
 
     .path-status.error {
-        background: #fff2f0;
-        color: #ff4d4f;
-        border: 1px solid #ffccc7;
+        background: var(--alife-error-bg);
+        color: var(--alife-error);
+        border: 1px solid var(--alife-error-border);
     }
 
     .path-value {
         font-size: 12px;
-        color: rgba(0, 0, 0, .65);
+        color: var(--alife-text-secondary);
         word-break: break-all;
         margin-bottom: 8px;
     }
