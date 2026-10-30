@@ -1,5 +1,7 @@
 using Alife.Client;
 using Alife.Foundation;
+using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Framework;
@@ -30,7 +32,7 @@ public static class AlifeApplication
 
         //添加前端功能
         services.AddSingletonChain<IAlifeApplication, TAlifeApplication>();
-        services.AddSingleton<AlifeMcpTools>();
+        services.AddSingleton<UIAttributeSystem>();
         services.AddAntDesign(); //UI框架
     }
 
@@ -71,11 +73,16 @@ public static class AlifeApplication
                 };
             }
 
-            //重载插件时自动更新模块
+            //插件按加载上下文增量同步：模块注册与卸载、插件自带的静态生命周期函数
             {
                 ModuleSystem moduleSystem = provider.GetRequiredService<ModuleSystem>();
                 pluginContext.PluginLoadedAsync += (_, context) => moduleSystem.LoadAssemblyModulesAsync(context);
                 pluginContext.PluginUnloadedAsync += (_, context) => moduleSystem.UnloadAssemblyModulesAsync(context);
+                //加载后执行 [InitializeOnLoad]，卸载时执行 [UninitializeOnUnload]：插件侧唯一的进程级挂接入口
+                pluginContext.PluginLoadedAsync += (_, context) =>
+                    InvokeMarkedStaticMethodsAsync(provider, context, typeof(InitializeOnLoadAttribute));
+                pluginContext.PluginUnloadedAsync += (_, context) =>
+                    InvokeMarkedStaticMethodsAsync(provider, context, typeof(UninitializeOnUnloadAttribute));
             }
 
             //当客户端大版本更新时清除所有旧插件程序集
@@ -134,6 +141,53 @@ public static class AlifeApplication
             catch (Exception e)
             {
                 AlifeLog.LogError("激活MCP服务失败：" + e);
+            }
+        }
+
+        //内置代码在初始化完成后统一调用；插件已在各自的 PluginLoadedAsync 里调用过，这里只扫 Default 上下文，避免重复执行。
+        await InvokeMarkedStaticMethodsAsync(provider, AssemblyLoadContext.Default, typeof(InitializeOnLoadAttribute));
+    }
+
+    /// <summary>
+    /// 调用指定加载上下文中所有标了 <paramref name="lifecycleAttributeType"/> 的公开静态函数（内置代码与插件一视同仁）。
+    /// 单个函数失败只记录不中断：一个插件的挂接失败不该拖垮整个客户端。
+    /// </summary>
+    static async Task InvokeMarkedStaticMethodsAsync(
+        IServiceProvider provider,
+        AssemblyLoadContext assemblyLoadContext,
+        Type lifecycleAttributeType)
+    {
+        foreach (Type type in TypeUtility.GetLoadedTypes(assemblyLoadContext))
+        {
+            MethodInfo[] methods;
+            try
+            {
+                methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(method => method.GetCustomAttribute(lifecycleAttributeType, inherit: false) != null)
+                    .ToArray();
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(new Exception($"读取类型 {type.FullName} 的 {lifecycleAttributeType.Name} 函数失败，已跳过该类型。", e));
+                continue;
+            }
+
+            foreach (MethodInfo method in methods)
+            {
+                try
+                {
+                    object?[] arguments = [
+                        .. method.GetParameters()
+                            .Select(parameter => provider.GetRequiredService(parameter.ParameterType))
+                    ];
+
+                    if (method.Invoke(null, arguments) is Task task)
+                        await task;
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogError(new Exception($"执行 {lifecycleAttributeType.Name} 函数 {type.FullName}.{method.Name} 失败。", e));
+                }
             }
         }
     }
