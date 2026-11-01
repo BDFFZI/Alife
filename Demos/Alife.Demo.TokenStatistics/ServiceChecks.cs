@@ -91,14 +91,14 @@ public static class ServiceChecks
             Check(ref failures, "第1页=2条", page1.Count == 2, page1.Count);
             Check(ref failures, "第3页=1条", page3.Count == 1, page3.Count);
 
-            // 6.1 多标签按字节占比分摊，且分摊后总量守恒
-            string multiMessage = "[源(Alpha)]包一包二包三包四[源(Beta)]测一测二测三测四测五测六测七测八测九测十";
+            // 6.1 多标签按字节占比分摊，且分摊后总量守恒（标签各自独占一行，符合框架的注入位置）
+            string multiMessage = "[源(Alpha)]包一包二包三包四\n[源(Beta)]测一测二测三测四测五测六测七测八测九测十";
             store.Append(MakeRawRecord(today.AddHours(23), 1234, 400, 100, multiMessage, "<Speak>回复</Speak>", now));
             var afterMulti = service.QueryRecords(today, today.AddDays(1), filter);
             var multi = afterMulti.FirstOrDefault(r => r.Record.InputTotal == 1234);
-            double alphaWeight = multi?.TagWeights.FirstOrDefault(w => w.Name == "源(Alpha)").Weight ?? 0;
-            double betaWeight = multi?.TagWeights.FirstOrDefault(w => w.Name == "源(Beta)").Weight ?? 0;
-            Check(ref failures, "多标签权重合计=1", Math.Abs(alphaWeight + betaWeight - 1) < 1e-9, alphaWeight + betaWeight);
+            double alphaWeight = multi?.TagWeights.FirstOrDefault(w => w.Name == "源(Alpha)")?.Weight ?? 0;
+            double betaWeight = multi?.TagWeights.FirstOrDefault(w => w.Name == "源(Beta)")?.Weight ?? 0;
+            Check(ref failures, "多标签权重合计=1", multi != null && Math.Abs(alphaWeight + betaWeight - 1) < 1e-9, alphaWeight + betaWeight);
             Check(ref failures, "Beta 字节多于 Alpha → 权重更大", betaWeight > alphaWeight, $"alpha={alphaWeight:P1} beta={betaWeight:P1}");
 
             var multiRank = service.RankByTags(afterMulti);
@@ -140,9 +140,60 @@ public static class ServiceChecks
 
             string unclosed = "<Unclosed>abc";
             var unclosedHits = MarkupParser.ParseAiFunctions(unclosed);
-            Check(ref failures, "未闭合函数收到消息末尾",
-                unclosedHits.Count == 1 && unclosedHits[0].Bytes == MarkupParser.Utf8Bytes(unclosed),
+            Check(ref failures, "没有配对闭标签的开标签不识别（不再吞掉后续内容）",
+                unclosedHits.Count == 0,
                 string.Join(",", unclosedHits.Select(h => $"{h.Name}:{h.Bytes}")));
+
+            // 10.1 正文里的代码尖括号不是函数（真实数据里 <string>、<ChatResult> 都是这种形态）
+            string codeLike = "现在的写法是 Task<string> ChatStreamingAsync，底层用 List<TokenUsageContext>。\n<Speak>好的</Speak>";
+            var codeHits = MarkupParser.ParseAiFunctions(codeLike);
+            Check(ref failures, "代码里的 <string>/<TokenUsageContext> 不算函数",
+                codeHits.Count == 1 && codeHits[0].Name == "Speak",
+                string.Join(",", codeHits.Select(h => $"{h.Name}:{h.Bytes}")));
+
+            // 10.2 用户侧：正文里的方括号噪声不算标签（真实数据实测过这几种）
+            string noisy = "[时间(2026-11-01 12:43:20)]\n[系统推送消息]\n"
+                + "urlopen error [WinError 10061] 由于目标计算机积极拒绝\n"
+                + "chatHistory[i] 与 [main f292b0a] 都不是标签\n"
+                + "characterName=\"string[可选]\"\n";
+            var noisyHits = MarkupParser.ParseUserTags(noisy);
+            List<string> noisyNames = [.. noisyHits.Select(hit => hit.Name)];
+            Check(ref failures, "用户侧方括号噪声被排除，真标签保留",
+                noisyNames.Count == 2 && noisyNames[0].StartsWith("时间", StringComparison.Ordinal)
+                && noisyNames[1] == "系统推送消息",
+                string.Join(" | ", noisyNames));
+
+            // 10.3 只有"行首第一个字符 / 紧跟标签"的方括号算标签；引用、代码、缩进、句中指代的都算正文
+            string quoted = "[时间(2026-11-01 12:43:20)]\n[系统推送消息]\n"
+                + "--- {\"Role\": {\"Label\": \"user\"}, \"Content\": \"[系统推送消息]\\n[源(XmlFunctionCaller)]脚本执行完成\"}\n"
+                + "public const string PokeMessageTag = \"[表情: 277]\";\n"
+                + "[源(SystemEventService)]如下记忆存档：[记忆存档(1-20261027124635-20261027195855)]，即将移出上下文\n"
+                + "    [系统推送消息]（缩进了，不是行首第一个字符）\n"
+                + "[源(QChatService)][私聊消息(1330958515,半点星光)]好了\n";
+            var quotedHits = MarkupParser.ParseUserTags(quoted);
+            List<string> quotedNames = [.. quotedHits.Select(hit => hit.Name)];
+            Check(ref failures, "只有行首第一个字符/紧跟标签的位置算标签，其余算正文",
+                quotedNames.Count == 5
+                && quotedNames[0].StartsWith("时间", StringComparison.Ordinal)
+                && quotedNames[1] == "系统推送消息"
+                && quotedNames[2].StartsWith("源(SystemEventService)", StringComparison.Ordinal)
+                && quotedNames[3] == "源(QChatService)"
+                && quotedNames[4].StartsWith("私聊消息", StringComparison.Ordinal),
+                string.Join(" | ", quotedNames));
+
+            // 10.4 参数易变的标签被合并（时间 / 记忆存档），引号内容也被抹掉；业务字段（谁发来的）保留
+            TagFilter normalizeFilter = new();
+            Check(ref failures, "忽略参数：时间/记忆存档 合并；来源与业务字段保留参数",
+                normalizeFilter.Normalize("时间(2026-11-01 12:43:20)") == "时间"
+                && normalizeFilter.Normalize("记忆存档(1-20261027124635-20261027195855)") == "记忆存档"
+                && normalizeFilter.Normalize("源(QChatService)") == "源(QChatService)"
+                && normalizeFilter.Normalize("私聊消息(1330958515,半点星光)") == "私聊消息(1330958515,半点星光)"
+                && normalizeFilter.Normalize("对“1330958515：我听说你好像转dsh了”的回复") == "对…的回复",
+                string.Join(" | ",
+                    normalizeFilter.Normalize("时间(2026-11-01 12:43:20)"),
+                    normalizeFilter.Normalize("记忆存档(1-20261027124635-20261027195855)"),
+                    normalizeFilter.Normalize("私聊消息(1330958515,半点星光)"),
+                    normalizeFilter.Normalize("对“1330958515：我听说你好像转dsh了”的回复")));
 
             // 11. 历史最佳日命中率：样本够的日子里取最高，样本不足的日子不算
             string targetRoot = Path.Combine(tempRoot, "target");

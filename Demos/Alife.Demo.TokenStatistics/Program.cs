@@ -6,32 +6,95 @@ using Alife.Demo.TokenStatistics;
 if (args.Contains("service"))
     return ServiceChecks.Run();
 
-// live 模式：用真实存储目录跑一遍，检查某天的标签/函数分摊（排查界面与服务的差异）
-if (args.Contains("live"))
+// funcs 模式：看某些 AI 回复里，每个函数的字节是怎么分的（排查嵌套互斥、未配对被丢弃）。
+// 用法：dotnet run -- funcs "<records 目录>" "<消息里的关键字>" [最多几条]
+if (args.Contains("funcs"))
 {
-    string character = args.Length > 2 ? args[2] : "测试";
-    string folder = Path.Combine(@"C:\Users\13309\Desktop\Alife\Storage\Character", character, "TokenStatistics", "records");
+    string folder = args.Length > 1 ? args[1] : @"C:\Users\13309\Desktop\Alife\Storage\Character\测试\TokenStatistics\records";
+    string keyword = args.Length > 2 ? args[2] : "<";
+    int max = args.Length > 3 && int.TryParse(args[3], out int parsedMax) ? parsedMax : 3;
+
     ChatRecordStore store = new(folder);
     TokenStatisticsService service = new(store, NoHolidayCalendar.Instance);
-    var now = DateTimeOffset.Now;
-    var today = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset);
+    DateTimeOffset now = DateTimeOffset.Now;
+    IReadOnlyList<TokenStatisticsService.RecordView> views =
+        service.QueryRecords(now.AddDays(-30), now.AddDays(1), new TagFilter());
 
-    var views = service.QueryRecords(today, today.AddDays(1), new TagFilter());
-    Console.WriteLine($"角色={character} 今天条数={views.Count}");
-
-    foreach (var view in views.Take(3))
+    int shown = 0;
+    foreach (TokenStatisticsService.RecordView view in views)
     {
-        Console.WriteLine($"  {view.Record.Time:HH:mm}  思考字段长度={(string.IsNullOrWhiteSpace(view.Record.AiThinking) ? 0 : view.Record.AiThinking.Length)}");
-        Console.WriteLine($"    标签: {string.Join(", ", view.TagWeights.Select(w => $"{w.Name} {w.Weight:P0}"))}");
-        Console.WriteLine($"    函数: {string.Join(", ", view.FuncWeights.Select(w => $"{w.Name} {w.Weight:P0}"))}");
+        if (view.Record.AiMessage.Contains(keyword, StringComparison.Ordinal) == false)
+            continue;
+
+        Console.WriteLine($"── {view.Record.Time:MM-dd HH:mm}  AiMessage {view.Record.AiMessage.Length} 字符");
+        foreach (TokenStatisticsService.WeightedName weight in view.FuncWeights)
+            Console.WriteLine($"     {weight.Name,-24} {weight.Bytes,7} 字节  {weight.Weight:P1}");
+        Console.WriteLine("   原文:");
+        foreach (string line in view.Record.AiMessage.Split('\n')[..Math.Min(12, view.Record.AiMessage.Split('\n').Length)])
+            Console.WriteLine("     │ " + line.TrimEnd('\r'));
+
+        if (++shown >= max)
+            break;
     }
 
-    var ranks = service.RankByFunctions(views);
-    Console.WriteLine("函数排行:");
-    foreach (var row in ranks.Take(8))
-        Console.WriteLine($"  {row.Name,-14} 次数={row.ChatCount,3} ¥{row.Cost:F4}");
-
     return 0;
+}
+
+// live 模式：对真实记录目录做一次回归——
+// 标签/函数识别结果 + 字节守恒（每个维度都要覆盖整条消息），用来验证解析规则改动。
+// 用法：dotnet run -- live "<records 目录>" [天数]
+if (args.Contains("live"))
+{
+    string folder = args.Length > 1 ? args[1] : @"C:\Users\13309\Desktop\Alife\Storage\Character\测试\TokenStatistics\records";
+    int days = args.Length > 2 && int.TryParse(args[2], out int parsedDays) ? parsedDays : 30;
+
+    ChatRecordStore store = new(folder);
+    TokenStatisticsService service = new(store, NoHolidayCalendar.Instance);
+    DateTimeOffset now = DateTimeOffset.Now;
+    DateTimeOffset from = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset).AddDays(-(days - 1));
+
+    IReadOnlyList<TokenStatisticsService.RecordView> views =
+        service.QueryRecords(from, now.AddDays(1), new TagFilter());
+    Console.WriteLine($"目录={folder}");
+    Console.WriteLine($"近 {days} 天条数={views.Count}");
+
+    List<TokenStatisticsService.RecordView> broken = [];
+    foreach (TokenStatisticsService.RecordView view in views)
+    {
+        int tagBytes = view.TagWeights.Sum(weight => weight.Bytes);
+        int funcBytes = view.FuncWeights.Sum(weight => weight.Bytes);
+        int messageBytes = MarkupParser.Utf8Bytes(view.Record.UserMessage);
+        int replyBytes = MarkupParser.Utf8Bytes(view.Record.AiMessage)
+            + (string.IsNullOrWhiteSpace(view.Record.AiThinking) ? 0 : MarkupParser.Utf8Bytes(view.Record.AiThinking));
+        if (tagBytes != messageBytes || funcBytes != replyBytes)
+            broken.Add(view);
+    }
+
+    Console.WriteLine($"字节守恒校验：{views.Count - broken.Count}/{views.Count} 条通过");
+    foreach (TokenStatisticsService.RecordView view in broken.Take(5))
+    {
+        int reply = MarkupParser.Utf8Bytes(view.Record.AiMessage);
+        int thinking = string.IsNullOrWhiteSpace(view.Record.AiThinking) ? 0 : MarkupParser.Utf8Bytes(view.Record.AiThinking);
+        Console.WriteLine($"  ✘ {view.Record.Time:MM-dd HH:mm}"
+            + $"  标签 {view.TagWeights.Sum(w => w.Bytes)}/{MarkupParser.Utf8Bytes(view.Record.UserMessage)}"
+            + $"  函数 {view.FuncWeights.Sum(w => w.Bytes)}/{reply + thinking}（回复 {reply} + 思考 {thinking}）");
+        Console.WriteLine($"      权重明细：{string.Join(", ", view.FuncWeights.Select(w => $"{w.Name}={w.Bytes}"))}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("标签（名字 / 出现次数 / 字节合计）：");
+    foreach (TokenStatisticsService.RankRow row in service.RankByTags(views).Take(30))
+        Console.WriteLine($"  {row.Name,-44} 次数={row.ChatCount,4} 字节={view_bytes(views, row.Name),9}");
+
+    Console.WriteLine();
+    Console.WriteLine("函数（名字 / 出现次数）：");
+    foreach (TokenStatisticsService.RankRow row in service.RankByFunctions(views).Take(20))
+        Console.WriteLine($"  {row.Name,-30} 次数={row.ChatCount,4}");
+
+    return broken.Count == 0 ? 0 : 1;
+
+    static int view_bytes(IReadOnlyList<TokenStatisticsService.RecordView> views, string name)
+        => views.Sum(view => view.TagWeights.Where(weight => weight.Name == name).Sum(weight => weight.Bytes));
 }
 // weights 模式：打印单条记录的标签/函数字节占比（排查分摊口径）
 if (args.Contains("weights"))

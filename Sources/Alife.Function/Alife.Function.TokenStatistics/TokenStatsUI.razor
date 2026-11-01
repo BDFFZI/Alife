@@ -431,7 +431,7 @@
                     <div class="ts-card">
                         <div class="ts-card-head">
                             <div class="ts-card-title">@group.Title</div>
-                            <div class="ts-card-sub">按明细筛选后分摊 · 点击名称可下钻到下方对话记录</div>
+                            <div class="ts-card-sub">@group.Sub · 按明细筛选后分摊，占比在本表内合计 100% · 点击名称可下钻</div>
                         </div>
 
                         @{ List<RankRowView> ranked = RankRows(group); }
@@ -584,7 +584,7 @@
                 <div class="ts-turns">
                     @foreach (var view in pageRecords)
                     {
-                        bool collapsed = expandedTurns.Contains(view.Record.Id) == false;
+                        bool collapsed = collapsedTurns.Contains(view.Record.Id);
                         <div class="ts-turn-card">
                             <div class="ts-turn-head">
                                 <div class="ts-head-row">
@@ -1967,9 +1967,8 @@
     readonly List<string> parameterizedNames = [];
     readonly HashSet<string> ignoredParamNames = new(TagFilter.DefaultIgnoreParams, StringComparer.OrdinalIgnoreCase);
 
-    // 折叠的对话卡片（默认展开，记录折叠 id）
-    // 默认折叠：只有显式展开过的对话才放进这个集合
-    readonly HashSet<string> expandedTurns = new(StringComparer.Ordinal);
+    // 默认展开，只记录被手动折叠的对话 id
+    readonly HashSet<string> collapsedTurns = new(StringComparer.Ordinal);
     // 当前范围内"最贵的 N 条对话"名次，卡片头上标注
     readonly Dictionary<string, int> costRanks = new(StringComparer.Ordinal);
     DateTimeOffset recordsFrom;
@@ -2073,18 +2072,19 @@
 
     void ToggleTurn(string id)
     {
-        if (expandedTurns.Contains(id))
-            expandedTurns.Remove(id);
+        if (collapsedTurns.Contains(id))
+            collapsedTurns.Remove(id);
         else
-            expandedTurns.Add(id);
+            collapsedTurns.Add(id);
     }
 
-    void ExpandAllTurns()
+    void ExpandAllTurns() => collapsedTurns.Clear();
+
+    void CollapseAllTurns()
     {
         foreach (var view in filteredRecords)
-            expandedTurns.Add(view.Record.Id);
+            collapsedTurns.Add(view.Record.Id);
     }
-    void CollapseAllTurns() => expandedTurns.Clear();
 
     DateTimeOffset SliderMidTime => viewFrom + (viewTo - viewFrom) / 2;
 
@@ -2924,8 +2924,8 @@
 
         rankGroups =
         [
-            new RankGroup("标签排行", "每条对话按各标签字节占比分摊（可多选并存）", "标签", "tag", service.RankByTags(filteredRecords)),
-            new RankGroup("函数排行", "每条对话按各函数字节占比分摊（可多选并存）", "函数", "func", service.RankByFunctions(filteredRecords)),
+            new RankGroup("标签排行", "标签的字节 = 标签自身 + 其后正文（直到下一个标签），排的是「这段内容记在谁头上」", "标签", "tag", service.RankByTags(filteredRecords)),
+            new RankGroup("函数排行", "配对函数算整段（扣除子函数），自闭合只算自身", "函数", "func", service.RankByFunctions(filteredRecords)),
         ];
     }
 

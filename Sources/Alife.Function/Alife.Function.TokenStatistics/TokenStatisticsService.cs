@@ -153,7 +153,8 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
     /// </summary>
     /// <summary>
     /// AI 侧的分摊：把「思考」当成独立一段，与回复里的函数一起按 UTF-8 字节占比归一；
-    /// 回复里没有函数时，回复正文记为「生文本」，保证输出侧分摊守恒。
+    /// 函数覆盖不到的回复正文记为「生文本」，保证输出侧分摊守恒。
+    /// 注意：「思考」是回复之外的独立内容，算"剩余正文"时不能拿它去抵扣回复长度。
     /// </summary>
     static IReadOnlyList<WeightedName> BuildAiWeights(
         IReadOnlyList<MarkupHit> funcs, TagFilter filter, string aiMessage, string? aiThinking)
@@ -171,9 +172,7 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
         }
 
         int messageBytes = MarkupParser.Utf8Bytes(aiMessage);
-        // 「生文本」只吃"没被任何函数覆盖的正文"：函数片段 + 思考之后的剩余字节；被排除的名字不算正文
-        int covered = funcs.Sum(hit => hit.Bytes)
-            + (string.IsNullOrWhiteSpace(aiThinking) ? 0 : MarkupParser.Utf8Bytes(aiThinking));
+        int covered = funcs.Sum(hit => hit.Bytes);
         if (messageBytes > covered && filter.IsExcluded(NoDominantName) == false)
         {
             int rest = messageBytes - covered;
@@ -373,8 +372,11 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
     {
         IReadOnlyList<ChatRecord> records = recordStore.ReadRange(from, to);
 
+        // 从消息原文重新解析，而不是读记录里存下来的 UserTags/AiFunctions——
+        // 那两个字段是"写入当时"按旧规则解析的，解析规则一收紧就会和排行对不上。
         List<string> names = [.. records
-            .SelectMany(record => record.UserTags.Concat(record.AiFunctions))
+            .SelectMany(record => MarkupParser.ParseUserTags(record.UserMessage)
+                .Concat(MarkupParser.ParseAiFunctions(record.AiMessage)))
             .Select(hit => filter.Normalize(hit.Name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.Ordinal)];
@@ -391,7 +393,7 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
     }
 
     /// <summary>
-    /// 范围内"带参数出现"的基础名（如 时间、源），供界面配置"忽略参数"。
+    /// 范围内"带参数出现"的基础名（如 时间、源、记忆存档），供界面配置"忽略参数"。
     /// 只列真正带过参数的名字，没参数的标签不需要这个开关。
     /// </summary>
     public IReadOnlyList<string> ParameterizedBaseNames(DateTimeOffset from, DateTimeOffset to)
@@ -399,7 +401,8 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
         IReadOnlyList<ChatRecord> records = recordStore.ReadRange(from, to);
 
         return [.. records
-            .SelectMany(record => record.UserTags.Concat(record.AiFunctions))
+            .SelectMany(record => MarkupParser.ParseUserTags(record.UserMessage)
+                .Concat(MarkupParser.ParseAiFunctions(record.AiMessage)))
             .Select(hit => hit.Name)
             .Where(name => name.IndexOfAny(['(', '（']) >= 0)
             .Select(TagFilter.BaseNameOf)
