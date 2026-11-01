@@ -477,17 +477,18 @@ body {
     align-items: center;
 }
 
-.module-tree-container .ant-tree-node-content-wrapper,
-.module-tree-container .ant-tree-switcher {
+.module-tree-container .ant-tree-node-content-wrapper {
     min-height: 28px;
-    height: 28px;
     line-height: 28px;
 }
 
+/* switcher 保持固定高度，内容行由文字撑高：名字折行时不能让文字压到下一个模块上 */
 .module-tree-container .ant-tree-switcher {
     display: flex;
     align-items: center;
     justify-content: center;
+    height: 28px;
+    line-height: 28px;
 }
 
 .module-tree-container .ant-tree-indent-unit {

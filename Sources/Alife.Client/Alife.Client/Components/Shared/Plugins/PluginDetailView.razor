@@ -230,7 +230,7 @@
 
         try
         {
-            await operation();
+            await Task.Run(operation);
             _ = NotificationService.Success(new NotificationConfig { Message = successMessage });
         }
         catch (Exception ex)

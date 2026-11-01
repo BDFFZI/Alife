@@ -1,3 +1,4 @@
+using System.Text;
 using Alife.Framework;
 
 namespace Alife.Client;
@@ -11,14 +12,25 @@ public class ChatSettings
 
 public class ChatMessage
 {
-    public string? Content { get; set; }
-    public string? Reasoning { get; set; }
+    /// <summary>取值每次都会生成新字符串，但流式输出只累积不拼接，避免每来一块都复制整串。</summary>
+    public string Content
+    {
+        get => contentBuilder.ToString();
+        init => contentBuilder.Append(value);
+    }
+    public string Reasoning => reasoningBuilder.ToString();
     public string? ThinkingReason { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
     public bool IsReasoning { get; set; }
     /// <summary>思考过程是否展开。新消息按全局开关初始化，之后由用户点击决定，渲染不再覆盖。</summary>
     public bool ReasoningExpanded { get; set; }
+
+    public void AppendContent(string text) => contentBuilder.Append(text);
+    public void AppendReasoning(string text) => reasoningBuilder.Append(text);
+
+    readonly StringBuilder contentBuilder = new();
+    readonly StringBuilder reasoningBuilder = new();
 }
 
 public static class ClientChatStatistics
@@ -40,7 +52,6 @@ public static class ClientChatStatistics
 
     public static event Action? ChatbotMapUpdated;
     public static event Action<string>? MessageChanged;
-    public static event Action<string>? UserMessageSent;
     public static event Action<string, Exception>? ChatExceptionThrew;
 
     public static string MessageTag
@@ -137,14 +148,13 @@ public static class ClientChatStatistics
             }
 
             MessageChanged?.Invoke(name);
-            UserMessageSent?.Invoke(name);
         };
         activity.ChatBot.ChatReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
                 aiMessage.IsReasoning = false;
-                aiMessage.Content += obj;
+                aiMessage.AppendContent(obj);
                 MessageChanged?.Invoke(name);
             }
         };
@@ -153,7 +163,7 @@ public static class ClientChatStatistics
             if (aiMessage != null)
             {
                 aiMessage.IsReasoning = true;
-                aiMessage.Reasoning += obj;
+                aiMessage.AppendReasoning(obj);
                 MessageChanged?.Invoke(name);
             }
         };

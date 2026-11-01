@@ -108,6 +108,8 @@ else if (mode == GuideMode.Free) { ... }
 - **无意义的日志**：`Log("准备开始游戏")` 这类流水日志只消耗性能、淹没真正的错误。日志只在确有诊断需求时写，且要能被定位。
 - **无意义的注释**：不要用注释把成员名翻译一遍，不要给每个属性写 `<summary>`。注释只解释用法、约束和特殊情况。
 - **复制粘贴式编码**：出现整段复制粘贴时先封装。
+- **流式输出的逐块渲染**：模型回调是 per-chunk 的（每秒上百次），在回调里直接 `StateHasChanged` 会让整个消息列表、AntDesign 子组件和整段流式文本每秒重排上百次（实测峰值 234 次/秒 DOM 更新、单帧 237ms）。渲染要合并到固定节拍（如 60ms，只在内容还在变时持续刷新），或者只重渲染真正变化的那一条消息。
+- **流式文本的字符串拼接**：`text += chunk` 每来一块都要复制整串（O(n²)，长思考会直接把临时串推进 LOH）。累积用 `StringBuilder`，对外仍暴露 `string` 属性，交给 Blazor 按值比对跳过未变化的节点。
 - **顺手多写**：不要顺手加未要求的参数、未使用的配置项、未接入的分支、未使用的 using 与字段。
 - **花里胡哨的“高级”写法**：不使用项目未采用的框架、模式、第三方库；不为展示技巧而写复杂代码。
 
@@ -248,7 +250,8 @@ while ((Get-Date) -lt $deadline) {
 ```
 
 - `http://127.0.0.1:9222/json` 取 page target，用 CDP `Runtime.evaluate`（`awaitPromise: true`）点导航、切 tab、读 DOM，这是验证 Blazor 界面最直接的手段。脚本文件保持 ASCII，中文写成 `\uXXXX`，否则 here-string 落盘即乱码。
-- 现成脚本在 `C:\AlifeTest`，dot-source 后直接用，别重写：`cdp.ps1`（`Invoke-Cdp` / `Invoke-CdpEval`）、`cdpshot.ps1`（整窗截图）、`cdpclip.ps1 -OutFile x.png -X -Y -W -H -Scale`（区域放大截图，查像素级问题靠它）、`mcp.ps1`（`Invoke-McpTool` / `Get-McpTools`）。
+- 同机还有别的 Alife 在跑时，新实例会复用那份 WebView2 环境，此时带 `--remote-debugging-port` 的启动会失败（日志只有一句 `ERROR: The system cannot find the file specified.`，窗口一片空白）。先确认 `Get-Process Alife.Client.Windows` 只剩你要测的那一个，再启动。
+- 现成脚本在 `C:\AlifeTest`，dot-source 后直接用，别重写：`cdp.ps1`（`Invoke-Cdp` / `Invoke-CdpEval`）、`cdpshot.ps1`（整窗截图）、`cdpclip.ps1 -OutFile x.png -X -Y -W -H -Scale`（区域放大截图，查像素级问题靠它）、`mcp.ps1`（`Invoke-McpTool` / `Get-McpTools`）、`measure.ps1 -PromptFile x.txt -ResultFile x.json`（对话流式渲染性能：给聊天界面发一条消息，用 MutationObserver 统计 `#messageArea` 的 DOM 更新次数、帧间隔与进程 CPU，输出峰值更新率等指标）。
 - 截图优先 CDP `Page.captureScreenshot`：它取的是 WebView2 自己的合成结果，锁屏（`LogonUI` 在跑、GDI 只能截到全黑）时照样能拿到页面图，验证明暗主题这类纯界面问题基本不依赖桌面状态。
 - 窗口最小化或被遮挡时 CDP 会一直挂着，此时改用 GDI：先 `ShowWindow(SW_MAXIMIZE)` + `SetWindowPos(HWND_TOPMOST)`，再 `Graphics.CopyFromScreen` 抓窗口矩形，抓完还原 `HWND_NOTOPMOST`。抓图进程必须先 `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)`，否则 `GetWindowRect` 拿到的是缩放后的虚拟坐标，只能截到窗口左上角一块。窗口句柄用 `Get-Process` 的 `MainWindowHandle`，`FindWindow` 按标题匹配不到。
 - 截图产物别放在应用的 Temp 目录下，应用启动会把它整个清空（`InitAlifeFoundation` 递归删除 `TempFolderPath`）。

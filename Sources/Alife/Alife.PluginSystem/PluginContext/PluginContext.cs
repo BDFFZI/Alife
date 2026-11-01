@@ -151,8 +151,7 @@ public class PluginContext(
         foreach (string dll in RequirePluginDll(pluginId))
             pluginLoadContext.LoadDll(dll);
         currentPluginLoadContexts.Add(pluginId, pluginLoadContext);
-        pluginLoadContext.Disposed += async () =>
-        {
+        pluginLoadContext.Disposed += async () => {
             currentPluginLoadContexts.Remove(pluginId);
             if (PluginUnloadedAsync != null)
             {
@@ -251,7 +250,8 @@ public class PluginContext(
         PluginManifest pluginManifest = File.Exists(pluginManifestFile)
             ? JsonConvert.DeserializeObject<PluginManifest>(File.ReadAllText(pluginManifestFile))
             : PluginManifestFallback(pluginId);
-        allPluginManifests[pluginId] = pluginManifest;
+        if (string.IsNullOrEmpty(pluginManifest.Version) == false && pluginManifest.Version != "0.0.0")
+            allPluginManifests[pluginId] = pluginManifest;
 
         return pluginManifest;
     }
@@ -332,8 +332,7 @@ public class PluginContext(
     {
 #if DEBUG
         return Directory.EnumerateFiles(path, searchPattern, SearchOption.AllDirectories)
-            .Where(file =>
-            {
+            .Where(file => {
                 string relativeDir = Path.GetDirectoryName(file)![path.Length..]
                     .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 

@@ -364,11 +364,15 @@
 @code {
     /// <summary>消息区元素 id：贴底跟随与“回到最新消息”都以它为键，页面上可能并存多个消息流。</summary>
     const string streamId = "messageArea";
+    /// <summary>流式输出的渲染节拍：几十毫秒的合并延迟看不出来，但能让重排次数少一个数量级。</summary>
+    const int messageRenderIntervalMs = 60;
 
     string inputText = "";
     bool isWorking;
     bool isInputAreaBound;
     bool isDisposed;
+    bool isMessageDirty;
+    bool isMessageRenderLoopRunning;
     List<ChatMessage>? messages;
     string? occupiedReasonText = "";
     Exception? chatException;
@@ -382,7 +386,6 @@
         messages = ClientChatStatistics.GetMessages(Character.Name);
         inputText = ClientChatStatistics.GetDraft(Character.Name);
         ClientChatStatistics.MessageChanged += OnMessageChanged;
-        ClientChatStatistics.UserMessageSent += OnUserMessageSent;
         ClientChatStatistics.ChatExceptionThrew += OnChatExceptionThrew;
         ClientChatStatistics.ChatbotMapUpdated += OnChatbotMapUpdated;
 
@@ -447,7 +450,6 @@
         isDisposed = true;
         ClientChatStatistics.SetDraft(Character.Name, inputText);
         ClientChatStatistics.MessageChanged -= OnMessageChanged;
-        ClientChatStatistics.UserMessageSent -= OnUserMessageSent;
         ClientChatStatistics.ChatExceptionThrew -= OnChatExceptionThrew;
         ClientChatStatistics.ChatbotMapUpdated -= OnChatbotMapUpdated;
         dotNetRef?.Dispose();
@@ -488,12 +490,7 @@
     void OnMessageChanged(string name)
     {
         if (name == Character.Name)
-            InvokeAsync(StateHasChanged);
-    }
-    void OnUserMessageSent(string name)
-    {
-        if (name == Character.Name)
-            InvokeAsync(StateHasChanged);
+            QueueMessageRender();
     }
     void OnChatExceptionThrew(string name, Exception exception)
     {
@@ -504,6 +501,41 @@
         }
     }
     void OnChatbotMapUpdated() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// 流式输出按 chunk 回调，逐块渲染会让界面每秒重排上百次；
+    /// 这里把渲染合并到固定节拍上，只有消息还在变时才持续刷新。
+    /// </summary>
+    void QueueMessageRender() => InvokeAsync(RenderMessagesAsync);
+
+    async Task RenderMessagesAsync()
+    {
+        if (isMessageRenderLoopRunning)
+        {
+            isMessageDirty = true;
+            return;
+        }
+
+        isMessageRenderLoopRunning = true;
+        try
+        {
+            do
+            {
+                isMessageDirty = false;
+                StateHasChanged();
+                await Task.Delay(messageRenderIntervalMs);
+            }
+            while (isMessageDirty && isDisposed == false);
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError(e);
+        }
+        finally
+        {
+            isMessageRenderLoopRunning = false;
+        }
+    }
 
     void OnClear()
     {
