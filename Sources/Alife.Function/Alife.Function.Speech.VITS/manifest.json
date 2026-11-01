@@ -1,5 +1,5 @@
 {
-  "Version": "5.2.0",
+  "Version": "5.0.2",
   "Dependencies": { "Alife.Function.Speech": "" },
   "Environments": { "nuget": { "org.k2fsa.sherpa.onnx": ">=1.13.5" } }
 }
