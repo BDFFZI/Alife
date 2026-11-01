@@ -1,4 +1,6 @@
 @inject IAlifeClient AlifeClient
+@inject IAlifeApplication AlifeApplication
+@inject INotificationService NotificationService
 
 <div class="step-content">
     <div class="step-icon" style="background:var(--alife-warning-bg);color:var(--alife-warning);">
@@ -26,16 +28,10 @@
                     @(HasNonAscii(runtimePath) ? "包含中文" : "正常")
                 </span>
             </div>
-            <div class="path-value">@runtimePath</div>
-            @if (HasNonAscii(runtimePath))
-            {
-                <div class="path-edit">
-                    <Input @bind-Value="newRuntimePath" Placeholder="输入新的运行时路径"/>
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveRuntimePath())">
-                        保存
-                    </Button>
-                </div>
-            }
+            <div class="path-edit">
+                <Input Value="@runtimePath" ReadOnly/>
+                <Button Icon="@IconType.Outline.FolderOpen" OnClick="PickRuntimeFolderAsync"></Button>
+            </div>
         </div>
 
         <div class="path-item">
@@ -45,16 +41,10 @@
                     @(HasNonAscii(storagePath) ? "包含中文" : "正常")
                 </span>
             </div>
-            <div class="path-value">@storagePath</div>
-            @if (HasNonAscii(storagePath))
-            {
-                <div class="path-edit">
-                    <Input @bind-Value="newStoragePath" Placeholder="输入新的存储路径"/>
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => SaveStoragePath())">
-                        保存
-                    </Button>
-                </div>
-            }
+            <div class="path-edit">
+                <Input Value="@storagePath" ReadOnly/>
+                <Button Icon="@IconType.Outline.FolderOpen" OnClick="PickStorageFolderAsync"></Button>
+            </div>
         </div>
 
         <div class="path-item">
@@ -64,7 +54,10 @@
                     @(HasNonAscii(tempPath) ? "包含中文" : "正常")
                 </span>
             </div>
-            <div class="path-value">@tempPath</div>
+            <div class="path-edit">
+                <Input Value="@tempPath" ReadOnly/>
+                <Button Icon="@IconType.Outline.FolderOpen" OnClick="PickTempFolderAsync"></Button>
+            </div>
         </div>
 
     </div>
@@ -88,9 +81,6 @@
     string runtimePath = "";
     string storagePath = "";
     string tempPath = "";
-    string newRuntimePath = "";
-    string newStoragePath = "";
-
     bool hasNonAsciiPath = false;
 
     protected override void OnInitialized()
@@ -104,9 +94,6 @@
         storagePath = AlifePath.StorageFolderPath;
         tempPath = AlifePath.TempFolderPath;
 
-        newRuntimePath = runtimePath;
-        newStoragePath = storagePath;
-
         CheckAllPaths();
     }
 
@@ -115,28 +102,54 @@
         hasNonAsciiPath = HasNonAscii(runtimePath) || HasNonAscii(storagePath);
     }
 
-    bool HasNonAscii(string path)
+    static bool HasNonAscii(string path)
     {
         return path.Any(c => c > 127);
     }
 
-    void SaveRuntimePath()
+    async Task PickRuntimeFolderAsync()
     {
-        if (!HasNonAscii(newRuntimePath))
-        {
-            AlifeClient.SetRuntimeFolderPath(newRuntimePath);
-            runtimePath = newRuntimePath;
-            CheckAllPaths();
-        }
+        string? result = await PickFolderAsync();
+        if (string.IsNullOrWhiteSpace(result))
+            return;
+
+        AlifeClient.SetRuntimeFolderPath(result);
+        runtimePath = result;
+        CheckAllPaths();
     }
 
-    void SaveStoragePath()
+    async Task PickStorageFolderAsync()
     {
-        if (!HasNonAscii(newStoragePath))
+        string? result = await PickFolderAsync();
+        if (string.IsNullOrWhiteSpace(result))
+            return;
+
+        AlifeClient.SetStorageFolderPath(result);
+        storagePath = result;
+        CheckAllPaths();
+    }
+
+    async Task PickTempFolderAsync()
+    {
+        string? result = await PickFolderAsync();
+        if (string.IsNullOrWhiteSpace(result))
+            return;
+
+        AlifeClient.SetTempFolderPath(result);
+        tempPath = result;
+        CheckAllPaths();
+    }
+
+    async Task<string?> PickFolderAsync()
+    {
+        try
         {
-            AlifeClient.SetStorageFolderPath(newStoragePath);
-            storagePath = newStoragePath;
-            CheckAllPaths();
+            return await AlifeApplication.SelectFolderAsync();
+        }
+        catch (Exception e)
+        {
+            await NotificationService.Error(new NotificationConfig { Message = e.Message });
+            return null;
         }
     }
 
@@ -238,13 +251,6 @@
         background: var(--alife-error-bg);
         color: var(--alife-error);
         border: 1px solid var(--alife-error-border);
-    }
-
-    .path-value {
-        font-size: 12px;
-        color: var(--alife-text-secondary);
-        word-break: break-all;
-        margin-bottom: 8px;
     }
 
     .path-edit {

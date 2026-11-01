@@ -64,7 +64,6 @@
   <Folder Name="/Sources/Alife.Function/Interaction/">
     <Project Path="Sources/Alife.Function/Alife.Function.Auditory/Alife.Function.Auditory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
-    <Project Path="Sources/Alife.Function/Alife.Function.Language/Alife.Function.Language.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />

@@ -106,29 +106,50 @@ sealed class AndroidAlifeFoundation : IAlifeFoundation
 
     static string MigrateDirectory(string oldPath, string newPath)
     {
-        if (string.Equals(Path.GetFullPath(oldPath), Path.GetFullPath(newPath), StringComparison.OrdinalIgnoreCase))
-            return oldPath;
-
-        if (Directory.Exists(newPath) && Directory.GetFileSystemEntries(newPath).Length == 0)
-            Directory.Delete(newPath);
-
-        if (Directory.Exists(newPath))
-            return newPath;
-
-        Directory.CreateDirectory(newPath);
-        if (Directory.Exists(oldPath))
+        string fullNewPath;
+        try
         {
-            CopyDirectory(oldPath, newPath);
-            try
+            //路径本身不合法时直接拒绝：把坏路径写进配置会让客户端下次启动就起不来
+            fullNewPath = Path.GetFullPath(newPath);
+            if (string.Equals(Path.GetFullPath(oldPath), fullNewPath, StringComparison.OrdinalIgnoreCase))
+                return oldPath;
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogWarning($"路径无效，已保持原路径 {oldPath}。请换一个合法路径：{newPath}\n{e}");
+            return oldPath;
+        }
+
+        try
+        {
+            if (Directory.Exists(fullNewPath) && Directory.GetFileSystemEntries(fullNewPath).Length == 0)
+                Directory.Delete(fullNewPath);
+
+            if (Directory.Exists(fullNewPath))
             {
-                Directory.Delete(oldPath, true);
+                AlifeLog.LogWarning($"目标位置已有文件，未迁移旧文件。请手动把 {oldPath} 里的文件移动到 {fullNewPath}。");
+                return fullNewPath;
             }
-            catch (Exception e)
+
+            Directory.CreateDirectory(fullNewPath);
+            if (Directory.Exists(oldPath))
             {
-                AlifeLog.LogWarning("旧目录删除失败：" + e.Message);
+                CopyDirectory(oldPath, fullNewPath);
+                try
+                {
+                    Directory.Delete(oldPath, true);
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogWarning($"旧目录删除失败，请手动删除 {oldPath}：{e.Message}");
+                }
             }
         }
-        return newPath;
+        catch (Exception e)
+        {
+            AlifeLog.LogWarning($"目录迁移失败，请手动把 {oldPath} 里的文件移动到 {fullNewPath}，然后重启客户端。\n{e}");
+        }
+        return fullNewPath;
     }
 
     static void CopyDirectory(string source, string target)

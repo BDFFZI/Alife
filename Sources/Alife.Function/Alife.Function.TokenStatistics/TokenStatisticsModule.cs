@@ -17,7 +17,7 @@ namespace Alife.Function.TokenStatistics;
 [Module(
     "Token 统计",
     "记录本角色每轮对话的 token 开销与花费，按时间段、标签与函数统计，可在系统管理中心查看。",
-    defaultCategory: "Alife 官方/系统工具"
+    defaultCategory: "Alife 官方/系统功能"
 )]
 public class TokenStatisticsModule : ChatBehaviour
 {

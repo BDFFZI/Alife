@@ -11,7 +11,7 @@ namespace Alife.Function.SystemEvent;
 [Module(
     "系统事件",
     "让AI可以获取到各种系统事件的提醒，包括周期性的主动唤醒。",
-    defaultCategory: "Alife 官方/生活环境",
+    defaultCategory: "Alife 官方/运行环境",
     LaunchOrder = 100, //期望在末尾创建，以便获得栈顶事件顺序来发送启动关闭提醒
     EditorUI = typeof(SystemEventServiceUI))]
 public class SystemEventService(

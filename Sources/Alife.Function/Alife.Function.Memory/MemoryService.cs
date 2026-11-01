@@ -18,7 +18,7 @@ namespace Alife.Function.Memory;
 
 [Module("持久记忆",
     "自动管理和分层压缩对话记忆，提供长期记忆检索能力。",
-    defaultCategory: "Alife 官方/生活环境",
+    defaultCategory: "Alife 官方/运行环境",
     LaunchOrder = -10000, //期望提前创建，以便在其他功能之前写入记忆上下文 
     EditorUI = typeof(MemoryServiceUI))]
 public class MemoryService(

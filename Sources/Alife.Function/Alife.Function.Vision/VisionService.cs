@@ -16,7 +16,7 @@ public record VisionServiceConfig
 
 [Module("视觉感知",
     "让 AI 能够看到屏幕内容，理解图片，观察世界。",
-    defaultCategory: "Alife 官方/实用工具",
+    defaultCategory: "Alife 官方/交互方式",
     EditorUI = typeof(VisionServiceUI))]
 public partial class VisionService(
     XmlFunctionCaller functionService,

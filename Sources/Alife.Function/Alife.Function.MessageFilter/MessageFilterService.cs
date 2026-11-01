@@ -33,7 +33,7 @@ public partial class MessageFilterService
 
 [Module("消息过滤",
     "提供添加时间戳、通用提示词、消息格式诊断、最大字长截断等功能。是优化保护AI回复效果的必要插件。",
-    defaultCategory: "Alife 官方/生活环境",
+    defaultCategory: "Alife 官方/运行环境",
     LaunchOrder = 10000, //在后期创建，以获得靠后的事件注册顺序
     EditorUI = typeof(MessageFilterServiceUI))]
 public partial class MessageFilterService(
