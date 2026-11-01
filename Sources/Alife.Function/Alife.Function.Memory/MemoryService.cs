@@ -290,7 +290,7 @@ class AlifeHistoryCompressor(
 
         ChatHistory history = chatHistoryAgentThread.ChatHistory;
         int startIndex = history.Count;
-        string prompt = "[记忆归档]" + promptTemplate.Replace("{range}", range);
+        string prompt = "[记忆压缩]" + promptTemplate.Replace("{range}", range);
         try
         {
             history.AddUserMessage(prompt);
