@@ -67,6 +67,45 @@ git -c http.sslBackend=openssl ls-remote --tags https://github.com/BDFFZI/Alife.
 
 ⚠️ 更新日志里的插件名可能是随手写的别名而非真实插件 ID。例如日志写 `Alife.Function.DeveloperService`，但三个仓库里都不存在这个插件——`DeveloperService` 只是 `Alife.Function.Developer` 里的一个类名。**以 `sources\Alife.Function` 下的目录名和 PluginMarket 里的 JSON 文件名为准**，不确定就问用户。
 
+#### 1.1 逐插件比对，产出「老版本 → 新版本 → 改动内容」对照表（用户确认前不要开工）
+
+更新日志经常夸大改动范围（例如「加了黑夜模式，所以所有插件都更新了」，实际只有一部分插件动过源码）。**给没有改动的插件发新版本，会在插件市场里制造无意义的更新提示，并把版本号顶到错误的高度**——2026-11-01 发 5.2.0 时整批踩过一次：31 个插件全发了 5.2.0，实际只有 19 个动过源码。
+
+判断「有没有改动」以**已发布的源码包**为准，不看更新日志，也不看 git log（git log 混着 obj/bin 与格式化提交，看不清）：
+
+```powershell
+$storage = "C:\Users\13309\Desktop\Alife.OfficialPluginStorage"
+git -C $storage pull
+# 用 git archive 解到临时目录（二进制安全；git show 重定向到文件会写成 UTF-16）
+git -C $storage archive origin/main | tar -x -C "$env:TEMP\published-plugins"
+# 目录结构：<插件ID>\<版本号>.zip，同 ID 下版本号最大的就是已发布最高版本
+```
+
+- 解包**最高版本** ZIP，与 `Sources\Alife.Function\{插件ID}` 逐文件比对。
+- **只有 `manifest.json` 不同的，算无改动**：版本号字段本身就会造成差异。
+- 比对前把 CRLF 归一到 LF，否则会拿到一批「只在换行符上不同」的假阳性（`TimedTask`、`Memory` 都踩过）。
+- 包里只有 `*.razor.g.cs`、没有 `*.razor` 源码，所以 g.cs 有差异即代表对应 `*.razor` 有改动。g.cs 在包里可能在子目录下，按**文件名**匹配当前 `obj\Debug\...\generated\...\{名字}.g.cs`。
+- 新增的插件包不在历史里，要单独列出来。
+
+版本号按下面规则取，然后把对照表贴给用户确认——**用户确认后才开始构建**：
+
+| 情况 | 升级 | 示例 |
+|------|------|------|
+| 新增插件 | `{兼容的客户端大版本}.0.0` | 5.0.0 |
+| feat：新增功能 | 第二位 +1，第三位归零 | 5.0.1 → 5.1.0 |
+| fix：修 bug / 重构 / 纯界面适配 | 第三位 +1 | 5.0.1 → 5.0.2 |
+| 没有改动 | **不发**，保持原版本号 | - |
+
+**第一位是「兼容的客户端大版本」，不是客户端当前版本号**：客户端 4.x → 5.x 时所有插件统一发 5.0.0（历史提交 `feat: 适配 Alife 5.0.0`），之后各插件靠自己的第二位/第三位演进；客户端发到 5.2.0 不会把插件版本顶成 5.2.0，新插件也从 5.0.0 起步。
+
+历史依据（PluginMarket JSON 实测）：`AIModelUtility` 5.0.0→5.0.1、`QChat` 5.0.0→5.0.1 是重构；`SystemEvent` 5.0.0→5.0.1→5.0.2 是修复；`Auditory` 5.0.1→5.1.0 是 feat。
+
+对照表固定四列，每次发布都要贴给用户确认：
+
+| 插件 | 老版本 | 新版本 | 改动内容 |
+|------|--------|--------|----------|
+| Alife.Function.Todo | 5.0.0 | 5.0.1 | 界面改用 `--alife-*` 主题令牌 |
+
 ### 2. 更新版本号
 
 #### a. 客户端版本号
@@ -403,6 +442,8 @@ $rel2.assets | ForEach-Object { Invoke-WebRequest $_.browser_download_url -Metho
 
 - [ ] GitHub release / tag 列表已检查（无 gh 时用 `git ls-remote --tags`）
 - [ ] 客户端版本号由用户确认
+- [ ] 逐插件与已发布 ZIP 比对过，产出「老版本 / 新版本 / 改动内容」对照表并已由用户确认（见 1.1）
+- [ ] 没有改动的插件没有发新版本，版本号保持原样
 - [ ] 所有插件 manifest.json 版本号已更新
 - [ ] 所有插件依赖声明完整（以 manifest 为准逐条核对）
 - [ ] 插件版本号与 PluginMarket 已发布最高版本对比过（**且本地 PluginMarket 已 pull**）
@@ -426,6 +467,7 @@ $rel2.assets | ForEach-Object { Invoke-WebRequest $_.browser_download_url -Metho
 | `Assembly already loaded` | ZIP 包含 .dll | 清理 ZIP 重新打包 |
 | 包内子目录在 Unix 上解不出来 | `Compress-Archive` 把条目名写成了反斜杠 | 用正斜杠手工建条目（见第 4 节脚本） |
 | 版本号不对 | 没有检查 GitHub release | 先 `gh release list`，无 gh 用 `git ls-remote --tags` |
+| 插件版本号被整批顶成客户端版本号 | 没做逐插件比对，按更新日志想当然升级 | 见 1.1：与已发布 ZIP 逐文件比对后再定版本号，无改动的不发 |
 | 判断插件"已发布最高版本"出错 | 本地 PluginMarket 克隆严重落后 | `git pull --rebase` 后再读 JSON |
 | `Get-Content -Raw` 建 Release 报 422 | 字符串带 ETS 属性被序列化成对象 | 改用 `[System.IO.File]::ReadAllText` |
 | Release 的产物与 tag 不一致 | 打 tag 后用户又提交了 | 同步 master 并移动 tag 后再建 Release |
