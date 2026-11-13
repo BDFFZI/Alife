@@ -4,7 +4,7 @@
 @implements IDisposable
 
 @* 上下文属于活动，角色未激活时没有可展示的背景 *@
-@if (ChatActivity is ChatActivity activity)
+@if (ChatActivity is { } activity)
 {
     <div class="alife-page">
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
