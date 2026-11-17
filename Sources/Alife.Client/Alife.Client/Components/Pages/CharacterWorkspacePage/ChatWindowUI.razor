@@ -250,12 +250,14 @@
 
     .chat-row {
         display: flex;
+        flex-direction: column;   /* 气泡在上、操作条在下；横排会把操作条挤到气泡旁边点不到 */
+        align-items: flex-start;
         width: 100%;
         margin-bottom: 14px;
     }
 
     .chat-row-user {
-        justify-content: flex-end;
+        align-items: flex-end;
     }
 
     .chat-bubble {
