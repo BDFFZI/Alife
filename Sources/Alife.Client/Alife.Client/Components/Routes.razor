@@ -67,6 +67,12 @@ else
         {
             exception = ex;
             AlifeLog.LogError(ex);
+
+            //即使初始化失败也要结束启动动画，否则遮罩一直盖着，
+            //用户只能看到"卡在启动页"而看不到下面的错误窗口。
+            try { await JsRuntime.InvokeVoidAsync("alifeLaunching.complete"); }
+            catch { }
+
             StateHasChanged();
             return;
         }
