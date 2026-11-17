@@ -108,6 +108,13 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
+    /// <summary>
+    /// 道别需要等模型思考完，普通模块的 8s 不够。用配置里的专用宽限期（默认 30s），
+    /// 超时后基类会打断 ChatBot 的在途对话，不会让应用关不掉。
+    /// </summary>
+    protected override TimeSpan DestroyTimeout =>
+        TimeSpan.FromSeconds(Math.Clamp(Configuration?.DestroyTimeoutSeconds ?? 30, 5, 300));
+
     protected override async Task OnDestroy()
     {
         ChatBot.ChatSent -= OnChatSent;
