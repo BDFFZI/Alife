@@ -152,6 +152,70 @@ public static class ClientChatStatistics
         return ok;
     }
 
+    /// <summary>回退到第 userTurnIndex 轮（按用户气泡序号）。</summary>
+    public static async Task<int> RollbackToUserTurnAsync(string name, int userTurnIndex)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
+            return 0;
+
+        int removed = await bot.RollbackToUserTurnAsync(userTurnIndex);
+        if (removed > 0)
+        {
+            TrimUiFromUserTurn(name, userTurnIndex);
+            MessageChanged?.Invoke(name);
+        }
+        return removed;
+    }
+
+    /// <summary>编辑第 userTurnIndex 轮并重发（同时改 UI 的用户气泡）。</summary>
+    public static async Task<bool> EditUserTurnAndRegenerateAsync(string name, int userTurnIndex, string newText)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
+            return false;
+
+        List<ChatMessage> list = GetMessages(name);
+        int uiIndex = -1, seen = -1;
+        lock (list)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].IsUser == false) continue;
+                if (++seen == userTurnIndex) { uiIndex = i; break; }
+            }
+
+            if (uiIndex >= 0)
+            {
+                //删掉这条之后的气泡（旧回复），这条本身保留并改内容
+                while (list.Count - 1 > uiIndex)
+                    list.RemoveAt(list.Count - 1);
+                list[uiIndex].SetContent(newText);
+            }
+        }
+
+        bool ok = await bot.EditUserTurnAndRegenerateAsync(userTurnIndex, newText);
+        if (ok) MessageChanged?.Invoke(name);
+        return ok;
+    }
+
+    /// <summary>UI 列表：从第 userTurnIndex 条用户气泡开始全删。</summary>
+    static void TrimUiFromUserTurn(string name, int userTurnIndex)
+    {
+        List<ChatMessage> list = GetMessages(name);
+        lock (list)
+        {
+            int seen = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].IsUser == false) continue;
+                if (++seen != userTurnIndex) continue;
+
+                while (list.Count > i)
+                    list.RemoveAt(list.Count - 1);
+                break;
+            }
+        }
+    }
+
     /// <summary>
     /// 回退本轮：同时删掉 UI 的最后一对气泡和模型历史的最后一轮。
     /// </summary>
