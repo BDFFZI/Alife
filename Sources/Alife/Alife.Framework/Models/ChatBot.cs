@@ -459,6 +459,70 @@ public class ChatBot : IAsyncDisposable
         return removed;
     }
 
+    /// <summary>
+    /// 回退到第 userTurnIndex 轮（0 起算，按用户消息数）。
+    /// 删掉那条用户消息及之后的所有消息。UI 每条用户气泡都能挂这个操作。
+    /// </summary>
+    public async Task<int> RollbackToUserTurnAsync(int userTurnIndex)
+    {
+        int removed = 0;
+
+        await EditChatHistoryAsync(thread => {
+            IList<ChatMessageContent> history = thread.ChatHistory;
+
+            int seen = 0;
+            int target = -1;
+            for (int i = 0; i < history.Count; i++)
+            {
+                if (history[i].Role != AuthorRole.User) continue;
+                if (seen++ == userTurnIndex) { target = i; break; }
+            }
+            if (target < 0) return Task.CompletedTask;
+
+            removed = history.Count - target;
+            for (int i = history.Count - 1; i >= target; i--)
+                history.RemoveAt(i);
+            return Task.CompletedTask;
+        }, $"回退到第 {userTurnIndex + 1} 轮").ConfigureAwait(false);
+
+        return removed;
+    }
+
+    /// <summary>
+    /// 修改第 userTurnIndex 轮的用户输入并重发。
+    /// 先删掉那条及其后的消息，再用新内容走一次完整对话。
+    /// </summary>
+    public async Task<bool> EditUserTurnAndRegenerateAsync(int userTurnIndex, string newText)
+    {
+        ChatMessageContent? user = null;
+
+        await EditChatHistoryAsync(thread => {
+            IList<ChatMessageContent> history = thread.ChatHistory;
+
+            int seen = 0;
+            int target = -1;
+            for (int i = 0; i < history.Count; i++)
+            {
+                if (history[i].Role != AuthorRole.User) continue;
+                if (seen++ == userTurnIndex) { target = i; break; }
+            }
+            if (target < 0) return Task.CompletedTask;
+
+            user = history[target];
+            user.Content = newText;
+
+            for (int i = history.Count - 1; i >= target + 1; i--)
+                history.RemoveAt(i);
+            return Task.CompletedTask;
+        }, $"编辑第 {userTurnIndex + 1} 轮并重发").ConfigureAwait(false);
+
+        if (user == null) return false;
+
+        //重发：此时用户消息已在历史里且在最后，不重复添加、不重复触发 ChatSent
+        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false);
+        return true;
+    }
+
     public async void Chat(string content)
     {
         try
