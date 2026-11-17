@@ -134,7 +134,8 @@ public static class TypeUtility
     /// 单个对象卡住不能拖死「停止角色」和「退出应用」。
     /// 超时后放弃等待并记录警告——进程退出时 CLR 会回收，留下的是这个对象自己，不是整个应用。
     /// </summary>
-    public static async Task DisposeObjectWithTimeout(object instance, TimeSpan timeout)
+    public static async Task DisposeObjectWithTimeout(
+        object instance, TimeSpan timeout, Action<object>? onTimeout = null)
     {
         string name = GetReadableName(instance.GetType());
 
@@ -150,6 +151,10 @@ public static class TypeUtility
         }
         else
         {
+            //超时回调由调用方决定怎么"真取消"：ChatBehaviour 内部会打断 ChatBot，
+            //容器层再兜一次底，确保模型不会在后台继续空转思考。
+            try { onTimeout?.Invoke(instance); } catch { }
+
             AlifeLog.LogWarning($"销毁 {name} 超过 {timeout.TotalSeconds:0.#}s 未返回，已跳过等待");
         }
     }
