@@ -490,8 +490,53 @@ public class ChatBot : IAsyncDisposable
     }
 
     /// <summary>
+    /// 回档到第 userTurnIndex 轮（0 起算，按用户消息数），保留那条输入，用它重新生成。
+    /// 和「重新生成」的区别：那个只能重做最后一轮，这个可以回到历史任意一轮，把后面全抹掉重来。
+    /// 和「编辑重发」的区别：那个要改输入，这个输入原样不动。
+    /// </summary>
+    public async Task<bool> RewindAndRegenerateAsync(int userTurnIndex)
+    {
+        ChatMessageContent? user = null;
+        int removed = 0;
+
+        await EditChatHistoryAsync(thread => {
+            IList<ChatMessageContent> history = thread.ChatHistory;
+
+            int seen = 0;
+            int target = -1;
+            for (int i = 0; i < history.Count; i++)
+            {
+                if (history[i].Role != AuthorRole.User) continue;
+                if (seen++ == userTurnIndex) { target = i; break; }
+            }
+            if (target < 0) return Task.CompletedTask;
+
+            user = history[target];
+
+            //保留这条用户消息，删掉它之后的所有内容
+            removed = history.Count - target - 1;
+            for (int i = history.Count - 1; i > target; i--)
+                history.RemoveAt(i);
+
+            return Task.CompletedTask;
+        }, $"回档到第 {userTurnIndex + 1} 轮").ConfigureAwait(false);
+
+        //历史被改过，通知记忆重新落盘，别把抹掉的那几轮留在记忆里
+        RaiseHistoryRewritten();
+
+        if (user == null) return false;
+
+        //通知 UI 建「输入中」气泡，流式内容才有落点
+        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        catch (Exception e) { AlifeLog.LogError(e); }
+
+        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
+        return true;
+    }
+
+    /// <summary>
     /// 回退到第 userTurnIndex 轮（0 起算，按用户消息数）。
-    /// 删掉那条用户消息及之后的所有消息。UI 每条用户气泡都能挂这个操作。
+    /// 只删不生成。UI 每条用户气泡都能挂这个操作。
     /// </summary>
     public async Task<int> RollbackToUserTurnAsync(int userTurnIndex)
     {
