@@ -173,6 +173,31 @@ partial class WindowsAlifeApplication(AlifeClientConfig config) : IAlifeApplicat
         webApp.Urls.Add(config.McpServerAddress);
         await webApp.StartAsync();
 
+        //必须持有实例：否则方法返回后无人引用，退出时无法 Stop，端口会残留在后台进程里
+        mcpWebApp = webApp;
         AlifeMcpServer = new Uri(config.McpServerAddress + config.McpServerPath);
     }
+
+    public async Task StopAlifeMcpAsync()
+    {
+        WebApplication? app = mcpWebApp;
+        mcpWebApp = null;
+        AlifeMcpServer = null;
+
+        if (app == null) return;
+
+        try
+        {
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
+            await app.StopAsync(cts.Token);
+        }
+        catch { }
+        finally
+        {
+            try { await app.DisposeAsync(); }
+            catch { }
+        }
+    }
+
+    WebApplication? mcpWebApp;
 }
