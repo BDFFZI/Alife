@@ -104,11 +104,13 @@ public class ChatActivitySystem
         //ChatBehaviour 内部已有超时，这里是系统级兜底（例如第三方直接构造的 ChatActivity）。
         try
         {
-            await chatActivity.Destroy().WaitAsync(TimeSpan.FromSeconds(20));
+            //留足时间给道别：系统事件模块重写了 30s 宽限期 + 容器 3s 余量。
+            //这里取 40s，确保道别能正常生成完；真卡住时仍会超时退出。
+            await chatActivity.Destroy().WaitAsync(TimeSpan.FromSeconds(40));
         }
         catch (TimeoutException)
         {
-            AlifeLog.LogWarning($"停止角色 {character.Name} 超时（20s），已强制移出活动列表");
+            AlifeLog.LogWarning($"停止角色 {character.Name} 超时（40s），已强制移出活动列表");
         }
         catch (Exception e)
         {
