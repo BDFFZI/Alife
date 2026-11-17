@@ -15,6 +15,20 @@
         <span class="alife-label">展开思考</span>
         <Switch Value="@ClientChatStatistics.ShowReasoning" ValueChanged="@OnShowReasoningChanged"/>
         <span class="alife-spacer"></span>
+
+        @if (isWorking)
+        {
+            <Button Type="@ButtonType.Primary" Danger Icon="@IconType.Outline.Pause"
+                    OnClick="@OnStop">停止生成</Button>
+        }
+        <Tooltip Title="@("用同一条输入重新生成，保留原问题")">
+            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Reload"
+                    Disabled="@(isWorking || !CanRegenerate)" OnClick="@OnRegenerate">重新生成</Button>
+        </Tooltip>
+        <Tooltip Title="@("回退到本轮发起前，删除这一问一答")">
+            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Rollback"
+                    Disabled="@(isWorking || !CanRegenerate)" OnClick="@OnRollback">回退本轮</Button>
+        </Tooltip>
         <Button Type="@ButtonType.Link" Danger Icon="@IconType.Outline.Clear" OnClick="@OnClear">清理对话日志</Button>
     </div>
 
@@ -58,6 +72,12 @@
                                     </div>
                                 }
                                 <div class="chat-text">@message.Content</div>
+                                @if (message.IsUser && !isWorking)
+                                {
+                                    <button type="button" class="chat-edit-btn"
+                                            @onclick="@(() => OnEditMessage(message))"
+                                            title="把这条内容放回输入框，改完重新发送">编辑重发</button>
+                                }
                                 @if (message.IsInputting)
                                 {
                                     <div class="chat-typing">
@@ -101,10 +121,16 @@
             </div>
 
             <div class="chat-input-actions">
+                @if (editingMessage != null)
+                {
+                    <Button Type="@ButtonType.Link" OnClick="@CancelEdit">取消编辑</Button>
+                }
                 <Tooltip Title="@("上传文件")">
                     <Button Icon="@IconType.Outline.Upload" OnClick="@OnUploadFile"/>
                 </Tooltip>
-                <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Send" OnClick="@OnSendClickAsync">发送</Button>
+                <Button Type="@ButtonType.Primary"
+                        Icon="@(editingMessage == null ? IconType.Outline.Send : IconType.Outline.Edit)"
+                        OnClick="@OnSendClickAsync">@(editingMessage == null ? "发送" : "改完重发")</Button>
             </div>
         </div>
     }
@@ -216,6 +242,20 @@
         white-space: pre-wrap;
         overflow-wrap: break-word;
     }
+
+    .chat-edit-btn {
+        margin-top: 6px;
+        padding: 2px 8px;
+        font-size: 11px;
+        color: var(--alife-text-tertiary);
+        background: transparent;
+        border: 1px solid var(--alife-border);
+        border-radius: 4px;
+        cursor: pointer;
+        opacity: 0.55;
+        transition: opacity 0.15s;
+    }
+    .chat-row:hover .chat-edit-btn { opacity: 1; }
 
     .chat-typing {
         display: flex;
@@ -368,6 +408,8 @@
     const int messageRenderIntervalMs = 60;
 
     string inputText = "";
+    /// <summary>正在编辑重发的历史消息；null 表示普通发送。</summary>
+    ChatMessage? editingMessage;
     bool isWorking;
     bool isInputAreaBound;
     bool isDisposed;
@@ -378,6 +420,17 @@
     Exception? chatException;
     DotNetObjectReference<ChatWindowUI>? dotNetRef;
     IJSObjectReference? chatModule;
+
+    /// <summary>至少有一轮问答才能重生/回退。</summary>
+    bool CanRegenerate
+    {
+        get
+        {
+            List<ChatMessage>? list = messages;
+            if (list == null) return false;
+            lock (list) return list.Any(m => m.IsUser);
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -574,13 +627,68 @@
         inputText = "";
         await ChatModule.InvokeVoidAsync("clearInput", "chatInput").AsTask();
 
-        if (string.IsNullOrWhiteSpace(rawInputText))
+        if (string.IsNullOrWhiteSpace(rawInputText) && editingMessage == null)
             return;
 
-        ClientChatStatistics.SendMessage(Character.Name, rawInputText.Trim());
+        if (editingMessage != null)
+        {
+            //编辑重发：走框架层的"改最后一条用户消息并重生"，不新建用户气泡
+            ChatMessage? editing = editingMessage;
+            editingMessage = null;
+
+            string text = string.IsNullOrWhiteSpace(rawInputText) ? editing.Content : rawInputText.Trim();
+            await ClientChatStatistics.EditAndRegenerateAsync(Character.Name, text);
+        }
+        else
+        {
+            ClientChatStatistics.SendMessage(Character.Name, rawInputText.Trim());
+        }
+
         ClientChatStatistics.SetDraft(Character.Name, "");
         await InvokeAsync(StateHasChanged);
-
         await ChatModule.InvokeVoidAsync("scrollToLatest", streamId).AsTask();
+    }
+
+    // ---------------------------------------------------------------- 对话控制
+
+    void OnStop()
+    {
+        ClientChatStatistics.Stop(Character.Name);
+    }
+
+    async Task OnRegenerate()
+    {
+        if (isWorking) return;
+        await ClientChatStatistics.RegenerateAsync(Character.Name);
+        await InvokeAsync(StateHasChanged);
+        await ScrollToLatestAsync();
+    }
+
+    async Task OnRollback()
+    {
+        if (isWorking) return;
+        await ClientChatStatistics.RollbackLastTurnAsync(Character.Name);
+        editingMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnEditMessage(ChatMessage message)
+    {
+        if (isWorking) return;
+
+        editingMessage = message;
+        inputText = message.Content;
+
+        //把内容同步到 DOM（绑定字段改了，但 TextArea 的真实值要程序化写一次）
+        _ = ChatModule.InvokeVoidAsync("setInput", "chatInput", inputText).AsTask();
+        StateHasChanged();
+    }
+
+    void CancelEdit()
+    {
+        editingMessage = null;
+        inputText = "";
+        _ = ChatModule.InvokeVoidAsync("clearInput", "chatInput").AsTask();
+        StateHasChanged();
     }
 }
