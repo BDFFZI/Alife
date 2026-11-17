@@ -405,7 +405,21 @@ public class AlifeMcpTools(
     }
 
     [McpServerTool]
-    [Description("回退到本轮对话发起之前，删除最后一条用户输入和它的回复。")]
+    [Description("回档到第 turnIndex 轮（0 起算）并重新生成：保留那句输入，把它之后的全部抹掉，再用那句重新回答。")]
+    public async Task<string> RewindAndRegenerate(string characterName, int turnIndex)
+    {
+        ChatBot? bot = FindActivatedBot(characterName);
+        if (bot == null)
+            return $"角色未激活或不存在：{characterName}";
+
+        bool ok = await bot.RewindAndRegenerateAsync(turnIndex);
+        return ok
+            ? $"{characterName} 已回档到第 {turnIndex + 1} 轮并重新生成"
+            : $"{characterName} 找不到第 {turnIndex + 1} 轮";
+    }
+
+    [McpServerTool]
+    [Description("回退到本轮对话发起之前，删除最后一条用户输入和它的回复（只删，不重新生成）。")]
     public async Task<string> RollbackTurn(string characterName)
     {
         ChatBot? bot = FindActivatedBot(characterName);
