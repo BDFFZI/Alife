@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Alife.Foundation;
 
 namespace Alife.Framework;
 
@@ -98,7 +99,23 @@ public class ChatActivitySystem
             return;
 
         Deactivating?.Invoke(chatActivity);
-        await chatActivity.Destroy();
+
+        //单个模块 OnDestroy 卡住不应让「停止角色」永久无响应。
+        //ChatBehaviour 内部已有超时，这里是系统级兜底（例如第三方直接构造的 ChatActivity）。
+        try
+        {
+            await chatActivity.Destroy().WaitAsync(TimeSpan.FromSeconds(20));
+        }
+        catch (TimeoutException)
+        {
+            AlifeLog.LogWarning($"停止角色 {character.Name} 超时（20s），已强制移出活动列表");
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogError($"停止角色 {character.Name} 时出错：" + e.Message);
+        }
+
+        //无论成功超时都要移除，否则角色永远停在「正在停止」状态
         activities.Remove(character.Name);
         Deactivated?.Invoke(chatActivity);
     }
