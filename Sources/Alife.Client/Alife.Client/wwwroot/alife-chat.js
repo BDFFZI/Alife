@@ -168,6 +168,16 @@ export function appendLine(elementId, text) {
     if (area) editValue(area, text, true);
 }
 
+// 编辑重发：把历史消息内容写回输入框，并同步 Blazor 绑定
+export function setInput(elementId, text) {
+    const area = document.getElementById(elementId);
+    if (!area) return;
+    area.value = text ?? "";
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+    area.focus();
+    area.setSelectionRange(area.value.length, area.value.length);
+}
+
 // 发送后清空输入框。
 // 必须派发 input 事件：Blazor 的 @bind-Value 只监听 input，
 // 纯改 area.value 会让真实 DOM 已空、绑定字段还留着旧文本，
