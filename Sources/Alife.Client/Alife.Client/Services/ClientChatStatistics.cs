@@ -357,7 +357,18 @@ public static class ClientChatStatistics
         activity.ChatBot.ChatSent += message => {
             lock (messages)
             {
-                messages.Add(new ChatMessage { Content = message, IsUser = true });
+                //ChatSent 传的是用户原始输入，但仍带着发消息时加的来源标记，气泡里不该显示
+                string shown = message ?? "";
+                string mark = MessageTag;
+
+                if (string.IsNullOrEmpty(mark) == false)
+                {
+                    int at = shown.LastIndexOf(mark, StringComparison.Ordinal);
+                    if (at >= 0)
+                        shown = shown.Substring(at + mark.Length).Trim();
+                }
+
+                messages.Add(new ChatMessage { Content = shown, IsUser = true });
                 string? thinkingReason = null;
 
                 if (activity.ChatBot.LanguageModel != null)
