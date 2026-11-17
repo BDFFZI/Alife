@@ -12,11 +12,17 @@ public class ChatSettings
 
 public class ChatMessage
 {
-    /// <summary>取值每次都会生成新字符串，但流式输出只累积不拼接，避免每来一块都复制整串。</summary>
+    /// <summary>
+    /// StringBuilder 不是线程安全的：流式输出在后台 Append，UI 线程同时在 BuildRenderTree 里
+    /// ToString，重生/回档还会 Clear。并发下 chunk 链表会被破坏，ToString() 抛
+    /// ArgumentOutOfRangeException(chunkLength) —— 这里所有访问统一加锁。
+    /// </summary>
+    readonly object gate = new();
+
     public string Content
     {
-        get => contentBuilder.ToString();
-        init => contentBuilder.Append(value);
+        get { lock (gate) return contentBuilder.ToString(); }
+        init { lock (gate) contentBuilder.Append(value); }
     }
 
     /// <summary>
@@ -29,24 +35,33 @@ public class ChatMessage
     public int VersionIndex { get; private set; } = -1;
 
     /// <summary>
-    /// UI 实际显示的文本：
-    /// 生成中 → 实时内容；已完成且有多版 → 选中的那一版。
+    /// UI 实际显示的文本：生成中 → 实时内容；已完成且有多版 → 选中的那一版。
     /// </summary>
     public string DisplayContent
     {
         get
         {
-            if (IsInputting || Versions.Count == 0 || VersionIndex < 0)
-                return contentBuilder.ToString();
+            lock (gate)
+            {
+                if (IsInputting || Versions.Count == 0 || VersionIndex < 0)
+                    return contentBuilder.ToString();
 
-            int index = Math.Clamp(VersionIndex, 0, Versions.Count - 1);
-            return Versions[index];
+                int index = Math.Clamp(VersionIndex, 0, Versions.Count - 1);
+                return Versions[index];
+            }
         }
     }
 
-    public bool CanSwitchVersion => Versions.Count > 1 && IsInputting == false;
+    public bool CanSwitchVersion
+    {
+        get { lock (gate) return Versions.Count > 1 && IsInputting == false; }
+    }
 
-    public string Reasoning => reasoningBuilder.ToString();
+    public string Reasoning
+    {
+        get { lock (gate) return reasoningBuilder.ToString(); }
+    }
+
     public string? ThinkingReason { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
@@ -54,46 +69,72 @@ public class ChatMessage
     /// <summary>思考过程是否展开。新消息按全局开关初始化，之后由用户点击决定，渲染不再覆盖。</summary>
     public bool ReasoningExpanded { get; set; }
 
-    public void AppendContent(string text) => contentBuilder.Append(text);
-    public void AppendReasoning(string text) => reasoningBuilder.Append(text);
+    public void AppendContent(string text)
+    {
+        lock (gate) contentBuilder.Append(text);
+    }
+
+    public void AppendReasoning(string text)
+    {
+        lock (gate) reasoningBuilder.Append(text);
+    }
 
     /// <summary>改输入并重发时替换用户气泡内容。</summary>
     public void SetContent(string text)
     {
-        contentBuilder.Clear();
-        contentBuilder.Append(text);
+        lock (gate)
+        {
+            contentBuilder.Clear();
+            contentBuilder.Append(text);
+        }
     }
 
     /// <summary>把当前实时内容存为一个版本（生成完成时调用）。</summary>
     public void ArchiveCurrentAsVersion()
     {
-        string text = contentBuilder.ToString();
-        if (string.IsNullOrWhiteSpace(text)) return;
+        lock (gate)
+        {
+            string text = contentBuilder.ToString();
+            if (string.IsNullOrWhiteSpace(text)) return;
 
-        //同一内容不重复入栈（ChatOver 与重生可能都会触发一次）
-        if (Versions.Count > 0 && Versions[^1] == text) return;
+            //同一内容不重复入栈（ChatOver 与重生可能都会触发一次）
+            if (Versions.Count > 0 && Versions[^1] == text) return;
 
-        Versions.Add(text);
-        VersionIndex = Versions.Count - 1;
+            Versions.Add(text);
+            VersionIndex = Versions.Count - 1;
+        }
     }
 
     /// <summary>重新生成：留存当前版本，清空实时内容，转为输入中。</summary>
     public void PrepareForRegenerate()
     {
-        ArchiveCurrentAsVersion();
-        contentBuilder.Clear();
-        reasoningBuilder.Clear();
-        IsInputting = true;
-        IsReasoning = false;
+        lock (gate)
+        {
+            string text = contentBuilder.ToString();
+            if (string.IsNullOrWhiteSpace(text) == false &&
+                (Versions.Count == 0 || Versions[^1] != text))
+            {
+                Versions.Add(text);
+                VersionIndex = Versions.Count - 1;
+            }
+
+            contentBuilder.Clear();
+            reasoningBuilder.Clear();
+            IsInputting = true;
+            IsReasoning = false;
+        }
     }
 
     /// <summary>切换查看某一版（-1 表示回到最新）。</summary>
     public void ShowVersion(int index)
     {
-        if (Versions.Count == 0) return;
-        VersionIndex = index < 0
-            ? Versions.Count - 1
-            : Math.Clamp(index, 0, Versions.Count - 1);
+        lock (gate)
+        {
+            if (Versions.Count == 0) return;
+            VersionIndex = index < 0
+                ? Versions.Count - 1
+                : Math.Clamp(index, 0, Versions.Count - 1);
+        }
     }
 
     readonly StringBuilder contentBuilder = new();
