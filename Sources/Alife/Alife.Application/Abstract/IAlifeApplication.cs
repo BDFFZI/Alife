@@ -11,6 +11,13 @@ public interface IAlifeApplication
 
     Task StartAlifeMcpAsync(IServiceProvider provider);
 
+    /// <summary>
+    /// 停止 MCP 服务并释放监听端口。
+    /// 应用退出前必须调用，否则进程看似退出、端口仍被后台占用，
+    /// 下一次启动时插件/客户端会因端口冲突而表现为「关不干净」。
+    /// </summary>
+    Task StopAlifeMcpAsync();
+
     #endregion
 
     #region 文件对话框功能
