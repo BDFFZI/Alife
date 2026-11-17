@@ -18,6 +18,34 @@ public class ChatMessage
         get => contentBuilder.ToString();
         init => contentBuilder.Append(value);
     }
+
+    /// <summary>
+    /// 历史版本：重新生成产生的旧回复都留在这里，可以像网页版那样左右切换回看。
+    /// 只存已完成的版本，生成中的实时内容仍走 contentBuilder。
+    /// </summary>
+    public List<string> Versions { get; } = new();
+
+    /// <summary>当前显示第几版；-1 表示显示实时内容。</summary>
+    public int VersionIndex { get; private set; } = -1;
+
+    /// <summary>
+    /// UI 实际显示的文本：
+    /// 生成中 → 实时内容；已完成且有多版 → 选中的那一版。
+    /// </summary>
+    public string DisplayContent
+    {
+        get
+        {
+            if (IsInputting || Versions.Count == 0 || VersionIndex < 0)
+                return contentBuilder.ToString();
+
+            int index = Math.Clamp(VersionIndex, 0, Versions.Count - 1);
+            return Versions[index];
+        }
+    }
+
+    public bool CanSwitchVersion => Versions.Count > 1 && IsInputting == false;
+
     public string Reasoning => reasoningBuilder.ToString();
     public string? ThinkingReason { get; set; }
     public bool IsUser { get; set; }
@@ -34,6 +62,38 @@ public class ChatMessage
     {
         contentBuilder.Clear();
         contentBuilder.Append(text);
+    }
+
+    /// <summary>把当前实时内容存为一个版本（生成完成时调用）。</summary>
+    public void ArchiveCurrentAsVersion()
+    {
+        string text = contentBuilder.ToString();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        //同一内容不重复入栈（ChatOver 与重生可能都会触发一次）
+        if (Versions.Count > 0 && Versions[^1] == text) return;
+
+        Versions.Add(text);
+        VersionIndex = Versions.Count - 1;
+    }
+
+    /// <summary>重新生成：留存当前版本，清空实时内容，转为输入中。</summary>
+    public void PrepareForRegenerate()
+    {
+        ArchiveCurrentAsVersion();
+        contentBuilder.Clear();
+        reasoningBuilder.Clear();
+        IsInputting = true;
+        IsReasoning = false;
+    }
+
+    /// <summary>切换查看某一版（-1 表示回到最新）。</summary>
+    public void ShowVersion(int index)
+    {
+        if (Versions.Count == 0) return;
+        VersionIndex = index < 0
+            ? Versions.Count - 1
+            : Math.Clamp(index, 0, Versions.Count - 1);
     }
 
     readonly StringBuilder contentBuilder = new();
@@ -294,30 +354,43 @@ public static class ClientChatStatistics
         activity.ChatBot.ChatRegenerating += text => {
             lock (messages)
             {
-                for (int i = messages.Count - 1; i >= 0; i--)
-                {
-                    if (messages[i].IsUser == false)
-                    {
-                        messages.RemoveAt(i);
-                        break;
-                    }
-                }
+                //复用最后一条 AI 气泡：旧内容归档成一个版本，清空后原地重新接收。
+                //这样重新生成不会丢掉上一轮，还能在同一位置左右切换回看（和网页版一致）。
+                ChatMessage? aiMessage = messages.LastOrDefault(m => m.IsUser == false);
 
-                string? thinkingReason = null;
-                if (activity.ChatBot.LanguageModel != null)
+                if (aiMessage != null)
                 {
-                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
-                        if (list.Count > 0)
-                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                    aiMessage.PrepareForRegenerate();
+
+                    string? reasoning = null;
+                    if (activity.ChatBot.LanguageModel != null)
+                    {
+                        activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                            if (list.Count > 0)
+                                reasoning = string.Join(" | ", list.Select(marker => marker.Reason));
+                        });
+                    }
+                    aiMessage.ThinkingReason = reasoning;
+                }
+                else
+                {
+                    string? thinkingReason = null;
+                    if (activity.ChatBot.LanguageModel != null)
+                    {
+                        activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                            if (list.Count > 0)
+                                thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                        });
+                    }
+
+                    messages.Add(new ChatMessage {
+                        IsUser = false,
+                        IsInputting = true,
+                        ThinkingReason = thinkingReason,
+                        ReasoningExpanded = chatSettings.ShowReasoning,
                     });
                 }
 
-                messages.Add(new ChatMessage {
-                    IsUser = false,
-                    IsInputting = true,
-                    ThinkingReason = thinkingReason,
-                    ReasoningExpanded = chatSettings.ShowReasoning,
-                });
                 TrimMessages(name);
             }
             MessageChanged?.Invoke(name);
@@ -347,6 +420,10 @@ public static class ClientChatStatistics
             {
                 aiMessage.IsReasoning = false;
                 aiMessage.IsInputting = false;
+
+                //完成时归档，让这一版能被切回来看（停止/取消时空内容会被跳过）
+                aiMessage.ArchiveCurrentAsVersion();
+
                 MessageChanged?.Invoke(name);
             }
         };
