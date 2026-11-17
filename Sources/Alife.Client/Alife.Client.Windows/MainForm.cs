@@ -121,11 +121,12 @@ class MainForm : Form
         shuttingDown = true;
 
         //硬性总超时：哪怕关闭链里某处死锁（插件 OnDestroy、网络等待），
-        //也必须在 15 秒后强制继续走 Application.Exit，绝不让用户只能任务管理器杀进程。
+        //也必须在 45 秒后强制继续走 Application.Exit，绝不让用户只能任务管理器杀进程。
+        //45s > 系统事件模块的 30s 道别宽限期，正常情况下道别能完整输出。
         try
         {
             Task cleanup = serviceProvider.ShutdownAlife();
-            Task done = await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(15)));
+            Task done = await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(45)));
             if (done != cleanup)
                 System.Diagnostics.Debug.WriteLine("[Shutdown] cleanup timed out, forcing exit");
             else
