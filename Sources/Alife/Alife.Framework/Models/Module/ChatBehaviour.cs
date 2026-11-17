@@ -91,12 +91,28 @@ public class ChatBehaviour : IAsyncDisposable
 
                 //OnDestroy 是插件代码，可能因为等待网络、模型或锁而卡住。
                 //加超时保护：单个模块的销毁不能拖死整个角色停止/应用退出。
+                TimeSpan timeout = DestroyTimeout;
                 Task destroy = OnDestroy();
-                Task finished = await Task.WhenAny(destroy, Task.Delay(DestroyTimeout));
+                Task finished = await Task.WhenAny(destroy, Task.Delay(timeout));
                 if (finished == destroy)
+                {
                     await destroy;   //让异常继续被下面的 catch 捕获
+                }
                 else
-                    AlifeLog.LogWarning($"{GetType().Name}::OnDestroy 超过 {DestroyTimeout.TotalSeconds:0.#}s 未返回，已跳过等待");
+                {
+                    //关键：只"不再等待"是不够的 —— 模型调用还在后台空转、继续思考。
+                    //主动打断 ChatBot 的当前对话，让 ChatStreamingAsync 抛取消异常真正收尾。
+                    //这是"道别思考闭环"在框架层唯一能做的兜底：限时 + 真取消。
+                    if (ChatBot != null)
+                    {
+                        try { ChatBot.ChatBreakTokenSource.Cancel(); }
+                        catch { }
+                    }
+
+                    AlifeLog.LogWarning(
+                        $"{GetType().Name}::OnDestroy 超过 {timeout.TotalSeconds:0.#}s 未返回，" +
+                        "已打断在途对话并跳过等待");
+                }
             }
             catch (Exception e)
             {
@@ -105,7 +121,15 @@ public class ChatBehaviour : IAsyncDisposable
         }
     }
 
-    static readonly TimeSpan DestroyTimeout = TimeSpan.FromSeconds(8);
+    /// <summary>
+    /// OnDestroy 的宽限期。普通模块 8s 足够；
+    /// 需要在销毁时生成道别的模块可重写为更长（例如 30s），给模型足够的思考时间。
+    /// 超时后会主动打断 ChatBot 的在途对话，不会让模型在后台空转。
+    /// </summary>
+    protected virtual TimeSpan DestroyTimeout => TimeSpan.FromSeconds(8);
+
+    /// <summary>供容器读取实际宽限期，用于给它留足余量（框架内部使用）。</summary>
+    internal TimeSpan EffectiveDestroyTimeout => DestroyTimeout;
 
     protected virtual Task OnAwake() => Task.CompletedTask;
     protected virtual Task OnStart() => Task.CompletedTask;
