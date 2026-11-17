@@ -102,7 +102,8 @@
                                             @onclick="@(() => OnEditMessage(message, userTurn))">
                                         <Icon Type="@IconType.Outline.Edit"/>
                                     </button>
-                                    <button type="button" title="回退到这条发起前（删除从这里开始的所有消息）"
+                                    <button type="button"
+                                            title="回档到这里：保留这句输入，删掉之后的所有内容并重新回答"
                                             disabled="@isGenerating"
                                             @onclick="@(() => OnRollback(userTurn))">
                                         <Icon Type="@IconType.Outline.Rollback"/>
@@ -824,13 +825,20 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// 回档到这一轮：保留这句输入，把它之后的全部抹掉，再用这句重新生成。
+    /// 不是单纯删——删了不重答，等于把对话砍断。
+    /// </summary>
     async Task OnRollback(int userTurnIndex)
     {
         if (isGenerating) return;
-        await ClientChatStatistics.RollbackToUserTurnAsync(Character.Name, userTurnIndex);
+
         editingMessage = null;
         editingUserTurn = -1;
+
+        await ClientChatStatistics.RewindAndRegenerateAsync(Character.Name, userTurnIndex);
         await InvokeAsync(StateHasChanged);
+        await ScrollToLatestAsync();
     }
 
     void OnEditMessage(ChatMessage message, int userTurn)
