@@ -527,6 +527,10 @@ public class ChatBot : IAsyncDisposable
 
         if (user == null) return false;
 
+        //通知 UI 建一条新的"输入中"气泡，否则流式内容没有落点，看起来就是没回复
+        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        catch (Exception e) { AlifeLog.LogError(e); }
+
         //重发：此时用户消息已在历史里且在最后，不重复添加、不重复触发 ChatSent
         await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
         return true;
