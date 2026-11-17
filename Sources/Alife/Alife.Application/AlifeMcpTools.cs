@@ -358,6 +358,66 @@ public class AlifeMcpTools(
         }
     }
 
+    // ---------------------------------------------------------------- 对话控制
+
+    ChatBot? FindActivatedBot(string characterName)
+    {
+        Character? character = FindCharacter(characterName);
+        if (character == null || chatActivitySystem.IsActivated(character) == false)
+            return null;
+        return chatActivitySystem.GetChatActivity(character)?.ChatBot;
+    }
+
+    [McpServerTool]
+    [Description("停止角色当前正在进行的回复生成。已生成的内容会保留。")]
+    public string StopGenerating(string characterName)
+    {
+        ChatBot? bot = FindActivatedBot(characterName);
+        if (bot == null)
+            return $"角色未激活或不存在：{characterName}";
+
+        bot.Stop();
+        return $"已停止 {characterName} 的生成";
+    }
+
+    [McpServerTool]
+    [Description("用同一条输入重新生成最后一条回复。保留原问题，只换回答。")]
+    public async Task<string> RegenerateReply(string characterName)
+    {
+        ChatBot? bot = FindActivatedBot(characterName);
+        if (bot == null)
+            return $"角色未激活或不存在：{characterName}";
+
+        bool ok = await bot.RegenerateAsync();
+        return ok ? $"{characterName} 已重新生成回复" : $"{characterName} 没有可重新生成的对话";
+    }
+
+    [McpServerTool]
+    [Description("修改最后一条用户输入并重新生成回复。用于纠正输错的内容或换一种问法。")]
+    public async Task<string> EditAndRegenerate(string characterName, string newInput)
+    {
+        ChatBot? bot = FindActivatedBot(characterName);
+        if (bot == null)
+            return $"角色未激活或不存在：{characterName}";
+
+        bool ok = await bot.EditAndRegenerateAsync(newInput);
+        return ok ? $"{characterName} 已按新输入重新生成" : $"{characterName} 没有可编辑的对话";
+    }
+
+    [McpServerTool]
+    [Description("回退到本轮对话发起之前，删除最后一条用户输入和它的回复。")]
+    public async Task<string> RollbackTurn(string characterName)
+    {
+        ChatBot? bot = FindActivatedBot(characterName);
+        if (bot == null)
+            return $"角色未激活或不存在：{characterName}";
+
+        int removed = await bot.RollbackLastTurnAsync();
+        return removed > 0
+            ? $"已回退 {characterName} 的上一轮对话（移除 {removed} 条消息）"
+            : $"{characterName} 没有可回退的对话";
+    }
+
     [McpServerTool]
     [Description("获取角色配置文件所在的位置。（可编辑此文件然后重载，来实现角色配置修改）")]
     public string GetCharacterConfigPath(string characterName)
