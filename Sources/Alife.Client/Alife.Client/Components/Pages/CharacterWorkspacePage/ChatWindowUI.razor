@@ -33,12 +33,20 @@
             {
                 @lock (messages)
                 {
+                    //用户消息的序号（第几轮）和列表下标不是一回事：
+                    //列表是 [User1, AI1, User2, AI2]，点 User2 时下标是 2，但它是第 1 轮（0 起算）。
+                    //框架按「第几条用户消息」定位，所以必须单独维护这个计数器。
+                    int userTurnCounter = -1;
+
                     @for (int i = 0; i < messages.Count; i++)
                     {
                         ChatMessage message = messages[i];
+
                         //必须复制到局部变量：for 的 i 是共享变量，渲染完已经变成 Count，
-                        //lambda 捕获它会传越界值 —— 这正是"回退点了没反应"的原因。
+                        //lambda 捕获它会传越界值。
                         int rowIndex = i;
+                        if (message.IsUser) userTurnCounter++;
+                        int userTurn = userTurnCounter;
                         <div class="chat-row @(message.IsUser ? "chat-row-user" : "")">
                             <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
                                 @if (!string.IsNullOrEmpty(message.Reasoning))
@@ -90,13 +98,13 @@
                             {
                                 <div class="chat-msg-actions">
                                     <button type="button" title="编辑这条输入并重新发送"
-                                            disabled="@isWorking"
-                                            @onclick="@(() => OnEditMessage(message))">
+                                            disabled="@isGenerating"
+                                            @onclick="@(() => OnEditMessage(message, userTurn))">
                                         <Icon Type="@IconType.Outline.Edit"/>
                                     </button>
                                     <button type="button" title="回退到这条发起前（删除从这里开始的所有消息）"
-                                            disabled="@isWorking"
-                                            @onclick="@(() => OnRollback(rowIndex))">
+                                            disabled="@isGenerating"
+                                            @onclick="@(() => OnRollback(userTurn))">
                                         <Icon Type="@IconType.Outline.Rollback"/>
                                     </button>
                                 </div>
@@ -108,7 +116,7 @@
                                     {
                                         @* 生成中给停止，生成完给重生。
                                            不要把 IsInputting 放进外层条件 —— 生成中正是最需要停止按钮的时候。 *@
-                                        if (message.IsInputting || isWorking)
+                                        if (message.IsInputting || isGenerating)
                                         {
                                             <button type="button" title="停止生成"
                                                     @onclick="@OnStop">
@@ -168,7 +176,7 @@
                           BindOnInput="true"
                           Rows="3"></TextArea>
 
-                @if (isWorking)
+                @if (isGenerating)
                 {
                     <div class="chat-busy">
                         <Icon Type="@IconType.Outline.Loading"/>
@@ -180,11 +188,11 @@
             <div class="chat-input-actions">
                 <Tooltip Title="@("上传文件")">
                     <Button Icon="@IconType.Outline.Upload" OnClick="@OnUploadFile"
-                            Disabled="@isWorking"/>
+                            Disabled="@isGenerating"/>
                 </Tooltip>
 
                 @* 发送 / 终止 同一位置切换：生成中时这里就是终止按钮，最不容易漏掉 *@
-                @if (isWorking)
+                @if (isGenerating)
                 {
                     <Tooltip Title="@("中断当前生成")">
                         <Button Type="@ButtonType.Primary" Danger
@@ -555,6 +563,12 @@
     string editingText = "";
     ElementReference inlineEditRef;
     bool isWorking;
+    /// <summary>
+    /// 真正在生成回复（chatSemaphore 被占）。
+    /// isWorking 还包含「后台有插件占着资源」，用那个当按钮禁用条件会让按钮长期点不动，
+    /// 所以对话控制一律看 isGenerating。
+    /// </summary>
+    bool isGenerating;
     bool isInputAreaBound;
     bool isDisposed;
     bool isMessageDirty;
@@ -599,15 +613,18 @@
                         ChatBot chatBot = ChatActivity.ChatBot;
 
                         bool working = isWorking;
+                        bool generating = isGenerating;
                         string? occupiedReason = occupiedReasonText;
                         chatBot.ResourceOccupiedReason.Query(list => {
                             working = chatBot.IsChatOccupied || chatBot.IsChatHistoryOccupied || list.Count != 0;
+                            generating = chatBot.IsChatOccupied;
                             occupiedReason = string.Join(" | ", list.Select(marker => marker.Reason));
                         });
 
-                        if (working != isWorking || occupiedReasonText != occupiedReason)
+                        if (working != isWorking || generating != isGenerating || occupiedReasonText != occupiedReason)
                         {
                             isWorking = working;
+                            isGenerating = generating;
                             occupiedReasonText = occupiedReason;
                             await InvokeAsync(StateHasChanged);
                         }
@@ -767,7 +784,7 @@
     async Task SendAsync(string rawInputText)
     {
         //生成中发送键已变成终止键，但 Enter 仍会走到这里 —— 挡住，避免打断当前输出
-        if (isWorking) return;
+        if (isGenerating) return;
 
         // 输入框的值有两个来源：Enter 走 DOM（避免最后一次按键还没回到 .NET），按钮走绑定字段。
         // 清空时两边都要清，所以这里不再重建 TextArea 组件。
@@ -794,7 +811,7 @@
 
     async Task OnRegenerate()
     {
-        if (isWorking) return;
+        if (isGenerating) return;
         await ClientChatStatistics.RegenerateAsync(Character.Name);
         await InvokeAsync(StateHasChanged);
         await ScrollToLatestAsync();
@@ -809,48 +826,27 @@
 
     async Task OnRollback(int userTurnIndex)
     {
-        if (isWorking) return;
+        if (isGenerating) return;
         await ClientChatStatistics.RollbackToUserTurnAsync(Character.Name, userTurnIndex);
         editingMessage = null;
         editingUserTurn = -1;
         await InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>算出这条用户气泡是第几轮（0 起算）。</summary>
-    int UserTurnIndexOf(ChatMessage target)
+    void OnEditMessage(ChatMessage message, int userTurn)
     {
-        List<ChatMessage>? list = messages;
-        if (list == null) return -1;
-
-        int seen = -1;
-        lock (list)
-        {
-            foreach (ChatMessage m in list)
-            {
-                if (m.IsUser == false) continue;
-                seen++;
-                if (ReferenceEquals(m, target)) return seen;
-            }
-        }
-        return -1;
-    }
-
-    void OnEditMessage(ChatMessage message)
-    {
-        if (isWorking) return;
-
-        int turn = UserTurnIndexOf(message);
-        if (turn < 0) return;
+        if (isGenerating) return;
+        if (userTurn < 0) return;
 
         editingMessage = message;
-        editingUserTurn = turn;
+        editingUserTurn = userTurn;
         editingText = message.Content;
         StateHasChanged();
     }
 
     async Task ConfirmEdit()
     {
-        if (editingMessage == null || isWorking) return;
+        if (editingMessage == null || isGenerating) return;
 
         int turn = editingUserTurn;
         string text = editingText.Trim();
