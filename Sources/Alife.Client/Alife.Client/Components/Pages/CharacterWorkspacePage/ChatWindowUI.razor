@@ -84,10 +84,12 @@
                                     </button>
                                 </div>
                             }
-                            else if (!message.IsInputting && i == messages.Count - 1)
+                            else if (i == messages.Count - 1)
                             {
-                                <div class="chat-msg-actions">
-                                    @if (isWorking)
+                                @* 最后一条 AI 气泡：生成中给停止，生成完给重生。
+                                   不要把 IsInputting 放进外层条件 —— 生成中正是最需要停止按钮的时候。 *@
+                                <div class="chat-msg-actions @(message.IsInputting ? "chat-msg-actions-always" : "")">
+                                    @if (message.IsInputting || isWorking)
                                     {
                                         <button type="button" title="停止生成"
                                                 @onclick="@OnStop">
@@ -271,6 +273,9 @@
     }
     .chat-row:hover .chat-msg-actions,
     .chat-msg-actions:focus-within { opacity: 1; }
+
+    /* 生成中的停止按钮必须常亮：这是需要立刻点到的操作，不该等 hover */
+    .chat-msg-actions-always { opacity: 1; }
 
     .chat-msg-actions button {
         display: inline-flex;
