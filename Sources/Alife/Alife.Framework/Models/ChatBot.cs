@@ -54,6 +54,13 @@ public class ChatBot : IAsyncDisposable
     public event Action? ChatHistoryEditing; //对话被请求（信号量首次被锁住）
     public event Action? ChatHistoryEdited; //对话已释放（信号量完全解锁）
 
+    /// <summary>
+    /// 历史被「重写」：重新生成 / 编辑重发 / 回退删除了已有消息。
+    /// 记忆类插件在每条 AI 消息落盘时就存过一份，历史被删改后必须重新落盘，
+    /// 否则被丢弃的那一版会永远留在记忆里，之后还会被检索出来。
+    /// </summary>
+    public event Action? ChatHistoryRewritten;
+
     public bool IsChatOccupied => chatSemaphore.CurrentCount == 0;
     public bool IsChatHistoryOccupied => chatHistorySemaphore.CurrentCount == 0;
     public OccupationNotepad ResourceOccupiedReason { get; set; } = new();
@@ -363,6 +370,13 @@ public class ChatBot : IAsyncDisposable
         catch { }
     }
 
+    /// <summary>历史被删改后通知记忆类插件重新落盘。异常不能影响主流程。</summary>
+    void RaiseHistoryRewritten()
+    {
+        try { ChatHistoryRewritten?.Invoke(); }
+        catch (Exception e) { AlifeLog.LogError(e); }
+    }
+
     /// <summary>
     /// 重新生成：删掉最后一条 AI 回复，用同一条用户消息重新生成。
     /// 返回 false 表示找不到可重生的用户消息（例如还没对话过）。
@@ -390,6 +404,9 @@ public class ChatBot : IAsyncDisposable
             removed = true;
             return Task.CompletedTask;
         }, "重新生成：移除上一轮回复").ConfigureAwait(false);
+
+        //历史被改过，通知记忆重新落盘，别把丢弃的那一版留在记忆里
+        RaiseHistoryRewritten();
 
         if (!removed || user == null) return false;
 
@@ -431,6 +448,8 @@ public class ChatBot : IAsyncDisposable
             return Task.CompletedTask;
         }, "编辑并重发").ConfigureAwait(false);
 
+        RaiseHistoryRewritten();
+
         if (!found || user == null) return false;
 
         //通知 UI：更新用户气泡内容并重建 AI 气泡
@@ -465,6 +484,8 @@ public class ChatBot : IAsyncDisposable
             return Task.CompletedTask;
         }, "回退到本轮发起前").ConfigureAwait(false);
 
+        if (removed > 0) RaiseHistoryRewritten();
+
         return removed;
     }
 
@@ -493,6 +514,8 @@ public class ChatBot : IAsyncDisposable
                 history.RemoveAt(i);
             return Task.CompletedTask;
         }, $"回退到第 {userTurnIndex + 1} 轮").ConfigureAwait(false);
+
+        if (removed > 0) RaiseHistoryRewritten();
 
         return removed;
     }
@@ -524,6 +547,8 @@ public class ChatBot : IAsyncDisposable
                 history.RemoveAt(i);
             return Task.CompletedTask;
         }, $"编辑第 {userTurnIndex + 1} 轮并重发").ConfigureAwait(false);
+
+        RaiseHistoryRewritten();
 
         if (user == null) return false;
 
