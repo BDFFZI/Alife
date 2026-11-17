@@ -103,9 +103,63 @@ public static class AlifeLog
     public static void Initialize(IAlifeFoundation alifeFoundation)
     {
         LogFilePath = Path.Combine(alifeFoundation.TempFolderPath, "alife.log");
-        logFile = new StreamWriter(LogFilePath, false);
-        Console.SetOut(new AlifeConsoleWriter(Console.Out, OnLogLineWrote));
-        Console.SetError(new AlifeConsoleWriter(Console.Error, OnLogLineWrote));
+
+        //用「共享读 + 追加」方式打开：就算上一次进程的日志句柄还没释放，
+        //也能继续写而不抛 IOException；同时旧日志不会被覆盖丢失，便于排查上一轮崩溃。
+        logFile?.Dispose();
+        try
+        {
+            logFile = new StreamWriter(new FileStream(
+                LogFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) {
+                AutoFlush = true
+            };
+        }
+        catch
+        {
+            //极端情况下（目录被删/权限不足）日志打不开也不能让启动失败：
+            //退化到 Null writer，控制台仍然可见
+            logFile = new StreamWriter(Stream.Null);
+        }
+
+        //保存原始输出，供 Shutdown 还原；避免重复初始化时层层包裹
+        originalOut ??= Console.Out;
+        originalError ??= Console.Error;
+        Console.SetOut(new AlifeConsoleWriter(originalOut, OnLogLineWrote));
+        Console.SetError(new AlifeConsoleWriter(originalError, OnLogLineWrote));
+    }
+
+    /// <summary>
+    /// 关闭日志：Flush 并释放文件句柄，还原 Console。
+    /// 应用退出前必须调用，否则 alife.log 会被本进程占着，
+    /// 下一次启动时删除 Temp 目录就会失败（典型 IOException）。
+    /// </summary>
+    public static void Shutdown()
+    {
+        try
+        {
+            if (originalOut != null) Console.SetOut(originalOut);
+            if (originalError != null) Console.SetError(originalError);
+        }
+        catch { }
+        finally
+        {
+            originalOut = null;
+            originalError = null;
+        }
+
+        lock (Lock)
+        {
+            try
+            {
+                logFile?.Flush();
+                logFile?.Dispose();
+            }
+            catch { }
+            finally
+            {
+                logFile = null!;
+            }
+        }
     }
 
     public static string LogFilePath { get; private set; } = null!;
@@ -132,6 +186,8 @@ public static class AlifeLog
     static readonly AlifeLogger DefaultLogger = new("");
     static readonly Lock Lock = new();
     static StreamWriter logFile = null!;
+    static TextWriter? originalOut;
+    static TextWriter? originalError;
     //Android 等平台没有控制台颜色，设置会抛 PlatformNotSupportedException。
     static readonly bool SupportsConsoleColor =
         OperatingSystem.IsAndroid() == false && OperatingSystem.IsIOS() == false;
@@ -229,8 +285,17 @@ public static class AlifeLog
     }
     static void OnLogLineWrote(string line)
     {
-        logFile.WriteLine(line);
-        logFile.Flush();
+        //进程退出阶段 Shutdown 可能已释放 logFile，此时控制台仍可能有输出
+        StreamWriter? writer = logFile;
+        if (writer != null)
+        {
+            try
+            {
+                writer.WriteLine(line);
+                writer.Flush();
+            }
+            catch { /*日志写失败不能影响业务，更不能抛到 Console.SetOut 里 */ }
+        }
         LogLineCount++;
         Logging?.Invoke(line);
     }
