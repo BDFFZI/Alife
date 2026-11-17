@@ -103,14 +103,19 @@ public class ChatBot : IAsyncDisposable
     }
 
     public Task<ChatResult> ChatAsync(ChatMessageContent message, bool breakLast = true)
-        => ChatAsyncCore(message, breakLast, addUserMessage: true, raiseChatSent: true);
+        => ChatAsyncCore(message, breakLast, addUserMessage: true, raiseChatSent: true, skipInjection: false);
 
     /// <summary>
-    /// 对话核心。addUserMessage=false 用于「重新生成」——用户消息已在历史里，不能重复添加；
-    /// raiseChatSent=false 用于避免 UI 再建一条输入中气泡。
+    /// 对话核心。
+    /// addUserMessage=false：重新生成，用户消息已在历史里，不重复添加。
+    /// raiseChatSent=false：重新生成，UI 已有气泡，不重复建。
+    /// skipInjection=true：重新生成/编辑重发，复用历史里那条「已经处理过」的消息，
+    ///   不再跑一遍 ChatSend 过滤器和 poke/观察注入 —— 否则每次重生都会把记忆、
+    ///   知识、Soma 等插件的上下文再拼一遍，表现为「先冒出一堆注入，才开始二次输出」。
     /// </summary>
     async Task<ChatResult> ChatAsyncCore(
-        ChatMessageContent message, bool breakLast, bool addUserMessage, bool raiseChatSent)
+        ChatMessageContent message, bool breakLast, bool addUserMessage,
+        bool raiseChatSent, bool skipInjection)
     {
         CancellationToken cancellationToken;
 
@@ -138,23 +143,27 @@ public class ChatBot : IAsyncDisposable
         {
             using (ResourceOccupiedReason.Rent("准备对话"))
             {
-                //装载观察消息：独立成一条 observation，不拼进用户消息
-                string? observation = FlushObservationMessage();
-                if (observation != null)
+                if (skipInjection == false)
                 {
-                    observationMessage = new ChatMessageContent(AuthorRole.Tool, observation);
-                    await EditChatHistoryAsync(thread => {
-                        thread.ChatHistory.Add(observationMessage);
-                        return Task.CompletedTask;
-                    }, "装载观察消息");
+                    //装载观察消息：独立成一条 observation，不拼进用户消息
+                    string? observation = FlushObservationMessage();
+                    if (observation != null)
+                    {
+                        observationMessage = new ChatMessageContent(AuthorRole.Tool, observation);
+                        await EditChatHistoryAsync(thread => {
+                            thread.ChatHistory.Add(observationMessage);
+                            return Task.CompletedTask;
+                        }, "装载观察消息");
+                    }
+
+                    //附加Poke消息
+                    string? poke = FlushPokeMessage();
+                    if (poke != null)
+                        message.Content += "\n\n" + poke;
                 }
 
-                //附加Poke消息
-                string? poke = FlushPokeMessage();
-                if (poke != null)
-                    message.Content += "\n\n" + poke;
-
-                //预处理用户消息
+                //预处理用户消息。重生时跳过：历史里那条已经是处理过的版本
+                if (skipInjection == false)
                 {
                     if (ChatContentSend != null)
                     {
@@ -389,7 +398,7 @@ public class ChatBot : IAsyncDisposable
         catch (Exception e) { AlifeLog.LogError(e); }
 
         //复用已在历史里的用户消息：不重复添加、不再触发 ChatSent
-        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false);
+        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
         return true;
     }
 
@@ -428,7 +437,7 @@ public class ChatBot : IAsyncDisposable
         try { ChatRegenerating?.Invoke(user.Content ?? ""); }
         catch (Exception e) { AlifeLog.LogError(e); }
 
-        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false);
+        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
         return true;
     }
 
@@ -519,7 +528,7 @@ public class ChatBot : IAsyncDisposable
         if (user == null) return false;
 
         //重发：此时用户消息已在历史里且在最后，不重复添加、不重复触发 ChatSent
-        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false);
+        await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
         return true;
     }
 
