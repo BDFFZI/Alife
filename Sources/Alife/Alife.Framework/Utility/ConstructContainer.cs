@@ -75,7 +75,7 @@ public class ConstructContainer
         async Task RemoveObject(object target)
         {
             if (isOwned.Contains(target))
-                await TypeUtility.DisposeObject(target);
+                await TypeUtility.DisposeObjectWithTimeout(target, PerObjectDisposeTimeout);
 
             instances.Remove(target);
             isOwned.Remove(target);
@@ -169,9 +169,14 @@ public class ConstructContainer
                 continue;
 
             progress?.Report(($"销毁 {TypeUtility.GetReadableName(instance.GetType())} 对象", 1 - (float)index / instances.Count));
-            await TypeUtility.DisposeObject(instance);
+
+            //每个对象独立超时：ChatBot、QChat 客户端、语音合成器、模型的 OnDestroy
+            //都可能卡在网络或锁上。一个卡住不能让整个角色停不下来。
+            await TypeUtility.DisposeObjectWithTimeout(instance, PerObjectDisposeTimeout);
         }
     }
+
+    static readonly TimeSpan PerObjectDisposeTimeout = TimeSpan.FromSeconds(6);
 
     readonly List<(Type type, Func<Type, Task<object>> builder, bool isSingleton, bool spare)> types = new();
     readonly List<object> instances = new();
