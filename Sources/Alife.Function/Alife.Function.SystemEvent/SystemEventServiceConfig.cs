@@ -3,7 +3,19 @@
 public class SystemEventServiceConfig
 {
     public string? StartPrompt { get; set; } = "(部分系统状态，如功能开关、定时器等已全部重置)";
-    public string? DestroyPrompt { get; set; } = "(系统已逐步关闭，不要执行强功能指令，仅可尝试道别操作)";
+
+    /// <summary>
+    /// 道别时给模型的专用提示。刻意要求「一句话、短、不展开」，
+    /// 减少模型在关闭阶段进入长思考闭环的概率。
+    /// </summary>
+    public string? DestroyPrompt { get; set; } =
+        "(系统正在关闭。用一句话简短道别，不超过 30 字；不要展开，不要思考过多，不要执行任何功能指令)";
+
+    /// <summary>
+    /// 道别生成的宽限期（秒）。普通模块销毁只有 8s，不够模型思考；
+    /// 这里单独放宽，超时会主动打断对话，不会让应用关不掉。
+    /// </summary>
+    public int DestroyTimeoutSeconds { get; set; } = 30;
 
     public string? UpdatePrompt { get; set; } =
         """
