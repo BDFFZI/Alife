@@ -95,11 +95,26 @@ sealed class AndroidAlifeApplication(
 
         TcpListener listener = new(IPAddress.Loopback, uri.Port);
         listener.Start();
+        mcpListener = listener;
         _ = AcceptLoopAsync(listener, provider, options, loggerFactory, route);
         AlifeMcpServer = new Uri($"http://127.0.0.1:{uri.Port}{route}");
         AlifeLog.LogInformation($"Android MCP 服务器已启动: {AlifeMcpServer}");
         return Task.CompletedTask;
     }
+
+    public Task StopAlifeMcpAsync()
+    {
+        TcpListener? listener = mcpListener;
+        mcpListener = null;
+        AlifeMcpServer = null;
+
+        try { listener?.Stop(); }
+        catch { }
+
+        return Task.CompletedTask;
+    }
+
+    TcpListener? mcpListener;
 
     static McpServerOptions CreateOptions(IServiceProvider provider, AlifeMcpTools alifeMcpTools)
     {
