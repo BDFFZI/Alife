@@ -395,39 +395,34 @@ public static class ClientChatStatistics
         activity.ChatBot.ChatRegenerating += text => {
             lock (messages)
             {
-                //复用最后一条 AI 气泡：旧内容归档成一个版本，清空后原地重新接收。
-                //这样重新生成不会丢掉上一轮，还能在同一位置左右切换回看（和网页版一致）。
-                ChatMessage? aiMessage = messages.LastOrDefault(m => m.IsUser == false);
+                //只有「列表最后一条就是 AI 气泡」时才复用它 —— 那是重新生成同一轮的场景，
+                //复用能保留版本历史，位置也不会跳。
+                //
+                //回档/编辑重发时最后一条是用户气泡，必须新建一条追加到末尾。
+                //之前用 LastOrDefault 找 AI 气泡，会抓到更早的那条，把新回复塞到旧位置，
+                //表现就是「回复跑到我的问题上面」。
+                ChatMessage? last = messages.Count > 0 ? messages[^1] : null;
 
-                if (aiMessage != null)
+                string? reasoning = null;
+                if (activity.ChatBot.LanguageModel != null)
                 {
-                    aiMessage.PrepareForRegenerate();
+                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                        if (list.Count > 0)
+                            reasoning = string.Join(" | ", list.Select(marker => marker.Reason));
+                    });
+                }
 
-                    string? reasoning = null;
-                    if (activity.ChatBot.LanguageModel != null)
-                    {
-                        activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
-                            if (list.Count > 0)
-                                reasoning = string.Join(" | ", list.Select(marker => marker.Reason));
-                        });
-                    }
-                    aiMessage.ThinkingReason = reasoning;
+                if (last != null && last.IsUser == false)
+                {
+                    last.PrepareForRegenerate();
+                    last.ThinkingReason = reasoning;
                 }
                 else
                 {
-                    string? thinkingReason = null;
-                    if (activity.ChatBot.LanguageModel != null)
-                    {
-                        activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
-                            if (list.Count > 0)
-                                thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
-                        });
-                    }
-
                     messages.Add(new ChatMessage {
                         IsUser = false,
                         IsInputting = true,
-                        ThinkingReason = thinkingReason,
+                        ThinkingReason = reasoning,
                         ReasoningExpanded = chatSettings.ShowReasoning,
                     });
                 }
