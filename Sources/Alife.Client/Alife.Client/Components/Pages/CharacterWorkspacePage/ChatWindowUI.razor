@@ -833,6 +833,12 @@
     {
         if (isGenerating) return;
 
+        //回档会永久删掉这之后的所有内容，必须先确认，避免误点
+        bool confirmed = await JsRuntime.InvokeAsync<bool>(
+            "confirm", "回档会删掉这句之后的所有对话，并重新回答这一句。确定继续？");
+
+        if (!confirmed) return;
+
         editingMessage = null;
         editingUserTurn = -1;
 
