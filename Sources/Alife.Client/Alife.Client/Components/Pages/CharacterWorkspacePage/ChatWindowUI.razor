@@ -15,20 +15,6 @@
         <span class="alife-label">展开思考</span>
         <Switch Value="@ClientChatStatistics.ShowReasoning" ValueChanged="@OnShowReasoningChanged"/>
         <span class="alife-spacer"></span>
-
-        @if (isWorking)
-        {
-            <Button Type="@ButtonType.Primary" Danger Icon="@IconType.Outline.Pause"
-                    OnClick="@OnStop">停止生成</Button>
-        }
-        <Tooltip Title="@("用同一条输入重新生成，保留原问题")">
-            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Reload"
-                    Disabled="@(isWorking || !CanRegenerate)" OnClick="@OnRegenerate">重新生成</Button>
-        </Tooltip>
-        <Tooltip Title="@("回退到本轮发起前，删除这一问一答")">
-            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Rollback"
-                    Disabled="@(isWorking || !CanRegenerate)" OnClick="@OnRollback">回退本轮</Button>
-        </Tooltip>
         <Button Type="@ButtonType.Link" Danger Icon="@IconType.Outline.Clear" OnClick="@OnClear">清理对话日志</Button>
     </div>
 
@@ -47,8 +33,9 @@
             {
                 @lock (messages)
                 {
-                    @foreach (ChatMessage message in messages)
+                    @for (int i = 0; i < messages.Count; i++)
                     {
+                        ChatMessage message = messages[i];
                         <div class="chat-row @(message.IsUser ? "chat-row-user" : "")">
                             <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
                                 @if (!string.IsNullOrEmpty(message.Reasoning))
@@ -72,12 +59,6 @@
                                     </div>
                                 }
                                 <div class="chat-text">@message.Content</div>
-                                @if (message.IsUser && !isWorking)
-                                {
-                                    <button type="button" class="chat-edit-btn"
-                                            @onclick="@(() => OnEditMessage(message))"
-                                            title="把这条内容放回输入框，改完重新发送">编辑重发</button>
-                                }
                                 @if (message.IsInputting)
                                 {
                                     <div class="chat-typing">
@@ -86,6 +67,42 @@
                                     </div>
                                 }
                             </div>
+
+                            @* 每轮消息下方的操作条：hover 时才显现，和常见 Agent 一致 *@
+                            @if (message.IsUser)
+                            {
+                                <div class="chat-msg-actions">
+                                    <button type="button" title="编辑这条输入并重新发送"
+                                            disabled="@isWorking"
+                                            @onclick="@(() => OnEditMessage(message))">
+                                        <Icon Type="@IconType.Outline.Edit"/>
+                                    </button>
+                                    <button type="button" title="回退到这条发起前（删除从这里开始的所有消息）"
+                                            disabled="@isWorking"
+                                            @onclick="@(() => OnRollback(i))">
+                                        <Icon Type="@IconType.Outline.Rollback"/>
+                                    </button>
+                                </div>
+                            }
+                            else if (!message.IsInputting && i == messages.Count - 1)
+                            {
+                                <div class="chat-msg-actions">
+                                    @if (isWorking)
+                                    {
+                                        <button type="button" title="停止生成"
+                                                @onclick="@OnStop">
+                                            <Icon Type="@IconType.Outline.Pause"/>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" title="重新生成（用同一条输入再问一次）"
+                                                @onclick="@OnRegenerate">
+                                            <Icon Type="@IconType.Outline.Reload"/>
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                     }
                 }
@@ -243,19 +260,39 @@
         overflow-wrap: break-word;
     }
 
-    .chat-edit-btn {
-        margin-top: 6px;
-        padding: 2px 8px;
-        font-size: 11px;
-        color: var(--alife-text-tertiary);
-        background: transparent;
-        border: 1px solid var(--alife-border);
-        border-radius: 4px;
-        cursor: pointer;
-        opacity: 0.55;
+    /* 每条气泡下方的操作条：平时半透明，hover 整行才完全显现 */
+    .chat-msg-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+        padding: 0 4px;
+        opacity: 0.25;
         transition: opacity 0.15s;
     }
-    .chat-row:hover .chat-edit-btn { opacity: 1; }
+    .chat-row:hover .chat-msg-actions,
+    .chat-msg-actions:focus-within { opacity: 1; }
+
+    .chat-msg-actions button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 22px;
+        padding: 0;
+        color: var(--alife-text-tertiary);
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .chat-msg-actions button:hover:not(:disabled) {
+        color: var(--alife-primary);
+        background: var(--alife-hover-bg, rgba(128,128,128,0.12));
+    }
+    .chat-msg-actions button:disabled { opacity: 0.35; cursor: default; }
+
+    /* 用户消息的操作条右对齐 */
+    .chat-row-user .chat-msg-actions { justify-content: flex-end; }
 
     .chat-typing {
         display: flex;
@@ -410,6 +447,8 @@
     string inputText = "";
     /// <summary>正在编辑重发的历史消息；null 表示普通发送。</summary>
     ChatMessage? editingMessage;
+    /// <summary>正在编辑的是第几条用户消息（0 起算）。</summary>
+    int editingUserTurn = -1;
     bool isWorking;
     bool isInputAreaBound;
     bool isDisposed;
@@ -632,12 +671,14 @@
 
         if (editingMessage != null)
         {
-            //编辑重发：走框架层的"改最后一条用户消息并重生"，不新建用户气泡
+            //编辑重发：改的是当初点的那一条（可能是历史中间某轮）
             ChatMessage? editing = editingMessage;
+            int turn = editingUserTurn;
             editingMessage = null;
+            editingUserTurn = -1;
 
             string text = string.IsNullOrWhiteSpace(rawInputText) ? editing.Content : rawInputText.Trim();
-            await ClientChatStatistics.EditAndRegenerateAsync(Character.Name, text);
+            await ClientChatStatistics.EditUserTurnAndRegenerateAsync(Character.Name, turn, text);
         }
         else
         {
@@ -664,19 +705,43 @@
         await ScrollToLatestAsync();
     }
 
-    async Task OnRollback()
+    async Task OnRollback(int userTurnIndex)
     {
         if (isWorking) return;
-        await ClientChatStatistics.RollbackLastTurnAsync(Character.Name);
+        await ClientChatStatistics.RollbackToUserTurnAsync(Character.Name, userTurnIndex);
         editingMessage = null;
+        editingUserTurn = -1;
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>算出这条用户气泡是第几轮（0 起算）。</summary>
+    int UserTurnIndexOf(ChatMessage target)
+    {
+        List<ChatMessage>? list = messages;
+        if (list == null) return -1;
+
+        int seen = -1;
+        lock (list)
+        {
+            foreach (ChatMessage m in list)
+            {
+                if (m.IsUser == false) continue;
+                seen++;
+                if (ReferenceEquals(m, target)) return seen;
+            }
+        }
+        return -1;
     }
 
     void OnEditMessage(ChatMessage message)
     {
         if (isWorking) return;
 
+        int turn = UserTurnIndexOf(message);
+        if (turn < 0) return;
+
         editingMessage = message;
+        editingUserTurn = turn;
         inputText = message.Content;
 
         //把内容同步到 DOM（绑定字段改了，但 TextArea 的真实值要程序化写一次）
@@ -687,6 +752,7 @@
     void CancelEdit()
     {
         editingMessage = null;
+        editingUserTurn = -1;
         inputText = "";
         _ = ChatModule.InvokeVoidAsync("clearInput", "chatInput").AsTask();
         StateHasChanged();
