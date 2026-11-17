@@ -58,7 +58,21 @@
                                         }
                                     </div>
                                 }
-                                <div class="chat-text">@message.Content</div>
+                                @if (message.IsUser && ReferenceEquals(message, editingMessage))
+                                {
+                                    <textarea class="chat-inline-edit" @bind="editingText" rows="3"
+                                              @ref="inlineEditRef"></textarea>
+                                    <div class="chat-inline-actions">
+                                        <button type="button" class="chat-inline-cancel" @onclick="@CancelEdit">取消</button>
+                                        <button type="button" class="chat-inline-confirm" @onclick="@ConfirmEdit">
+                                            确定并重发
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="chat-text">@message.Content</div>
+                                }
                                 @if (message.IsInputting)
                                 {
                                     <div class="chat-typing">
@@ -140,16 +154,11 @@
             </div>
 
             <div class="chat-input-actions">
-                @if (editingMessage != null)
-                {
-                    <Button Type="@ButtonType.Link" OnClick="@CancelEdit">取消编辑</Button>
-                }
                 <Tooltip Title="@("上传文件")">
                     <Button Icon="@IconType.Outline.Upload" OnClick="@OnUploadFile"/>
                 </Tooltip>
-                <Button Type="@ButtonType.Primary"
-                        Icon="@(editingMessage == null ? IconType.Outline.Send : IconType.Outline.Edit)"
-                        OnClick="@OnSendClickAsync">@(editingMessage == null ? "发送" : "改完重发")</Button>
+                <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Send"
+                        OnClick="@OnSendClickAsync">发送</Button>
             </div>
         </div>
     }
@@ -276,6 +285,43 @@
 
     /* 生成中的停止按钮必须常亮：这是需要立刻点到的操作，不该等 hover */
     .chat-msg-actions-always { opacity: 1; }
+
+    /* 气泡内联编辑：改完直接确定重发，不占用底部输入框 */
+    .chat-inline-edit {
+        width: 100%;
+        min-width: 260px;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--alife-text);
+        background: var(--alife-bg-elevated, rgba(255,255,255,0.06));
+        border: 1px solid var(--alife-primary);
+        border-radius: 6px;
+        resize: vertical;
+        outline: none;
+    }
+    .chat-inline-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 6px;
+    }
+    .chat-inline-actions button {
+        padding: 3px 12px;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid var(--alife-border);
+        background: transparent;
+        color: var(--alife-text-secondary);
+    }
+    .chat-inline-actions .chat-inline-confirm {
+        color: #fff;
+        background: var(--alife-primary);
+        border-color: var(--alife-primary);
+    }
 
     .chat-msg-actions button {
         display: inline-flex;
@@ -450,10 +496,13 @@
     const int messageRenderIntervalMs = 60;
 
     string inputText = "";
-    /// <summary>正在编辑重发的历史消息；null 表示普通发送。</summary>
+    /// <summary>正在内联编辑的用户消息；null 表示没有在编辑。</summary>
     ChatMessage? editingMessage;
     /// <summary>正在编辑的是第几条用户消息（0 起算）。</summary>
     int editingUserTurn = -1;
+    /// <summary>内联编辑框的内容。</summary>
+    string editingText = "";
+    ElementReference inlineEditRef;
     bool isWorking;
     bool isInputAreaBound;
     bool isDisposed;
@@ -674,21 +723,8 @@
         if (string.IsNullOrWhiteSpace(rawInputText) && editingMessage == null)
             return;
 
-        if (editingMessage != null)
-        {
-            //编辑重发：改的是当初点的那一条（可能是历史中间某轮）
-            ChatMessage? editing = editingMessage;
-            int turn = editingUserTurn;
-            editingMessage = null;
-            editingUserTurn = -1;
-
-            string text = string.IsNullOrWhiteSpace(rawInputText) ? editing.Content : rawInputText.Trim();
-            await ClientChatStatistics.EditUserTurnAndRegenerateAsync(Character.Name, turn, text);
-        }
-        else
-        {
-            ClientChatStatistics.SendMessage(Character.Name, rawInputText.Trim());
-        }
+        //编辑走内联气泡的「确定并重发」，不占用输入框
+        ClientChatStatistics.SendMessage(Character.Name, rawInputText.Trim());
 
         ClientChatStatistics.SetDraft(Character.Name, "");
         await InvokeAsync(StateHasChanged);
@@ -747,19 +783,38 @@
 
         editingMessage = message;
         editingUserTurn = turn;
-        inputText = message.Content;
-
-        //把内容同步到 DOM（绑定字段改了，但 TextArea 的真实值要程序化写一次）
-        _ = ChatModule.InvokeVoidAsync("setInput", "chatInput", inputText).AsTask();
+        editingText = message.Content;
         StateHasChanged();
+    }
+
+    async Task ConfirmEdit()
+    {
+        if (editingMessage == null || isWorking) return;
+
+        int turn = editingUserTurn;
+        string text = editingText.Trim();
+
+        editingMessage = null;
+        editingUserTurn = -1;
+        editingText = "";
+
+        if (text.Length == 0)
+        {
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        //确定后直接让 AI 重新生成，不需要用户再去输入框点发送
+        await ClientChatStatistics.EditUserTurnAndRegenerateAsync(Character.Name, turn, text);
+        await InvokeAsync(StateHasChanged);
+        await ScrollToLatestAsync();
     }
 
     void CancelEdit()
     {
         editingMessage = null;
         editingUserTurn = -1;
-        inputText = "";
-        _ = ChatModule.InvokeVoidAsync("clearInput", "chatInput").AsTask();
+        editingText = "";
         StateHasChanged();
     }
 }
