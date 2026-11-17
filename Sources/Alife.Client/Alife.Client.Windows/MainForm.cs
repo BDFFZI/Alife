@@ -59,7 +59,7 @@ class MainForm : Form
         {
             DialogResult result = MessageBox.Show(
                 this,
-                "是 - 直接关闭\n否 - 最小化到托盘",
+                "是 - 退出应用（停止一切）\n否 - 最小化到托盘（继续在后台运行）\n取消 - 什么都不做，窗口留着",
                 "是否直接关闭应用？",
                 MessageBoxButtons.YesNoCancel,
                 MessageBoxIcon.Question);
@@ -73,6 +73,18 @@ class MainForm : Form
             else if (result == DialogResult.No)
             {
                 HideWindow();
+
+                //窗口一消失，很容易以为应用已经关了。
+                //弹个托盘提示说清楚「还在跑、怎么回来、怎么真退出」。
+                try
+                {
+                    trayIcon?.ShowBalloonTip(
+                        4000,
+                        "Alife 仍在运行",
+                        "已最小化到托盘。双击图标可恢复窗口；要真正退出，请右键托盘图标选「退出」。",
+                        ToolTipIcon.Info);
+                }
+                catch { }
             }
 
             e.Cancel = true;
