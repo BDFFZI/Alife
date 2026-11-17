@@ -212,7 +212,37 @@ public static class ClientChatStatistics
         return ok;
     }
 
-    /// <summary>回退到第 userTurnIndex 轮（按用户气泡序号）。</summary>
+    /// <summary>
+    /// 回档到第 userTurnIndex 轮并重新生成：保留那句输入，抹掉它之后的所有内容。
+    /// UI 侧同样只保留到这条用户气泡，后面的全删，再由 ChatRegenerating 建新的输入中气泡。
+    /// </summary>
+    public static async Task<bool> RewindAndRegenerateAsync(string name, int userTurnIndex)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
+            return false;
+
+        List<ChatMessage> list = GetMessages(name);
+        lock (list)
+        {
+            int seen = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].IsUser == false) continue;
+                if (++seen != userTurnIndex) continue;
+
+                //保留这条用户气泡，后面的全删
+                while (list.Count - 1 > i)
+                    list.RemoveAt(list.Count - 1);
+                break;
+            }
+        }
+
+        bool ok = await bot.RewindAndRegenerateAsync(userTurnIndex);
+        if (ok) MessageChanged?.Invoke(name);
+        return ok;
+    }
+
+    /// <summary>回退到第 userTurnIndex 轮（按用户气泡序号），只删不生成。</summary>
     public static async Task<int> RollbackToUserTurnAsync(string name, int userTurnIndex)
     {
         if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
