@@ -86,7 +86,13 @@ export function setupEnter(elementId, dotNetRef) {
 
         event.preventDefault();
         event.stopPropagation();
-        dotNetRef.invokeMethodAsync("OnEnterAsync", area.value);
+
+        //先同步抓取并清空 DOM，再异步调用 .NET：
+        //如果等 .NET 回调里再清，Blazor 排队的 input 事件可能把旧文本写回绑定字段，
+        //表现为「发出去了，但输入框里还留着刚才那条」。
+        const text = area.value;
+        clearInput(elementId);
+        dotNetRef.invokeMethodAsync("OnEnterAsync", text);
     });
 }
 
@@ -162,12 +168,16 @@ export function appendLine(elementId, text) {
     if (area) editValue(area, text, true);
 }
 
-// 发送后清空输入框：清空 DOM 即可，模型那边已经赋过值，不需要重建组件
+// 发送后清空输入框。
+// 必须派发 input 事件：Blazor 的 @bind-Value 只监听 input，
+// 纯改 area.value 会让真实 DOM 已空、绑定字段还留着旧文本，
+// 下一次 StateHasChanged 又把它渲染回去（聊天框残留）。
 export function clearInput(elementId) {
     const area = document.getElementById(elementId);
     if (!area) return;
 
     area.value = "";
+    area.dispatchEvent(new Event("input", { bubbles: true }));
     area.focus();
 }
 
