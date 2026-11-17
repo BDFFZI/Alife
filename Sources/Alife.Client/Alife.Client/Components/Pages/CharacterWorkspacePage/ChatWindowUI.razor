@@ -155,10 +155,24 @@
 
             <div class="chat-input-actions">
                 <Tooltip Title="@("上传文件")">
-                    <Button Icon="@IconType.Outline.Upload" OnClick="@OnUploadFile"/>
+                    <Button Icon="@IconType.Outline.Upload" OnClick="@OnUploadFile"
+                            Disabled="@isWorking"/>
                 </Tooltip>
-                <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Send"
-                        OnClick="@OnSendClickAsync">发送</Button>
+
+                @* 发送 / 终止 同一位置切换：生成中时这里就是终止按钮，最不容易漏掉 *@
+                @if (isWorking)
+                {
+                    <Tooltip Title="@("中断当前生成")">
+                        <Button Type="@ButtonType.Primary" Danger
+                                Icon="@IconType.Outline.Pause"
+                                OnClick="@OnStop">终止输出</Button>
+                    </Tooltip>
+                }
+                else
+                {
+                    <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Send"
+                            OnClick="@OnSendClickAsync">发送</Button>
+                }
             </div>
         </div>
     }
@@ -715,6 +729,9 @@
     Task ScrollToLatestAsync() => ChatModule.InvokeVoidAsync("scrollToLatest", streamId).AsTask();
     async Task SendAsync(string rawInputText)
     {
+        //生成中发送键已变成终止键，但 Enter 仍会走到这里 —— 挡住，避免打断当前输出
+        if (isWorking) return;
+
         // 输入框的值有两个来源：Enter 走 DOM（避免最后一次按键还没回到 .NET），按钮走绑定字段。
         // 清空时两边都要清，所以这里不再重建 TextArea 组件。
         inputText = "";
