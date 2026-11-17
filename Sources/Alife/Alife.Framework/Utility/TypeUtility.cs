@@ -127,4 +127,30 @@ public static class TypeUtility
             await DisposeObject(instance);
         }
     }
+
+    /// <summary>
+    /// 带超时地销毁一个对象。
+    /// 插件的 OnDestroy / Dispose 可能因为等模型、等锁、等网络而卡住，
+    /// 单个对象卡住不能拖死「停止角色」和「退出应用」。
+    /// 超时后放弃等待并记录警告——进程退出时 CLR 会回收，留下的是这个对象自己，不是整个应用。
+    /// </summary>
+    public static async Task DisposeObjectWithTimeout(object instance, TimeSpan timeout)
+    {
+        string name = GetReadableName(instance.GetType());
+
+        Task disposal = DisposeObject(instance);
+
+        Task finished = await Task.WhenAny(disposal, Task.Delay(timeout));
+        if (finished == disposal)
+        {
+            try { await disposal; }                 //让异常按原路径被上层处理
+            catch (Exception e) {
+                AlifeLog.LogWarning($"销毁 {name} 时出错：" + e.Message);
+            }
+        }
+        else
+        {
+            AlifeLog.LogWarning($"销毁 {name} 超过 {timeout.TotalSeconds:0.#}s 未返回，已跳过等待");
+        }
+    }
 }
