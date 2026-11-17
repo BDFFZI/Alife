@@ -149,6 +149,52 @@ public static class AlifeApplication
     }
 
     /// <summary>
+    /// 统一关闭入口。按「依赖方先停、基础最后停」的顺序释放关键资源，
+    /// 每一步都带超时和 try/catch：退出路径上任何一个模块卡住，都不能阻止进程干净退出。
+    /// 返回后调用方才 Environment.Exit。
+    /// </summary>
+    public static async Task ShutdownAlife(this IServiceProvider provider)
+    {
+        //1.先停 MCP：释放端口，避免后台残留监听
+        try
+        {
+            IAlifeApplication app = provider.GetRequiredService<IAlifeApplication>();
+            await app.StopAlifeMcpAsync().WaitAsync(TimeSpan.FromSeconds(6));
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogWarning("关闭 MCP 服务失败：" + e.Message);
+        }
+
+        //2.销毁所有活动角色（每个角色带超时，避免某个插件的 OnDestroy 卡死拖垮退出）
+        try
+        {
+            ChatActivitySystem chat = provider.GetRequiredService<ChatActivitySystem>();
+            foreach (ChatActivity activity in chat.GetAllChatActivities().ToArray())
+            {
+                try
+                {
+                    //走 Deactivate 而不是直接 Destroy：它会同步清理活动字典，
+                    //内部也有超时兜底，UI 不会留下"仍在运行"的幽灵角色
+                    await chat.Deactivate(activity.Character);
+                }
+                catch (Exception e)
+                {
+                    AlifeLog.LogWarning($"停止角色 {activity.Character.Name} 失败：" + e.Message);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            AlifeLog.LogWarning("销毁活动角色失败：" + e.Message);
+        }
+
+        //3.最后关日志，释放 alife.log 句柄。这样下一次启动删 Temp 目录不会再被自己占住
+        try { AlifeLog.Shutdown(); }
+        catch { }
+    }
+
+    /// <summary>
     /// 调用指定加载上下文中所有标了 <paramref name="lifecycleAttributeType"/> 的公开静态函数（内置代码与插件一视同仁）。
     /// 单个函数失败只记录不中断：一个插件的挂接失败不该拖垮整个客户端。
     /// </summary>
