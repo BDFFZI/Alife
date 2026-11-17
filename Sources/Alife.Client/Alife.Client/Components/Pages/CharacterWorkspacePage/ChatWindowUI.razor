@@ -36,6 +36,9 @@
                     @for (int i = 0; i < messages.Count; i++)
                     {
                         ChatMessage message = messages[i];
+                        //必须复制到局部变量：for 的 i 是共享变量，渲染完已经变成 Count，
+                        //lambda 捕获它会传越界值 —— 这正是"回退点了没反应"的原因。
+                        int rowIndex = i;
                         <div class="chat-row @(message.IsUser ? "chat-row-user" : "")">
                             <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
                                 @if (!string.IsNullOrEmpty(message.Reasoning))
@@ -71,7 +74,7 @@
                                 }
                                 else
                                 {
-                                    <div class="chat-text">@message.Content</div>
+                                    <div class="chat-text">@message.DisplayContent</div>
                                 }
                                 @if (message.IsInputting)
                                 {
@@ -93,28 +96,49 @@
                                     </button>
                                     <button type="button" title="回退到这条发起前（删除从这里开始的所有消息）"
                                             disabled="@isWorking"
-                                            @onclick="@(() => OnRollback(i))">
+                                            @onclick="@(() => OnRollback(rowIndex))">
                                         <Icon Type="@IconType.Outline.Rollback"/>
                                     </button>
                                 </div>
                             }
-                            else if (i == messages.Count - 1)
+                            else
                             {
-                                @* 最后一条 AI 气泡：生成中给停止，生成完给重生。
-                                   不要把 IsInputting 放进外层条件 —— 生成中正是最需要停止按钮的时候。 *@
                                 <div class="chat-msg-actions @(message.IsInputting ? "chat-msg-actions-always" : "")">
-                                    @if (message.IsInputting || isWorking)
+                                    @if (rowIndex == messages.Count - 1)
                                     {
-                                        <button type="button" title="停止生成"
-                                                @onclick="@OnStop">
-                                            <Icon Type="@IconType.Outline.Pause"/>
-                                        </button>
+                                        @* 生成中给停止，生成完给重生。
+                                           不要把 IsInputting 放进外层条件 —— 生成中正是最需要停止按钮的时候。 *@
+                                        if (message.IsInputting || isWorking)
+                                        {
+                                            <button type="button" title="停止生成"
+                                                    @onclick="@OnStop">
+                                                <Icon Type="@IconType.Outline.Pause"/>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" title="重新生成（这一版会保留，可左右切换回看）"
+                                                    @onclick="@OnRegenerate">
+                                                <Icon Type="@IconType.Outline.Reload"/>
+                                            </button>
+                                        }
                                     }
-                                    else
+
+                                    @* 多版本导航：所有 AI 气泡都能切，历史版本不会丢 *@
+                                    @if (message.CanSwitchVersion)
                                     {
-                                        <button type="button" title="重新生成（用同一条输入再问一次）"
-                                                @onclick="@OnRegenerate">
-                                            <Icon Type="@IconType.Outline.Reload"/>
+                                        <button type="button" title="上一版"
+                                                disabled="@(message.VersionIndex <= 0)"
+                                                @onclick="@(() => SwitchVersion(message, message.VersionIndex - 1))">
+                                            <Icon Type="@IconType.Outline.Left"/>
+                                        </button>
+                                        <span class="chat-version-label">
+                                            @(message.VersionIndex + 1)/@message.Versions.Count
+                                        </span>
+                                        <button type="button" title="下一版"
+                                                disabled="@(message.VersionIndex >= message.Versions.Count - 1)"
+                                                @onclick="@(() => SwitchVersion(message, message.VersionIndex + 1))">
+                                            <Icon Type="@IconType.Outline.Right"/>
                                         </button>
                                     }
                                 </div>
@@ -357,6 +381,17 @@
         background: var(--alife-hover-bg, rgba(128,128,128,0.12));
     }
     .chat-msg-actions button:disabled { opacity: 0.35; cursor: default; }
+
+    /* 多版本导航的 1/2 标号 */
+    .chat-version-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 2px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--alife-text-tertiary);
+        user-select: none;
+    }
 
     /* 用户消息的操作条右对齐 */
     .chat-row-user .chat-msg-actions { justify-content: flex-end; }
@@ -763,6 +798,13 @@
         await ClientChatStatistics.RegenerateAsync(Character.Name);
         await InvokeAsync(StateHasChanged);
         await ScrollToLatestAsync();
+    }
+
+    /// <summary>切换查看某一条消息的历史版本（重生产生的旧回复都会保留）。</summary>
+    void SwitchVersion(ChatMessage message, int index)
+    {
+        message.ShowVersion(index);
+        StateHasChanged();
     }
 
     async Task OnRollback(int userTurnIndex)
