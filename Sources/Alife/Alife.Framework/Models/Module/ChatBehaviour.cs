@@ -88,7 +88,15 @@ public class ChatBehaviour : IAsyncDisposable
             try
             {
                 AlifeLog.LogInformation($"{GetType().Name}::OnDestroy");
-                await OnDestroy();
+
+                //OnDestroy 是插件代码，可能因为等待网络、模型或锁而卡住。
+                //加超时保护：单个模块的销毁不能拖死整个角色停止/应用退出。
+                Task destroy = OnDestroy();
+                Task finished = await Task.WhenAny(destroy, Task.Delay(DestroyTimeout));
+                if (finished == destroy)
+                    await destroy;   //让异常继续被下面的 catch 捕获
+                else
+                    AlifeLog.LogWarning($"{GetType().Name}::OnDestroy 超过 {DestroyTimeout.TotalSeconds:0.#}s 未返回，已跳过等待");
             }
             catch (Exception e)
             {
@@ -96,6 +104,8 @@ public class ChatBehaviour : IAsyncDisposable
             }
         }
     }
+
+    static readonly TimeSpan DestroyTimeout = TimeSpan.FromSeconds(8);
 
     protected virtual Task OnAwake() => Task.CompletedTask;
     protected virtual Task OnStart() => Task.CompletedTask;
