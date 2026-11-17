@@ -137,6 +137,11 @@ public class ChatBot : IAsyncDisposable
         ChatMessageContent? observationMessage = null;
         bool chatOverRaised = false;
 
+        //记下「用户真正敲进去的那句话」。
+        //后面的 ChatSend / ChatContentSend 过滤器会往里拼时间、系统推送、工具文档等一大段上下文，
+        //那些是给模型看的，不该出现在聊天气泡里，否则用户看到的就是一坨注入内容。
+        string rawUserText = message.Content ?? "";
+
         void RaiseChatOverOnce()
         {
             if (chatOverRaised) return;
@@ -213,12 +218,12 @@ public class ChatBot : IAsyncDisposable
                     }, "装载用户消息");
                 }
 
-                //触发发送事件。重新生成时 UI 已有对应气泡，不要再建一条
+                //触发发送事件：传原始输入，别把注入内容甩到聊天气泡里
                 if (raiseChatSent)
                 {
                     try
                     {
-                        ChatSent?.Invoke(message.Content ?? "");
+                        ChatSent?.Invoke(rawUserText);
                     }
                     catch (Exception ex)
                     {
@@ -370,6 +375,30 @@ public class ChatBot : IAsyncDisposable
         catch { }
     }
 
+    /// <summary>
+    /// 从历史消息里剥出「用户真正敲的那句话」。
+    /// ChatSend 过滤器会把时间、系统推送、工具文档拼在前面，用户原话紧跟在
+    /// 客户端发消息时加的 [源(ChatWindow)] 标记后面，所以从该标记之后截取即可。
+    /// </summary>
+    static string RawUserText(ChatMessageContent user)
+    {
+        string text = user.Content ?? "";
+
+        //来源标记形如 [源(ChatWindow)]，具体文案由客户端配置，这里只认 [源( 前缀
+        int at = text.LastIndexOf("[源(", StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            int close = text.IndexOf(']', at);
+            if (close > at)
+            {
+                string tail = text.Substring(close + 1).Trim();
+                if (tail.Length > 0) return tail;
+            }
+        }
+
+        return text;
+    }
+
     /// <summary>历史被删改后通知记忆类插件重新落盘。异常不能影响主流程。</summary>
     void RaiseHistoryRewritten()
     {
@@ -411,7 +440,7 @@ public class ChatBot : IAsyncDisposable
         if (!removed || user == null) return false;
 
         //通知 UI：用户气泡不变，只替换最后一条 AI 气泡
-        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        try { ChatRegenerating?.Invoke(RawUserText(user)); }
         catch (Exception e) { AlifeLog.LogError(e); }
 
         //复用已在历史里的用户消息：不重复添加、不再触发 ChatSent
@@ -453,7 +482,7 @@ public class ChatBot : IAsyncDisposable
         if (!found || user == null) return false;
 
         //通知 UI：更新用户气泡内容并重建 AI 气泡
-        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        try { ChatRegenerating?.Invoke(RawUserText(user)); }
         catch (Exception e) { AlifeLog.LogError(e); }
 
         await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
@@ -527,7 +556,7 @@ public class ChatBot : IAsyncDisposable
         if (user == null) return false;
 
         //通知 UI 建「输入中」气泡，流式内容才有落点
-        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        try { ChatRegenerating?.Invoke(RawUserText(user)); }
         catch (Exception e) { AlifeLog.LogError(e); }
 
         await ChatAsyncCore(user, breakLast: true, addUserMessage: false, raiseChatSent: false, skipInjection: true);
@@ -588,6 +617,7 @@ public class ChatBot : IAsyncDisposable
             user = history[target];
             user.Content = newText;
 
+
             for (int i = history.Count - 1; i >= target + 1; i--)
                 history.RemoveAt(i);
             return Task.CompletedTask;
@@ -598,7 +628,7 @@ public class ChatBot : IAsyncDisposable
         if (user == null) return false;
 
         //通知 UI 建一条新的"输入中"气泡，否则流式内容没有落点，看起来就是没回复
-        try { ChatRegenerating?.Invoke(user.Content ?? ""); }
+        try { ChatRegenerating?.Invoke(RawUserText(user)); }
         catch (Exception e) { AlifeLog.LogError(e); }
 
         //重发：此时用户消息已在历史里且在最后，不重复添加、不重复触发 ChatSent
