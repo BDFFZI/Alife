@@ -39,6 +39,16 @@ static class Program
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2); //使Form使用物理像素渲染，从而解决画面模糊问题，但因此需要手动转换Dpi坐标。（webView不受影响，其始终使用转换后的坐标）
         Application.EnableVisualStyles(); //现代化 Form 预设组件样式
         Application.Run(provider.GetRequiredService<MainForm>());
+
+        //MainForm.Shutdown 已做过完整清理；这里是兜底：
+        //即使退出走了别的路径（异常、外部关闭），也要关掉日志句柄，
+        //否则 alife.log 会被占着，下一次启动删 Temp 目录时崩溃。
+        try { AlifeLog.Shutdown(); }
+        catch { }
+
+        try { (provider as IDisposable)?.Dispose(); }
+        catch { }
+
         Environment.Exit(0);
     }
 
