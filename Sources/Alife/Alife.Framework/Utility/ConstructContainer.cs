@@ -75,7 +75,12 @@ public class ConstructContainer
         async Task RemoveObject(object target)
         {
             if (isOwned.Contains(target))
-                await TypeUtility.DisposeObjectWithTimeout(target, PerObjectDisposeTimeout);
+            {
+                TimeSpan t = target is ChatBehaviour b
+                    ? b.EffectiveDestroyTimeout + TimeoutMargin
+                    : PerObjectDisposeTimeout;
+                await TypeUtility.DisposeObjectWithTimeout(target, t, OnTimeout);
+            }
 
             instances.Remove(target);
             isOwned.Remove(target);
@@ -172,10 +177,31 @@ public class ConstructContainer
 
             //每个对象独立超时：ChatBot、QChat 客户端、语音合成器、模型的 OnDestroy
             //都可能卡在网络或锁上。一个卡住不能让整个角色停不下来。
-            await TypeUtility.DisposeObjectWithTimeout(instance, PerObjectDisposeTimeout);
+            //
+            //ChatBehaviour 用它自己声明的宽限期 + 余量：
+            //例如系统事件模块要在销毁时生成道别，重写了更长的 DestroyTimeout，
+            //容器必须放同样长，否则外层 6s 会先把道别掐断（内层再长也没用）。
+            TimeSpan timeout = instance is ChatBehaviour behaviour
+                ? behaviour.EffectiveDestroyTimeout + TimeoutMargin
+                : PerObjectDisposeTimeout;
+
+            await TypeUtility.DisposeObjectWithTimeout(instance, timeout, OnTimeout);
         }
     }
 
+    /// <summary>容器超时兜底：打断 ChatBot 在途对话，避免模型后台空转。</summary>
+    static void OnTimeout(object instance)
+    {
+        try
+        {
+            ChatBot? bot = instance as ChatBot
+                ?? (instance as ChatBehaviour)?.ChatBot;
+            bot?.ChatBreakTokenSource.Cancel();
+        }
+        catch { }
+    }
+
+    static readonly TimeSpan TimeoutMargin = TimeSpan.FromSeconds(3);
     static readonly TimeSpan PerObjectDisposeTimeout = TimeSpan.FromSeconds(6);
 
     readonly List<(Type type, Func<Type, Task<object>> builder, bool isSingleton, bool spare)> types = new();
