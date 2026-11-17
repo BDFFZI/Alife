@@ -29,6 +29,13 @@ public class ChatMessage
     public void AppendContent(string text) => contentBuilder.Append(text);
     public void AppendReasoning(string text) => reasoningBuilder.Append(text);
 
+    /// <summary>改输入并重发时替换用户气泡内容。</summary>
+    public void SetContent(string text)
+    {
+        contentBuilder.Clear();
+        contentBuilder.Append(text);
+    }
+
     readonly StringBuilder contentBuilder = new();
     readonly StringBuilder reasoningBuilder = new();
 }
@@ -103,6 +110,75 @@ public static class ClientChatStatistics
             bot.Chat(MessageTag + message);
     }
 
+    // ---------------------------------------------------------------- 对话控制
+
+    /// <summary>停止当前生成；已生成的部分保留。</summary>
+    public static void Stop(string name)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot))
+            bot.Stop();
+    }
+
+    /// <summary>重新生成最后一条回复。返回是否成功发起。</summary>
+    public static Task<bool> RegenerateAsync(string name)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot))
+            return bot.RegenerateAsync();
+        return Task.FromResult(false);
+    }
+
+    /// <summary>改输入并重发：同时更新 UI 的用户气泡。</summary>
+    public static async Task<bool> EditAndRegenerateAsync(string name, string newText)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
+            return false;
+
+        //UI 的用户气泡要先改，ChatRegenerating 事件里只处理 AI 气泡
+        List<ChatMessage> list = GetMessages(name);
+        lock (list)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                if (list[i].IsUser)
+                {
+                    list[i].SetContent(newText);
+                    break;
+                }
+            }
+        }
+
+        bool ok = await bot.EditAndRegenerateAsync(newText);
+        if (ok) MessageChanged?.Invoke(name);
+        return ok;
+    }
+
+    /// <summary>
+    /// 回退本轮：同时删掉 UI 的最后一对气泡和模型历史的最后一轮。
+    /// </summary>
+    public static async Task<int> RollbackLastTurnAsync(string name)
+    {
+        if (ChatbotMap.TryGetValue(name, out ChatBot? bot) == false)
+            return 0;
+
+        int removed = await bot.RollbackLastTurnAsync();
+        if (removed > 0)
+        {
+            List<ChatMessage> list = GetMessages(name);
+            lock (list)
+            {
+                //先删尾部的 AI 气泡（可能因为中断/重生残留多条）
+                while (list.Count > 0 && list[^1].IsUser == false)
+                    list.RemoveAt(list.Count - 1);
+
+                //再删这一轮的用户气泡
+                if (list.Count > 0 && list[^1].IsUser)
+                    list.RemoveAt(list.Count - 1);
+            }
+            MessageChanged?.Invoke(name);
+        }
+        return removed;
+    }
+
     public static string GetDraft(string name) => DraftMap.GetValueOrDefault(name) ?? "";
     public static void SetDraft(string name, string draft) => DraftMap[name] = draft;
 
@@ -149,6 +225,40 @@ public static class ClientChatStatistics
 
             MessageChanged?.Invoke(name);
         };
+        //重新生成：用户气泡保持原样，只把最后一条 AI 气泡换成新的"输入中"气泡。
+        //编辑重发时，更新文本后再走这条路径。
+        activity.ChatBot.ChatRegenerating += text => {
+            lock (messages)
+            {
+                for (int i = messages.Count - 1; i >= 0; i--)
+                {
+                    if (messages[i].IsUser == false)
+                    {
+                        messages.RemoveAt(i);
+                        break;
+                    }
+                }
+
+                string? thinkingReason = null;
+                if (activity.ChatBot.LanguageModel != null)
+                {
+                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                        if (list.Count > 0)
+                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                    });
+                }
+
+                messages.Add(new ChatMessage {
+                    IsUser = false,
+                    IsInputting = true,
+                    ThinkingReason = thinkingReason,
+                    ReasoningExpanded = chatSettings.ShowReasoning,
+                });
+                TrimMessages(name);
+            }
+            MessageChanged?.Invoke(name);
+        };
+
         activity.ChatBot.ChatReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
