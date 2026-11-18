@@ -53,7 +53,7 @@ public class SystemEventService(
     protected override Task OnStart()
     {
         RefreshPrompt();
-        ChatBot.ChatSent += OnChatSent;
+        ChatBot.ChatFinished += OnChatFinished;
 
         //发送系统启动消息
         {
@@ -77,6 +77,7 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
+
     protected override Task OnUpdate()
     {
         deltaTime += UpdateContext.DeltaTime;
@@ -110,7 +111,7 @@ public class SystemEventService(
     }
     protected override async Task OnDestroy()
     {
-        ChatBot.ChatSent -= OnChatSent;
+        ChatBot.ChatFinished += OnChatFinished;
 
         await interactor.ChatAsync($"程序关闭中。{Configuration.DestroyPrompt}");
     }
@@ -126,11 +127,10 @@ public class SystemEventService(
                """
             : "");
     }
-    void OnChatSent(string message)
+    void OnChatFinished(ChatContext obj)
     {
-        if (message.Contains(ChatBot.PokeMessageTag) == false || message.Contains("\n\n" + ChatBot.PokeMessageTag))
+        if (obj.UserMessage.Contains(ChatBot.PokeMessageTag) == false || obj.UserMessage.Contains("\n\n" + ChatBot.PokeMessageTag))
             ResetTimer();
-
         deltaTime = 0;
     }
     void NextTimer()
