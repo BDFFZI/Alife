@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Alife.Foundation;
+using Microsoft.Win32;
 
 namespace Alife.Client.Windows;
 
@@ -74,21 +75,16 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
 
     public bool GetAutoStart()
     {
-        try
-        {
-            string result = WindowsCommand.Run("schtasks", $"/query /tn \"{AutoStartTaskName}\" /fo csv /nh").StandardOutput;
-            return result.Contains(AutoStartTaskName);
-        }
-        catch
-        {
-            return false;
-        }
+        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(AutoStartRegistryPath);
+        return (string?)key?.GetValue(AutoStartValueName) == AutoStartCommand;
     }
     public void SetAutoStart(bool value)
     {
-        WindowsCommand.Run("schtasks", value
-            ? $"/create /tn \"{AutoStartTaskName}\" /tr \"\\\"{LauncherPath}\\\"\" /sc onlogon /rl highest /f"
-            : $"/delete /tn \"{AutoStartTaskName}\" /f");
+        using RegistryKey key = Registry.CurrentUser.CreateSubKey(AutoStartRegistryPath);
+        if (value)
+            key.SetValue(AutoStartValueName, AutoStartCommand);
+        else
+            key.DeleteValue(AutoStartValueName, false);
     }
 
     public IReadOnlyList<EnvironmentItem> GetEnvironmentItems()
@@ -101,8 +97,10 @@ class WindowsAlifeClient(WindowsAlifeFoundation windowsAlifeFoundation, WindowsE
     }
 
     const string UpdateAssetName = "Alife.Client.Windows.exe";
-    const string AutoStartTaskName = "Alife.Client.Windows";
+    const string AutoStartRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    const string AutoStartValueName = "Alife.Client.Windows";
     const string LauncherFileName = "Alife.Client.Windows.exe";
     static readonly string InstallRoot = AppContext.BaseDirectory;
     static readonly string LauncherPath = Path.Combine(InstallRoot, LauncherFileName);
+    static readonly string AutoStartCommand = $"\"{LauncherPath}\"";
 }
