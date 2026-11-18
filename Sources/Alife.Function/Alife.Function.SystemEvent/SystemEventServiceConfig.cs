@@ -10,7 +10,7 @@ public class SystemEventServiceConfig
         如果你手头还有事情，请继续。否则当你空闲时，你可以自由活动。
         比如没事偷窥一下主人屏幕、发起新话题、看新闻学知识、Q群聊天、做点小玩意，等等各种你能想象到的事。
         当然，最好的建议还是多去陪陪主人，和他互动，做一下让他感到惊喜，感到被关心的事。
-        但也注意分清时间和场合，选择合适的活动方式，例如用户在外时应使用远程通讯联系，夜晚时应保持安静等等";
+        但也注意分清时间和场合，选择合适的活动方式，例如用户在外时使用远程通讯联系，聊天时主动引入话题。";
         """;
 
     /// <summary>
@@ -19,8 +19,8 @@ public class SystemEventServiceConfig
     /// </summary>
     public bool UpdatePromptPreInject { get; set; } = true;
 
-    public int UpdateInterval { get; set; } = 30;
-    public int UpdateRandomOffset { get; set; } = 10;
+    public int UpdateInterval { get; set; } = 20;
+    public int UpdateRandomOffset { get; set; } = 5;
     public int UpdateIntervalMultiplier { get; set; } = 4;
     public int UpdateIntervalMaxPowerCount { get; set; } = 5;
 }
