@@ -31,43 +31,41 @@
             }
             else
             {
-                @lock (messages)
+                @foreach (ChatMessage message in SnapshotMessages(messages))
                 {
-                    @foreach (ChatMessage message in messages)
-                    {
-                        <div class="chat-row @(message.IsUser ? "chat-row-user" : "")">
-                            <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
-                                @if (!string.IsNullOrEmpty(message.Reasoning))
-                                {
-                                    <div class="chat-reasoning">
-                                        <div class="chat-reasoning-title"
-                                             @onclick="@(() => message.ReasoningExpanded = message.ReasoningExpanded == false)">
-                                            <Icon Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
-                                            <span>思考过程</span>
-                                            <span class="chat-reasoning-caret @(message.ReasoningExpanded ? "is-open" : "")">▼</span>
-                                        </div>
+                    bool hasReasoning = message.HasReasoning;
+                    <div class="chat-row @(message.IsUser ? "chat-row-user" : "")" @key="message">
+                        <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
+                            @if (hasReasoning)
+                            {
+                                <div class="chat-reasoning">
+                                    <div class="chat-reasoning-title"
+                                         @onclick="@(() => message.ReasoningExpanded = message.ReasoningExpanded == false)">
+                                        <Icon Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
+                                        <span>思考过程</span>
+                                        <span class="chat-reasoning-caret @(message.ReasoningExpanded ? "is-open" : "")">▼</span>
+                                    </div>
 
-                                        @if (message.ReasoningExpanded)
+                                    @if (message.ReasoningExpanded)
+                                    {
+                                        @if (!string.IsNullOrEmpty(message.ThinkingReason))
                                         {
-                                            @if (!string.IsNullOrEmpty(message.ThinkingReason))
-                                            {
-                                                <div class="chat-reasoning-reason">思考原因：@message.ThinkingReason</div>
-                                            }
-                                            <div class="chat-reasoning-content">@message.Reasoning</div>
+                                            <div class="chat-reasoning-reason">思考原因：@message.ThinkingReason</div>
                                         }
-                                    </div>
-                                }
-                                <div class="chat-text">@message.Content</div>
-                                @if (message.IsInputting)
-                                {
-                                    <div class="chat-typing">
-                                        <Icon Type="@IconType.Outline.Loading"/>
-                                        <span>输入中</span>
-                                    </div>
-                                }
-                            </div>
+                                        <div class="chat-reasoning-content">@message.Reasoning</div>
+                                    }
+                                </div>
+                            }
+                            <div class="chat-text">@message.Content</div>
+                            @if (message.IsInputting)
+                            {
+                                <div class="chat-typing">
+                                    <Icon Type="@IconType.Outline.Loading"/>
+                                    <span>输入中</span>
+                                </div>
+                            }
                         </div>
-                    }
+                    </div>
                 }
             }
         </div>
@@ -184,6 +182,10 @@
         display: flex;
         width: 100%;
         margin-bottom: 14px;
+        /* 历史消息离屏时跳过排版：流式输出每次刷新只重排当前这一行，
+           否则整段对话（实测 60 万字符）会在每个节拍上被完整重排一次。 */
+        content-visibility: auto;
+        contain-intrinsic-size: auto 120px;
     }
 
     .chat-row-user {
@@ -541,6 +543,12 @@
     {
         ClientChatStatistics.ClearMessages(Character.Name);
         StateHasChanged();
+    }
+    /// <summary>渲染只遍历快照：列表在锁内只复制引用，流式回调不会被整段渲染阻塞。</summary>
+    static ChatMessage[] SnapshotMessages(List<ChatMessage> source)
+    {
+        lock (source)
+            return source.ToArray();
     }
     /// <summary>全局开关只管“新到达的消息默认展开”和“把所有已显示的思考一次性展开/收起”，之后用户仍然可以自己点开某一条。</summary>
     void OnShowReasoningChanged(bool value)

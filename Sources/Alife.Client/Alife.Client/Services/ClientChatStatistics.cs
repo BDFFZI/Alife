@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Alife.Framework;
 
@@ -12,13 +13,35 @@ public class ChatSettings
 
 public class ChatMessage
 {
-    /// <summary>取值每次都会生成新字符串，但流式输出只累积不拼接，避免每来一块都复制整串。</summary>
+    /// <summary>
+    /// 取值命中缓存时返回同一字符串实例，Blazor 比较文本帧会直接命中引用相等，
+    /// 长对话不会在每次流式刷新时把所有历史消息重新复制一遍。
+    /// </summary>
     public string Content
     {
-        get => contentBuilder.ToString();
-        init => contentBuilder.Append(value);
+        get
+        {
+            lock (textLock)
+                return content ??= contentBuilder.ToString();
+        }
+        init => AppendContent(value);
     }
-    public string Reasoning => reasoningBuilder.ToString();
+    public string Reasoning
+    {
+        get
+        {
+            lock (textLock)
+                return reasoning ??= reasoningBuilder.ToString();
+        }
+    }
+    public bool HasReasoning
+    {
+        get
+        {
+            lock (textLock)
+                return reasoningBuilder.Length != 0;
+        }
+    }
     public string? ThinkingReason { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
@@ -26,11 +49,28 @@ public class ChatMessage
     /// <summary>思考过程是否展开。新消息按全局开关初始化，之后由用户点击决定，渲染不再覆盖。</summary>
     public bool ReasoningExpanded { get; set; }
 
-    public void AppendContent(string text) => contentBuilder.Append(text);
-    public void AppendReasoning(string text) => reasoningBuilder.Append(text);
+    public void AppendContent(string text)
+    {
+        lock (textLock)
+        {
+            contentBuilder.Append(text);
+            content = null;
+        }
+    }
+    public void AppendReasoning(string text)
+    {
+        lock (textLock)
+        {
+            reasoningBuilder.Append(text);
+            reasoning = null;
+        }
+    }
 
+    readonly object textLock = new();
     readonly StringBuilder contentBuilder = new();
     readonly StringBuilder reasoningBuilder = new();
+    string? content;
+    string? reasoning;
 }
 
 public static class ClientChatStatistics
@@ -86,15 +126,14 @@ public static class ClientChatStatistics
 
     public static List<ChatMessage> GetMessages(string name)
     {
-        if (MessagesMap.ContainsKey(name) == false)
-            MessagesMap.Add(name, new List<ChatMessage>());
-        return MessagesMap[name];
+        return MessagesMap.GetOrAdd(name, _ => new List<ChatMessage>());
     }
     public static void ClearMessages(string name)
     {
         if (MessagesMap.TryGetValue(name, out List<ChatMessage>? list))
         {
-            list.Clear();
+            lock (list)
+                list.Clear();
         }
     }
     public static void SendMessage(string name, string message)
@@ -106,8 +145,8 @@ public static class ClientChatStatistics
     public static string GetDraft(string name) => DraftMap.GetValueOrDefault(name) ?? "";
     public static void SetDraft(string name, string draft) => DraftMap[name] = draft;
 
-    static readonly Dictionary<string, ChatBot> ChatbotMap = new();
-    static readonly Dictionary<string, List<ChatMessage>> MessagesMap = new();
+    static readonly ConcurrentDictionary<string, ChatBot> ChatbotMap = new();
+    static readonly ConcurrentDictionary<string, List<ChatMessage>> MessagesMap = new();
     static readonly Dictionary<string, string> DraftMap = new();
 
     const string SettingsKey = "Settings/ChatSettings";
@@ -125,19 +164,18 @@ public static class ClientChatStatistics
         ChatbotMap[name] = activity.ChatBot; // 幂等：直接赋值覆盖，避免重复激活时抛异常
         ChatbotMapUpdated?.Invoke();
         activity.ChatBot.ChatSent += message => {
+            string? thinkingReason = null;
+            if (activity.ChatBot.LanguageModel != null)
+            {
+                activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
+                    if (list.Count > 0)
+                        thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
+                });
+            }
+
             lock (messages)
             {
                 messages.Add(new ChatMessage { Content = message, IsUser = true });
-                string? thinkingReason = null;
-
-                if (activity.ChatBot.LanguageModel != null)
-                {
-                    activity.ChatBot.LanguageModel.GetThinkingRequester().Query(list => {
-                        if (list.Count > 0)
-                            thinkingReason = string.Join(" | ", list.Select(marker => marker.Reason));
-                    });
-                }
-
                 messages.Add(new ChatMessage {
                     IsUser = false,
                     IsInputting = true,
@@ -150,31 +188,43 @@ public static class ClientChatStatistics
             MessageChanged?.Invoke(name);
         };
         activity.ChatBot.ChatReceived += (obj) => {
-            ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
-            if (aiMessage != null)
+            lock (messages)
             {
+                ChatMessage? aiMessage = messages.FindLast(m => m is { IsUser: false, IsInputting: true });
+                if (aiMessage == null)
+                    return;
+
                 aiMessage.IsReasoning = false;
                 aiMessage.AppendContent(obj);
-                MessageChanged?.Invoke(name);
             }
+
+            MessageChanged?.Invoke(name);
         };
         activity.ChatBot.ReasoningReceived += (obj) => {
-            ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
-            if (aiMessage != null)
+            lock (messages)
             {
+                ChatMessage? aiMessage = messages.FindLast(m => m is { IsUser: false, IsInputting: true });
+                if (aiMessage == null)
+                    return;
+
                 aiMessage.IsReasoning = true;
                 aiMessage.AppendReasoning(obj);
-                MessageChanged?.Invoke(name);
             }
+
+            MessageChanged?.Invoke(name);
         };
         activity.ChatBot.ChatOver += () => {
-            ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
-            if (aiMessage != null)
+            lock (messages)
             {
+                ChatMessage? aiMessage = messages.FindLast(m => m is { IsUser: false, IsInputting: true });
+                if (aiMessage == null)
+                    return;
+
                 aiMessage.IsReasoning = false;
                 aiMessage.IsInputting = false;
-                MessageChanged?.Invoke(name);
             }
+
+            MessageChanged?.Invoke(name);
         };
         activity.ChatBot.ChatExceptionThrow += exception => {
             if (exception is OperationCanceledException)
@@ -185,13 +235,13 @@ public static class ClientChatStatistics
     }
     static void OnActivationFailed(Character arg1, Exception arg2)
     {
-        ChatbotMap.Remove(arg1.Name);
+        ChatbotMap.TryRemove(arg1.Name, out _);
         ChatbotMapUpdated?.Invoke();
     }
     static void OnActivityDeactivated(ChatActivity activity)
     {
         string name = activity.Character.Name;
-        ChatbotMap.Remove(name);
+        ChatbotMap.TryRemove(name, out _);
         ChatbotMapUpdated?.Invoke();
     }
 

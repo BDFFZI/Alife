@@ -12,9 +12,25 @@ function isNearBottom(area) {
     return area.scrollHeight - area.scrollTop - area.clientHeight < bottomThreshold;
 }
 
+function scrollToBottom(stream) {
+    const area = stream.area;
+    const target = area.scrollHeight - area.clientHeight;
+    // 位置没有变化时不会触发 scroll 事件，不能留下记录，否则下一次真正的用户滚动会被误吞。
+    if (Math.abs(area.scrollTop - target) < 1) return;
+    stream.programmaticTop = target;
+    area.scrollTop = target;
+}
+
 function setPinned(stream, value) {
     stream.pinned = value;
     stream.body.dataset.atBottom = value ? "true" : "false";
+    // 贴底时由 rAF 直接写 scrollTop，关掉浏览器锚定避免两者互相拉扯；
+    // 用户回看历史时交给浏览器锚定，离屏消息懒排版后视口才不会跳。
+    const anchor = value ? "none" : "auto";
+    if (stream.anchor !== anchor) {
+        stream.area.style.overflowAnchor = anchor;
+        stream.anchor = anchor;
+    }
 }
 
 // 流式输出每来一个字都会改动 DOM，逐次设 scrollTop 会让滚动条来回跳；
@@ -23,7 +39,7 @@ function stickToBottom(stream) {
     if (stream.pinned == false || stream.frame) return;
     stream.frame = requestAnimationFrame(() => {
         stream.frame = 0;
-        stream.area.scrollTop = stream.area.scrollHeight;
+        scrollToBottom(stream);
     });
 }
 
@@ -42,9 +58,6 @@ export function setupStream(bodyId, streamId) {
     if (existing && existing.area === area) return;
     if (existing) release(existing);
 
-    // 关掉浏览器自带的滚动锚定，滚动位置只由这套逻辑决定
-    area.style.overflowAnchor = "none";
-
     const controller = new AbortController();
     const stream = {
         body: body,
@@ -52,13 +65,22 @@ export function setupStream(bodyId, streamId) {
         controller: controller,
         pinned: true,
         frame: 0,
+        programmaticTop: null,
         observer: new MutationObserver(() => stickToBottom(stream)),
     };
-    area.addEventListener("scroll", () => setPinned(stream, isNearBottom(area)), { passive: true, signal: controller.signal });
+    area.addEventListener("scroll", () => {
+        // 贴底写入同样会触发 scroll；位置仍是我们写入的值时视为程序化滚动。
+        // 用户滚动若与之合并成同一次事件，位置已不相等，不会被误吞。
+        if (stream.programmaticTop !== null && Math.abs(area.scrollTop - stream.programmaticTop) < 1) {
+            stream.programmaticTop = null;
+            return;
+        }
+        setPinned(stream, isNearBottom(area));
+    }, { passive: true, signal: controller.signal });
     stream.observer.observe(area, { childList: true, subtree: true, characterData: true });
     streams.set(streamId, stream);
     setPinned(stream, true);
-    area.scrollTop = area.scrollHeight;
+    scrollToBottom(stream);
 }
 
 export function scrollToLatest(streamId) {
@@ -66,7 +88,7 @@ export function scrollToLatest(streamId) {
     if (!stream) return;
 
     setPinned(stream, true);
-    stream.area.scrollTop = stream.area.scrollHeight;
+    scrollToBottom(stream);
 }
 
 export function setupEnter(elementId, dotNetRef) {
