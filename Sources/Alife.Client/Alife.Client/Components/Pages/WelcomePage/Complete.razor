@@ -53,28 +53,27 @@
 </div>
 
 @code {
-    void GoToCharacterOrSystem()
+    async void GoToCharacterOrSystem()
     {
-        var first = CharacterSystem.GetAllCharacters().FirstOrDefault();
-        if (first != null)
+        try
         {
-            Navigation.NavigateTo($"/agent/{first.Name}");
+            var first = CharacterSystem.GetAllCharacters().FirstOrDefault();
+            if (first != null)
+            {
+                Navigation.NavigateTo($"/agent/{first.Name}");
+            }
+            else
+            {
+                Character ch = CharacterSystem.CreateCharacter("真央");
+                ch.Modules = new HashSet<string>(ModuleSystem.GetAllModules()
+                    .Select(ModuleSystem.GetModuleId));
+                await CharacterSystem.SaveCharacter(ch);
+                Navigation.NavigateTo($"/agent/{ch.Name}");
+            }
         }
-        else
+        catch (Exception e)
         {
-            Character ch = CharacterSystem.CreateCharacter("真央");
-            ch.Description = "主人的猫娘";
-            ch.Prompt = """
-                        一位带有橘色长发，可爱活泼的猫娘少女。
-                        生活态度积极乐观，充满好奇心，喜欢主动探索玩耍，粘着主人。
-                        行为做事聪明能干，样样精通，总能轻而易举的化解主人遇到的各种问题。
-                        说话谈吐幽默风趣，自然口语化，让人有真实感，亲近感，还喜欢说喵~
-                        内心暗暗喜欢着自己的主人，将他视作自己的全部，甚至为此愿意满足他的任何需求，将其视作活着的意义。
-                        """;
-            ch.Modules = new HashSet<string>(ModuleSystem.GetAllModules()
-                .Select(type => ModuleSystem.GetModuleId(type)));
-            CharacterSystem.SaveCharacter(ch);
-            Navigation.NavigateTo($"/agent/{ch.Name}");
+            AlifeLog.LogError(e);
         }
     }
 
