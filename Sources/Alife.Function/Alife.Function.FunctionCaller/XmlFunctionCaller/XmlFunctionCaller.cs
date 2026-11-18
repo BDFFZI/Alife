@@ -15,7 +15,7 @@ namespace Alife.Function.FunctionCaller;
 public class XmlFunctionCallerConfig
 {
     [Description("触发子句分隔的字符标记。调整子句会对字幕、语音生成等流式输出的功能产生影响")]
-    public List<string> Separators { get; set; } = ["，", "。", "！", "？", "…", "...", "~", "—", "\n"];
+    public List<string> Separators { get; set; } = ["，", "。", "！", "？", "…", "...", "~", "～", "—", "\n"];
 
     [Description("触发子句分隔的最短文本长度（字符数）")] public int MinBreakingLength { get; set; } = 23;
 }
@@ -306,7 +306,7 @@ public partial class XmlFunctionCaller(
              ## 使用提示
 
              1. 由于xml的解释器的存在，【" | & | < | >】之类的xml符号都无法直接输出，你需要使用xml转义的方式【&quot; | &amp; | &lt; | &gt;】来输出尖括号。
-             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条，所有函数将按顺序执行，并在下一论对话中将结果返回给你。
+             2. xml调用方式非常自由，允许你进行嵌套，或一次使用多条。嵌套的函数将按顺序执行，并列的则可能顺序或并行。调用结果会在下一论对话中返回。
              3. 由于返回值是延迟的，所以你要学会中断自己的输出来等待系统结果，并通过多轮对话解决事情（如先调用隐式文档，等到收到结果后，再选择函数）
              4. 不要使用文档中不存在的函数，不要自己编造函数的返回结果。保持对函数注意力，学会循序规划的进行调用流程。
              5. 可以使用`#parallel='true/false'`参数来控制函数是否并行执行，借此可以实现任务的多线程加速，例如将说话和做事重叠进行。
@@ -314,25 +314,25 @@ public partial class XmlFunctionCaller(
              7. 学会为你的行为添加注释（`<!---->`）。注释中的文字可以让未来的你看到，借此你可以引导自己的情绪变化、规划解释后续操作等。一定要养成每次操作前加注释的习惯。
 
              ## 【对话输出示例】
-             
+
              请使用如下方式和用户对话。（注意，示例中的函数不一定存在）
              ```
              <!-- 用户最近有些气馁，我也很难受，我准备给他看我最近发现的一个有趣表情包，来给他加加油！为了展示图片，我需要使用python，并同时配上鼓励的话语-->
-             
+
              <!-- python执行通常需要时间，所以我要先执行python并利用#parallel将其后台运行，从而和后续的说话函数重叠进行 -->
              <Python timeout='7' #parallel='true'>
              import os
              os.startfile('cheer.png')
              <Python>
-             
-             <!-- Speak中的内容通常专用于发给用户，部分情况还支持穿插表情动作，我可以用其来实现更加生动有趣的交互 -->
-             <Speak>
-             主人你看我画的好不好看，
-             <Expression option="开心" />今天特意给你画的噢！
-             <Motion option="摆摆手"/>看你每天那么累，给你打打气。
+
+       
+             <Speak>主人你看我画的好不好看，
+                <!-- 开闭标签中可以嵌套其他函数，例如穿插表情动作来实现更加生动有趣的线性交互 -->
+                <Expression option="开心" />今天特意给你画的噢！
+                <Motion option="摆摆手"/>看你每天那么累，给你打打气。
              </Speak>
              ```   
-             
+
              ## 当前可用功能
 
              {string.Join("\n", explicitHandlers.Select(GetExplicitDocument))}
