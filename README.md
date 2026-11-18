@@ -26,6 +26,7 @@
 ![Alife Logo](https://img.shields.io/badge/Alife-AI_Assistant-blue?style=for-the-badge)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-lightgrey?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=for-the-badge)
 
 欢迎来到 Alife！
@@ -51,23 +52,34 @@ AI 的生命而搭建！
 
 ## 🌟 功能列举 (Functions)
 
-- 🎭 桌宠交互：通用桌宠交互框架，默认使用live2D，可完全自定义，具备丰富交互，告别枯燥的对话框。
+- 🎭 桌宠交互：通用桌宠交互框架，默认使用 Live2D，可完全自定义，具备丰富交互，告别枯燥的对话框。
 - 👁️ 深度视觉：拍照不怕没人分享，还会没事偷偷看主人，在你游戏工作的时候，陪你一起吐槽。
-- 🎙️ 语音对话：放下键盘，直接说话，基于神经网络的语音配合流式合成，实现高品质通话级语音。
+- 🎙️ 语音对话：放下键盘，直接说话，基于神经网络的语音识别与流式合成，实现高品质通话级语音。
 - 🧠 长期记忆：稳定强大的记忆系统，超大虚拟上下文，所有记录均可溯源搜索，确保记住生活中的点滴。
-- 📱 平台通讯：额外支持QQ、TG等多种通讯平台，出门了也能联系在家的她，还能没事带去见见群友。
+- 📱 平台通讯：支持 QQ（OneBot v11）等通讯平台，出门了也能联系在家的她，还能没事带去见见群友。
 - 🤖 自主活动：闲时会自娱自乐，有自己爱好和生活，会主动的找你玩耍分享见闻，就像真实的生命那样。
 - 🌐 网上冲浪：拥有一个属于自己的真实浏览器，能够自主上网学习娱乐，让知识不再停滞，每天都有新话题。
-- 💻 脚本执行：能借助python在本地执行各种任务，唱歌绘画，办公辅助，除开对话同时也是一个实用的助手。
+- 💻 脚本执行：能在设备上运行命令与 Python 脚本，唱歌绘画，办公辅助，除开对话同时也是一个实用的助手。
 - 🔗 多开互联：支持角色多开并可相互交流，借此构建一个完整的赛博世界，让他们也有自己的社交圈子。
 - 🔄 自我升级：允许ai直接编辑插件，并自行编译重载，让ai自己改造自己，不再是一种科幻场景。
-- ️️🛠️ 扩展能力：支持自定义插件，以及接入 MCP、Skills 功能，通过标准化的AI生态，自由方便的扩展功能。
+- 🛠️ 扩展能力：支持自定义插件，以及接入 MCP、Skills 功能，通过标准化的AI生态，自由方便的扩展功能。
 - 🖼️ 原生多模态：原生支持图片、视频、文件等多种内容类型，图片复制粘贴即可发送，AI 可以"看见"世界。
 - 🎮 通用游戏陪玩：基于视觉与音频采集的通用游戏陪玩系统，为不同游戏配置数据采集目标（文本/颜色/语音），实时感知并汇报给 AI。
 - ⛏️ 一起玩MC：通过 Numen MCP 连接 Minecraft，让 AI 真正进入你的游戏世界，陪伴你一起生存冒险。
+- 🖥️ 双端客户端：Windows 与 Android 官方客户端，手机上的 AI 与电脑上的 AI 使用同一套框架。
 - 还有更多......
 
 Alife 是全插件框架，并且完全支持自动开发，每个人都可以成为开发者，让你的 AI 来帮你释放想象力。
+
+### 平台差异
+
+| 能力 | Windows | Android |
+| --- | --- | --- |
+| 对话、记忆、角色与插件管理 | ✅ | ✅ |
+| 语音识别与合成 | ✅ | ✅ |
+| 脚本与命令执行 | ✅ 直接执行 | ✅ 需授权 Shizuku |
+| 桌宠、视觉感知 | ✅ | ✅ 适配程度不同 |
+| 网上冲浪（浏览器）、通用游戏陪玩 | ✅ | ❌ 暂未支持 |
 
 ---
 
@@ -81,7 +93,6 @@ Alife 是全插件框架，并且完全支持自动开发，每个人都可以�
 - **稳定持久的自动化记忆**：不使用不可靠的AI自主记忆存储，改为基于类似多级cache思想的一套自动化记忆压缩系统，实现让对话经历伪常驻的效果。
 - **节省词元降低开销交互**：对话上下文有意复用会话、分区维护、保持稳定，提示词也是完全由人工手写测试，再配合自实现的函数调用，词元开销非常小。
 - **模块化白盒化软件结构**：功能高度模块化，实现简单清晰，很容易就能将单个功能拆离复用。运行信息白盒化，对话和上下文均配专用UI完整显示。
-
 
 ---
 
@@ -119,13 +130,13 @@ Alife 是全插件框架，并且完全支持自动开发，每个人都可以�
 - **v0**：实现基本功能原型。
 - **v1**：实现全功能插件化，热编译，极大降低插件开发门槛。
 - **v2**：实现插件市场，自由上传下载插件，极大优化插件生态。
-- **v3**：更换为跨平台前端 ElectronNET，为未来的跨平台功能铺路。
+- **v3**：更换前端架构，为跨平台铺路。
 - **v4**：插件框架内部重构，使其更加现代化。
     - 增加完全的热重载支持，使在角色运行期间也可以热重载功能。
     - 优化异常处理和多线程并行计算，大幅增强鲁棒性和运行性能。
     - 将软件 MCP 化，让外部程序可以全自动化的进行 Alife 开发。
-- **当前**：完善精品化现有功能，发展插件生态。
-- **未来**：实现跨平台，尝试移植到其他 PC 端，甚至手机端。
+- **v5**：实现跨平台支持，拆分平台和内核层，官方提供 Windows 和 Android客户端。
+- **当前**：继续完善精品化现有功能，发展更多实用有趣的插件，增加插件社区。
 
 ### 设计理念
 
@@ -139,8 +150,8 @@ Alife 是全插件框架，并且完全支持自动开发，每个人都可以�
 
 本框架配有官方图形客户端，准备了专门的新手引导页面，全自动检测配置环境，功能依赖自动下载安装，简单到一路点鼠标就行。
 
-1. **下载软件**：前往仓库右侧的 [Releases](https://github.com/bdffzi/Alife/releases) 页面，下载最新的软件压缩包（zip）。
-2. **配置环境**：解压压缩包到安装目录后，直接按UI提示的流程进行配置。
+1. **下载软件**：前往仓库右侧的 [Releases](https://github.com/bdffzi/Alife/releases) 页面，下载对应平台的最新版本。
+2. **配置环境**：Windows 运行安装程序（缺少 .NET SDK 10 时会自动在线安装），Android 安装 APK（需 Android 8.0 及以上的 arm64 设备）。之后直接按UI提示的流程进行配置。
 3. **开启陪伴**：配置完跳到角色页后，全选功能模块，直接点击 **激活角色** 开启陪伴。
 
 （注意！软件运行过程中会自动下载需要的各种依赖，虽然已经配了国内镜像，但依旧很久。如果功能全开，可能需要一个小时左右，注意观察任务管理器，只要有明显的磁盘或网络波动，就说明软件还在正常处理中）
@@ -149,8 +160,9 @@ Alife 是全插件框架，并且完全支持自动开发，每个人都可以�
 
 1. 应用内的模型均使用 `modelscope` 下载。该工具默认会将模型下载到 C 盘用户文件夹中，但实际上也可以通过环境变量调整位置（具体查看官方文档），这样
    C 盘不够的人也可以下载了。
-2. 建议使用 NVidia 显卡，并至少有 2G 显存，注意升级驱动，确保其支持 CUDA。当然如果不支持也应该可以运行，只是无法使用完整的深度视觉识别能力，其他模型
+2. 建议 Windows 端使用 NVidia 显卡，并至少有 2G 显存，注意升级驱动，确保其支持 CUDA。当然如果不支持也应该可以运行，只是无法使用完整的深度视觉识别能力，其他模型
    CPU 版应该也支持。
+3. Android 端的命令执行依赖 [Shizuku](https://shizuku.rikka.app/)，授权后 AI 才能在手机上执行 shell 命令。
 
 ---
 
@@ -184,7 +196,7 @@ alife-mcp 提供了完整的对 Alife 框架的所有控制功能：
 
 我懒得再写文档了，因为维护多个副本实在太麻烦了。
 
-所以这样吧，此 MPC 对应的就是 Alife.Framework 项目中的 `AlifeMcp.cs`，你直接将此源码当文档看吧，我相信老资历的实力💪
+所以这样吧，此 MCP 对应的就是 `Sources/Alife/Alife.Application/AlifeMcpTools.cs`，你直接将此源码当文档看吧，我相信老资历的实力💪
 
 ### 插件市场仓库
 
@@ -201,9 +213,11 @@ Alife 是全插件框架，并支持通过在线市场分享自己的插件。�
 ### 📦 基本依赖
 
 - .NET 10 SDK：编程语言生态
-- Python 3.12：本地模型接入
-- Semantic Kernel：基本llm协议接入
-- ASP.NET + Blazor + AntDesign + ElectronNET：前端界面框架
+- Python 3.12：本地模型与脚本运行环境（Windows 客户端自动安装嵌入版）
+- Semantic Kernel：OpenAI 协议的 LLM 接入
+- Blazor + AntDesign：共享界面，Windows 端由 WinForms + WebView2 承载，Android 端由 .NET MAUI BlazorWebView 承载
+- Android 构建额外需要 .NET MAUI 工作负载、Android SDK / NDK 与 JDK
+- Inno Setup：生成 Windows 安装程序（仅发布时需要）
 
 ### 🏛️ 解决方案目录结构
 
@@ -211,21 +225,25 @@ Alife 采用全插件化架构，解决方案按目录分组组织：
 
 ```
 Sources/
-├── Alife/                              # 实现基础框架和图形化客户端
-│   ├── Alife.Foundation/               # 提供 Alife 的基础必要功能实现环境。
-│   ├── Alife.Framework/                # 实现AI活动所需的基本框架，允许使用者通过模块机制、事件、管理系统来扩展控制框架功能。
-│   └── Alife.Client/                   # 是内核的官方前端封装，用于图形化操控框架中的各种系统，额外还接入了环境检测，新手引导等辅助功能。
+├── Alife/                              # 核心框架
+│   ├── Alife.Foundation/               # 基础设施：日志、配置、上下文、镜像
+│   ├── Alife.Framework/                # 核心功能：模块机制、系统服务（Models / Services / Utility）
+│   ├── Alife.PluginSystem/             # 插件机制：C# 编译、依赖解析、隔离加载，插件市场
+│   └── Alife.Application/              # 跨平台应用层：宿主抽象、界面基类、环境安装器、MCP 服务
 │
-├── Alife.DeskPet/                      # 桌宠子系统
-│   ├── Alife.DeskPet.Client/           # Live2D 桌宠外挂程序
-│   └── Alife.DeskPet.Protocol/         # IPC 协议库
+├── Alife.Client/                       # 官方客户端
+│   ├── Alife.Client/                   # Blazor 共享界面（AntDesign）
+│   ├── Alife.Client.Windows/           # Windows 客户端（WinForms + WebView2）
+│   ├── Alife.Client.Android/           # Android 客户端（.NET MAUI BlazorWebView）
+│   └── Alife.Client.Android.Shizuku/   # Shizuku 接口绑定
 │
-├── Alife.Function/                     # 实现官方功能插件
+├── Alife.Function/                     # 官方功能插件，一个目录一个插件
 │   ├── Environment/                    # 控制 AI 对话环境
 │   │   ├── Developer/                  # 开发者模式 — 让 AI 自行管理和开发 Alife 软件
-│   │   ├── Memory/                     # 持久记忆 — 多级指数压缩 + bge-small-zh 向量化 + DuckDB 检索
+│   │   ├── Memory/                     # 持久记忆 — 多级指数压缩 + 向量化 + DuckDB 检索
 │   │   ├── MessageFilter/              # 消息过滤 — 消息预处理器（注入时间戳、规定输出风格、验证输入输出内容等）
 │   │   ├── SystemEvent/                # 主动事件 — 阶梯定时事件，驱动 AI 空闲时自主行为
+│   │   ├── TokenStatistics/            # 词元统计 — 记录模型调用的词元开销
 │   │   └── VirtualWorld/               # 虚拟世界 — 跨活动共享世界背景，跨角色通讯
 │   │
 │   ├── Infrastructure/                 # 功能扩展的基础设施
@@ -234,33 +252,44 @@ Sources/
 │   │   └── Skill/                      # Skill工具 — 接入标准的 SKILL 协议
 │   │
 │   ├── Instrument/                     # 供 AI 使用的实用工具
-│   │   ├── Browser/                    # 网上冲浪 — WebView2 真实浏览器，格式化网页，模拟真实交互点击
+│   │   ├── Browser/                    # 网上冲浪 — WebView2 真实浏览器，格式化网页，模拟真实交互点击（仅 Windows）
+│   │   ├── Execution/                  # 执行能力 — 在设备上运行命令与 Python 脚本（Android 通过 Shizuku）
 │   │   ├── FileService/                # 文件操作 — 专用文件操作工具，便于快速进行编程等复杂文件操作
 │   │   ├── ProcessService/             # 进程操作 — 专用进程控制器，使 AI 可以持续仿真交互，抓取输出内容
-│   │   ├── Python/                     # 脚本执行 — 允许 AI 编写执行 Python 脚本
-│   │   ├── Todo/                       # 待办事项 — 提供 AI 任务规划与追踪，记录、完成并回看待办清单
 │   │   ├── TimedTask/                  # 定时任务 — 系统定时功能独立模块，支持定时事件的持久化
-│   │   └── Vision/                     # 视觉感知 — 接入图像识别模型 + 本地OCR + 窗口统计
+│   │   └── Todo/                       # 待办事项 — 提供 AI 任务规划与追踪，记录、完成并回看待办清单
 │   │
 │   ├── Interaction/                    # 定制 AI 的交互方式
-│   │   ├── Auditory/                   # 语音识别 — 采集麦克风音频，并使用 STT 模型向 AI 发送识别结果
-│   │   ├── Speech/                     # 语音说话 — 接入 TTS 模型，将 AI 的文本输出实时转换为语音
-│   │   ├── DeskPet/                    # 桌宠交互 — 通过 WPF+WebView2 提供一个 AI 可控的 Live2D 身体
+│   │   ├── Auditory/                   # 听觉能力 — 采集麦克风音频，并使用 STT 模型向 AI 发送识别结果
+│   │   ├── DeskPet/                    # 桌宠交互 — 通过 WebView2 提供一个 AI 可控的 Live2D 身体
 │   │   ├── QChat/                      # QQ 聊天 — 接入 OneBot v11 协议，使其支持用 QQ 通讯
-│   │   ├── GameCompanion/              # 通用游戏陪玩 — 基于视觉与音频采集的通用游戏陪玩系统
+│   │   ├── Speech/                     # 语音说话 — 接入 TTS 模型，将 AI 的文本输出实时转换为语音
+│   │   ├── Vision/                     # 视觉感知 — 接入图像识别模型，窗口截图与窗口统计
+│   │   ├── GameCompanion/              # 通用游戏陪玩 — 基于视觉与音频采集的通用游戏陪玩系统（仅 Windows）
 │   │   └── McAgent/                    # MC 陪玩 — 通过 Numen MCP 连接 Minecraft，让 AI 具备游戏陪玩能力
-│   │   
-│   └── Models/                         # 接入各种 AI 模型
-│       ├── AIModuleUtility/            # 提供常用模型处理工具，定义模型接口
-│       ├── LanguageModule/             # 语言对话模型 (OpenAI)
-│       ├── AuditoryModel/              # 语音识别模型 (sherpa-onnx + SenseVoice + silero-vad)
-│       ├── SpeechModel/                # 语音合成模型 (edge-tts、VITS、Genie-TTS)
-│       └── VisionModel/                # 图像识别模型 (Qwen2.5-VL-3B、MiniCPM-V-4.6、OpenAI)
+│   │
+│   └── Model/                          # 接入各种 AI 模型
+│       ├── AIModelUtility/             # 提供常用模型处理工具，定义模型接口
+│       ├── Language.OpenAI/            # 语言对话模型（OpenAI 协议）
+│       ├── Auditory.SenseVoice/        # 语音识别模型（sherpa-onnx + SenseVoice + silero-vad）
+│       ├── Speech.EdgeTTS/             # 语音合成模型（edge-tts）
+│       ├── Speech.Genie/               # 语音合成模型（Genie-TTS）
+│       ├── Speech.VITS/                # 语音合成模型（sherpa-onnx + VITS）
+│       ├── Vision.MiniCPM/             # 图像识别模型（MiniCPM-V）
+│       ├── Vision.Qwen/                # 图像识别模型（Qwen2.5-VL）
+│       └── Vision.OpenAI/              # 图像识别模型（OpenAI 协议）
 │
-
-Demos/                                  # 通过 CLI 模拟用户交互，进行快速黑盒测试
-Tests/                                  # 针对功能实现的单元测试
+Demos/                                  # 各功能独立示例工程（多为控制台程序）
+Tests/                                  # 功能测试工程
+Publish/                                # 发布脚本：Windows 客户端、Android 客户端、插件
 ```
+
+### 🚢 构建与发布
+
+- `Publish/client-windows.ps1`：发布 Windows 客户端，并生成 Inno Setup 安装程序。
+- `Publish/client-android.ps1`：发布 Android 客户端，输出 APK。
+- `Publish/plugins.ps1`：构建官方功能插件。
+- 产物默认输出到仓库同级的 `Shared\Alife\Outputs` 目录。发布新版本的完整流程见 `.agents/skills/alife-publish/SKILL.md`。
 
 ### 📚 开发文档
 
