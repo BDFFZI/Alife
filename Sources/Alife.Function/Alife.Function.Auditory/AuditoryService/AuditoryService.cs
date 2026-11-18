@@ -223,7 +223,7 @@ public partial class AuditoryService(
 
     void OnRecognized(string text)
     {
-        interactor.Chat(text + "(消息为语音识别结果，错误率较高；建议也用语音功能回复)");
+        interactor.Chat("语音识别内容：" + text);
     }
 
     void OnListeningRecognized(string text)
