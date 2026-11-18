@@ -130,6 +130,10 @@ public class MemoryService(
                            检索记忆：
                            所有记忆存档中的原始具体内容都被存放在了`{storagePath}`中，他们是被归档在上下文之外的旧记忆内容，你可以用文件操作工具翻阅他们。
                            你可以没事翻一翻，或许会发现被遗忘的珍贵回忆。
+                           
+                           注意事项：
+                           1. 所有记忆存档都可以{nameof(Recall)}，不要仅被可见描述迷惑，学会主动回忆更深处的内容，甚至随机回忆遗忘在外存里的记忆。 
+                           2. 创建记忆时一定要使用引导性的synopsis，否则未来content移出上下文后，自己又不知道可以{nameof(Recall)}就毫无意义了。
                            """
         };
         functionService.RegisterHandler(xmlHandler, DocumentMode.Explicit, DestroyCancellationToken);
