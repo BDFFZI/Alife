@@ -1,10 +1,11 @@
+using Alife.Foundation;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 
 namespace Alife.Client.Windows;
 
 class MainForm : Form
 {
-    public MainForm(IServiceProvider provider)
+    public MainForm(IServiceProvider provider, IAlifeFoundation alifeFoundation)
     {
         InitializeComponent();
         InitializeTrayIcon();
@@ -17,6 +18,9 @@ class MainForm : Form
                 Dock = DockStyle.Fill,
             };
             blazor.RootComponents.Add(new RootComponent("#app", typeof(Components.Routes), null));
+            blazor.BlazorWebViewInitializing += (_, args) => {
+                args.UserDataFolder = Path.Combine(alifeFoundation.RuntimeFolderPath, "AlifeMainWindow");
+            };
             Controls.Add(blazor);
 
             Text = "Alife";
