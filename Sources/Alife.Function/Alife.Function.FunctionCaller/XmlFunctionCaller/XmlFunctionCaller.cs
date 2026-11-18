@@ -327,9 +327,9 @@ public partial class XmlFunctionCaller(
 
        
              <Speak>主人你看我画的好不好看，
-                <!-- 开闭标签中可以嵌套其他函数，例如穿插表情动作来实现更加生动有趣的线性交互 -->
-                <Expression option="开心" />今天特意给你画的噢！
-                <Motion option="摆摆手"/>看你每天那么累，给你打打气。
+                <!-- 开闭标签中可以嵌套其他函数，例如穿插表情动作来实现更加生动有趣演出效果，但注意先说话再表演 -->
+                今天特意给你画的噢！<Expression option="开心" />
+                看你每天那么累，给你打打气。<Motion option="摆摆手"/>
              </Speak>
              ```   
 
