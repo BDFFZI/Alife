@@ -108,7 +108,9 @@ export function setupEnter(elementId, dotNetRef) {
 
         event.preventDefault();
         event.stopPropagation();
-        dotNetRef.invokeMethodAsync("OnEnterAsync", area.value);
+        const text = area.value;
+        clearValue(area);
+        dotNetRef.invokeMethodAsync("OnEnterAsync", text);
     });
 }
 
@@ -184,12 +186,18 @@ export function appendLine(elementId, text) {
     if (area) editValue(area, text, true);
 }
 
-// 发送后清空输入框：清空 DOM 即可，模型那边已经赋过值，不需要重建组件
+// Blazor 的绑定只听 input 事件，程序化清空同样要派发，否则绑定字段残留旧文本，下次渲染会写回输入框
+function clearValue(area) {
+    area.value = "";
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+// 发送后清空输入框，不需要重建组件
 export function clearInput(elementId) {
     const area = document.getElementById(elementId);
     if (!area) return;
 
-    area.value = "";
+    clearValue(area);
     area.focus();
 }
 
