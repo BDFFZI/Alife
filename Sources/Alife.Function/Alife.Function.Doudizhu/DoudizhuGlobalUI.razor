@@ -9,7 +9,6 @@
 @attribute [SideBarItem]
 @implements IAsyncDisposable
 @inject ChatActivitySystem ChatActivitySystem
-@inject IMessageService MessageService
 @inject PluginSystem PluginSystem
 @inject IJSRuntime JsRuntime
 
@@ -239,6 +238,16 @@
                                               OnClick="@(() => ToggleCard(cardIndex))" />
                         }
                     </div>
+                    @if (actionNotice != null)
+                    {
+                        <div class="ddz-action-notice" @key="actionNoticeGeneration" role="alert" aria-live="assertive">
+                            <span class="ddz-action-notice-icon">!</span>
+                            <span class="ddz-action-notice-copy">
+                                <span class="ddz-action-notice-kicker">无法执行</span>
+                                <strong>@actionNotice</strong>
+                            </span>
+                        </div>
+                    }
                     <div class="ddz-controls">
                         @if (table.Phase == DoudizhuPhase.Bidding)
                         {
@@ -247,8 +256,8 @@
                         }
                         else if (table.Phase == DoudizhuPhase.Playing)
                         {
-                            <button class="ddz-btn primary" disabled="@(IsMyTurn == false || selected.Count == 0)" @onclick="PlaySelected">出牌</button>
-                            <button class="ddz-btn ghost" disabled="@(IsMyTurn == false || table.LastCards.Count == 0)" @onclick="DeclinePlay">不出</button>
+                            <button class="ddz-btn primary" disabled="@(IsMyTurn == false)" @onclick="PlaySelected">出牌</button>
+                            <button class="ddz-btn ghost" disabled="@(IsMyTurn == false)" @onclick="DeclinePlay">不出</button>
                         }
                         <span class="ddz-control-hint">@HintText</span>
                     </div>
@@ -1127,6 +1136,61 @@
         padding-top: 16px;
     }
 
+    .ddz-action-notice {
+        position: absolute;
+        left: 50%;
+        bottom: 66px;
+        z-index: 28;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: min(720px, calc(100vw - 52px));
+        padding: 10px 18px 10px 12px;
+        border-radius: 12px;
+        color: #ffe4b0;
+        background: linear-gradient(150deg, rgba(54, 34, 14, .98), rgba(25, 16, 8, .98));
+        border: 1px solid rgba(255, 190, 80, .62);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 22px rgba(255, 190, 80, .16);
+        pointer-events: none;
+        transform: translateX(-50%);
+        animation: ddz-action-notice-in .26s cubic-bezier(.18, .9, .24, 1) both,
+                   ddz-action-notice-out .25s ease 2.2s both;
+    }
+
+    .ddz-action-notice-icon {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+        border-radius: 8px;
+        color: #2b1708;
+        background: linear-gradient(160deg, #ffe0a0, #d69e4b);
+        box-shadow: 0 0 14px rgba(255, 190, 80, .35);
+        font-size: 16px;
+        font-weight: 900;
+    }
+
+    .ddz-action-notice-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+    }
+
+    .ddz-action-notice-kicker {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .22em;
+        color: rgba(255, 190, 80, .78);
+    }
+
+    .ddz-action-notice strong {
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
     .ddz-controls {
         display: flex;
         align-items: center;
@@ -1536,6 +1600,17 @@
         to { opacity: 0; transform: scale(1.18, 1.45); }
     }
 
+    @@keyframes ddz-action-notice-in {
+        0% { opacity: 0; transform: translate(-50%, 10px) scale(.94); }
+        62% { opacity: 1; transform: translate(-50%, -2px) scale(1.02); }
+        100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
+
+    @@keyframes ddz-action-notice-out {
+        from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        to { opacity: 0; transform: translate(-50%, 6px) scale(.96); }
+    }
+
     @@keyframes ddz-turn-status {
         0%, 100% { box-shadow: 0 0 12px rgba(232, 192, 125, .3); }
         50% { box-shadow: 0 0 20px rgba(255, 233, 179, .55); }
@@ -1703,6 +1778,8 @@
     string? turnNotice;
     bool turnNoticeMine;
     int turnNoticeGeneration;
+    string? actionNotice;
+    int actionNoticeGeneration;
     string? seatOneKey = HumanKey;
     string? seatTwoKey;
     string? seatThreeKey;
@@ -1818,6 +1895,8 @@
             string? turnKey = TurnKey();
             bool turnChanged = started == false && turnKey != null && turnKey != lastTurnKey;
             selected.Clear();
+            actionNotice = null;
+            actionNoticeGeneration++;
             if (started)
                 AnnounceOpening();
             else if (turnChanged)
@@ -1875,10 +1954,28 @@
         turnNotice = null;
         await InvokeAsync(StateHasChanged);
     }
+    void ShowActionNotice(string message)
+    {
+        actionNotice = message;
+        int generation = ++actionNoticeGeneration;
+        _ = HideActionNoticeAsync(generation);
+    }
+    async Task HideActionNoticeAsync(int generation)
+    {
+        await Task.Delay(2500);
+        if (generation != actionNoticeGeneration)
+            return;
+        actionNotice = null;
+        await InvokeAsync(StateHasChanged);
+    }
     void ToggleCard(int index)
     {
         if (table.Phase != DoudizhuPhase.Playing || IsMyTurn == false)
+        {
+            if (table.Phase == DoudizhuPhase.Playing)
+                ShowActionNotice($"还没轮到你，等待 {table.TurnSeat?.Name} 行动。");
             return;
+        }
         if (selected.Remove(index) == false)
             selected.Add(index);
     }
@@ -1911,18 +2008,30 @@
     }
     void PlaySelected()
     {
+        if (selected.Count == 0)
+        {
+            ShowActionNotice("请先选择要出的牌。");
+            return;
+        }
+
         List<int> hand = [.. table.GetHand(HumanIndex)];
         List<int> cards = selected.OrderBy(index => index).Select(index => hand[index]).ToList();
         Attempt(table.Play(HumanIndex, cards));
     }
     void DeclinePlay()
     {
+        if (table.LastCards.Count == 0)
+        {
+            ShowActionNotice("你是本轮首家，必须出牌。");
+            return;
+        }
+
         Attempt(table.Pass(HumanIndex));
     }
     void Attempt(string? error)
     {
         if (error != null)
-            MessageService.Warning(error);
+            ShowActionNotice(error);
     }
 
     async Task ToggleMusic()
