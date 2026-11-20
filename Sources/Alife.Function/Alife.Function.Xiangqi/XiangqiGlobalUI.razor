@@ -214,7 +214,10 @@
                         <div class="xq-result-kicker">@StatusText</div>
                         <div class="xq-result-seal">@ResultTitle</div>
                         <div class="xq-result-sub">@ResultSub</div>
-                        <button class="xq-btn primary" @onclick="@(() => table.Start(table.Seats))">再来一局</button>
+                        <div class="xq-result-actions">
+                            <button class="xq-btn primary" @onclick="@(() => table.Start(table.Seats))">再来一局</button>
+                            <button class="xq-btn ghost" @onclick="@(() => table.Stop())">结束对局</button>
+                        </div>
                     </div>
                 </div>
             }
@@ -1579,6 +1582,12 @@
     .xq-result-sub {
         margin-bottom: 20px;
         color: rgba(243, 233, 210, .7);
+    }
+
+    .xq-result-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
     }
 
     .xq-spark {

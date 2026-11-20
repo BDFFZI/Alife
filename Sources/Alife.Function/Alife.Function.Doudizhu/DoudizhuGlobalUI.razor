@@ -276,7 +276,10 @@
                         <div class="ddz-result-kicker">@ResultKicker</div>
                         <div class="ddz-result-seal @(ResultTitle == "负" ? "lose" : "")">@ResultTitle</div>
                         <div class="ddz-result-sub">@ResultSub</div>
-                        <button class="ddz-btn primary" @onclick="RestartGame">再来一局</button>
+                        <div class="ddz-result-actions">
+                            <button class="ddz-btn primary" @onclick="RestartGame">再来一局</button>
+                            <button class="ddz-btn ghost" @onclick="@(() => table.Stop())">结束牌局</button>
+                        </div>
                     </div>
                 </div>
             }
@@ -1414,6 +1417,12 @@
         margin-bottom: 18px;
         font-size: 14px;
         color: rgba(247, 238, 218, .7);
+    }
+
+    .ddz-result-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
     }
 
     .ddz-pause {

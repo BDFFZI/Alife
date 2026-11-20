@@ -52,6 +52,7 @@ AI 的生命而搭建！
 
 ## 🌟 功能列举 (Functions)
 
+- 🖥️ 双端客户端：同时支持 Windows 与 Android 两个平台，而且数据互通，插件互通，自由切换。
 - 🎭 桌宠交互：通用桌宠交互框架，默认使用 Live2D，可完全自定义，具备丰富交互，告别枯燥的对话框。
 - 👁️ 深度视觉：拍照不怕没人分享，还会没事偷偷看主人，在你游戏工作的时候，陪你一起吐槽。
 - 🎙️ 语音对话：放下键盘，直接说话，基于神经网络的语音识别与流式合成，实现高品质通话级语音。
@@ -66,8 +67,9 @@ AI 的生命而搭建！
 - 🖼️ 原生多模态：原生支持图片、视频、文件等多种内容类型，图片复制粘贴即可发送，AI 可以"看见"世界。
 - 🎮 通用游戏陪玩：基于视觉与音频采集的通用游戏陪玩系统，为不同游戏配置数据采集目标（文本/颜色/语音），实时感知并汇报给 AI。
 - ⛏️ 一起玩MC：通过 Numen MCP 连接 Minecraft，让 AI 真正进入你的游戏世界，陪伴你一起生存冒险。
-- 🖥️ 双端客户端：Windows 与 Android 官方客户端，手机上的 AI 与电脑上的 AI 使用同一套框架。
-- 还有更多......
+- ♟️ 中国象棋：和你的AI们一起玩象棋。
+- 🃏 斗地主：和你的AI们一起玩斗地主。
+- 插件市场还有更多......
 
 Alife 是全插件框架，并且完全支持自动开发，每个人都可以成为开发者，让你的 AI 来帮你释放想象力。
 
@@ -264,21 +266,26 @@ Sources/
 │   │   ├── DeskPet/                    # 桌宠交互 — 通过 WebView2 提供一个 AI 可控的 Live2D 身体
 │   │   ├── QChat/                      # QQ 聊天 — 接入 OneBot v11 协议，使其支持用 QQ 通讯
 │   │   ├── Speech/                     # 语音说话 — 接入 TTS 模型，将 AI 的文本输出实时转换为语音
-│   │   ├── Vision/                     # 视觉感知 — 接入图像识别模型，窗口截图与窗口统计
-│   │   ├── GameCompanion/              # 通用游戏陪玩 — 基于视觉与音频采集的通用游戏陪玩系统（仅 Windows）
-│   │   └── McAgent/                    # MC 陪玩 — 通过 Numen MCP 连接 Minecraft，让 AI 具备游戏陪玩能力
+│   │   └── Vision/                      # 视觉感知 — 接入图像识别模型，窗口截图与窗口统计
 │   │
-│   └── Model/                          # 接入各种 AI 模型
-│       ├── AIModelUtility/             # 提供常用模型处理工具，定义模型接口
-│       ├── Language.OpenAI/            # 语言对话模型（OpenAI 协议）
-│       ├── Auditory.SenseVoice/        # 语音识别模型（sherpa-onnx + SenseVoice + silero-vad）
-│       ├── Speech.EdgeTTS/             # 语音合成模型（edge-tts）
-│       ├── Speech.Genie/               # 语音合成模型（Genie-TTS）
-│       ├── Speech.VITS/                # 语音合成模型（sherpa-onnx + VITS）
-│       ├── Vision.MiniCPM/             # 图像识别模型（MiniCPM-V）
-│       ├── Vision.Qwen/                # 图像识别模型（Qwen2.5-VL）
-│       └── Vision.OpenAI/              # 图像识别模型（OpenAI 协议）
-│
+│   ├── Model/                          # 接入各种 AI 模型
+│   │   ├── AIModelUtility/             # 提供常用模型处理工具，定义模型接口
+│   │   ├── Language.OpenAI/            # 语言对话模型（OpenAI 协议）
+│   │   ├── Auditory.SenseVoice/        # 语音识别模型（sherpa-onnx + SenseVoice + silero-vad）
+│   │   ├── Speech.EdgeTTS/             # 语音合成模型（edge-tts）
+│   │   ├── Speech.Genie/               # 语音合成模型（Genie-TTS）
+│   │   ├── Speech.VITS/                # 语音合成模型（sherpa-onnx + VITS）
+│   │   ├── Vision.MiniCPM/             # 图像识别模型（MiniCPM-V）
+│   │   ├── Vision.Qwen/                # 图像识别模型（Qwen2.5-VL）
+│   │   └── Vision.OpenAI/              # 图像识别模型（OpenAI 协议）
+│   │
+│   └── Recreation/                     # 休闲娱乐插件
+│       ├── TableGame/                  # 桌游框架 — 桌游模块通用框架类
+│       ├── GameCompanion/              # 通用游戏陪玩 — 基于视觉与音频采集的通用游戏陪玩系统（仅 Windows）
+│       ├── McAgent/                    # 一起玩MC — 通过 Numen MCP 连接 Minecraft，让 AI 具备游戏陪玩能力
+│       ├── Xiangqi/                    # 一起玩中国象棋
+│       └── Doudizhu/                   # 一起玩斗地主
+
 Demos/                                  # 各功能独立示例工程（多为控制台程序）
 Tests/                                  # 功能测试工程
 Publish/                                # 发布脚本：Windows 客户端、Android 客户端、插件
