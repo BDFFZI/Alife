@@ -19,7 +19,7 @@ public class SystemEventServiceConfig
     /// </summary>
     public bool UpdatePromptPreInject { get; set; } = true;
 
-    public int UpdateInterval { get; set; } = 20;
+    public int UpdateInterval { get; set; } = 25;
     public int UpdateRandomOffset { get; set; } = 5;
     public int UpdateIntervalMultiplier { get; set; } = 4;
     public int UpdateIntervalMaxPowerCount { get; set; } = 5;
