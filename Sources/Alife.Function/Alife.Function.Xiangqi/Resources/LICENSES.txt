@@ -1,0 +1,21 @@
+Audio assets
+
+bgm.ogg
+  "Asianoriental2" by Tozan, OpenGameArt, CC0.
+  https://opengameart.org/content/asianoriental2
+
+move.ogg, check.ogg, end.ogg
+  Derived from "100 CC0 SFX" by rubberduck et al., OpenGameArt, CC0.
+  https://opengameart.org/content/100-cc0-sfx
+
+capture.ogg
+  Derived from move.ogg with a synthesized low-frequency impact layer.
+
+start.ogg, win.ogg, lose.ogg, draw.ogg
+  Synthesized for this plugin.
+
+Sidebar icon
+
+Xiangqi General (Trad).svg by Inductiveload, public domain.
+  https://commons.wikimedia.org/wiki/File:Xiangqi_General_(Trad).svg
+  The general glyph and piece rings were adapted for the inline sidebar icon.

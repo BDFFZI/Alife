@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BDFFZI.MaoMao.Doudizhu;
+namespace Alife.Function.Doudizhu;
 
 public enum DoudizhuKind
 {

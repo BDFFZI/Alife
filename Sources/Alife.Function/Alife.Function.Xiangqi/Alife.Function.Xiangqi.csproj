@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <RootNamespace>Alife.Function.Xiangqi</RootNamespace>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Alife\Alife.Framework\Alife.Framework.csproj" />
     <ProjectReference Include="..\..\Alife\Alife.Application\Alife.Application.csproj" />

@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using BDFFZI.MaoMao.TableGame;
+using Alife.Function.TableGame;
 
-namespace BDFFZI.MaoMao.Doudizhu;
+namespace Alife.Function.Doudizhu;
 
 public enum DoudizhuPhase
 {
@@ -111,6 +111,7 @@ public class DoudizhuTable : GameTable
             Phase = DoudizhuPhase.Over;
             WinnerIndex = index;
             AddLog($"{Seats[index].Name} 出完手牌，{(index == LandlordIndex ? "地主" : "农民")}方获胜");
+            NotifyAll($"{Seats[index].Name} 出完手牌，{(index == LandlordIndex ? "地主" : "农民")}方获胜，牌局结束。");
         }
         else
         {
@@ -125,13 +126,15 @@ public class DoudizhuTable : GameTable
     protected override string Rules => """
         【斗地主规则】
         这是一局三人斗地主，轮到你时你会收到牌局状态。牌面用空格分隔，可用牌面为：3 4 5 6 7 8 9 10 J Q K A 2 小王 大王。
-        - 叫地主阶段：回复 <DoudizhuCall/> 叫地主，或 <DoudizhuPass/> 不叫。叫地主者获得三张底牌，与另外两家对抗。
+        - 开局随机决定谁先叫地主。叫地主阶段：回复 <DoudizhuCall/> 叫地主，或 <DoudizhuPass/> 不叫。叫地主者获得三张底牌，与另外两家对抗。
         - 出牌阶段：回复 <DoudizhuPlay>牌面</DoudizhuPlay> 出牌，例如 <DoudizhuPlay>3 3 4 4</DoudizhuPlay>；回复 <DoudizhuPass/> 不出（首家不能不出）。
         - 牌型：单张、对子、三张、三带一、三带一对、顺子（5 张以上，不含 2 和王）、连对（3 对以上）、飞机（2 组以上连续三张，可带同数量的不同单张或不同对子）、四带二（两张单牌或一对）、炸弹（四张相同）、王炸（大王加小王）。
         - 出牌必须与上家牌型相同、张数相同且点数更大；炸弹和王炸可以压过非炸弹牌。
         - 先出完手牌者获胜。地主先出完则地主方胜；农民任意一方先出完则农民方胜。
         回复时可以正常说话，但牌局指令必须使用上面的标签。
         """;
+    protected override string StartNotice => $"斗地主开局：{Seats[0].Name}、{Seats[1].Name}、{Seats[2].Name}。开局随机由{Seats[turnIndex].Name}先叫地主；请等待系统发出轮到你的提示，不要提前行动。";
+    protected override string StopNotice => "斗地主牌局结束。";
 
     protected override void OnStart()
     {
@@ -170,9 +173,14 @@ public class DoudizhuTable : GameTable
                 builder.AppendLine("你是本轮首家，必须出牌。");
             else
                 builder.AppendLine($"上家（{Seats[LastPlayerIndex].Name}）出了：{DoudizhuCards.Format(lastCards)}。你需要压过它，或不出。");
+            builder.AppendLine("出牌前先拆分手牌，规划单张、对子、顺子和炸弹；对手只剩少量牌时优先压制，不要为了出小牌拆散关键牌型。");
+        }
+        else
+        {
+            builder.AppendLine("叫地主前先评估手牌：大牌、炸弹、连牌和单张压力；手牌强就抢底牌，手牌弱就谨慎。");
         }
         builder.AppendLine("最近动态：");
-        foreach (string line in log.TakeLast(8))
+        foreach (string line in log.TakeLast(4))
             builder.AppendLine(line);
         builder.AppendLine();
         if (Phase == DoudizhuPhase.Bidding)

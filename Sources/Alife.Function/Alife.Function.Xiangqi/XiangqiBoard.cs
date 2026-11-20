@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace BDFFZI.MaoMao.Xiangqi;
+namespace Alife.Function.Xiangqi;
 
 public enum XiangqiSide
 {
@@ -121,18 +121,46 @@ public class XiangqiBoard
 
         return false;
     }
-    public string Render()
+    public string RenderCompact()
+    {
+        StringBuilder builder = new();
+        builder.Append("   ");
+        for (int file = 0; file < FileCount; file++)
+            builder.Append((char)('a' + file)).Append("  ");
+        builder.AppendLine();
+        for (int rank = RankCount - 1; rank >= 0; rank--)
+        {
+            builder.Append(' ').Append(rank).Append(' ');
+            for (int file = 0; file < FileCount; file++)
+                builder.Append(squares[file, rank] is { } piece ? Name(piece) : '・').Append(' ');
+            builder.Append('\n');
+        }
+        builder.Append("   ");
+        for (int file = 0; file < FileCount; file++)
+            builder.Append((char)('a' + file)).Append("  ");
+
+        return builder.ToString();
+    }
+
+    public string DescribePieces(XiangqiSide side)
     {
         StringBuilder builder = new();
         for (int rank = RankCount - 1; rank >= 0; rank--)
         {
-            builder.Append(rank);
             for (int file = 0; file < FileCount; file++)
-                builder.Append(' ').Append(squares[file, rank] is { } piece ? Name(piece) : "·");
-            builder.AppendLine();
+            {
+                if (squares[file, rank] is not { } piece || piece.Side != side)
+                    continue;
+
+                if (builder.Length > 0)
+                    builder.Append('，');
+                builder.Append(Name(piece))
+                    .Append(' ')
+                    .Append((char)('a' + file))
+                    .Append(rank);
+            }
         }
 
-        builder.Append("  a b c d e f g h i");
         return builder.ToString();
     }
 

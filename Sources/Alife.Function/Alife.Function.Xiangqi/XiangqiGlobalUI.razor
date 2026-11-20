@@ -1,183 +1,511 @@
-@namespace BDFFZI.MaoMao.Xiangqi
+@namespace Alife.Function.Xiangqi
 @using Alife.Framework
-@using BDFFZI.MaoMao.TableGame
+@using Alife.Function.TableGame
+@using System.IO
 @using AntDesign
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @attribute [SideBarItem]
 @implements IAsyncDisposable
 @inject ChatActivitySystem ChatActivitySystem
 @inject IMessageService MessageService
+@inject PluginSystem PluginSystem
+@inject IJSRuntime JsRuntime
 
-@* 这个组件自己就是侧栏按钮：点击在侧栏原地开合中国象棋抽屉 *@
+@* 这个组件自己就是侧栏按钮：点击在客户端内打开全屏棋局 *@
 <Tooltip Title="中国象棋" Placement="Placement.Right">
-    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleDrawer">
-        <Icon Type="@IconType.Outline.Appstore"/>
+    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleFullscreen">
+        <svg class="xq-rail-icon" viewBox="-50 -50 100 100" aria-hidden="true">
+            <circle r="48" class="xq-rail-disc"/>
+            <circle r="42.5" class="xq-rail-inner"/>
+            <ellipse cx="-14" cy="-18" rx="18" ry="11" class="xq-rail-light"/>
+            <path class="xq-rail-char" transform="scale(0.267)"
+                  d="M24,-121C21,-118 21,-116 24,-110C26,-105 26,-103 27,-77C27,-55 27,-49 26,-48C23,-46 7,-46 0,-47C-5,-48 -7,-48 -9,-47C-12,-45 -13,-41 -10,-35C-6,-24 -6,-9 -12,8C-14,14 -15,18 -15,20C-12,34 -5,43 0,37C6,31 11,8 13,-21L13,-31 18,-31C20,-32 23,-32 25,-33L27,-33 27,38C27,103 27,109 28,114C30,118 31,120 32,121C37,123 40,120 43,108C47,94 48,81 49,21L51,-35 54,-36C55,-37 61,-37 66,-37L76,-38 76,-18C76,0 75,17 74,19C73,19 70,18 65,18C59,16 57,16 55,17C51,19 53,22 61,30C65,34 70,40 72,42C77,50 83,50 89,41C96,32 98,22 100,-14C101,-28 101,-33 102,-36C106,-44 103,-49 90,-55L83,-58 75,-56C67,-54 55,-52 52,-52C50,-52 51,-95 54,-105L55,-112 52,-116C48,-119 40,-122 32,-123C26,-123 25,-123 24,-121M-65,-116C-67,-114 -68,-113 -69,-107C-71,-93 -84,-63 -87,-65C-90,-66 -98,-66 -100,-65C-104,-63 -104,-61 -101,-54L-98,-48 -98,-22C-98,7 -99,24 -103,40C-104,50 -105,53 -104,57C-102,67 -95,77 -90,77C-87,77 -85,75 -85,71C-83,64 -83,64 -76,64C-50,61 -31,59 -29,58C-26,57 -26,52 -29,50C-31,48 -31,47 -28,37C-26,32 -24,24 -22,21C-20,17 -18,13 -18,12C-18,9 -22,5 -28,3C-37,-2 -41,-2 -49,2C-55,5 -62,7 -73,9L-80,11 -79,3C-79,-2 -79,-6 -79,-6C-78,-6 -57,-9 -44,-10C-39,-11 -33,-11 -32,-12C-29,-13 -29,-17 -30,-20C-32,-22 -32,-23 -29,-31C-27,-36 -24,-43 -21,-47C-19,-50 -17,-54 -17,-55C-17,-59 -26,-65 -35,-68C-38,-69 -39,-69 -51,-65C-57,-63 -65,-61 -67,-60L-72,-60 -69,-64C-67,-67 -62,-73 -58,-78C-55,-82 -49,-90 -45,-94C-42,-99 -39,-102 -39,-103C-39,-103 -40,-105 -41,-107C-42,-109 -45,-111 -51,-114C-60,-119 -62,-119 -65,-116M-46,-48C-47,-47 -48,-41 -49,-36L-50,-26 -62,-24C-69,-23 -75,-22 -76,-21C-78,-21 -78,-22 -78,-33L-78,-45 -71,-45C-68,-46 -61,-47 -57,-48C-47,-51 -46,-51 -46,-48M-47,19C-47,20 -47,26 -48,33L-50,44 -63,47C-82,50 -81,50 -81,43C-81,39 -81,34 -80,30L-80,24 -74,24C-71,23 -65,22 -60,21C-50,18 -48,18 -47,19"/>
+        </svg>
     </div>
 </Tooltip>
 
-<Drawer Visible="@visible"
-        OnClose="@OnDrawerClose"
-        Placement="@DrawerPlacement.Right"
-        Title="@("中国象棋")"
-        Width="640"
-        BodyStyle="padding: 16px; overflow-y: auto;">
-    @if (table.IsPlaying)
-    {
-        IReadOnlyList<XiangqiMove> moves = table.LegalMoves;
-        <div class="xq-header">
-            <AntDesign.Text Strong>@StatusText</AntDesign.Text>
-            <Space>
-                @if (table.IsPaused)
-                {
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Resume())">继续</Button>
-                }
-                @if (table.IsOver)
-                {
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Start(table.Seats))">再来一局</Button>
-                }
-                <Button Size="@ButtonSize.Small" Danger OnClick="@(() => table.Stop())">结束对局</Button>
-            </Space>
+@if (visible)
+{
+    <div class="xq-stage">
+        <div class="xq-sky"></div>
+        <div class="xq-moon"></div>
+        <svg class="xq-mountains" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true">
+            <path class="xq-mountain far" d="M0 250 L120 170 L210 215 L330 120 L430 200 L540 150 L650 230 L760 140 L880 210 L1010 150 L1120 220 L1200 180 L1200 320 L0 320 Z"/>
+            <path class="xq-mountain near" d="M0 285 L90 235 L190 270 L300 205 L410 265 L520 220 L640 280 L760 225 L880 270 L990 215 L1100 275 L1200 240 L1200 320 L0 320 Z"/>
+        </svg>
+        <div class="xq-clouds" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="xq-lantern left" aria-hidden="true"><span class="xq-lantern-cap"></span><span class="xq-lantern-body"></span><span class="xq-lantern-tassel"></span></div>
+        <div class="xq-lantern right" aria-hidden="true"><span class="xq-lantern-cap"></span><span class="xq-lantern-body"></span><span class="xq-lantern-tassel"></span></div>
+        <div class="xq-dust" aria-hidden="true">
+            @for (int i = 0; i < 22; i++)
+            {
+                <span style="@($"left:{i * 41 % 100}%;animation-duration:{7 + i % 6}s;animation-delay:-{i * 0.6:0.0}s;width:{2 + i % 3}px;height:{2 + i % 3}px;")"></span>
+            }
         </div>
+        <div class="xq-glow"></div>
+        <header class="xq-topbar">
+            <div class="xq-brand">
+                <span class="xq-brand-mark">象</span>
+                <span class="xq-brand-text">中国象棋<small>CHINESE CHESS</small></span>
+                @if (table.IsPlaying)
+                {
+                    <span class="xq-status">@StatusText</span>
+                }
+            </div>
+            <div class="xq-actions">
+                @if (table.IsPlaying && table.IsPaused)
+                {
+                    <button class="xq-btn primary" @onclick="@(() => table.Resume())">继续</button>
+                }
+                @if (table.IsPlaying && table.IsOver)
+                {
+                    <button class="xq-btn primary" @onclick="@(() => table.Start(table.Seats))">再来一局</button>
+                }
+                @if (table.IsPlaying)
+                {
+                    <button class="xq-btn ghost xq-music" @onclick="ToggleMusic" aria-pressed="@(musicEnabled ? "true" : "false")"
+                            aria-label="@(musicEnabled ? "关闭背景音乐" : "开启背景音乐")">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 9h4l4-4v14l-4-4H4z"/>
+                            <path d="@(musicEnabled ? "M16 8.5a5 5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" : "M17 9l4 6M21 9l-4 6")"/>
+                        </svg>
+                        <span>@(musicEnabled ? "音乐开" : "音乐关")</span>
+                    </button>
+                    <button class="xq-btn danger" @onclick="@(() => table.Stop())">结束对局</button>
+                }
+                <button class="xq-btn ghost" @onclick="@CloseFullscreen">退出全屏</button>
+            </div>
+        </header>
 
-        @if (table.IsPaused)
+        @if (openingNotice != null && table.IsOver == false)
         {
-            <Alert Type="@AlertType.Warning" Message="@($"{table.TurnSeat?.Name} 连续未能完成行动，对局已暂停。请检查它的对话后点击继续。")" ShowIcon="true" Style="margin-bottom: 12px;"/>
+            <div class="xq-opening">
+                <span class="xq-opening-seal">先</span>
+                <span class="xq-opening-text">@openingNotice</span>
+            </div>
         }
 
-        <div class="xq-seats">
-            @for (int index = 0; index < table.Seats.Count; index++)
+        @if (table.IsPlaying)
+        {
+            <div class="xq-content">
+                <section class="xq-board-area">
+                    <div class="xq-table">
+                        <div class="xq-board-shadow"></div>
+                        <div class="xq-board-wrap">
+                            <div class="xq-board-3d">
+                                <div class="xq-board-rim"></div>
+                                <div class="xq-board-top">
+                                    <svg class="xq-grid" viewBox="0 0 @BoardWidth @BoardHeight" aria-hidden="true">
+                                        <rect x="@Padding" y="@Padding" width="@(BoardWidth - Padding * 2)" height="@(BoardHeight - Padding * 2)" class="xq-grid-border"/>
+                                        @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
+                                        {
+                                            <line x1="@X(0)" y1="@Y(rank)" x2="@X(XiangqiBoard.FileCount - 1)" y2="@Y(rank)" class="xq-grid-line"/>
+                                        }
+                                        @for (int file = 0; file < XiangqiBoard.FileCount; file++)
+                                        {
+                                            @if (file == 0 || file == XiangqiBoard.FileCount - 1)
+                                            {
+                                                <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-grid-line"/>
+                                            }
+                                            else
+                                            {
+                                                <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(4)" class="xq-grid-line"/>
+                                                <line x1="@X(file)" y1="@Y(5)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-grid-line"/>
+                                            }
+                                        }
+                                        <line x1="@X(3)" y1="@Y(0)" x2="@X(5)" y2="@Y(2)" class="xq-grid-line"/>
+                                        <line x1="@X(5)" y1="@Y(0)" x2="@X(3)" y2="@Y(2)" class="xq-grid-line"/>
+                                        <line x1="@X(3)" y1="@Y(7)" x2="@X(5)" y2="@Y(9)" class="xq-grid-line"/>
+                                        <line x1="@X(5)" y1="@Y(7)" x2="@X(3)" y2="@Y(9)" class="xq-grid-line"/>
+                                        @foreach ((int File, int Rank) mark in new[] { (1, 2), (7, 2), (1, 7), (7, 7), (0, 3), (2, 3), (4, 3), (6, 3), (8, 3), (0, 6), (2, 6), (4, 6), (6, 6), (8, 6) })
+                                        {
+                                            <path class="xq-grid-mark" d="@CrossPath(mark.File, mark.Rank)"/>
+                                        }
+                                        @SvgText(X(4), Y(4) - Cell / 2, "xq-river", "楚 河　　　汉 界")
+                                    </svg>
+                                    <div class="xq-river-shimmer"></div>
+                                    @for (int file = 0; file < XiangqiBoard.FileCount; file++)
+                                    {
+                                        int pointFile = file;
+                                        @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
+                                        {
+                                            int pointRank = rank;
+                                            <div class="xq-point3d @(IsSelected(pointFile, pointRank) ? "selected" : "")" style="left:@(Left(pointFile))%;top:@(Top(pointRank))%" @onclick="@(() => OnPointClick(pointFile, pointRank))">
+                                                <span class="xq-hit3d"></span>
+                                                @if (IsLastMovePoint(pointFile, pointRank))
+                                                {
+                                                    <span class="xq-last3d"></span>
+                                                }
+                                                @if (IsCapturePoint(pointFile, pointRank))
+                                                {
+                                                    <span class="xq-capture3d"></span>
+                                                }
+                                                @if (IsSelected(pointFile, pointRank))
+                                                {
+                                                    <span class="xq-selected3d"></span>
+                                                }
+                                                @if (selected is { } origin && table.LegalMoves.Contains(new XiangqiMove(origin.File, origin.Rank, pointFile, pointRank)))
+                                                {
+                                                    <span class="xq-target3d"></span>
+                                                }
+                                                @if (table.Board.PieceAt(pointFile, pointRank) is { } piece)
+                                                {
+                                                    <div class="xq-piece3d @PieceClass(piece) @(IsCheckedGeneral(pointFile, pointRank) ? "check" : "") @(IsLastMovePoint(pointFile, pointRank) ? "just-moved" : "")">
+                                                        <span class="xq-piece-shadow"></span>
+                                                        <span class="xq-piece-rim"></span>
+                                                        <span class="xq-piece-face"><span class="xq-piece-char">@XiangqiBoard.Name(piece)</span></span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                                <span class="xq-corner tl"></span>
+                                <span class="xq-corner tr"></span>
+                                <span class="xq-corner bl"></span>
+                                <span class="xq-corner br"></span>
+                            </div>
+                        </div>
+                        <div class="xq-incense" aria-hidden="true">
+                            <span class="xq-incense-smoke"></span>
+                            <span class="xq-incense-smoke second"></span>
+                            <span class="xq-incense-bowl"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <aside class="xq-panel">
+                    <div class="xq-seats">
+                        @for (int index = 0; index < table.Seats.Count; index++)
+                        {
+                            TableSeat seat = table.Seats[index];
+                            <div class="xq-seat @(table.TurnSeat == seat ? "turn" : "")">
+                                <span class="xq-seat-dot @(index == 0 ? "red" : "black")"></span>
+                                <span class="xq-seat-name">@seat.Name</span>
+                                <span class="xq-seat-meta">@XiangqiTable.SideName(index == 0 ? XiangqiSide.Red : XiangqiSide.Black)</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="xq-hint">@HintText</div>
+                    <div class="xq-log-title"><span class="xq-seal">谱</span>棋谱</div>
+                    <div class="xq-log">
+                        @if (table.Log.Count == 0)
+                        {
+                            <div class="xq-log-empty">静候落子…</div>
+                        }
+                        @foreach (string line in table.Log)
+                        {
+                            <div>@line</div>
+                        }
+                    </div>
+                </aside>
+            </div>
+
+            @if (table.IsOver)
             {
-                TableSeat seat = table.Seats[index];
-                <div class="xq-seat @(table.TurnSeat == seat ? "turn" : "")">
-                    <div class="xq-seat-name">@seat.Name</div>
-                    <div class="xq-seat-meta">@XiangqiTable.SideName(index == 0 ? XiangqiSide.Red : XiangqiSide.Black)</div>
+                <div class="xq-result">
+                    <div class="xq-result-burst"></div>
+                    <div class="xq-result-card">
+                        @for (int i = 0; i < 16; i++)
+                        {
+                            <span class="xq-spark" style="@($"--a:{i * 22.5}deg;--d:{1.4 + i % 5 * 0.28:0.00}s;")"></span>
+                        }
+                        <div class="xq-result-kicker">@StatusText</div>
+                        <div class="xq-result-seal">@ResultTitle</div>
+                        <div class="xq-result-sub">@ResultSub</div>
+                        <button class="xq-btn primary" @onclick="@(() => table.Start(table.Seats))">再来一局</button>
+                    </div>
                 </div>
             }
-        </div>
 
-        <svg class="xq-board" viewBox="0 0 @BoardWidth @BoardHeight">
-            @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
+            @if (table.IsPaused)
             {
-                <line x1="@X(0)" y1="@Y(rank)" x2="@X(XiangqiBoard.FileCount - 1)" y2="@Y(rank)" class="xq-line"/>
+                <div class="xq-pause">
+                    <span>@table.TurnSeat?.Name 连续未能完成行动，对局已暂停。</span>
+                    <button class="xq-btn primary" @onclick="@(() => table.Resume())">继续</button>
+                </div>
             }
-            @for (int file = 0; file < XiangqiBoard.FileCount; file++)
-            {
-                @if (file == 0 || file == XiangqiBoard.FileCount - 1)
-                {
-                    <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-line"/>
-                }
-                else
-                {
-                    <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(4)" class="xq-line"/>
-                    <line x1="@X(file)" y1="@Y(5)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-line"/>
-                }
-            }
-            <line x1="@X(3)" y1="@Y(0)" x2="@X(5)" y2="@Y(2)" class="xq-line"/>
-            <line x1="@X(5)" y1="@Y(0)" x2="@X(3)" y2="@Y(2)" class="xq-line"/>
-            <line x1="@X(3)" y1="@Y(7)" x2="@X(5)" y2="@Y(9)" class="xq-line"/>
-            <line x1="@X(5)" y1="@Y(7)" x2="@X(3)" y2="@Y(9)" class="xq-line"/>
-            @SvgText(X(4), Y(4) + Cell / 2, "xq-river", "楚 河　　　汉 界")
-
-            @for (int file = 0; file < XiangqiBoard.FileCount; file++)
-            {
-                int pointFile = file;
-                @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
-                {
-                    int pointRank = rank;
-                    <g @onclick="@(() => OnPointClick(pointFile, pointRank))">
-                        <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@(Cell / 2)" class="xq-hit"/>
-                        @if (IsSelected(pointFile, pointRank))
-                        {
-                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@(PieceRadius + 4)" class="xq-selected"/>
-                        }
-                        @if (selected is { } origin && moves.Contains(new XiangqiMove(origin.File, origin.Rank, pointFile, pointRank)))
-                        {
-                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="7" class="xq-target"/>
-                        }
-                        @if (table.Board.PieceAt(pointFile, pointRank) is { } piece)
-                        {
-                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@PieceRadius" class="xq-piece @PieceClass(piece)"/>
-                            @SvgText(X(pointFile), Y(pointRank), $"xq-piece-text {PieceClass(piece)}", XiangqiBoard.Name(piece))
-                        }
-                    </g>
-                }
-            }
-        </svg>
-
-        <div class="xq-hint">
-            <AntDesign.Text Type="@TextElementType.Secondary">@HintText</AntDesign.Text>
-        </div>
-
-        <div class="xq-log-title">棋谱</div>
-        <div class="xq-log">
-            @foreach (string line in table.Log)
-            {
-                <div>@line</div>
-            }
-        </div>
-    }
-    else
-    {
-        <AntDesign.Text Type="@TextElementType.Secondary">选择红方（先手）和黑方的座位。可以选你自己与一个角色对弈，也可以让两个角色自行对弈。</AntDesign.Text>
-        @if (CandidateActivities.Count == 0)
-        {
-            <Alert Type="@AlertType.Info" Message="没有启用“中国象棋”功能的角色。请在角色的功能检视中为它启用该模块。" ShowIcon="true" Style="margin: 12px 0;"/>
         }
-        <div class="xq-setup">
-            <div class="xq-setup-row">
-                <AntDesign.Text>红方（先手）</AntDesign.Text>
-                <Select TItem="string" TItemValue="string" @bind-Value="redKey" Placeholder="选择座位" Style="width: 240px;">
-                    <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
-                    @for (int index = 0; index < CandidateActivities.Count; index++)
+        else
+        {
+            <div class="xq-setup">
+                <div class="xq-setup-card">
+                    <div class="xq-setup-kicker">ALIFE · TABLE GAME</div>
+                    <h2 class="xq-setup-title">楚河 · 汉界</h2>
+                    <p class="xq-setup-desc">选择红方和黑方的座位，开局随机决定先手。可以选你自己与一个角色对弈，也可以让两个角色自行对弈。</p>
+                    @if (CandidateActivities.Count == 0)
                     {
-                        <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
+                        <div class="xq-empty">没有启用“中国象棋”功能的角色。请在角色的功能检视中为它启用该模块。</div>
                     }
-                </Select>
+                    <div class="xq-setup-row">
+                        <span class="xq-setup-label"><span class="xq-seat-dot red"></span>红方</span>
+                        <Select TItem="string" TItemValue="string" @bind-Value="redKey" Placeholder="选择座位" Style="width: 100%;">
+                            <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                            @for (int index = 0; index < CandidateActivities.Count; index++)
+                            {
+                                <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
+                            }
+                        </Select>
+                    </div>
+                    <div class="xq-setup-row">
+                        <span class="xq-setup-label"><span class="xq-seat-dot black"></span>黑方</span>
+                        <Select TItem="string" TItemValue="string" @bind-Value="blackKey" Placeholder="选择座位" Style="width: 100%;">
+                            <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                            @for (int index = 0; index < CandidateActivities.Count; index++)
+                            {
+                                <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
+                            }
+                        </Select>
+                    </div>
+                    <button class="xq-btn primary xq-start" disabled="@(CanStart == false)" @onclick="@StartGame">开始对弈</button>
+                    <div class="xq-setup-foot">落子无悔 · 方寸之间见山河</div>
+                </div>
             </div>
-            <div class="xq-setup-row">
-                <AntDesign.Text>黑方</AntDesign.Text>
-                <Select TItem="string" TItemValue="string" @bind-Value="blackKey" Placeholder="选择座位" Style="width: 240px;">
-                    <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
-                    @for (int index = 0; index < CandidateActivities.Count; index++)
-                    {
-                        <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
-                    }
-                </Select>
-            </div>
-        </div>
-        <Button Type="@ButtonType.Primary" Disabled="@(CanStart == false)" OnClick="@StartGame">开始对弈</Button>
-    }
-</Drawer>
+        }
+    </div>
+}
+
+
 
 <style>
-    .xq-header {
+    .xq-stage {
+        --xq-gold: #d9b36c;
+        --xq-gold-bright: #ffe3a3;
+        --xq-red: #e5484d;
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
+        overflow: hidden;
+        color: #f3e9d2;
+        background:
+            radial-gradient(1100px 720px at 50% 18%, #26302c 0%, #141a18 42%, #0a0d0c 72%, #060707 100%);
+        font-family: "Noto Serif SC", "Source Han Serif SC", "STKaiti", "KaiTi", serif;
+        isolation: isolate;
+    }
+
+    .xq-brand {
+        display: flex;
         align-items: center;
-        margin-bottom: 12px;
+        gap: 12px;
+    }
+
+    .xq-brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        color: #1a120a;
+        font-weight: 700;
+    }
+
+    .xq-brand-text {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: .08em;
+    }
+
+    .xq-status {
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        border: 1px solid rgba(217, 179, 108, .3);
+        color: #e8cf9c;
+    }
+
+    .xq-opening {
+        position: absolute;
+        left: 50%;
+        top: 92px;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 22px 10px 14px;
+        border-radius: 999px;
+        background: linear-gradient(120deg, rgba(42, 29, 16, .95), rgba(20, 12, 8, .92));
+        border: 1px solid rgba(217, 179, 108, .45);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, .55), 0 0 26px rgba(217, 179, 108, .16);
+        pointer-events: none;
+        animation: xq-opening-in .5s cubic-bezier(.18, .9, .24, 1) both;
+        transform: translateX(-50%);
+    }
+
+    .xq-opening-seal {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: #a52a2a;
+        color: #f3e9d2;
+        font-size: 15px;
+        box-shadow: 0 0 10px rgba(229, 72, 77, .4);
+        transform: rotate(-4deg);
+    }
+
+    .xq-opening-text {
+        font-size: 15px;
+        letter-spacing: .06em;
+        color: #ffe3a3;
+        white-space: nowrap;
+    }
+
+    .xq-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .xq-rail-icon {
+        width: 30px;
+        height: 30px;
+        filter: drop-shadow(0 0 6px rgba(217, 179, 108, .45));
+        transition: filter .18s ease, transform .18s ease;
+    }
+
+    .alife-rail-item:hover .xq-rail-icon,
+    .alife-rail-item.active .xq-rail-icon {
+        filter: drop-shadow(0 0 9px rgba(236, 194, 110, .7));
+        transform: scale(1.06);
+    }
+
+    .xq-rail-disc {
+        fill: #f7e6be;
+        stroke: #d2a65b;
+        stroke-width: 3;
+    }
+
+    .xq-rail-inner {
+        fill: none;
+        stroke: #9e2f24;
+        stroke-width: 2.4;
+    }
+
+    .xq-rail-light {
+        fill: #fff6dc;
+        opacity: .4;
+    }
+
+    .xq-rail-char {
+        fill: #8d251d;
+    }
+
+    .xq-btn {
+        padding: 7px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(217, 179, 108, .35);
+        background: rgba(217, 179, 108, .08);
+        color: #f3e9d2;
+        font-size: 14px;
+        cursor: pointer;
+        transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    .xq-btn.xq-music {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .xq-music svg {
+        width: 17px;
+        height: 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .xq-btn:hover {
+        transform: translateY(-1px);
+        background: rgba(217, 179, 108, .18);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+    }
+
+    .xq-btn.primary {
+        color: #1a120a;
+        border-color: transparent;
+        font-weight: 600;
+    }
+
+    .xq-btn.danger {
+        border-color: rgba(229, 72, 77, .5);
+        background: rgba(229, 72, 77, .12);
+        color: #ffb3b5;
+    }
+
+    .xq-btn.ghost {
+        background: transparent;
+    }
+
+    .xq-btn:disabled {
+        opacity: .4;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .xq-content {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 22px;
+        padding: 20px 24px;
+    }
+
+    .xq-board-area {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        place-items: center;
+        padding: 8px;
     }
 
     .xq-seats {
         display: flex;
+        flex-direction: column;
         gap: 10px;
-        margin-bottom: 12px;
     }
 
     .xq-seat {
-        flex: 1 1 0;
-        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         padding: 10px 12px;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-container);
-        border: 1px solid var(--alife-border);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, .03);
+        border: 1px solid rgba(217, 179, 108, .15);
+        transition: border-color .2s ease, box-shadow .2s ease;
     }
 
     .xq-seat.turn {
-        border-color: var(--alife-primary);
-        box-shadow: 0 0 0 2px var(--alife-primary-bg);
+        border-color: rgba(255, 224, 138, .6);
+        box-shadow: 0 0 0 2px rgba(255, 224, 138, .15), 0 0 20px rgba(217, 179, 108, .25);
+    }
+
+    .xq-seat-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+    }
+
+    .xq-seat-dot.red {
+        background: #e5484d;
+        box-shadow: 0 0 8px rgba(229, 72, 77, .8);
+    }
+
+    .xq-seat-dot.black {
+        background: #cbb98f;
+        box-shadow: 0 0 8px rgba(203, 185, 143, .6);
     }
 
     .xq-seat-name {
+        flex: 1;
         font-weight: 600;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -186,118 +514,1321 @@
 
     .xq-seat-meta {
         font-size: 12px;
-        color: var(--alife-text-secondary);
-    }
-
-    .xq-board {
-        display: block;
-        width: 100%;
-        max-width: 560px;
-        margin: 0 auto;
-        padding: 4px 0;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-layout);
-    }
-
-    .xq-line {
-        stroke: var(--alife-border-strong);
-        stroke-width: 1.5;
-    }
-
-    .xq-river {
-        fill: var(--alife-text-secondary);
-        font-size: 22px;
-        text-anchor: middle;
-        dominant-baseline: central;
-    }
-
-    .xq-hit {
-        fill: transparent;
-        cursor: pointer;
-    }
-
-    .xq-selected {
-        fill: none;
-        stroke: var(--alife-primary);
-        stroke-width: 3;
-    }
-
-    .xq-target {
-        fill: var(--alife-primary);
-        opacity: 0.7;
-    }
-
-    .xq-piece {
-        fill: var(--alife-bg-container);
-        stroke: var(--alife-border-strong);
-        stroke-width: 1.5;
-    }
-
-    .xq-piece.red {
-        stroke: var(--alife-error);
-    }
-
-    .xq-piece-text {
-        fill: var(--alife-text);
-        font-size: 24px;
-        font-weight: 600;
-        text-anchor: middle;
-        dominant-baseline: central;
-        pointer-events: none;
-    }
-
-    .xq-piece-text.red {
-        fill: var(--alife-error);
+        color: rgba(243, 233, 210, .55);
     }
 
     .xq-hint {
-        min-height: 22px;
-        margin: 12px 0;
-        text-align: center;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #e8cf9c;
+        background: rgba(217, 179, 108, .08);
+        border: 1px solid rgba(217, 179, 108, .15);
     }
 
     .xq-log-title {
-        margin-top: 16px;
+        font-size: 13px;
         font-weight: 600;
+        color: rgba(243, 233, 210, .7);
     }
 
     .xq-log {
-        max-height: 220px;
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 8px 12px;
-        margin-top: 6px;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-layout);
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, .25);
         font-size: 12px;
-        line-height: 1.7;
-        color: var(--alife-text-secondary);
+        line-height: 1.8;
+        color: rgba(243, 233, 210, .7);
     }
 
-    .xq-setup {
+    .xq-pause {
+        position: absolute;
+        left: 50%;
+        bottom: 28px;
+        transform: translateX(-50%);
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin: 12px 0 16px;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 20px;
+        border-radius: 999px;
+        background: rgba(229, 72, 77, .15);
+        border: 1px solid rgba(229, 72, 77, .45);
+        color: #ffb3b5;
+        backdrop-filter: blur(8px);
+    }
+
+    .xq-empty {
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: rgba(217, 179, 108, .1);
+        border: 1px solid rgba(217, 179, 108, .25);
+        color: #e8cf9c;
     }
 
     .xq-setup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 18px;
+    }
+
+    .xq-setup-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .xq-sky,
+    .xq-moon,
+    .xq-mountains,
+    .xq-clouds,
+    .xq-dust,
+    .xq-glow {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .xq-sky {
+        z-index: 0;
+        background:
+            radial-gradient(ellipse at 72% 12%, rgba(255, 226, 170, .14), transparent 30%),
+            radial-gradient(ellipse at 18% 78%, rgba(58, 154, 142, .10), transparent 42%),
+            linear-gradient(180deg, rgba(8, 12, 12, .18), rgba(4, 6, 6, .72));
+    }
+
+    .xq-moon {
+        inset: auto;
+        top: 7%;
+        right: 14%;
+        width: clamp(100px, 14vw, 210px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle at 38% 34%, #fff8df 0%, #f0dca8 34%, rgba(201, 164, 94, .35) 62%, transparent 72%);
+        box-shadow: 0 0 120px rgba(255, 224, 138, .22);
+        filter: blur(2px);
+        opacity: .42;
+        z-index: 0;
+        animation: xq-moon 14s ease-in-out infinite alternate;
+    }
+
+    .xq-mountains {
+        inset: auto 0 0;
+        width: 100%;
+        height: 36%;
+        z-index: 0;
+        opacity: .9;
+    }
+
+    .xq-mountain.far {
+        fill: rgba(17, 37, 35, .72);
+    }
+
+    .xq-mountain.near {
+        fill: rgba(7, 17, 16, .92);
+    }
+
+    .xq-clouds {
+        overflow: hidden;
+        z-index: 0;
+    }
+
+    .xq-clouds span {
+        position: absolute;
+        display: block;
+        width: 48vw;
+        height: 10vw;
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(174, 210, 200, .12), transparent 70%);
+        filter: blur(18px);
+        animation: xq-cloud 36s ease-in-out infinite alternate;
+    }
+
+    .xq-clouds span:nth-child(1) {
+        top: 16%;
+        left: -12%;
+    }
+
+    .xq-clouds span:nth-child(2) {
+        top: 34%;
+        right: -16%;
+        animation-delay: -12s;
+    }
+
+    .xq-clouds span:nth-child(3) {
+        top: 58%;
+        left: 18%;
+        width: 34vw;
+        animation-delay: -24s;
+    }
+
+    .xq-lantern {
+        position: absolute;
+        top: 5.5%;
+        width: 44px;
+        height: 96px;
+        pointer-events: none;
+        z-index: 1;
+        transform-origin: 50% 0;
+        animation: xq-sway 6.5s ease-in-out infinite;
+        filter: drop-shadow(0 0 18px rgba(229, 72, 77, .42));
+    }
+
+    .xq-lantern.left {
+        left: 3.2%;
+    }
+
+    .xq-lantern.right {
+        right: 3.2%;
+        animation-delay: -3.2s;
+    }
+
+    .xq-lantern::before {
+        content: "";
+        position: absolute;
+        top: -22px;
+        left: 50%;
+        width: 1px;
+        height: 28px;
+        background: linear-gradient(rgba(217, 179, 108, .05), rgba(217, 179, 108, .7));
+    }
+
+    .xq-lantern-cap {
+        position: absolute;
+        top: 4px;
+        left: 8px;
+        right: 8px;
+        height: 7px;
+        border-radius: 2px;
+        background: linear-gradient(#f0d49a, #8a6a33);
+    }
+
+    .xq-lantern-body {
+        position: absolute;
+        top: 10px;
+        left: 2px;
+        right: 2px;
+        height: 56px;
+        overflow: hidden;
+        border-radius: 46% 46% 42% 42%;
+        background: radial-gradient(circle at 35% 28%, #ff9a86, #d02a35 45%, #7a1018 100%);
+        border: 1px solid rgba(255, 220, 160, .5);
+        box-shadow: inset 0 0 18px rgba(255, 200, 120, .35), 0 0 28px rgba(229, 72, 77, .3);
+    }
+
+    .xq-lantern-body::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(90, 10, 15, .35) 8px 9px);
+    }
+
+    .xq-lantern-body::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 9%;
+        bottom: 9%;
+        width: 2px;
+        background: rgba(255, 220, 160, .32);
+        transform: translateX(-50%);
+    }
+
+    .xq-lantern-tassel {
+        position: absolute;
+        top: 66px;
+        left: 50%;
+        width: 2px;
+        height: 28px;
+        background: linear-gradient(#e5484d, rgba(229, 72, 77, .05));
+        transform: translateX(-50%);
+    }
+
+    .xq-dust {
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .xq-dust span {
+        position: absolute;
+        bottom: -10px;
+        border-radius: 50%;
+        background: rgba(255, 224, 138, .72);
+        box-shadow: 0 0 7px rgba(255, 224, 138, .55);
+        opacity: 0;
+        animation-name: xq-dust;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+    }
+
+    .xq-glow {
+        z-index: 0;
+        inset: -20%;
+        background:
+            radial-gradient(620px 420px at 28% 18%, rgba(217, 179, 108, .16), transparent 62%),
+            radial-gradient(760px 520px at 76% 82%, rgba(229, 72, 77, .10), transparent 62%);
+        animation: xq-drift 18s ease-in-out infinite alternate;
+    }
+
+    .xq-topbar {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 22px;
+        background: linear-gradient(180deg, rgba(10, 8, 6, .9), rgba(10, 8, 6, .38));
+        border-bottom: 1px solid rgba(217, 179, 108, .2);
+        backdrop-filter: blur(14px);
+    }
+
+    .xq-topbar::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 224, 138, .55), transparent);
+    }
+
+    .xq-brand-mark {
+        background: conic-gradient(from 210deg, #8a6a33, #f0d49a, #b58a44, #8a6a33);
+        box-shadow: 0 0 22px rgba(217, 179, 108, .5), inset 0 0 0 1px rgba(255, 245, 210, .4);
+        animation: xq-seal-glow 3.6s ease-in-out infinite;
+    }
+
+    .xq-brand-text {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.08;
+    }
+
+    .xq-brand-text small {
+        margin-top: 2px;
+        font-family: "Segoe UI", sans-serif;
+        font-size: 9px;
+        letter-spacing: .3em;
+        color: rgba(243, 233, 210, .42);
+    }
+
+    .xq-status {
+        position: relative;
+        padding-left: 23px;
+        background: linear-gradient(160deg, rgba(217, 179, 108, .18), rgba(217, 179, 108, .06));
+    }
+
+    .xq-status::before {
+        content: "";
+        position: absolute;
+        left: 9px;
+        top: 50%;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--xq-gold-bright);
+        box-shadow: 0 0 10px var(--xq-gold-bright);
+        transform: translateY(-50%);
+        animation: xq-pulse 1.6s ease-in-out infinite;
+    }
+
+    .xq-btn {
+        position: relative;
+        overflow: hidden;
+        box-shadow: inset 0 0 0 1px rgba(255, 235, 190, .08);
+    }
+
+    .xq-btn.primary {
+        background: linear-gradient(160deg, #f0d49a, #c79a5d 55%, #a8753d);
+        box-shadow: 0 6px 20px rgba(217, 179, 108, .22), inset 0 1px 0 rgba(255, 250, 230, .7);
+    }
+
+    .xq-btn.primary::after {
+        content: "";
+        position: absolute;
+        top: -50%;
+        bottom: -50%;
+        left: -70%;
+        width: 40%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+        transform: skewX(-18deg);
+        animation: xq-sheen 4.5s ease-in-out infinite;
+    }
+
+    .xq-content {
+        z-index: 2;
+    }
+
+    .xq-board-area {
+        position: relative;
+        overflow: hidden;
+        border-radius: 26px;
+    }
+
+    .xq-table {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        border-radius: 26px;
+        background:
+            radial-gradient(ellipse at 50% 62%, rgba(255, 190, 110, .10), transparent 58%),
+            repeating-linear-gradient(92deg, rgba(255, 220, 160, .018) 0 1px, transparent 1px 10px),
+            linear-gradient(180deg, rgba(30, 20, 14, .12), rgba(8, 5, 4, .55));
+    }
+
+    .xq-table::before {
+        content: "";
+        position: absolute;
+        inset: 12% 8% 8%;
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(0, 0, 0, .58), transparent 68%);
+        filter: blur(18px);
+        pointer-events: none;
+    }
+
+    .xq-board-shadow {
+        position: absolute;
+        left: 50%;
+        top: 76%;
+        width: min(60vw, 600px);
+        height: 110px;
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(0, 0, 0, .72), transparent 70%);
+        filter: blur(16px);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    .xq-board-wrap {
+        position: relative;
+        z-index: 1;
+        width: min(70vh, 640px);
+        aspect-ratio: 504 / 560;
+        transform-style: preserve-3d;
+    }
+
+    .xq-board-3d {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        animation: xq-board-in .9s cubic-bezier(.18, .86, .24, 1) backwards;
+    }
+
+    .xq-board-rim {
+        position: absolute;
+        inset: -12px;
+        border-radius: 16px;
+        transform: translateZ(-14px);
+        background: linear-gradient(145deg, #a8783c, #5a3516 45%, #2a1708);
+        box-shadow: 0 18px 0 #2a1708, 0 30px 60px rgba(0, 0, 0, .65), inset 0 0 0 1px rgba(255, 220, 160, .25);
+    }
+
+    .xq-board-rim::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 220, 160, .2);
+    }
+
+    .xq-board-top {
+        position: absolute;
+        inset: 0;
+        border-radius: 10px;
+        transform: translateZ(0);
+        transform-style: preserve-3d;
+        font-size: clamp(30px, 4.6vh, 44px);
+        background:
+            radial-gradient(ellipse at 30% 18%, rgba(255, 240, 200, .35), transparent 45%),
+            repeating-linear-gradient(91deg, rgba(90, 55, 20, .07) 0 2px, transparent 2px 8px),
+            linear-gradient(145deg, #e0bd86, #c79a5d 48%, #a8753d);
+        box-shadow: inset 0 0 0 2px rgba(90, 55, 20, .7), inset 0 0 40px rgba(90, 55, 20, .25), 0 0 0 1px rgba(255, 235, 190, .2);
+    }
+
+    .xq-board-top::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(60, 30, 10, .22));
+        pointer-events: none;
+    }
+
+    .xq-grid {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+        filter: drop-shadow(0 1px 0 rgba(255, 240, 200, .28));
+    }
+
+    .xq-grid-line {
+        stroke: rgba(74, 42, 16, .72);
+        stroke-width: 1.4;
+        stroke-linecap: round;
+    }
+
+    .xq-grid-border {
+        fill: none;
+        stroke: rgba(74, 42, 16, .78);
+        stroke-width: 3;
+    }
+
+    .xq-grid-mark {
+        fill: none;
+        stroke: rgba(74, 42, 16, .6);
+        stroke-width: 1.2;
+        stroke-linecap: round;
+    }
+
+    .xq-river {
+        fill: rgba(70, 38, 12, .95);
+        font-family: "STKaiti", "KaiTi", serif;
+        font-size: 21px;
+        font-weight: 600;
+        letter-spacing: .18em;
+        text-anchor: middle;
+        dominant-baseline: central;
+    }
+
+    .xq-river-shimmer {
+        position: absolute;
+        left: 6%;
+        right: 6%;
+        top: 47.4%;
+        height: 10.5%;
+        background: linear-gradient(90deg, transparent, rgba(120, 220, 210, .16), transparent);
+        filter: blur(6px);
+        pointer-events: none;
+        animation: xq-river 6s ease-in-out infinite;
+    }
+
+    .xq-corner {
+        position: absolute;
+        width: 34px;
+        height: 34px;
+        border: 2px solid rgba(255, 224, 138, .7);
+        box-shadow: 0 0 12px rgba(255, 224, 138, .35);
+        pointer-events: none;
+        transform: translateZ(4px);
+    }
+
+    .xq-corner.tl {
+        left: -16px;
+        top: -16px;
+        border-right: 0;
+        border-bottom: 0;
+        border-radius: 8px 0 0 0;
+    }
+
+    .xq-corner.tr {
+        right: -16px;
+        top: -16px;
+        border-left: 0;
+        border-bottom: 0;
+        border-radius: 0 8px 0 0;
+    }
+
+    .xq-corner.bl {
+        left: -16px;
+        bottom: -16px;
+        border-right: 0;
+        border-top: 0;
+        border-radius: 0 0 0 8px;
+    }
+
+    .xq-corner.br {
+        right: -16px;
+        bottom: -16px;
+        border-left: 0;
+        border-top: 0;
+        border-radius: 0 0 8px 0;
+    }
+
+    .xq-point3d {
+        position: absolute;
+        width: 1.15em;
+        height: 1.15em;
+        transform: translate(-50%, -50%);
+        transform-style: preserve-3d;
+    }
+
+    .xq-hit3d {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        transform: translateZ(3px);
+        cursor: pointer;
+    }
+
+    .xq-point3d:hover .xq-hit3d {
+        background: radial-gradient(circle, rgba(255, 224, 138, .14), transparent 70%);
+    }
+
+    .xq-last3d {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1.18em;
+        height: 1.18em;
+        border: 1px dashed rgba(255, 224, 138, .55);
+        border-radius: 50%;
+        transform: translate(-50%, -50%) translateZ(2px);
+        pointer-events: none;
+        animation: xq-last 1.5s ease-in-out infinite;
+    }
+
+    .xq-capture3d {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1.5em;
+        height: 1.5em;
+        border: 2px solid rgba(255, 104, 82, .95);
+        border-radius: 50%;
+        box-shadow: 0 0 24px rgba(255, 92, 70, .8), inset 0 0 18px rgba(255, 208, 112, .45);
+        transform: translate(-50%, -50%) translateZ(6px);
+        pointer-events: none;
+        animation: xq-capture .72s cubic-bezier(.12, .82, .22, 1) both;
+    }
+
+    .xq-capture3d::after {
+        content: "吃";
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #ffe2a6;
+        font-size: .68em;
+        font-weight: 700;
+        text-shadow: 0 0 12px rgba(255, 90, 60, .95), 0 1px 0 rgba(40, 12, 6, .8);
+    }
+
+    .xq-selected3d {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1.3em;
+        height: 1.3em;
+        border: 2px solid var(--xq-gold-bright);
+        border-radius: 50%;
+        box-shadow: 0 0 18px rgba(255, 224, 138, .65), inset 0 0 12px rgba(255, 224, 138, .2);
+        transform: translate(-50%, -50%) translateZ(3px);
+        pointer-events: none;
+        animation: xq-pulse 1.2s ease-in-out infinite;
+    }
+
+    .xq-target3d {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: .24em;
+        height: .24em;
+        border-radius: 50%;
+        background: var(--xq-gold-bright);
+        box-shadow: 0 0 14px var(--xq-gold-bright);
+        transform: translate(-50%, -50%) translateZ(4px);
+        pointer-events: none;
+        animation: xq-target 1s ease-in-out infinite;
+    }
+
+    .xq-target3d::after {
+        content: "";
+        position: absolute;
+        inset: -.34em;
+        border: 1px solid rgba(255, 224, 138, .5);
+        border-radius: 50%;
+    }
+
+    .xq-piece3d {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1em;
+        height: 1em;
+        transform: translate(-50%, -50%) translateZ(26px);
+        transform-style: preserve-3d;
+        pointer-events: none;
+        transition: transform .2s ease;
+    }
+
+    .xq-piece-shadow {
+        position: absolute;
+        left: 8%;
+        top: 58%;
+        width: 84%;
+        height: 34%;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, .5);
+        filter: blur(4px);
+        transform: translateZ(-26px) scale(1.05);
+    }
+
+    .xq-piece-rim {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #b8894a, #5a3516 60%, #2e1808);
+        transform: translateZ(-5px);
+        box-shadow: 0 5px 0 #2a1708, 0 8px 12px rgba(0, 0, 0, .45);
+    }
+
+    .xq-piece-face {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 26%, #fffdf4 0%, #f0e0bd 42%, #d8bd8a 72%, #b8915a 100%);
+        border: 2px solid rgba(90, 55, 20, .85);
+        box-shadow: inset 0 2px 2px rgba(255, 255, 255, .85), inset 0 -5px 8px rgba(90, 55, 20, .3), 0 4px 8px rgba(0, 0, 0, .4);
+        transform: translateZ(0);
+    }
+
+    .xq-piece-face::before {
+        content: "";
+        position: absolute;
+        inset: 12%;
+        border-radius: 50%;
+        border: 1px solid rgba(120, 80, 30, .55);
+        box-shadow: inset 0 0 6px rgba(120, 80, 30, .15);
+    }
+
+    .xq-piece-char {
+        font-size: .58em;
+        font-weight: 700;
+        line-height: 1;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, .6);
+    }
+
+    .xq-piece3d.red .xq-piece-face {
+        border-color: rgba(160, 40, 30, .85);
+    }
+
+    .xq-piece3d.red .xq-piece-char {
+        color: #b3261e;
+    }
+
+    .xq-piece3d.black .xq-piece-char {
+        color: #1b1b1b;
+    }
+
+    .xq-point3d:hover .xq-piece3d {
+        transform: translate(-50%, -50%) translateZ(36px) scale(1.05);
+    }
+
+    .xq-point3d:hover .xq-piece-face {
+        box-shadow: inset 0 2px 2px rgba(255, 255, 255, .9), inset 0 -5px 8px rgba(90, 55, 20, .3), 0 0 18px rgba(255, 224, 138, .7);
+    }
+
+    .xq-point3d.selected .xq-piece3d {
+        transform: translate(-50%, -50%) translateZ(42px) scale(1.06);
+    }
+
+    .xq-point3d.selected .xq-piece-face {
+        box-shadow: inset 0 2px 2px rgba(255, 255, 255, .9), inset 0 -5px 8px rgba(90, 55, 20, .3), 0 0 24px rgba(255, 224, 138, .85);
+    }
+
+    .xq-piece3d.just-moved {
+        animation: xq-drop .42s cubic-bezier(.18, .9, .24, 1);
+    }
+
+    .xq-piece3d.check .xq-piece-face {
+        animation: xq-check .72s ease-in-out infinite;
+    }
+
+    .xq-incense {
+        position: absolute;
+        left: 5%;
+        bottom: 6%;
+        width: 70px;
+        height: 110px;
+        pointer-events: none;
+        opacity: .85;
+    }
+
+    .xq-incense-bowl {
+        position: absolute;
+        bottom: 0;
+        left: 10px;
+        width: 50px;
+        height: 22px;
+        border-radius: 0 0 24px 24px;
+        background: linear-gradient(#c9a15a, #5a3516 60%, #2a1708);
+        box-shadow: 0 0 20px rgba(255, 180, 80, .15);
+    }
+
+    .xq-incense-bowl::before {
+        content: "";
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(#f0d49a, #8a6a33);
+    }
+
+    .xq-incense-smoke {
+        position: absolute;
+        bottom: 28px;
+        left: 34px;
+        width: 6px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(transparent, rgba(220, 230, 220, .25), transparent);
+        filter: blur(4px);
+        animation: xq-smoke 5s ease-in-out infinite;
+    }
+
+    .xq-incense-smoke.second {
+        left: 40px;
+        height: 48px;
+        animation-delay: -2.5s;
+    }
+
+    .xq-panel {
+        position: relative;
+        width: 310px;
+        flex: 0 0 310px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 0;
+        padding: 16px;
+        overflow: hidden;
+        border-radius: 18px;
+        background: linear-gradient(160deg, rgba(24, 17, 11, .74), rgba(12, 8, 5, .84));
+        border: 1px solid rgba(217, 179, 108, .22);
+        box-shadow: inset 0 0 30px rgba(217, 179, 108, .04), 0 20px 50px rgba(0, 0, 0, .35);
+        backdrop-filter: blur(14px);
+    }
+
+    .xq-panel::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 10%;
+        right: 10%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 224, 138, .6), transparent);
+    }
+
+    .xq-panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 100% 0, rgba(217, 179, 108, .08), transparent 45%);
+        pointer-events: none;
+    }
+
+    .xq-seat {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .xq-seat::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(#ffe08a, transparent);
+        opacity: 0;
+        transition: opacity .2s ease;
+    }
+
+    .xq-seat.turn::before {
+        opacity: 1;
+    }
+
+    .xq-log {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(217, 179, 108, .4) transparent;
+        mask-image: linear-gradient(180deg, transparent, black 7%, black 93%, transparent);
+        -webkit-mask-image: linear-gradient(180deg, transparent, black 7%, black 93%, transparent);
+    }
+
+    .xq-log-empty {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        font-size: 12px;
+        letter-spacing: .24em;
+        color: rgba(243, 233, 210, .28);
+    }
+
+    .xq-log-title {
+        display: flex;
+        align-items: center;
+    }
+
+    .xq-seal {
+        display: inline-grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        margin-right: 8px;
+        border-radius: 4px;
+        background: #a52a2a;
+        color: #f3e9d2;
+        font-size: 12px;
+        box-shadow: 0 0 10px rgba(229, 72, 77, .35);
+        transform: rotate(-4deg);
+    }
+
+    .xq-pause {
+        z-index: 5;
+    }
+
+    .xq-setup {
+        position: relative;
+        z-index: 2;
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+    }
+
+    .xq-setup::before {
+        content: "棋";
+        position: absolute;
+        font-size: 44vh;
+        line-height: 1;
+        font-weight: 700;
+        color: rgba(255, 224, 138, .035);
+        pointer-events: none;
+    }
+
+    .xq-setup-card {
+        position: relative;
+        width: min(560px, 92vw);
+        padding: 34px 40px 26px;
+        text-align: center;
+        border-radius: 22px;
+        background: linear-gradient(160deg, rgba(38, 27, 16, .9), rgba(14, 9, 6, .95));
+        border: 1px solid rgba(217, 179, 108, .35);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 0 60px rgba(217, 179, 108, .06);
+        animation: xq-card-in .7s cubic-bezier(.18, .86, .24, 1) both;
+    }
+
+    .xq-setup-card::before {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border: 1px solid rgba(217, 179, 108, .16);
+        border-radius: 14px;
+        pointer-events: none;
+    }
+
+    .xq-setup-kicker {
+        font-family: "Segoe UI", sans-serif;
+        font-size: 10px;
+        letter-spacing: .38em;
+        color: rgba(243, 233, 210, .4);
+    }
+
+    .xq-setup-title {
+        margin: 10px 0 8px;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: .12em;
+        color: #f3e1b8;
+        text-shadow: 0 0 30px rgba(255, 224, 138, .25);
+    }
+
+    .xq-setup-desc {
+        margin: 0 auto 22px;
+        max-width: 440px;
+        line-height: 1.8;
+        color: rgba(243, 233, 210, .68);
+    }
+
+    .xq-setup-row {
+        width: 100%;
+        max-width: 380px;
+        margin: 0 auto 14px;
+    }
+
+    .xq-setup-row .ant-select {
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .xq-setup-label {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .xq-setup-card .ant-select-selector {
+        background: rgba(255, 248, 230, .06) !important;
+        border-color: rgba(217, 179, 108, .32) !important;
+        box-shadow: inset 0 0 0 1px rgba(255, 235, 190, .04) !important;
+    }
+
+    .xq-setup-card .ant-select-selection-item {
+        color: #f3e9d2 !important;
+    }
+
+    .xq-setup-card .ant-select-selection-placeholder {
+        color: rgba(243, 233, 210, .4) !important;
+    }
+
+    .xq-setup-card .ant-select-arrow {
+        color: rgba(243, 233, 210, .55) !important;
+    }
+
+    body:has(.xq-stage) .ant-select-dropdown {
+        background: #1a120a;
+        border: 1px solid rgba(217, 179, 108, .35);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, .55);
+    }
+
+    body:has(.xq-stage) .ant-select-item {
+        color: #f3e9d2;
+    }
+
+    body:has(.xq-stage) .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+        background: rgba(217, 179, 108, .16);
+    }
+
+    body:has(.xq-stage) .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+        background: rgba(217, 179, 108, .24);
+        color: #ffe3a3;
+    }
+
+    .xq-start {
+        width: 100%;
+        max-width: 380px;
+        margin-top: 8px;
+        padding: 12px 34px;
+        font-size: 15px;
+    }
+
+    .xq-setup-foot {
+        margin-top: 18px;
+        font-size: 12px;
+        letter-spacing: .2em;
+        color: rgba(243, 233, 210, .35);
+    }
+
+    .xq-result {
+        position: absolute;
+        inset: 0;
+        z-index: 7;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 45%, rgba(0, 0, 0, .18), rgba(0, 0, 0, .64));
+        backdrop-filter: blur(3px);
+        animation: xq-fade-in .35s ease both;
+    }
+
+    .xq-result-burst {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: min(90vw, 900px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0 10deg, rgba(255, 224, 138, .16) 10deg 12deg, transparent 12deg 24deg);
+        mask-image: radial-gradient(circle, black 10%, transparent 68%);
+        -webkit-mask-image: radial-gradient(circle, black 10%, transparent 68%);
+        transform: translate(-50%, -50%);
+        animation: xq-spin 24s linear infinite;
+        pointer-events: none;
+    }
+
+    .xq-result-card {
+        position: relative;
+        width: min(420px, 82vw);
+        padding: 30px 36px 28px;
+        text-align: center;
+        border-radius: 22px;
+        background: linear-gradient(160deg, rgba(42, 29, 16, .95), rgba(14, 9, 6, .98));
+        border: 1px solid rgba(217, 179, 108, .45);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, .7), inset 0 0 60px rgba(217, 179, 108, .08);
+        animation: xq-result-in .65s cubic-bezier(.18, .9, .24, 1) both;
+    }
+
+    .xq-result-kicker {
+        font-size: 12px;
+        letter-spacing: .28em;
+        color: rgba(243, 233, 210, .55);
+    }
+
+    .xq-result-seal {
+        margin: 10px 0 4px;
+        font-size: 92px;
+        line-height: 1;
+        color: #e5484d;
+        text-shadow: 0 0 30px rgba(229, 72, 77, .6);
+        transform: rotate(-5deg);
+    }
+
+    .xq-result-sub {
+        margin-bottom: 20px;
+        color: rgba(243, 233, 210, .7);
+    }
+
+    .xq-spark {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #ffe08a;
+        box-shadow: 0 0 8px #ffe08a;
+        animation: xq-spark var(--d) ease-out infinite;
+        pointer-events: none;
+    }
+
+    @@keyframes xq-drift {
+        from { transform: translate3d(-2%, -1%, 0) scale(1); }
+        to { transform: translate3d(2%, 1%, 0) scale(1.06); }
+    }
+
+    @@keyframes xq-moon {
+        from { transform: translateY(0) scale(1); opacity: .45; }
+        to { transform: translateY(8px) scale(1.03); opacity: .62; }
+    }
+
+    @@keyframes xq-cloud {
+        from { transform: translateX(-3%); }
+        to { transform: translateX(4%); }
+    }
+
+    @@keyframes xq-sway {
+        0%, 100% { transform: rotate(-2.5deg); }
+        50% { transform: rotate(2.5deg); }
+    }
+
+    @@keyframes xq-dust {
+        0% { transform: translate3d(0, 0, 0); opacity: 0; }
+        12% { opacity: .7; }
+        88% { opacity: .18; }
+        100% { transform: translate3d(40px, -74vh, 0); opacity: 0; }
+    }
+
+    @@keyframes xq-seal-glow {
+        0%, 100% { box-shadow: 0 0 16px rgba(217, 179, 108, .35), inset 0 0 0 1px rgba(255, 245, 210, .4); }
+        50% { box-shadow: 0 0 28px rgba(255, 224, 138, .7), inset 0 0 0 1px rgba(255, 245, 210, .65); }
+    }
+
+    @@keyframes xq-sheen {
+        0%, 55% { left: -70%; }
+        85%, 100% { left: 130%; }
+    }
+
+    @@keyframes xq-board-in {
+        from { opacity: 0; transform: scale(.94); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    @@keyframes xq-river {
+        0%, 100% { opacity: .35; transform: translateX(-2%); }
+        50% { opacity: .8; transform: translateX(2%); }
+    }
+
+    @@keyframes xq-last {
+        0%, 100% { opacity: .35; }
+        50% { opacity: .85; }
+    }
+
+    @@keyframes xq-capture {
+        0% { opacity: 0; transform: translate(-50%, -50%) translateZ(6px) scale(.35) rotate(-8deg); }
+        28% { opacity: 1; }
+        100% { opacity: 0; transform: translate(-50%, -50%) translateZ(6px) scale(2.15) rotate(6deg); }
+    }
+
+    @@keyframes xq-pulse {
+        0%, 100% { opacity: .55; }
+        50% { opacity: 1; }
+    }
+
+    @@keyframes xq-target {
+        0%, 100% { opacity: .45; transform: translate(-50%, -50%) translateZ(4px) scale(.9); }
+        50% { opacity: 1; transform: translate(-50%, -50%) translateZ(4px) scale(1.08); }
+    }
+
+    @@keyframes xq-drop {
+        from { transform: translate(-50%, -50%) translateZ(92px) scale(1.16); opacity: .25; }
+        to { transform: translate(-50%, -50%) translateZ(26px) scale(1); opacity: 1; }
+    }
+
+    @@keyframes xq-check {
+        0%, 100% { box-shadow: inset 0 2px 2px rgba(255, 255, 255, .85), inset 0 -5px 8px rgba(90, 55, 20, .3), 0 0 6px rgba(229, 72, 77, .35); }
+        50% { box-shadow: inset 0 2px 2px rgba(255, 255, 255, .9), inset 0 -5px 8px rgba(90, 55, 20, .3), 0 0 24px rgba(229, 72, 77, .95); }
+    }
+
+    @@keyframes xq-smoke {
+        0% { opacity: 0; transform: translate3d(0, 0, 0) scale(.7); }
+        35% { opacity: .55; }
+        100% { opacity: 0; transform: translate3d(-8px, -42px, 0) scale(1.5); }
+    }
+
+    @@keyframes xq-card-in {
+        from { opacity: 0; transform: translateY(18px) scale(.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @@keyframes xq-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes xq-opening-in {
+        from { opacity: 0; transform: translate(-50%, -12px) scale(.96); }
+        to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
+
+    @@keyframes xq-result-in {
+        from { opacity: 0; transform: translateY(20px) scale(.9) rotate(-2deg); }
+        to { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+    }
+
+    @@keyframes xq-spin {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    @@keyframes xq-spark {
+        0% { opacity: 0; transform: rotate(var(--a)) translateY(-20px) scale(.4); }
+        35% { opacity: 1; }
+        100% { opacity: 0; transform: rotate(var(--a)) translateY(-170px) scale(1); }
+    }
+
+    @@media (max-width: 900px) {
+        .xq-topbar {
+            padding: 10px 14px;
+        }
+
+        .xq-brand-text small {
+            display: none;
+        }
+
+        .xq-content {
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px 12px 14px;
+        }
+
+        .xq-board-wrap {
+            width: min(88vw, 52vh);
+        }
+
+        .xq-board-top {
+            font-size: clamp(24px, 7vw, 36px);
+        }
+
+        .xq-panel {
+            width: auto;
+            flex: 0 0 auto;
+            max-height: 34vh;
+        }
+
+        .xq-lantern {
+            transform: scale(.7);
+            transform-origin: top center;
+        }
+
+        .xq-lantern.left {
+            left: -4px;
+        }
+
+        .xq-lantern.right {
+            right: -4px;
+        }
+
+        .xq-moon {
+            right: 4%;
+            top: 4%;
+            opacity: .35;
+        }
+
+        .xq-incense {
+            display: none;
+        }
+
+        .xq-setup {
+            padding: 16px;
+        }
+
+        .xq-setup-card {
+            padding: 24px 20px 20px;
+        }
+
+        .xq-setup-title {
+            font-size: 26px;
+        }
+    }
+
+    @@media (max-width: 600px) {
+        .xq-lantern {
+            display: none;
+        }
+
+        .xq-brand-text {
+            font-size: 16px;
+        }
+
+        .xq-status {
+            display: none;
+        }
+
+        .xq-actions .xq-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .xq-music span {
+            display: none;
+        }
+
+        .xq-panel {
+            max-height: 38vh;
+        }
+
+        .xq-board-wrap {
+            width: min(92vw, 46vh);
+        }
+
+        .xq-result-seal {
+            font-size: 72px;
+        }
     }
 </style>
 
 @code {
     const int Cell = 56;
     const int Padding = 28;
-    const int PieceRadius = 22;
     const int BoardWidth = Padding * 2 + (XiangqiBoard.FileCount - 1) * Cell;
     const int BoardHeight = Padding * 2 + (XiangqiBoard.RankCount - 1) * Cell;
     const string HumanKey = "human";
+    const double MusicVolume = 0.32;
 
     readonly XiangqiTable table = XiangqiTable.Instance;
+    readonly Dictionary<string, string> soundSources = new();
     (int File, int Rank)? selected;
+    bool clientReady;
+    int lastLogCount;
+    bool lastPlaying;
+    bool lastOver;
+    bool musicEnabled = true;
     bool visible;
+    string? openingNotice;
+    int openingGeneration;
     string? redKey = HumanKey;
     string? blackKey;
 
@@ -309,7 +1840,13 @@
         .ToList();
     string StatusText => table.Winner is { } winner
         ? $"{XiangqiTable.SideName(winner)}获胜"
-        : table.IsDraw ? "和棋" : $"{XiangqiTable.SideName(table.Turn)}走棋";
+        : table.IsDraw ? "和棋" : $"{table.TurnSeat?.Name}（{XiangqiTable.SideName(table.Turn)}）走棋";
+    string ResultTitle => table.IsDraw ? "和" : table.Winner is { } winner && HumanIndex >= 0
+        ? winner == (HumanIndex == 0 ? XiangqiSide.Red : XiangqiSide.Black) ? "胜" : "负"
+        : "终";
+    string ResultSub => table.IsDraw
+        ? "势均力敌，握手言和"
+        : table.Winner is { } winner ? $"{XiangqiTable.SideName(winner)}方胜" : "对局结束";
     string HintText
     {
         get
@@ -317,7 +1854,7 @@
             if (table.IsOver)
                 return "";
             if (IsMyTurn == false)
-                return $"等待 {table.TurnSeat?.Name} 行动";
+                return $"等待 {table.TurnSeat?.Name} 行动…";
             return table.Board.IsInCheck(table.Turn) ? "你的将帅被将军，请先解将。点击棋子，再点击目标位置。" : "轮到你。点击棋子，再点击目标位置落子。";
         }
     }
@@ -325,16 +1862,77 @@
     protected override void OnInitialized()
     {
         table.Changed += OnTableChanged;
+        lastPlaying = table.IsPlaying;
+        lastLogCount = table.Log.Count;
+        lastOver = table.IsOver;
     }
-    public ValueTask DisposeAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await EnsureClientScriptAsync();
+    }
+    public async ValueTask DisposeAsync()
     {
         table.Changed -= OnTableChanged;
-        return ValueTask.CompletedTask;
+        if (clientReady)
+        {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("__alifeSoundStopMusic", 0.2);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
     }
 
     int X(int file)
     {
         return Padding + file * Cell;
+    }
+    int Y(int rank)
+    {
+        return Padding + (XiangqiBoard.RankCount - 1 - rank) * Cell;
+    }
+    double Left(int file)
+    {
+        return (Padding + file * Cell) * 100.0 / BoardWidth;
+    }
+    double Top(int rank)
+    {
+        return (Padding + (XiangqiBoard.RankCount - 1 - rank) * Cell) * 100.0 / BoardHeight;
+    }
+    string CrossPath(int file, int rank)
+    {
+        int x = X(file);
+        int y = Y(rank);
+        return $"M {x - 6} {y} H {x + 6} M {x} {y - 6} V {y + 6}";
+    }
+    bool IsSelected(int file, int rank)
+    {
+        return selected is { } square && square.File == file && square.Rank == rank;
+    }
+    bool IsLastMovePoint(int file, int rank)
+    {
+        if (table.LastMove is not { } move)
+            return false;
+        return (move.FromFile == file && move.FromRank == rank) || (move.ToFile == file && move.ToRank == rank);
+    }
+    bool IsCapturePoint(int file, int rank)
+    {
+        if (table.LastMove is not { } move || table.Log.Count == 0 || table.Log[^1].Contains("吃") == false)
+            return false;
+        return move.ToFile == file && move.ToRank == rank;
+    }
+    bool IsCheckedGeneral(int file, int rank)
+    {
+        if (table.IsOver || table.Board.IsInCheck(table.Turn) == false)
+            return false;
+        return table.Board.PieceAt(file, rank) is { } piece && piece.Kind == XiangqiKind.General && piece.Side == table.Turn;
+    }
+    string PieceClass(XiangqiPiece piece)
+    {
+        return piece.Side == XiangqiSide.Red ? "red" : "black";
     }
     RenderFragment SvgText(int x, int y, string className, string text)
     {
@@ -348,33 +1946,164 @@
             builder.CloseElement();
         };
     }
-    int Y(int rank)
-    {
-        return Padding + (XiangqiBoard.RankCount - 1 - rank) * Cell;
-    }
-    bool IsSelected(int file, int rank)
-    {
-        return selected is { } square && square.File == file && square.Rank == rank;
-    }
-    string PieceClass(XiangqiPiece piece)
-    {
-        return piece.Side == XiangqiSide.Red ? "red" : "black";
-    }
-    void ToggleDrawer()
+    async Task ToggleFullscreen()
     {
         visible = !visible;
+        StateHasChanged();
+        if (visible && table.IsPlaying && table.IsOver == false)
+            await PlayMusicAsync();
     }
-    void OnDrawerClose()
+    async Task ToggleMusic()
+    {
+        musicEnabled = !musicEnabled;
+        if (musicEnabled && visible && table.IsPlaying && table.IsOver == false)
+            await PlayMusicAsync();
+        if (musicEnabled == false)
+            await StopMusicAsync();
+    }
+    async Task CloseFullscreen()
     {
         visible = false;
         StateHasChanged();
     }
     void OnTableChanged()
     {
-        _ = InvokeAsync(() => {
+        _ = InvokeAsync(async () => {
+            bool started = table.IsPlaying && (lastPlaying == false || (lastOver && table.IsOver == false));
             selected = null;
+            if (started)
+                AnnounceOpening();
             StateHasChanged();
+            await PlayStateSoundsAsync();
         });
+    }
+    void AnnounceOpening()
+    {
+        TableSeat? seat = table.TurnSeat;
+        if (seat == null)
+            return;
+
+        openingNotice = $"开局随机 · {seat.Name}（{XiangqiTable.SideName(table.Turn)}）先手";
+        int generation = ++openingGeneration;
+        _ = HideOpeningAsync(generation);
+    }
+    async Task HideOpeningAsync(int generation)
+    {
+        await Task.Delay(3200);
+        if (generation != openingGeneration)
+            return;
+        openingNotice = null;
+        await InvokeAsync(StateHasChanged);
+    }
+    async Task PlayStateSoundsAsync()
+    {
+        bool playing = table.IsPlaying;
+        bool restarted = playing && lastOver && table.IsOver == false;
+        if (playing && (lastPlaying == false || restarted))
+        {
+            lastLogCount = 0;
+            await PlayAsync("start");
+            if (table.IsOver == false)
+            {
+                await Task.Delay(700);
+                if (table.IsPlaying && table.IsOver == false)
+                    await PlayMusicAsync();
+            }
+        }
+        if (playing && table.Log.Count > lastLogCount)
+        {
+            string lastLog = table.Log[^1];
+            await PlayAsync(lastLog.Contains("吃") ? "capture" : "move");
+            if (lastLog.Contains("将军"))
+                await PlayAsync("check");
+        }
+        if (table.IsOver && lastOver == false)
+        {
+            await PlayAsync(EndSound());
+            await StopMusicAsync();
+        }
+        if (playing == false && lastPlaying)
+            await StopMusicAsync();
+
+        lastPlaying = playing;
+        lastLogCount = table.Log.Count;
+        lastOver = table.IsOver;
+    }
+    string EndSound()
+    {
+        if (table.IsDraw)
+            return "draw";
+        if (table.Winner is { } winner && HumanIndex >= 0)
+            return winner == (HumanIndex == 0 ? XiangqiSide.Red : XiangqiSide.Black) ? "win" : "lose";
+        return "end";
+    }
+    async Task PlayAsync(string name)
+    {
+        string source = SoundSource(name);
+        if (source.Length == 0)
+            return;
+
+        await EnsureClientScriptAsync();
+        await JsRuntime.InvokeVoidAsync("__alifeSoundPlay", name, source, SoundVolume(name));
+    }
+    async Task PlayMusicAsync()
+    {
+        if (musicEnabled == false)
+            return;
+
+        string source = SoundSource("bgm");
+        if (source.Length == 0)
+            return;
+
+        await EnsureClientScriptAsync();
+        await JsRuntime.InvokeVoidAsync("__alifeSoundMusic", "bgm", source, MusicVolume);
+    }
+    async Task StopMusicAsync()
+    {
+        if (clientReady == false)
+            return;
+
+        await JsRuntime.InvokeVoidAsync("__alifeSoundStopMusic", 1.1);
+    }
+    async Task EnsureClientScriptAsync()
+    {
+        if (clientReady)
+            return;
+
+        await JsRuntime.InvokeVoidAsync("eval", ClientScript);
+        clientReady = true;
+    }
+    static double SoundVolume(string name)
+    {
+        return name switch
+        {
+            "move" => 0.62,
+            "capture" => 0.82,
+            "check" => 0.78,
+            "start" => 0.72,
+            "win" => 0.78,
+            "lose" => 0.7,
+            "draw" => 0.7,
+            "end" => 0.72,
+            _ => 0.7
+        };
+    }
+    string SoundSource(string name)
+    {
+        if (soundSources.TryGetValue(name, out string? cached))
+            return cached;
+
+        string? pluginId = PluginSystem.PluginContext.GetTypeAttachedPlugin(typeof(XiangqiService));
+        if (pluginId == null)
+            return "";
+
+        string path = Path.Combine(PluginSystem.PluginContext.GetPluginDirectoryPath(pluginId), "Resources", name + ".ogg");
+        if (File.Exists(path) == false)
+            return "";
+
+        string source = "data:audio/ogg;base64," + Convert.ToBase64String(File.ReadAllBytes(path));
+        soundSources[name] = source;
+        return source;
     }
     void OnPointClick(int file, int rank)
     {
@@ -415,4 +2144,102 @@
         if (error != null)
             MessageService.Warning(error);
     }
+
+    // 音效与场景脚本随插件注入，不依赖客户端 wwwroot。
+    const string ClientScript = """
+        if (!window.__alifeSoundPlay) {
+            let audioContext = null;
+            let musicGain = null;
+            let musicSource = null;
+            let musicName = "";
+            const buffers = new Map();
+
+            function ensureAudio() {
+                if (!audioContext) {
+                    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                    audioContext = new AudioCtor();
+                }
+                if (audioContext.state === "suspended") audioContext.resume();
+                return audioContext;
+            }
+            function decode(uri) {
+                const comma = uri.indexOf(",");
+                const binary = atob(uri.slice(comma + 1));
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return bytes;
+            }
+            async function load(name, uri) {
+                let buffer = buffers.get(name);
+                if (buffer) return buffer;
+                buffer = await ensureAudio().decodeAudioData(decode(uri).buffer);
+                buffers.set(name, buffer);
+                return buffer;
+            }
+            function ramp(gain, target, seconds) {
+                const context = ensureAudio();
+                const now = context.currentTime;
+                gain.gain.cancelScheduledValues(now);
+                gain.gain.setValueAtTime(gain.gain.value, now);
+                gain.gain.linearRampToValueAtTime(target, now + seconds);
+            }
+            window.__alifeSoundPlay = async function (name, uri, volume) {
+                try {
+                    const context = ensureAudio();
+                    const buffer = await load(name, uri);
+                    const source = context.createBufferSource();
+                    const gain = context.createGain();
+                    source.buffer = buffer;
+                    gain.gain.value = volume;
+                    source.connect(gain).connect(context.destination);
+                    source.start();
+                } catch (error) {
+                    console.warn("alife sound", error);
+                }
+            };
+            window.__alifeSoundMusic = async function (name, uri, volume) {
+                try {
+                    if (typeof window.__alifeDdzStopMusic === "function") window.__alifeDdzStopMusic(0.6);
+                    const context = ensureAudio();
+                    if (musicName === name && musicSource) return;
+                    const buffer = await load(name, uri);
+                    if (musicSource) {
+                        try { musicSource.stop(); } catch (error) { }
+                        musicSource = null;
+                    }
+                    if (!musicGain) {
+                        musicGain = context.createGain();
+                        musicGain.connect(context.destination);
+                    }
+                    musicSource = context.createBufferSource();
+                    musicSource.buffer = buffer;
+                    musicSource.loop = true;
+                    musicSource.connect(musicGain);
+                    musicGain.gain.value = 0;
+                    musicSource.start();
+                    musicName = name;
+                    ramp(musicGain, volume, 1.6);
+                } catch (error) {
+                    console.warn("alife music", error);
+                }
+            };
+            window.__alifeSoundStopMusic = function (seconds) {
+                if (!musicSource || !musicGain) return;
+                const source = musicSource;
+                musicSource = null;
+                musicName = "";
+                ramp(musicGain, 0, seconds);
+                setTimeout(function () {
+                    try { source.stop(); } catch (error) { }
+                }, seconds * 1000 + 60);
+            };
+            window.addEventListener("pointerdown", function (event) {
+                if (event.target && event.target.closest && event.target.closest(".xq-stage")) ensureAudio();
+            }, true);
+            window.addEventListener("keydown", function (event) {
+                if (event.target && event.target.closest && event.target.closest(".xq-stage")) ensureAudio();
+            }, true);
+        }
+
+        """;
 }

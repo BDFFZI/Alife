@@ -1,323 +1,2148 @@
-@namespace BDFFZI.MaoMao.Doudizhu
+@namespace Alife.Function.Doudizhu
 @using Alife.Framework
-@using BDFFZI.MaoMao.TableGame
+@using Alife.Function.TableGame
+@using System.IO
+@using System.Linq
 @using AntDesign
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @attribute [SideBarItem]
 @implements IAsyncDisposable
 @inject ChatActivitySystem ChatActivitySystem
 @inject IMessageService MessageService
+@inject PluginSystem PluginSystem
+@inject IJSRuntime JsRuntime
 
-@* 这个组件自己就是侧栏按钮：点击在侧栏原地开合斗地主抽屉 *@
+@* 这个组件自己就是侧栏按钮：点击在客户端内打开全屏牌桌 *@
 <Tooltip Title="斗地主" Placement="Placement.Right">
-    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleDrawer">
-        <Icon Type="@IconType.Outline.Trophy"/>
+    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleFullscreen">
+        <svg class="ddz-rail-icon" viewBox="0 0 64 64" aria-hidden="true">
+            <g transform="rotate(-17 32 34)">
+                <rect x="9" y="15" width="25" height="38" rx="5" class="ddz-rail-card back"/>
+            </g>
+            <g transform="rotate(17 32 34)">
+                <rect x="30" y="15" width="25" height="38" rx="5" class="ddz-rail-card back"/>
+            </g>
+            <rect x="19" y="9" width="26" height="44" rx="5" class="ddz-rail-card front"/>
+            <text x="32" y="39" text-anchor="middle" class="ddz-rail-char">斗</text>
+        </svg>
     </div>
 </Tooltip>
 
-<Drawer Visible="@visible"
-        OnClose="@OnDrawerClose"
-        Placement="@DrawerPlacement.Right"
-        Title="@("斗地主")"
-        Width="680"
-        BodyStyle="padding: 16px; overflow-y: auto;">
-    @if (table.IsPlaying)
-    {
-        <div class="ddz-header">
-            <AntDesign.Text Strong>@PhaseText</AntDesign.Text>
-            <Space>
-                @if (table.IsPaused)
-                {
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Resume())">继续</Button>
-                }
-                @if (table.Phase == DoudizhuPhase.Over)
-                {
-                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Start(table.Seats))">再来一局</Button>
-                }
-                <Button Size="@ButtonSize.Small" Danger OnClick="@(() => table.Stop())">结束牌局</Button>
-            </Space>
-        </div>
-
-        @if (table.IsPaused)
-        {
-            <Alert Type="@AlertType.Warning" Message="@($"{table.TurnSeat?.Name} 连续未能完成行动，牌局已暂停。请检查它的对话后点击继续。")" ShowIcon="true" Style="margin-bottom: 12px;"/>
-        }
-
-        <div class="ddz-seats">
-            @for (int index = 0; index < table.Seats.Count; index++)
+@if (visible)
+{
+    <div class="ddz-stage">
+        <div class="ddz-sky"></div>
+        <div class="ddz-beams" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="ddz-dust" aria-hidden="true">
+            @for (int i = 0; i < 26; i++)
             {
-                int seatIndex = index;
-                TableSeat seat = table.Seats[seatIndex];
-                <div class="ddz-seat @(table.TurnSeat == seat ? "turn" : "")">
-                    <div class="ddz-seat-name">@seat.Name</div>
-                    <div class="ddz-seat-meta">@RoleText(seatIndex)</div>
-                    <div class="ddz-seat-count">@($"{table.GetHand(seatIndex).Count} 张")</div>
-                </div>
+                <span style="@($"left:{i * 37 % 100}%;animation-duration:{6 + i % 7}s;animation-delay:-{i * 0.55:0.0}s;width:{2 + i % 3}px;height:{2 + i % 3}px;")"></span>
             }
         </div>
+        <div class="ddz-vignette"></div>
 
-        <div class="ddz-last">
-            @if (table.LastCards.Count == 0)
-            {
-                <AntDesign.Text Type="@TextElementType.Secondary">@(table.Phase == DoudizhuPhase.Playing ? "本轮无人压制，可以自由出牌" : "等待叫地主")</AntDesign.Text>
-            }
-            else
-            {
-                <AntDesign.Text>@($"{table.Seats[table.LastPlayerIndex].Name} 出：{DoudizhuCards.Format(table.LastCards)}")</AntDesign.Text>
-            }
-        </div>
-
-        @if (humanIndex >= 0)
-        {
-            IReadOnlyList<int> hand = table.GetHand(humanIndex);
-            <div class="ddz-hand">
-                @for (int index = 0; index < hand.Count; index++)
+        <header class="ddz-topbar">
+            <div class="ddz-brand">
+                <span class="ddz-brand-mark">斗</span>
+                <span class="ddz-brand-text">斗地主<small>LANDLORD</small></span>
+                @if (table.IsPlaying)
                 {
-                    int cardIndex = index;
-                    <div class="ddz-card @(selected.Contains(cardIndex) ? "selected" : "")" @onclick="@(() => ToggleCard(cardIndex))">@DoudizhuCards.Name(hand[cardIndex])</div>
+                    <span class="ddz-status @(IsMyTurn ? "mine" : "")">@StatusText</span>
                 }
             </div>
             <div class="ddz-actions">
-                @if (table.Phase == DoudizhuPhase.Bidding)
+                @if (table.IsPlaying && table.IsPaused)
                 {
-                    <Button Type="@ButtonType.Primary" Disabled="@(IsMyTurn == false)" OnClick="@(() => Attempt(table.Call(humanIndex)))">叫地主</Button>
-                    <Button Disabled="@(IsMyTurn == false)" OnClick="@(() => Attempt(table.Pass(humanIndex)))">不叫</Button>
+                    <button class="ddz-btn primary" @onclick="@(() => table.Resume())">继续</button>
                 }
-                else if (table.Phase == DoudizhuPhase.Playing)
+                @if (table.IsPlaying && table.Phase == DoudizhuPhase.Over)
                 {
-                    <Button Type="@ButtonType.Primary" Disabled="@(IsMyTurn == false || selected.Count == 0)" OnClick="@PlaySelected">出牌</Button>
-                    <Button Disabled="@(IsMyTurn == false || table.LastCards.Count == 0)" OnClick="@(() => Attempt(table.Pass(humanIndex)))">不出</Button>
+                    <button class="ddz-btn primary" @onclick="RestartGame">再来一局</button>
                 }
-                <AntDesign.Text Type="@TextElementType.Secondary">@WaitingText</AntDesign.Text>
+                @if (table.IsPlaying)
+                {
+                    <button class="ddz-btn ghost ddz-music" @onclick="ToggleMusic" aria-pressed="@(musicEnabled ? "true" : "false")"
+                            aria-label="@(musicEnabled ? "关闭背景音乐" : "开启背景音乐")">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 9h4l4-4v14l-4-4H4z"/>
+                            <path d="@(musicEnabled ? "M16 8.5a5 5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" : "M17 9l4 6M21 9l-4 6")"/>
+                        </svg>
+                        <span>@(musicEnabled ? "音乐开" : "音乐关")</span>
+                    </button>
+                    <button class="ddz-btn danger" @onclick="@(() => table.Stop())">结束牌局</button>
+                }
+                <button class="ddz-btn ghost" @onclick="CloseFullscreen">退出全屏</button>
             </div>
+        </header>
+
+        @if (openingNotice != null && table.Phase != DoudizhuPhase.Over)
+        {
+            <div class="ddz-opening">
+                <span class="ddz-opening-seal">先</span>
+                <span class="ddz-opening-text">@openingNotice</span>
+            </div>
+        }
+
+        @if (turnNotice != null && table.IsPlaying && table.Phase != DoudizhuPhase.Over)
+        {
+            <div class="ddz-turn-pop @(turnNoticeMine ? "mine" : "")" @key="turnNoticeGeneration" role="status" aria-live="assertive">
+                <span class="ddz-turn-pop-ring"></span>
+                <span class="ddz-turn-pop-seal">@(turnNoticeMine ? "你" : "换")</span>
+                <span class="ddz-turn-pop-copy">
+                    <span class="ddz-turn-pop-kicker">@(turnNoticeMine ? "该你了" : "换人")</span>
+                    <strong>@turnNotice</strong>
+                </span>
+            </div>
+        }
+
+        @if (table.IsPlaying)
+        {
+            <div class="ddz-content">
+                <section class="ddz-arena">
+                    <div class="ddz-opponents">
+                        @foreach (int seatIndex in OpponentIndices)
+                        {
+                            TableSeat seat = table.Seats[seatIndex];
+                            <div class="ddz-seat @(table.TurnSeat == seat ? "turn" : "")">
+                                <div class="ddz-avatar @(seatIndex == table.LandlordIndex ? "landlord" : "")">@seat.Name.Substring(0, 1)</div>
+                                <div class="ddz-seat-info">
+                                    <div class="ddz-seat-name">@seat.Name</div>
+                                    <div class="ddz-seat-meta">
+                                        <span class="ddz-role @(table.Phase != DoudizhuPhase.Bidding && seatIndex == table.LandlordIndex ? "landlord" : "")">@RoleText(seatIndex)</span>
+                                        <span class="ddz-count">@table.GetHand(seatIndex).Count 张</span>
+                                    </div>
+                                </div>
+                                @if (table.TurnSeat == seat)
+                                {
+                                    <span class="ddz-badge">@PhaseVerb</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="ddz-table">
+                        <div class="ddz-table-rim"></div>
+                        <div class="ddz-felt">
+                            <div class="ddz-felt-mark">斗</div>
+                            <div class="ddz-bottom">
+                                <span class="ddz-bottom-label">底牌</span>
+                                <div class="ddz-bottom-cards">
+                                    @if (table.Phase == DoudizhuPhase.Bidding)
+                                    {
+                                        @for (int i = 0; i < 3; i++)
+                                        {
+                                            <DoudizhuCardView Card="0" Back="true" Mini="true"
+                                                              Style="@($"z-index:{i};margin-left:{(i == 0 ? 0 : -18)}px")" />
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @for (int i = 0; i < table.Bottom.Count; i++)
+                                        {
+                                            <DoudizhuCardView Card="table.Bottom[i]" Mini="true"
+                                                              Ordinal="OrdinalAt(table.Bottom, i)"
+                                                              Style="@($"z-index:{i};margin-left:{(i == 0 ? 0 : -18)}px")" />
+                                        }
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="ddz-center">
+                                @if (table.Phase == DoudizhuPhase.Bidding)
+                                {
+                                    <div class="ddz-center-idle">静候叫地主</div>
+                                }
+                                else if (table.LastCards.Count == 0)
+                                {
+                                    <div class="ddz-center-idle">本轮无人压制 · 自由出牌</div>
+                                }
+                                else
+                                {
+                                    <div class="ddz-play-meta">@table.Seats[table.LastPlayerIndex].Name 出牌</div>
+                                    <div class="ddz-play-cards">
+                                        @for (int i = 0; i < table.LastCards.Count; i++)
+                                        {
+                                            <DoudizhuCardView Card="table.LastCards[i]" Mini="true"
+                                                              Ordinal="OrdinalAt(table.LastCards, i)"
+                                                              Style="@($"z-index:{i};margin-left:{(i == 0 ? 0 : -17)}px")" />
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="ddz-chips left" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+                            <div class="ddz-chips right" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <aside class="ddz-panel">
+                    <div class="ddz-panel-title"><span class="ddz-seal">桌</span>牌桌</div>
+                    <div class="ddz-seat-list">
+                        @for (int index = 0; index < table.Seats.Count; index++)
+                        {
+                            TableSeat seat = table.Seats[index];
+                            <div class="ddz-seat-row @(table.TurnSeat == seat ? "turn" : "") @(index == HumanIndex ? "mine" : "")">
+                                <span class="ddz-seat-dot @(index == table.LandlordIndex ? "landlord" : "")"></span>
+                                <span class="ddz-row-name">@seat.Name</span>
+                                <span class="ddz-row-role">@RoleText(index)</span>
+                                <span class="ddz-row-count">@table.GetHand(index).Count</span>
+                                @if (table.TurnSeat == seat)
+                                {
+                                    <span class="ddz-row-turn">行动中</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="ddz-hint">@HintText</div>
+                    <div class="ddz-log-head"><span class="ddz-seal">牌</span>牌局记录</div>
+                    <div class="ddz-log">
+                        @if (table.Log.Count == 0)
+                        {
+                            <div class="ddz-log-empty">静候开局…</div>
+                        }
+                        @foreach (string line in table.Log.TakeLast(60))
+                        {
+                            <div>@line</div>
+                        }
+                    </div>
+                </aside>
+            </div>
+
+            <div class="ddz-handbar @(IsMyTurn ? "mine" : "")">
+                @if (HumanIndex >= 0)
+                {
+                    IReadOnlyList<int> hand = table.GetHand(HumanIndex);
+                    <div class="ddz-turnline">
+                        @if (table.Phase == DoudizhuPhase.Over)
+                        {
+                            <span class="ddz-turn-wait">本局结束</span>
+                        }
+                        else if (IsMyTurn)
+                        {
+                            <span class="ddz-turn-now"><span class="ddz-turn-dot"></span>轮到你@(table.Phase == DoudizhuPhase.Bidding ? "叫地主" : "出牌")</span>
+                        }
+                        else
+                        {
+                            <span class="ddz-turn-wait">等待 @table.TurnSeat?.Name @(table.Phase == DoudizhuPhase.Bidding ? "叫地主" : "出牌")…</span>
+                        }
+                        <span class="ddz-hand-count">我的手牌 · @hand.Count 张</span>
+                    </div>
+                    <div class="ddz-hand">
+                        @for (int index = 0; index < hand.Count; index++)
+                        {
+                            int cardIndex = index;
+                            <DoudizhuCardView Card="hand[index]" Selected="@selected.Contains(cardIndex)"
+                                              Ordinal="OrdinalAt(hand, index)"
+                                              Style="@($"z-index:{index};margin-left:{(index == 0 ? 0 : -26)}px")"
+                                              OnClick="@(() => ToggleCard(cardIndex))" />
+                        }
+                    </div>
+                    <div class="ddz-controls">
+                        @if (table.Phase == DoudizhuPhase.Bidding)
+                        {
+                            <button class="ddz-btn primary" disabled="@(IsMyTurn == false)" @onclick="CallLandlord">叫地主</button>
+                            <button class="ddz-btn ghost" disabled="@(IsMyTurn == false)" @onclick="DeclineBid">不叫</button>
+                        }
+                        else if (table.Phase == DoudizhuPhase.Playing)
+                        {
+                            <button class="ddz-btn primary" disabled="@(IsMyTurn == false || selected.Count == 0)" @onclick="PlaySelected">出牌</button>
+                            <button class="ddz-btn ghost" disabled="@(IsMyTurn == false || table.LastCards.Count == 0)" @onclick="DeclinePlay">不出</button>
+                        }
+                        <span class="ddz-control-hint">@HintText</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="ddz-observer">本局没有你的座位，角色们自行对战中。</div>
+                }
+            </div>
+
+            @if (table.Phase == DoudizhuPhase.Over)
+            {
+                <div class="ddz-result">
+                    <div class="ddz-result-burst"></div>
+                    <div class="ddz-result-card">
+                        <div class="ddz-result-kicker">@ResultKicker</div>
+                        <div class="ddz-result-seal @(ResultTitle == "负" ? "lose" : "")">@ResultTitle</div>
+                        <div class="ddz-result-sub">@ResultSub</div>
+                        <button class="ddz-btn primary" @onclick="RestartGame">再来一局</button>
+                    </div>
+                </div>
+            }
+
+            @if (table.IsPaused)
+            {
+                <div class="ddz-pause">
+                    <span>@table.TurnSeat?.Name 连续未能完成行动，牌局已暂停。</span>
+                    <button class="ddz-btn primary" @onclick="@(() => table.Resume())">继续</button>
+                </div>
+            }
         }
         else
         {
-            <AntDesign.Text Type="@TextElementType.Secondary">本局没有你的座位，角色们自行对战中。</AntDesign.Text>
+            <div class="ddz-setup">
+                <div class="ddz-setup-card">
+                    <div class="ddz-setup-watermark">斗</div>
+                    <div class="ddz-setup-kicker">ALIFE · TABLE GAME</div>
+                    <h2 class="ddz-setup-title">斗地主</h2>
+                    <p class="ddz-setup-desc">选择三位玩家。可以自己入场，也可以让三位角色自行对战。开局随机决定谁先叫地主。</p>
+                    @if (CandidateActivities.Count < 2)
+                    {
+                        <div class="ddz-empty">至少需要两位启用“斗地主”功能的角色，才能凑齐一桌。请在角色的功能检视中启用该模块。</div>
+                    }
+                    <div class="ddz-setup-slots">
+                        <div class="ddz-slot">
+                            <span class="ddz-slot-label"><span class="ddz-slot-num">一</span>座位一</span>
+                            <Select TItem="string" TItemValue="string" @bind-Value="seatOneKey" Placeholder="选择玩家" Style="width: 100%;">
+                                <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                                @for (int index = 0; index < CandidateActivities.Count; index++)
+                                {
+                                    <SelectOption TItem="string" TItemValue="string" Value="@CandidateActivities[index].Character.Name" Label="@CandidateActivities[index].Character.Name"/>
+                                }
+                            </Select>
+                        </div>
+                        <div class="ddz-slot">
+                            <span class="ddz-slot-label"><span class="ddz-slot-num">二</span>座位二</span>
+                            <Select TItem="string" TItemValue="string" @bind-Value="seatTwoKey" Placeholder="选择玩家" Style="width: 100%;">
+                                <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                                @for (int index = 0; index < CandidateActivities.Count; index++)
+                                {
+                                    <SelectOption TItem="string" TItemValue="string" Value="@CandidateActivities[index].Character.Name" Label="@CandidateActivities[index].Character.Name"/>
+                                }
+                            </Select>
+                        </div>
+                        <div class="ddz-slot">
+                            <span class="ddz-slot-label"><span class="ddz-slot-num">三</span>座位三</span>
+                            <Select TItem="string" TItemValue="string" @bind-Value="seatThreeKey" Placeholder="选择玩家" Style="width: 100%;">
+                                <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                                @for (int index = 0; index < CandidateActivities.Count; index++)
+                                {
+                                    <SelectOption TItem="string" TItemValue="string" Value="@CandidateActivities[index].Character.Name" Label="@CandidateActivities[index].Character.Name"/>
+                                }
+                            </Select>
+                        </div>
+                    </div>
+                    <button class="ddz-btn primary ddz-start" disabled="@(CanStart == false)" @onclick="StartGame">开始牌局</button>
+                    <div class="ddz-setup-foot">三人成局 · 底牌定乾坤</div>
+                </div>
+            </div>
         }
-
-        <div class="ddz-log-title">牌局记录</div>
-        <div class="ddz-log">
-            @foreach (string line in table.Log.TakeLast(40))
-            {
-                <div>@line</div>
-            }
-        </div>
-    }
-    else
-    {
-        <AntDesign.Text Type="@TextElementType.Secondary">选择本局的三个座位。可以选你自己加两个角色，也可以让三个角色自行对战。</AntDesign.Text>
-        @if (Candidates.Count == 0)
-        {
-            <Alert Type="@AlertType.Info" Message="没有启用“斗地主”功能的角色。请在角色的功能检视中为它启用该模块。" ShowIcon="true" Style="margin: 12px 0;"/>
-        }
-        <div class="ddz-setup">
-            <Checkbox Checked="@joinsGame" CheckedChanged="@(value => { joinsGame = value; })">我</Checkbox>
-            @foreach (Character character in Candidates)
-            {
-                Character seatCharacter = character;
-                <Checkbox Checked="@chosen.Contains(seatCharacter)" CheckedChanged="@(value => { ToggleCharacter(seatCharacter, value); })">@seatCharacter.Name</Checkbox>
-            }
-        </div>
-        <Button Type="@ButtonType.Primary" Disabled="@(SeatCount != 3)" OnClick="@StartGame">@($"开始牌局（{SeatCount}/3）")</Button>
-    }
-</Drawer>
+    </div>
+}
 
 <style>
-    .ddz-header {
+    .ddz-rail-icon {
+        width: 36px;
+        height: 36px;
+        filter: drop-shadow(0 0 6px rgba(232, 192, 125, .45));
+        transition: filter .18s ease, transform .18s ease;
+    }
+
+    .alife-rail-item:hover .ddz-rail-icon,
+    .alife-rail-item.active .ddz-rail-icon {
+        filter: drop-shadow(0 0 9px rgba(255, 226, 160, .75));
+        transform: scale(1.06);
+    }
+
+    .ddz-rail-card {
+        stroke: #d9b36c;
+        stroke-width: 2;
+    }
+
+    .ddz-rail-card.front {
+        fill: #f7e6be;
+    }
+
+    .ddz-rail-card.back {
+        fill: #8e252b;
+    }
+
+    .ddz-rail-char {
+        fill: #a52a2a;
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .ddz-stage {
+        --ddz-gold: #e8c07d;
+        --ddz-gold-bright: #ffe9b3;
+        --ddz-red: #e5484d;
+        --ddz-green: #1a7a4c;
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-    }
-
-    .ddz-seats {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 12px;
-    }
-
-    .ddz-seat {
-        flex: 1 1 0;
-        min-width: 0;
-        padding: 10px 12px;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-container);
-        border: 1px solid var(--alife-border);
-    }
-
-    .ddz-seat.turn {
-        border-color: var(--alife-primary);
-        box-shadow: 0 0 0 2px var(--alife-primary-bg);
-    }
-
-    .ddz-seat-name {
-        font-weight: 600;
+        flex-direction: column;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        color: #f7eeda;
+        background: radial-gradient(circle at 50% 18%, #14573a 0%, #082b1c 44%, #030d09 100%);
     }
 
-    .ddz-seat-meta,
-    .ddz-seat-count {
-        font-size: 12px;
-        color: var(--alife-text-secondary);
+    .ddz-sky {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 16% 8%, rgba(86, 214, 150, .16), transparent 34%),
+            radial-gradient(circle at 84% 12%, rgba(232, 192, 125, .12), transparent 32%),
+            linear-gradient(180deg, rgba(4, 18, 12, .1), rgba(0, 0, 0, .45));
+        pointer-events: none;
     }
 
-    .ddz-last {
-        min-height: 32px;
-        margin-bottom: 12px;
-    }
-
-    .ddz-hand {
+    .ddz-beams {
+        position: absolute;
+        inset: -20% -10% auto;
+        height: 70vh;
         display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 14px 12px 8px;
-        min-height: 80px;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-layout);
+        justify-content: space-around;
+        pointer-events: none;
+        opacity: .5;
     }
 
-    .ddz-card {
-        min-width: 42px;
-        height: 58px;
-        padding: 0 8px;
+    .ddz-beams span {
+        width: 130px;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255, 233, 179, .22), transparent 80%);
+        filter: blur(18px);
+        transform-origin: top center;
+        animation: ddz-beam 9s ease-in-out infinite alternate;
+    }
+
+    .ddz-beams span:nth-child(2) {
+        animation-delay: -3s;
+        opacity: .6;
+    }
+
+    .ddz-beams span:nth-child(3) {
+        animation-delay: -6s;
+    }
+
+    .ddz-dust {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .ddz-dust span {
+        position: absolute;
+        bottom: -8px;
+        border-radius: 50%;
+        background: rgba(255, 226, 160, .6);
+        box-shadow: 0 0 8px rgba(255, 226, 160, .45);
+        animation: ddz-dust linear infinite;
+    }
+
+    .ddz-vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 45%, transparent 42%, rgba(0, 0, 0, .5) 100%);
+        pointer-events: none;
+    }
+
+    .ddz-topbar {
+        position: relative;
+        z-index: 4;
         display: flex;
         align-items: center;
-        justify-content: center;
-        border-radius: var(--alife-radius-sm);
-        border: 1px solid var(--alife-border-strong);
-        background: var(--alife-bg-container);
-        font-weight: 600;
-        cursor: pointer;
-        user-select: none;
-        transition: transform 0.12s ease;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 26px;
+        background: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .1));
+        border-bottom: 1px solid rgba(232, 192, 125, .16);
+        backdrop-filter: blur(6px);
     }
 
-    .ddz-card.selected {
-        transform: translateY(-8px);
-        border-color: var(--alife-primary);
-        color: var(--alife-primary);
+    .ddz-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .ddz-brand-mark {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 9px;
+        background: linear-gradient(160deg, #fff8e6, #e9d2a4);
+        color: #a52a2a;
+        font-size: 22px;
+        font-weight: 800;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(165, 42, 42, .35);
+        transform: rotate(-4deg);
+    }
+
+    .ddz-brand-text {
+        display: flex;
+        flex-direction: column;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: .1em;
+        line-height: 1.2;
+    }
+
+    .ddz-brand-text small {
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: .32em;
+        color: rgba(255, 233, 179, .55);
+    }
+
+    .ddz-status {
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        border: 1px solid rgba(232, 192, 125, .32);
+        color: #ffe9b3;
+        background: rgba(0, 0, 0, .2);
+    }
+
+    .ddz-status.mine {
+        color: #241708;
+        font-weight: 700;
+        border-color: rgba(255, 233, 179, .8);
+        background: linear-gradient(180deg, #ffe9b3, #dfb46c);
+        box-shadow: 0 0 16px rgba(232, 192, 125, .4);
+        animation: ddz-turn-status 1.6s ease-in-out infinite;
     }
 
     .ddz-actions {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin: 12px 0;
+        gap: 10px;
+        flex-shrink: 0;
     }
 
-    .ddz-log-title {
-        margin-top: 16px;
+    .ddz-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 18px;
+        border-radius: 10px;
+        border: 1px solid rgba(232, 192, 125, .28);
+        background: rgba(0, 0, 0, .22);
+        color: #f7eeda;
+        font-size: 14px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: transform .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    }
+
+    .ddz-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        background: rgba(255, 233, 179, .1);
+    }
+
+    .ddz-btn.primary {
+        border-color: rgba(255, 233, 179, .55);
+        background: linear-gradient(180deg, #e8c07d, #b98a43);
+        color: #241708;
+        font-weight: 700;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, .4), 0 0 18px rgba(232, 192, 125, .16);
+    }
+
+    .ddz-btn.danger {
+        border-color: rgba(229, 72, 77, .5);
+        background: rgba(229, 72, 77, .16);
+        color: #ffb8ba;
+    }
+
+    .ddz-btn:disabled {
+        opacity: .38;
+        cursor: default;
+        transform: none;
+    }
+
+    .ddz-music svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .ddz-music path:first-child {
+        fill: currentColor;
+        stroke: none;
+    }
+
+    .ddz-opening {
+        position: absolute;
+        left: 50%;
+        top: 88px;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 22px 10px 14px;
+        border-radius: 999px;
+        background: linear-gradient(120deg, rgba(42, 29, 16, .96), rgba(12, 24, 16, .94));
+        border: 1px solid rgba(232, 192, 125, .45);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, .55), 0 0 26px rgba(232, 192, 125, .16);
+        pointer-events: none;
+        transform: translateX(-50%);
+        animation: ddz-opening-in .5s cubic-bezier(.18, .9, .24, 1) both;
+    }
+
+    .ddz-opening-seal {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: #a52a2a;
+        color: #f3e9d2;
+        font-size: 15px;
+        box-shadow: 0 0 10px rgba(229, 72, 77, .4);
+        transform: rotate(-4deg);
+    }
+
+    .ddz-opening-text {
+        font-size: 15px;
+        letter-spacing: .06em;
+        color: #ffe9b3;
+        white-space: nowrap;
+    }
+
+    .ddz-turn-pop {
+        position: absolute;
+        left: 50%;
+        top: 25%;
+        z-index: 7;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 260px;
+        padding: 12px 24px 12px 13px;
+        border-radius: 999px;
+        color: #fff5d8;
+        background: linear-gradient(120deg, rgba(22, 18, 12, .96), rgba(12, 42, 26, .94));
+        border: 1px solid rgba(232, 192, 125, .45);
+        box-shadow: 0 18px 46px rgba(0, 0, 0, .52), 0 0 32px rgba(232, 192, 125, .18);
+        pointer-events: none;
+        transform: translateX(-50%);
+        animation: ddz-turn-pop-in .34s cubic-bezier(.18, .9, .24, 1) both,
+                   ddz-turn-pop-out .28s ease .98s both;
+    }
+
+    .ddz-turn-pop::before {
+        content: "";
+        position: absolute;
+        inset: -28px;
+        z-index: -1;
+        border-radius: inherit;
+        background: radial-gradient(ellipse, rgba(232, 192, 125, .22), transparent 68%);
+        filter: blur(8px);
+    }
+
+    .ddz-turn-pop.mine {
+        color: #2b1708;
+        background: linear-gradient(160deg, #fff4c9, #ecc477 52%, #c79243);
+        border-color: rgba(255, 248, 220, .92);
+        box-shadow: 0 18px 46px rgba(0, 0, 0, .48), 0 0 40px rgba(255, 233, 179, .5),
+                    inset 0 0 0 1px rgba(255, 255, 255, .45);
+    }
+
+    .ddz-turn-pop.mine::before {
+        background: radial-gradient(ellipse, rgba(255, 224, 142, .56), transparent 70%);
+    }
+
+    .ddz-turn-pop-ring {
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        border: 1px solid rgba(255, 233, 179, .62);
+        animation: ddz-turn-pop-ring .86s ease-out .1s both;
+    }
+
+    .ddz-turn-pop-seal {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        color: #ffe9b3;
+        background: linear-gradient(160deg, #4e8ee6, #203f8f);
+        border: 1px solid rgba(190, 225, 255, .62);
+        box-shadow: 0 0 18px rgba(78, 142, 230, .48);
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .ddz-turn-pop.mine .ddz-turn-pop-seal {
+        color: #eef7ff;
+        background: linear-gradient(160deg, #4e8ee6, #203f8f);
+        border-color: rgba(32, 63, 143, .38);
+        box-shadow: 0 0 18px rgba(45, 88, 190, .4);
+    }
+
+    .ddz-turn-pop-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .ddz-turn-pop-kicker {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .28em;
+        opacity: .62;
+    }
+
+    .ddz-turn-pop strong {
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: .06em;
+        white-space: nowrap;
+    }
+
+    .ddz-turn-pop.mine strong {
+        font-size: 21px;
+    }
+
+    .ddz-content {
+        position: relative;
+        z-index: 3;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 24px;
+        padding: 16px 26px 6px;
+    }
+
+    .ddz-arena {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+    }
+
+    .ddz-opponents {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .ddz-seat {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 208px;
+        padding: 9px 13px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, .34);
+        border: 1px solid rgba(232, 192, 125, .17);
+        backdrop-filter: blur(6px);
+        transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    }
+
+    .ddz-seat.turn {
+        border-color: rgba(255, 233, 179, .65);
+        box-shadow: 0 0 0 2px rgba(232, 192, 125, .14), 0 10px 28px rgba(0, 0, 0, .4), 0 0 24px rgba(232, 192, 125, .2);
+        transform: translateY(-2px);
+    }
+
+    .ddz-avatar {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 28%, #2b9b68, #0c3f28);
+        border: 1px solid rgba(232, 192, 125, .4);
+        color: #ffe9b3;
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .ddz-avatar.landlord {
+        background: radial-gradient(circle at 34% 28%, #c94a4f, #6d171c);
+        box-shadow: 0 0 14px rgba(229, 72, 77, .4);
+    }
+
+    .ddz-seat-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .ddz-seat-name {
+        font-weight: 700;
+        font-size: 15px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ddz-seat-meta {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 2px;
+        font-size: 11px;
+        color: rgba(247, 238, 218, .55);
+    }
+
+    .ddz-role {
+        padding: 1px 7px;
+        border-radius: 999px;
+        border: 1px solid rgba(232, 192, 125, .2);
+        color: rgba(255, 233, 179, .7);
+    }
+
+    .ddz-role.landlord {
+        border-color: rgba(229, 72, 77, .45);
+        color: #ffb8ba;
+        background: rgba(229, 72, 77, .12);
+    }
+
+    .ddz-badge {
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        color: #241708;
+        background: linear-gradient(180deg, #ffe9b3, #e8c07d);
+        box-shadow: 0 0 12px rgba(232, 192, 125, .35);
+        animation: ddz-pulse 1.8s ease-in-out infinite;
+    }
+
+    .ddz-table {
+        position: relative;
+        width: min(880px, 100%);
+        height: clamp(280px, 40vh, 430px);
+        border-radius: 46% / 42%;
+        flex-shrink: 0;
+    }
+
+    .ddz-table-rim {
+        position: absolute;
+        inset: -14px;
+        border-radius: inherit;
+        background: linear-gradient(155deg, #7a4d27, #3a2111 52%, #24140a);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, .65), inset 0 0 0 2px rgba(232, 192, 125, .18);
+    }
+
+    .ddz-felt {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse at 50% 36%, rgba(66, 190, 126, .35), transparent 52%),
+            radial-gradient(ellipse at 50% 55%, #1c8a57, #0a4a2e 62%, #052818);
+        border: 2px solid rgba(232, 192, 125, .25);
+        box-shadow: inset 0 0 90px rgba(0, 0, 0, .6);
+    }
+
+    .ddz-felt-mark {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 190px;
+        font-weight: 800;
+        line-height: 1;
+        color: rgba(255, 233, 179, .035);
+        pointer-events: none;
+    }
+
+    .ddz-bottom {
+        position: absolute;
+        top: 13%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .ddz-bottom-label,
+    .ddz-play-meta {
+        font-size: 11px;
+        letter-spacing: .2em;
+        color: rgba(255, 233, 179, .66);
+    }
+
+    .ddz-bottom-cards {
+        display: flex;
+        padding-left: 18px;
+    }
+
+    .ddz-center {
+        position: absolute;
+        left: 50%;
+        top: 56%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        max-width: 88%;
+    }
+
+    .ddz-center-idle {
+        padding: 7px 16px;
+        border-radius: 999px;
+        font-size: 12px;
+        letter-spacing: .1em;
+        color: rgba(255, 233, 179, .58);
+        background: rgba(0, 0, 0, .18);
+        border: 1px solid rgba(232, 192, 125, .13);
+    }
+
+    .ddz-play-cards {
+        display: flex;
+        justify-content: center;
+        padding-left: 17px;
+        min-height: 66px;
+    }
+
+    .ddz-chips {
+        position: absolute;
+        bottom: 12%;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 2px;
+        opacity: .85;
+    }
+
+    .ddz-chips.left {
+        left: 7%;
+    }
+
+    .ddz-chips.right {
+        right: 7%;
+    }
+
+    .ddz-chips span {
+        width: 26px;
+        height: 7px;
+        border-radius: 50%;
+        background: linear-gradient(180deg, #ffe9b3, #c99a4c);
+        border: 1px solid rgba(0, 0, 0, .4);
+        box-shadow: 0 2px 3px rgba(0, 0, 0, .45);
+    }
+
+    .ddz-panel {
+        width: 292px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(0, 0, 0, .3);
+        border: 1px solid rgba(232, 192, 125, .16);
+        backdrop-filter: blur(8px);
+    }
+
+    .ddz-panel-title,
+    .ddz-log-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
         font-weight: 600;
+        color: rgba(247, 238, 218, .75);
+    }
+
+    .ddz-seal {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        background: #a52a2a;
+        color: #f3e9d2;
+        font-size: 11px;
+        box-shadow: 0 0 10px rgba(229, 72, 77, .3);
+        transform: rotate(-4deg);
+    }
+
+    .ddz-seat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .ddz-seat-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 9px;
+        border-radius: 9px;
+        font-size: 12px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, .025);
+    }
+
+    .ddz-seat-row.turn {
+        border-color: rgba(232, 192, 125, .4);
+        background: rgba(232, 192, 125, .08);
+    }
+
+    .ddz-seat-row.mine {
+        background: rgba(26, 122, 76, .16);
+    }
+
+    .ddz-seat-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #3f9b6f;
+        box-shadow: 0 0 6px rgba(63, 155, 111, .6);
+    }
+
+    .ddz-seat-dot.landlord {
+        background: #e5484d;
+        box-shadow: 0 0 7px rgba(229, 72, 77, .7);
+    }
+
+    .ddz-row-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ddz-row-role {
+        color: rgba(255, 233, 179, .55);
+    }
+
+    .ddz-row-count {
+        min-width: 18px;
+        text-align: right;
+        color: rgba(247, 238, 218, .7);
+    }
+
+    .ddz-row-turn {
+        font-size: 10px;
+        color: #ffe9b3;
+    }
+
+    .ddz-hint {
+        padding: 9px 11px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #ffe9b3;
+        background: rgba(232, 192, 125, .08);
+        border: 1px solid rgba(232, 192, 125, .15);
     }
 
     .ddz-log {
-        max-height: 220px;
+        flex: 1;
+        min-height: 80px;
         overflow-y: auto;
-        padding: 8px 12px;
-        margin-top: 6px;
-        border-radius: var(--alife-radius);
-        background: var(--alife-bg-layout);
+        padding: 9px 11px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, .26);
+        font-size: 11px;
+        line-height: 1.8;
+        color: rgba(247, 238, 218, .65);
+    }
+
+    .ddz-log-empty {
+        color: rgba(247, 238, 218, .35);
+    }
+
+    .ddz-handbar {
+        position: relative;
+        z-index: 4;
+        flex-shrink: 0;
+        padding: 4px 26px 12px;
+        background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .42));
+    }
+
+    .ddz-handbar.mine {
+        background: linear-gradient(180deg, transparent, rgba(232, 192, 125, .12));
+        box-shadow: inset 0 1px 0 rgba(232, 192, 125, .28);
+    }
+
+    .ddz-turnline {
+        position: relative;
+        z-index: 25;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        min-height: 26px;
+        font-size: 11px;
+        letter-spacing: .16em;
+        color: rgba(255, 233, 179, .55);
+    }
+
+    .ddz-turn-now {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 14px;
+        border-radius: 999px;
         font-size: 12px;
-        line-height: 1.7;
-        color: var(--alife-text-secondary);
+        font-weight: 700;
+        letter-spacing: .08em;
+        color: #241708;
+        background: linear-gradient(180deg, #ffe9b3, #dfb46c);
+        box-shadow: 0 0 18px rgba(232, 192, 125, .45);
+        animation: ddz-turn-chip 1.6s ease-in-out infinite;
+    }
+
+    .ddz-turn-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #a52a2a;
+        box-shadow: 0 0 8px rgba(229, 72, 77, .75);
+    }
+
+    .ddz-turn-wait {
+        color: rgba(255, 233, 179, .55);
+    }
+
+    .ddz-hand-count {
+        color: rgba(247, 238, 218, .5);
+        letter-spacing: .1em;
+    }
+
+    .ddz-hand {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        min-height: 118px;
+        padding-top: 16px;
+    }
+
+    .ddz-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 42px;
+        margin-top: 12px;
+    }
+
+    .ddz-control-hint {
+        max-width: 460px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(247, 238, 218, .6);
+    }
+
+    .ddz-observer {
+        padding: 44px 12px 26px;
+        text-align: center;
+        font-size: 14px;
+        letter-spacing: .08em;
+        color: rgba(255, 233, 179, .6);
+    }
+
+    .ddz-card {
+        position: relative;
+        width: 70px;
+        height: 100px;
+        flex-shrink: 0;
+        border-radius: 9px;
+        background: linear-gradient(160deg, #fffdf6, #efe2c4 70%, #dcc79a);
+        border: 1px solid rgba(70, 48, 22, .35);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(255, 255, 255, .65);
+        color: #221a12;
+        user-select: none;
+        transition: transform .16s ease, box-shadow .16s ease;
+    }
+
+    .ddz-card.mini {
+        width: 46px;
+        height: 66px;
+        border-radius: 6px;
+        box-shadow: 0 5px 12px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .6);
+    }
+
+    .ddz-card.red {
+        color: #b3261e;
+    }
+
+    .ddz-card-suit {
+        position: absolute;
+        top: 4px;
+        left: 7px;
+        font-size: 14px;
+        line-height: 1;
+    }
+
+    .ddz-card-rank {
+        position: absolute;
+        top: 33%;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 27px;
+        font-weight: 800;
+        letter-spacing: -.05em;
+    }
+
+    .ddz-card-pip {
+        position: absolute;
+        right: 6px;
+        bottom: 2px;
+        font-size: 22px;
+        opacity: .2;
+        line-height: 1;
+    }
+
+    .ddz-card.mini .ddz-card-suit {
+        top: 3px;
+        left: 5px;
+        font-size: 10px;
+    }
+
+    .ddz-card.mini .ddz-card-rank {
+        font-size: 18px;
+    }
+
+    .ddz-card.mini .ddz-card-pip {
+        right: 4px;
+        font-size: 14px;
+    }
+
+    .ddz-card.back {
+        display: grid;
+        place-items: center;
+        background: repeating-linear-gradient(45deg, #7d1d24, #7d1d24 5px, #a52a2a 5px, #a52a2a 10px);
+        border-color: rgba(232, 192, 125, .55);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 233, 179, .28);
+    }
+
+    .ddz-card-back-mark {
+        display: grid;
+        place-items: center;
+        width: 62%;
+        height: 70%;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 233, 179, .4);
+        color: #ffe9b3;
+        font-size: 18px;
+        font-weight: 800;
+        background: rgba(0, 0, 0, .12);
+    }
+
+    .ddz-card.mini .ddz-card-back-mark {
+        font-size: 13px;
+    }
+
+    .ddz-card.joker {
+        background: linear-gradient(160deg, #fff8e0, #f0d9a6);
+        border-color: rgba(185, 138, 67, .55);
+    }
+
+    .ddz-joker-star {
+        position: absolute;
+        top: 3px;
+        left: 6px;
+        font-size: 11px;
+        opacity: .75;
+    }
+
+    .ddz-joker-name {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        writing-mode: vertical-rl;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: .08em;
+    }
+
+    .ddz-card.mini.joker .ddz-joker-name {
+        font-size: 13px;
+    }
+
+    .ddz-hand .ddz-card {
+        cursor: pointer;
+    }
+
+    .ddz-hand .ddz-card:hover {
+        transform: translateY(-14px);
+        box-shadow: 0 18px 30px rgba(0, 0, 0, .55);
+        z-index: 999 !important;
+    }
+
+    .ddz-hand .ddz-card.selected {
+        transform: translateY(-24px);
+        border-color: rgba(255, 233, 179, .9);
+        box-shadow: 0 0 0 2px rgba(232, 192, 125, .45), 0 18px 34px rgba(0, 0, 0, .6);
+    }
+
+    .ddz-result {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 45%, rgba(0, 0, 0, .2), rgba(0, 0, 0, .68));
+        backdrop-filter: blur(3px);
+        animation: ddz-fade-in .35s ease both;
+    }
+
+    .ddz-result-burst {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: min(90vw, 900px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0 10deg, rgba(255, 233, 179, .16) 10deg 12deg, transparent 12deg 24deg);
+        mask-image: radial-gradient(circle, black 10%, transparent 68%);
+        -webkit-mask-image: radial-gradient(circle, black 10%, transparent 68%);
+        transform: translate(-50%, -50%);
+        animation: ddz-spin 24s linear infinite;
+        pointer-events: none;
+    }
+
+    .ddz-result-card {
+        position: relative;
+        width: min(420px, 82vw);
+        padding: 28px 36px 26px;
+        text-align: center;
+        border-radius: 22px;
+        background: linear-gradient(160deg, rgba(20, 46, 32, .97), rgba(5, 12, 9, .98));
+        border: 1px solid rgba(232, 192, 125, .45);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, .7), inset 0 0 60px rgba(232, 192, 125, .08);
+        animation: ddz-result-in .65s cubic-bezier(.18, .9, .24, 1) both;
+    }
+
+    .ddz-result-kicker {
+        font-size: 12px;
+        letter-spacing: .3em;
+        color: rgba(255, 233, 179, .6);
+    }
+
+    .ddz-result-seal {
+        margin: 6px 0;
+        font-size: 96px;
+        line-height: 1.1;
+        font-weight: 800;
+        color: #ffe9b3;
+        text-shadow: 0 0 34px rgba(232, 192, 125, .3);
+    }
+
+    .ddz-result-seal.lose {
+        color: #ff9da0;
+        text-shadow: 0 0 30px rgba(229, 72, 77, .32);
+    }
+
+    .ddz-result-sub {
+        margin-bottom: 18px;
+        font-size: 14px;
+        color: rgba(247, 238, 218, .7);
+    }
+
+    .ddz-pause {
+        position: absolute;
+        left: 50%;
+        bottom: 26px;
+        z-index: 12;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 11px 18px;
+        border-radius: 999px;
+        background: rgba(229, 72, 77, .16);
+        border: 1px solid rgba(229, 72, 77, .45);
+        color: #ffb8ba;
+        font-size: 13px;
+        backdrop-filter: blur(8px);
     }
 
     .ddz-setup {
+        position: relative;
+        z-index: 3;
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 26px;
+    }
+
+    .ddz-setup-card {
+        position: relative;
+        width: min(720px, 94vw);
+        padding: 34px 38px 28px;
+        overflow: hidden;
+        border-radius: 24px;
+        background: linear-gradient(160deg, rgba(20, 48, 33, .96), rgba(5, 14, 10, .98));
+        border: 1px solid rgba(232, 192, 125, .32);
+        box-shadow: 0 34px 100px rgba(0, 0, 0, .65), inset 0 0 80px rgba(232, 192, 125, .06);
+    }
+
+    .ddz-setup-watermark {
+        position: absolute;
+        right: -12px;
+        bottom: -46px;
+        font-size: 230px;
+        font-weight: 800;
+        line-height: 1;
+        color: rgba(255, 233, 179, .035);
+        pointer-events: none;
+    }
+
+    .ddz-setup-kicker {
+        font-size: 10px;
+        letter-spacing: .34em;
+        color: rgba(255, 233, 179, .45);
+    }
+
+    .ddz-setup-title {
+        margin: 8px 0 10px;
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: .2em;
+        color: #ffe9b3;
+    }
+
+    .ddz-setup-desc {
+        max-width: 560px;
+        margin: 0 0 24px;
+        font-size: 13px;
+        line-height: 1.7;
+        color: rgba(247, 238, 218, .62);
+    }
+
+    .ddz-empty {
+        margin-bottom: 16px;
+        padding: 10px 13px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #ffcf9f;
+        background: rgba(232, 192, 125, .08);
+        border: 1px solid rgba(232, 192, 125, .2);
+    }
+
+    .ddz-setup-slots {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+
+    .ddz-slot {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        margin: 12px 0 16px;
+        gap: 7px;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, .24);
+        border: 1px solid rgba(232, 192, 125, .14);
+    }
+
+    .ddz-slot-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: rgba(255, 233, 179, .72);
+    }
+
+    .ddz-slot-num {
+        display: grid;
+        place-items: center;
+        width: 21px;
+        height: 21px;
+        border-radius: 50%;
+        background: rgba(232, 192, 125, .14);
+        border: 1px solid rgba(232, 192, 125, .35);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .ddz-setup .ant-select-selector {
+        background: rgba(0, 0, 0, .35) !important;
+        border-color: rgba(232, 192, 125, .22) !important;
+        color: #f7eeda !important;
+    }
+
+    .ddz-setup .ant-select-selection-placeholder {
+        color: rgba(247, 238, 218, .35) !important;
+    }
+
+    .ddz-start {
+        min-width: 190px;
+    }
+
+    .ddz-setup-foot {
+        margin-top: 16px;
+        font-size: 11px;
+        letter-spacing: .22em;
+        color: rgba(255, 233, 179, .32);
+    }
+
+    @@keyframes ddz-beam {
+        from { transform: rotate(-6deg) translateY(-4%); opacity: .35; }
+        to { transform: rotate(7deg) translateY(3%); opacity: .7; }
+    }
+
+    @@keyframes ddz-dust {
+        0% { opacity: 0; transform: translateY(0) scale(.6); }
+        12% { opacity: .8; }
+        100% { opacity: 0; transform: translateY(-86vh) scale(1.1); }
+    }
+
+    @@keyframes ddz-opening-in {
+        from { opacity: 0; transform: translate(-50%, -12px) scale(.96); }
+        to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
+
+    @@keyframes ddz-pulse {
+        0%, 100% { opacity: .72; }
+        50% { opacity: 1; }
+    }
+
+    @@keyframes ddz-turn-chip {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(232, 192, 125, .35); }
+        50% { transform: scale(1.035); box-shadow: 0 0 26px rgba(255, 233, 179, .65); }
+    }
+
+    @@keyframes ddz-turn-pop-in {
+        0% { opacity: 0; transform: translate(-50%, -18px) scale(.72); }
+        58% { opacity: 1; transform: translate(-50%, 3px) scale(1.06); }
+        78% { transform: translate(-50%, -1px) scale(.98); }
+        100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
+
+    @@keyframes ddz-turn-pop-out {
+        from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        to { opacity: 0; transform: translate(-50%, -10px) scale(.94); }
+    }
+
+    @@keyframes ddz-turn-pop-ring {
+        from { opacity: .8; transform: scale(1); }
+        to { opacity: 0; transform: scale(1.18, 1.45); }
+    }
+
+    @@keyframes ddz-turn-status {
+        0%, 100% { box-shadow: 0 0 12px rgba(232, 192, 125, .3); }
+        50% { box-shadow: 0 0 20px rgba(255, 233, 179, .55); }
+    }
+
+    @@keyframes ddz-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes ddz-result-in {
+        from { opacity: 0; transform: translateY(22px) scale(.94); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @@keyframes ddz-spin {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    @@media (max-width: 1100px) {
+        .ddz-panel {
+            display: none;
+        }
+
+        .ddz-content {
+            padding: 12px 18px 4px;
+        }
+
+        .ddz-table {
+            width: min(760px, 100%);
+        }
+    }
+
+    @@media (max-width: 720px) {
+        .ddz-topbar {
+            padding: 10px 14px;
+            flex-wrap: wrap;
+        }
+
+        .ddz-brand-text {
+            font-size: 16px;
+        }
+
+        .ddz-status {
+            display: none;
+        }
+
+        .ddz-actions .ddz-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .ddz-music span {
+            display: none;
+        }
+
+        .ddz-content {
+            padding: 8px 10px 0;
+        }
+
+        .ddz-table {
+            height: 32vh;
+            min-height: 250px;
+        }
+
+        .ddz-seat {
+            min-width: 150px;
+            padding: 6px 9px;
+        }
+
+        .ddz-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+        }
+
+        .ddz-seat-name {
+            font-size: 13px;
+        }
+
+        .ddz-handbar {
+            padding: 2px 8px 12px;
+        }
+
+        .ddz-hand {
+            min-height: 96px;
+            padding-top: 20px;
+        }
+
+        .ddz-card {
+            width: 44px;
+            height: 64px;
+        }
+
+        .ddz-card-rank {
+            font-size: 18px;
+        }
+
+        .ddz-card-suit {
+            font-size: 11px;
+        }
+
+        .ddz-hand .ddz-card {
+            margin-left: -30px !important;
+        }
+
+        .ddz-hand .ddz-card:first-child {
+            margin-left: 0 !important;
+        }
+
+        .ddz-card.mini {
+            width: 36px;
+            height: 52px;
+        }
+
+        .ddz-card.mini .ddz-card-rank {
+            font-size: 14px;
+        }
+
+        .ddz-joker-name {
+            font-size: 15px;
+        }
+
+        .ddz-control-hint {
+            display: none;
+        }
+
+        .ddz-setup-card {
+            padding: 24px 20px 20px;
+        }
+
+        .ddz-setup-title {
+            font-size: 28px;
+        }
+
+        .ddz-setup-slots {
+            grid-template-columns: 1fr;
+            gap: 9px;
+        }
+
+        .ddz-result-seal {
+            font-size: 72px;
+        }
     }
 </style>
 
 @code {
-    readonly DoudizhuTable table = DoudizhuTable.Instance;
-    readonly HashSet<int> selected = [];
-    readonly HashSet<Character> chosen = [];
-    bool visible;
-    bool joinsGame = true;
+    const string HumanKey = "human";
+    const double MusicVolume = 0.3;
 
-    int humanIndex => table.HumanIndex;
-    bool IsMyTurn => humanIndex >= 0 && table.TurnSeat == table.Seats[humanIndex];
-    int SeatCount => SelectedActivities.Count + (joinsGame ? 1 : 0);
-    string WaitingText => table.TurnSeat == null || IsMyTurn ? "" : $"等待 {table.TurnSeat.Name} 行动";
+    readonly DoudizhuTable table = DoudizhuTable.Instance;
+    readonly Dictionary<string, string> soundSources = [];
+    readonly HashSet<int> selected = [];
+    bool clientReady;
+    bool visible;
+    bool musicEnabled = true;
+    string? openingNotice;
+    int openingGeneration;
+    int lastLogCount;
+    bool lastPlaying;
+    DoudizhuPhase? lastPhase;
+    bool lastMyTurn;
+    string? lastTurnKey;
+    string? turnNotice;
+    bool turnNoticeMine;
+    int turnNoticeGeneration;
+    string? seatOneKey = HumanKey;
+    string? seatTwoKey;
+    string? seatThreeKey;
+
+    int HumanIndex => table.HumanIndex;
+    bool IsMyTurn => HumanIndex >= 0 && table.TurnSeat == table.Seats[HumanIndex];
+    bool CanStart => seatOneKey != null && seatTwoKey != null && seatThreeKey != null
+        && seatOneKey != seatTwoKey && seatOneKey != seatThreeKey && seatTwoKey != seatThreeKey;
+    bool HumanWon => HumanIndex >= 0 && (table.WinnerIndex == table.LandlordIndex) == (HumanIndex == table.LandlordIndex);
     List<ChatActivity> CandidateActivities => ChatActivitySystem.GetAllChatActivities()
         .Where(activity => activity.Container.Instances.OfType<DoudizhuService>().Any())
         .ToList();
-    List<ChatActivity> SelectedActivities => CandidateActivities.Where(activity => chosen.Contains(activity.Character)).ToList();
-    List<Character> Candidates => CandidateActivities.Select(activity => activity.Character).ToList();
-    string PhaseText => table.Phase switch {
-        DoudizhuPhase.Bidding => "叫地主阶段",
-        DoudizhuPhase.Playing => "出牌阶段",
-        _ => $"{table.Seats[table.WinnerIndex].Name} 获胜",
+    IEnumerable<int> OpponentIndices => Enumerable.Range(0, table.Seats.Count).Where(index => index != HumanIndex || HumanIndex < 0);
+    string PhaseVerb => table.Phase == DoudizhuPhase.Bidding ? "叫牌中" : "思考中";
+    string TurnAction => table.Phase == DoudizhuPhase.Bidding ? "叫地主" : "出牌";
+    string StatusText => table.Phase switch
+    {
+        DoudizhuPhase.Bidding => IsMyTurn ? "轮到你 · 叫地主" : $"{table.TurnSeat?.Name} 叫地主",
+        DoudizhuPhase.Playing => IsMyTurn ? "轮到你 · 出牌" : $"{table.TurnSeat?.Name} 出牌",
+        _ => ResultKicker,
     };
+    string ResultKicker => table.Phase != DoudizhuPhase.Over
+        ? ""
+        : table.WinnerIndex == table.LandlordIndex ? "地主获胜" : "农民获胜";
+    string ResultTitle => table.Phase != DoudizhuPhase.Over
+        ? ""
+        : HumanIndex < 0 ? "终" : HumanWon ? "胜" : "负";
+    string ResultSub => table.Phase != DoudizhuPhase.Over
+        ? ""
+        : table.WinnerIndex == table.LandlordIndex
+            ? $"地主 {table.Seats[table.LandlordIndex].Name} 拿下牌局"
+            : $"农民 {string.Join("、", Enumerable.Range(0, table.Seats.Count).Where(index => index != table.LandlordIndex).Select(index => table.Seats[index].Name))} 联手取胜";
+    string HintText
+    {
+        get
+        {
+            if (table.Phase == DoudizhuPhase.Over)
+                return "";
+            if (IsMyTurn == false)
+                return $"等待 {table.TurnSeat?.Name} 行动…";
+            if (table.Phase == DoudizhuPhase.Bidding)
+                return "轮到你。叫地主可获得三张底牌，不叫则轮到下家。";
+            return table.LastCards.Count == 0
+                ? "轮到你，本轮由你自由出牌。"
+                : $"轮到你，需要压过 {table.Seats[table.LastPlayerIndex].Name} 的牌，或选择不出。";
+        }
+    }
 
     protected override void OnInitialized()
     {
         table.Changed += OnTableChanged;
+        lastPlaying = table.IsPlaying;
+        lastLogCount = table.Log.Count;
+        lastPhase = table.IsPlaying ? table.Phase : null;
+        lastMyTurn = table.IsPlaying && IsMyTurn;
+        lastTurnKey = TurnKey();
+
+        List<ChatActivity> candidates = CandidateActivities;
+        if (candidates.Count > 0)
+            seatTwoKey = candidates[0].Character.Name;
+        if (candidates.Count > 1)
+            seatThreeKey = candidates[1].Character.Name;
     }
-    public ValueTask DisposeAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await EnsureClientScriptAsync();
+    }
+    public async ValueTask DisposeAsync()
     {
         table.Changed -= OnTableChanged;
-        return ValueTask.CompletedTask;
+        if (clientReady)
+        {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("__alifeDdzStopMusic", 0.2);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
     }
 
     string RoleText(int index)
     {
         if (table.Phase == DoudizhuPhase.Bidding)
             return "待定";
-        return table.LandlordIndex == index ? "地主" : "农民";
+        return index == table.LandlordIndex ? "地主" : "农民";
     }
-    void ToggleDrawer()
+    static int OrdinalAt(IReadOnlyList<int> cards, int index)
+    {
+        int ordinal = 0;
+        for (int cursor = 0; cursor < index; cursor++)
+        {
+            if (cards[cursor] == cards[index])
+                ordinal++;
+        }
+        return ordinal;
+    }
+    void ToggleFullscreen()
     {
         visible = !visible;
     }
-    void OnDrawerClose()
+    void CloseFullscreen()
     {
         visible = false;
         StateHasChanged();
     }
     void OnTableChanged()
     {
-        _ = InvokeAsync(() => {
+        _ = InvokeAsync(async () => {
+            bool started = table.IsPlaying && (lastPlaying == false || (lastPhase == DoudizhuPhase.Over && table.Phase != DoudizhuPhase.Over));
+            string? turnKey = TurnKey();
+            bool turnChanged = started == false && turnKey != null && turnKey != lastTurnKey;
             selected.Clear();
+            if (started)
+                AnnounceOpening();
+            else if (turnChanged)
+                AnnounceTurn();
+            else if (turnKey == null)
+            {
+                turnNotice = null;
+                turnNoticeGeneration++;
+            }
+            lastTurnKey = turnKey;
             StateHasChanged();
+            await PlayStateSoundsAsync();
         });
+    }
+    string? TurnKey()
+    {
+        if (table.IsPlaying == false || table.Phase == DoudizhuPhase.Over || table.TurnSeat == null)
+            return null;
+        return $"{table.TurnSeat.Name}|{table.Phase}";
+    }
+    void AnnounceOpening()
+    {
+        TableSeat? seat = table.TurnSeat;
+        if (seat == null)
+            return;
+
+        openingNotice = $"开局随机 · {seat.Name} 先叫地主";
+        int generation = ++openingGeneration;
+        _ = HideOpeningAsync(generation);
+    }
+    async Task HideOpeningAsync(int generation)
+    {
+        await Task.Delay(3200);
+        if (generation != openingGeneration)
+            return;
+        openingNotice = null;
+        await InvokeAsync(StateHasChanged);
+    }
+    void AnnounceTurn()
+    {
+        TableSeat? seat = table.TurnSeat;
+        if (seat == null)
+            return;
+
+        turnNoticeMine = HumanIndex >= 0 && seat == table.Seats[HumanIndex];
+        turnNotice = turnNoticeMine ? $"轮到你 · {TurnAction}" : $"轮到 {seat.Name} · {TurnAction}";
+        int generation = ++turnNoticeGeneration;
+        _ = HideTurnNoticeAsync(generation);
+    }
+    async Task HideTurnNoticeAsync(int generation)
+    {
+        await Task.Delay(1400);
+        if (generation != turnNoticeGeneration)
+            return;
+        turnNotice = null;
+        await InvokeAsync(StateHasChanged);
     }
     void ToggleCard(int index)
     {
+        if (table.Phase != DoudizhuPhase.Playing || IsMyTurn == false)
+            return;
         if (selected.Remove(index) == false)
             selected.Add(index);
     }
-    void ToggleCharacter(Character character, bool value)
-    {
-        if (value)
-            chosen.Add(character);
-        else
-            chosen.Remove(character);
-    }
     void StartGame()
     {
-        List<TableSeat> seats = [];
-        if (joinsGame)
-            seats.Add(new TableSeat { Name = "我" });
-        foreach (ChatActivity activity in SelectedActivities)
-            seats.Add(new TableSeat { Name = activity.Character.Name, Character = activity.Character, ChatBot = activity.ChatBot });
+        if (CanStart == false)
+            return;
 
-        table.Start(seats);
+        table.Start([CreateSeat(seatOneKey!), CreateSeat(seatTwoKey!), CreateSeat(seatThreeKey!)]);
+    }
+    TableSeat CreateSeat(string key)
+    {
+        if (key == HumanKey)
+            return new TableSeat { Name = "我" };
+
+        ChatActivity activity = CandidateActivities.First(activity => activity.Character.Name == key);
+        return new TableSeat { Name = activity.Character.Name, Character = activity.Character, ChatBot = activity.ChatBot };
+    }
+    void RestartGame()
+    {
+        table.Start(table.Seats);
+    }
+    void CallLandlord()
+    {
+        Attempt(table.Call(HumanIndex));
+    }
+    void DeclineBid()
+    {
+        Attempt(table.Pass(HumanIndex));
     }
     void PlaySelected()
     {
-        List<int> hand = [.. table.GetHand(humanIndex)];
+        List<int> hand = [.. table.GetHand(HumanIndex)];
         List<int> cards = selected.OrderBy(index => index).Select(index => hand[index]).ToList();
-        Attempt(table.Play(humanIndex, cards));
+        Attempt(table.Play(HumanIndex, cards));
+    }
+    void DeclinePlay()
+    {
+        Attempt(table.Pass(HumanIndex));
     }
     void Attempt(string? error)
     {
         if (error != null)
             MessageService.Warning(error);
     }
+
+    async Task ToggleMusic()
+    {
+        musicEnabled = !musicEnabled;
+        if (musicEnabled && visible && table.IsPlaying && table.Phase != DoudizhuPhase.Over)
+            await PlayMusicAsync();
+        if (musicEnabled == false)
+            await StopMusicAsync();
+    }
+    async Task PlayStateSoundsAsync()
+    {
+        bool playing = table.IsPlaying;
+        bool started = playing && (lastPlaying == false || (lastPhase == DoudizhuPhase.Over && table.Phase != DoudizhuPhase.Over));
+        if (started)
+        {
+            lastLogCount = 0;
+            await PlayAsync("start");
+            if (table.Phase != DoudizhuPhase.Over)
+            {
+                await Task.Delay(700);
+                if (table.IsPlaying && table.Phase != DoudizhuPhase.Over)
+                    await PlayMusicAsync();
+            }
+        }
+        if (playing && table.Log.Count > lastLogCount)
+        {
+            for (int index = lastLogCount; index < table.Log.Count; index++)
+            {
+                string line = table.Log[index];
+                if (line.Contains("叫地主"))
+                    await PlayAsync("check");
+                else if (line.Contains("出 "))
+                    await PlayAsync(line.Contains("炸弹") || line.Contains("王炸") ? "capture" : "move");
+            }
+        }
+        if (table.Phase == DoudizhuPhase.Over && lastPhase != DoudizhuPhase.Over)
+        {
+            await PlayAsync(EndSound());
+            await StopMusicAsync();
+        }
+        if (playing == false && lastPlaying)
+            await StopMusicAsync();
+
+        bool myTurn = playing && IsMyTurn && table.Phase != DoudizhuPhase.Over;
+        if (myTurn && lastMyTurn == false && started == false)
+        {
+            await Task.Delay(160);
+            await PlayAsync("turn");
+        }
+
+        lastPlaying = playing;
+        lastLogCount = table.Log.Count;
+        lastPhase = playing ? table.Phase : null;
+        lastMyTurn = myTurn;
+    }
+    string EndSound()
+    {
+        if (HumanIndex < 0)
+            return "end";
+        return HumanWon ? "win" : "lose";
+    }
+    async Task PlayAsync(string name)
+    {
+        string source = SoundSource(name);
+        if (source.Length == 0)
+            return;
+
+        await EnsureClientScriptAsync();
+        await JsRuntime.InvokeVoidAsync("__alifeDdzPlay", name, source, SoundVolume(name));
+    }
+    async Task PlayMusicAsync()
+    {
+        if (musicEnabled == false)
+            return;
+
+        string source = SoundSource("bgm");
+        if (source.Length == 0)
+            return;
+
+        await EnsureClientScriptAsync();
+        await JsRuntime.InvokeVoidAsync("__alifeDdzMusic", "bgm", source, MusicVolume);
+    }
+    async Task StopMusicAsync()
+    {
+        if (clientReady == false)
+            return;
+
+        await JsRuntime.InvokeVoidAsync("__alifeDdzStopMusic", 1.1);
+    }
+    async Task EnsureClientScriptAsync()
+    {
+        if (clientReady)
+            return;
+
+        await JsRuntime.InvokeVoidAsync("eval", ClientScript);
+        clientReady = true;
+    }
+    static double SoundVolume(string name)
+    {
+        return name switch
+        {
+            "move" => 0.6,
+            "capture" => 0.82,
+            "check" => 0.78,
+            "turn" => 0.5,
+            "start" => 0.72,
+            "win" => 0.8,
+            "lose" => 0.7,
+            "end" => 0.72,
+            _ => 0.7
+        };
+    }
+    string SoundSource(string name)
+    {
+        if (soundSources.TryGetValue(name, out string? cached))
+            return cached;
+
+        string? pluginId = PluginSystem.PluginContext.GetTypeAttachedPlugin(typeof(DoudizhuService));
+        if (pluginId == null)
+            return "";
+
+        string path = Path.Combine(PluginSystem.PluginContext.GetPluginDirectoryPath(pluginId), "Resources", name + ".ogg");
+        if (File.Exists(path) == false)
+            return "";
+
+        string source = "data:audio/ogg;base64," + Convert.ToBase64String(File.ReadAllBytes(path));
+        soundSources[name] = source;
+        return source;
+    }
+
+    // 音效与场景脚本随插件注入，不依赖客户端 wwwroot。
+    const string ClientScript = """
+        if (!window.__alifeDdzPlay) {
+            let audioContext = null;
+            let musicGain = null;
+            let musicSource = null;
+            const buffers = new Map();
+
+            window.__alifeDdzEnsure = function () {
+                if (!audioContext) {
+                    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                    audioContext = new AudioCtor();
+                }
+                if (audioContext.state === "suspended") audioContext.resume();
+                return audioContext;
+            };
+            function decode(uri) {
+                const comma = uri.indexOf(",");
+                const binary = atob(uri.slice(comma + 1));
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return bytes;
+            }
+            async function load(name, uri) {
+                let buffer = buffers.get(name);
+                if (buffer) return buffer;
+                buffer = await window.__alifeDdzEnsure().decodeAudioData(decode(uri).buffer);
+                buffers.set(name, buffer);
+                return buffer;
+            }
+            function ramp(gain, target, seconds) {
+                const context = window.__alifeDdzEnsure();
+                const now = context.currentTime;
+                gain.gain.cancelScheduledValues(now);
+                gain.gain.setValueAtTime(gain.gain.value, now);
+                gain.gain.linearRampToValueAtTime(target, now + seconds);
+            }
+            window.__alifeDdzPlay = async function (name, uri, volume) {
+                try {
+                    const context = window.__alifeDdzEnsure();
+                    const buffer = await load(name, uri);
+                    const source = context.createBufferSource();
+                    const gain = context.createGain();
+                    source.buffer = buffer;
+                    gain.gain.value = volume;
+                    source.connect(gain).connect(context.destination);
+                    source.start();
+                } catch (error) {
+                    console.warn("alife doudizhu sound", error);
+                }
+            };
+            window.__alifeDdzMusic = async function (name, uri, volume) {
+                try {
+                    if (typeof window.__alifeSoundStopMusic === "function")
+                        window.__alifeSoundStopMusic(0.6);
+                    const context = window.__alifeDdzEnsure();
+                    if (musicSource) return;
+                    const buffer = await load(name, uri);
+                    if (!musicGain) {
+                        musicGain = context.createGain();
+                        musicGain.connect(context.destination);
+                    }
+                    musicSource = context.createBufferSource();
+                    musicSource.buffer = buffer;
+                    musicSource.loop = true;
+                    musicSource.connect(musicGain);
+                    musicGain.gain.value = 0;
+                    musicSource.start();
+                    ramp(musicGain, volume, 1.6);
+                } catch (error) {
+                    console.warn("alife doudizhu music", error);
+                }
+            };
+            window.__alifeDdzStopMusic = function (seconds) {
+                if (!musicSource || !musicGain) return;
+                const source = musicSource;
+                musicSource = null;
+                ramp(musicGain, 0, seconds);
+                setTimeout(function () {
+                    try { source.stop(); } catch (error) { }
+                }, seconds * 1000 + 60);
+            };
+            window.addEventListener("pointerdown", function (event) {
+                if (event.target && event.target.closest && event.target.closest(".ddz-stage")) window.__alifeDdzEnsure();
+            }, true);
+            window.addEventListener("keydown", function (event) {
+                if (event.target && event.target.closest && event.target.closest(".ddz-stage")) window.__alifeDdzEnsure();
+            }, true);
+        }
+
+        """;
 }

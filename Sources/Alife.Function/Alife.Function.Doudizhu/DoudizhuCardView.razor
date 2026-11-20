@@ -1,0 +1,51 @@
+@namespace Alife.Function.Doudizhu
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="ddz-card @(Back ? "back" : "") @(Mini ? "mini" : "") @(Selected ? "selected" : "") @(IsRed ? "red" : "") @(IsJoker ? "joker" : "")"
+     style="@Style" @onclick="OnClick">
+    @if (Back)
+    {
+        <span class="ddz-card-back-mark">斗</span>
+    }
+    else if (IsJoker)
+    {
+        <span class="ddz-joker-star">★</span>
+        <span class="ddz-joker-name">@DoudizhuCards.Name(Card)</span>
+    }
+    else
+    {
+        <span class="ddz-card-suit">@Suit</span>
+        <span class="ddz-card-rank">@DoudizhuCards.Name(Card)</span>
+        <span class="ddz-card-pip">@Suit</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public int Card { get; set; }
+
+    [Parameter]
+    public bool Mini { get; set; }
+
+    [Parameter]
+    public bool Back { get; set; }
+
+    [Parameter]
+    public bool Selected { get; set; }
+
+    [Parameter]
+    public string Style { get; set; } = "";
+
+    [Parameter]
+    public int Ordinal { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    static readonly string[] Suits = ["♠", "♥", "♣", "♦"];
+
+    bool IsJoker => Card >= DoudizhuCards.SmallJoker;
+    bool IsRed => IsJoker ? Card == DoudizhuCards.BigJoker : (Card - 3 + Ordinal) % 4 is 1 or 3;
+    string Suit => Suits[(Card - 3 + Ordinal) % 4];
+}

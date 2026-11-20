@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Alife.Foundation;
 using Alife.Framework;
 
-namespace BDFFZI.MaoMao.TableGame;
+namespace Alife.Function.TableGame;
 
 public class TableSeat
 {
@@ -41,10 +41,12 @@ public abstract class GameTable
             seat.IsBriefed = false;
 
         OnStart();
+        NotifyAll(StartNotice);
         Commit();
     }
     public void Stop()
     {
+        NotifyAll(StopNotice);
         seats = [];
         IsPaused = false;
         Commit();
@@ -61,6 +63,8 @@ public abstract class GameTable
 
     protected abstract TableSeat? ActiveSeat { get; }
     protected abstract string Rules { get; }
+    protected abstract string StartNotice { get; }
+    protected abstract string StopNotice { get; }
     protected abstract void OnStart();
     protected abstract string DescribeTurn(TableSeat seat);
 
@@ -73,6 +77,11 @@ public abstract class GameTable
         version++;
         Changed?.Invoke();
         Kick();
+    }
+    protected void NotifyAll(string message)
+    {
+        foreach (TableSeat seat in seats)
+            seat.ChatBot?.Poke(message);
     }
 
     void Kick()
@@ -121,6 +130,7 @@ public abstract class GameTable
         string message = seat.IsBriefed ? "" : Rules + "\n\n";
         try
         {
+            using OccupationMarker thinkingMarker = seat.ChatBot!.LanguageModel!.GetThinkingRequester().Rent($"{seat.Name}正在进行对局");
             await seat.ChatBot!.ChatAsync(message + DescribeTurn(seat), breakLast: false);
         }
         catch (Exception exception)
