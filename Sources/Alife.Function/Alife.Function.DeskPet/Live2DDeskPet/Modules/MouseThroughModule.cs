@@ -69,7 +69,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
 
     var lastRegions = '';
     function publishRegions() {
-        var regions = [...document.querySelectorAll('#lock-btn, #input-container, #topmost-toggle-btn')]
+        var regions = [...document.querySelectorAll('#lock-btn, #input-container')]
             .filter(el => getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden')
             .map(el => { var r = el.getBoundingClientRect();
                 return [Math.floor(r.left), Math.floor(r.top), Math.ceil(r.right), Math.ceil(r.bottom)]; })
@@ -96,7 +96,7 @@ body:hover #lock-btn.faded { opacity:0.6; }
         var y = msg.sy - window.screenY;
         var inside = x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
         var el = inside ? document.elementFromPoint(x, y) : null;
-        var hit = (el && el.closest('#lock-btn, #input-container, #topmost-toggle-btn')) || null;
+        var hit = (el && el.closest('#lock-btn, #input-container')) || null;
         if (hovered !== hit) {
             clearHover();
             if (hit) {
