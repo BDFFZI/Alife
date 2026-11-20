@@ -35,7 +35,7 @@ public class McAgentConfig
 [Module("MC陪玩",
     "接入 minecraft-numen 的外接大脑功能并进行框架融合，使 AI 可以控制 MC 中的分身：实现移动、挖掘、建造、合成、战斗等操作，同时自动化事件任务状态的拉取推送，以及部分提示词的修正，实现真正的一起玩 MC。"
     + "\nMod下载地址：https://github.com/Dwinovo/minecraft-numen",
-    defaultCategory: "真央的小工具")]
+    defaultCategory: "Alife 官方/创意娱乐")]
 public class McAgentModule(
     XmlFunctionCaller functionCaller,
     McpFunctionCaller mcpFunctionCaller,
