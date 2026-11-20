@@ -1,0 +1,323 @@
+@namespace BDFFZI.MaoMao.Doudizhu
+@using Alife.Framework
+@using BDFFZI.MaoMao.TableGame
+@using AntDesign
+@using Microsoft.AspNetCore.Components.Web
+@attribute [SideBarItem]
+@implements IAsyncDisposable
+@inject ChatActivitySystem ChatActivitySystem
+@inject IMessageService MessageService
+
+@* 这个组件自己就是侧栏按钮：点击在侧栏原地开合斗地主抽屉 *@
+<Tooltip Title="斗地主" Placement="Placement.Right">
+    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleDrawer">
+        <Icon Type="@IconType.Outline.Trophy"/>
+    </div>
+</Tooltip>
+
+<Drawer Visible="@visible"
+        OnClose="@OnDrawerClose"
+        Placement="@DrawerPlacement.Right"
+        Title="@("斗地主")"
+        Width="680"
+        BodyStyle="padding: 16px; overflow-y: auto;">
+    @if (table.IsPlaying)
+    {
+        <div class="ddz-header">
+            <AntDesign.Text Strong>@PhaseText</AntDesign.Text>
+            <Space>
+                @if (table.IsPaused)
+                {
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Resume())">继续</Button>
+                }
+                @if (table.Phase == DoudizhuPhase.Over)
+                {
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Start(table.Seats))">再来一局</Button>
+                }
+                <Button Size="@ButtonSize.Small" Danger OnClick="@(() => table.Stop())">结束牌局</Button>
+            </Space>
+        </div>
+
+        @if (table.IsPaused)
+        {
+            <Alert Type="@AlertType.Warning" Message="@($"{table.TurnSeat?.Name} 连续未能完成行动，牌局已暂停。请检查它的对话后点击继续。")" ShowIcon="true" Style="margin-bottom: 12px;"/>
+        }
+
+        <div class="ddz-seats">
+            @for (int index = 0; index < table.Seats.Count; index++)
+            {
+                int seatIndex = index;
+                TableSeat seat = table.Seats[seatIndex];
+                <div class="ddz-seat @(table.TurnSeat == seat ? "turn" : "")">
+                    <div class="ddz-seat-name">@seat.Name</div>
+                    <div class="ddz-seat-meta">@RoleText(seatIndex)</div>
+                    <div class="ddz-seat-count">@($"{table.GetHand(seatIndex).Count} 张")</div>
+                </div>
+            }
+        </div>
+
+        <div class="ddz-last">
+            @if (table.LastCards.Count == 0)
+            {
+                <AntDesign.Text Type="@TextElementType.Secondary">@(table.Phase == DoudizhuPhase.Playing ? "本轮无人压制，可以自由出牌" : "等待叫地主")</AntDesign.Text>
+            }
+            else
+            {
+                <AntDesign.Text>@($"{table.Seats[table.LastPlayerIndex].Name} 出：{DoudizhuCards.Format(table.LastCards)}")</AntDesign.Text>
+            }
+        </div>
+
+        @if (humanIndex >= 0)
+        {
+            IReadOnlyList<int> hand = table.GetHand(humanIndex);
+            <div class="ddz-hand">
+                @for (int index = 0; index < hand.Count; index++)
+                {
+                    int cardIndex = index;
+                    <div class="ddz-card @(selected.Contains(cardIndex) ? "selected" : "")" @onclick="@(() => ToggleCard(cardIndex))">@DoudizhuCards.Name(hand[cardIndex])</div>
+                }
+            </div>
+            <div class="ddz-actions">
+                @if (table.Phase == DoudizhuPhase.Bidding)
+                {
+                    <Button Type="@ButtonType.Primary" Disabled="@(IsMyTurn == false)" OnClick="@(() => Attempt(table.Call(humanIndex)))">叫地主</Button>
+                    <Button Disabled="@(IsMyTurn == false)" OnClick="@(() => Attempt(table.Pass(humanIndex)))">不叫</Button>
+                }
+                else if (table.Phase == DoudizhuPhase.Playing)
+                {
+                    <Button Type="@ButtonType.Primary" Disabled="@(IsMyTurn == false || selected.Count == 0)" OnClick="@PlaySelected">出牌</Button>
+                    <Button Disabled="@(IsMyTurn == false || table.LastCards.Count == 0)" OnClick="@(() => Attempt(table.Pass(humanIndex)))">不出</Button>
+                }
+                <AntDesign.Text Type="@TextElementType.Secondary">@WaitingText</AntDesign.Text>
+            </div>
+        }
+        else
+        {
+            <AntDesign.Text Type="@TextElementType.Secondary">本局没有你的座位，角色们自行对战中。</AntDesign.Text>
+        }
+
+        <div class="ddz-log-title">牌局记录</div>
+        <div class="ddz-log">
+            @foreach (string line in table.Log.TakeLast(40))
+            {
+                <div>@line</div>
+            }
+        </div>
+    }
+    else
+    {
+        <AntDesign.Text Type="@TextElementType.Secondary">选择本局的三个座位。可以选你自己加两个角色，也可以让三个角色自行对战。</AntDesign.Text>
+        @if (Candidates.Count == 0)
+        {
+            <Alert Type="@AlertType.Info" Message="没有启用“斗地主”功能的角色。请在角色的功能检视中为它启用该模块。" ShowIcon="true" Style="margin: 12px 0;"/>
+        }
+        <div class="ddz-setup">
+            <Checkbox Checked="@joinsGame" CheckedChanged="@(value => { joinsGame = value; })">我</Checkbox>
+            @foreach (Character character in Candidates)
+            {
+                Character seatCharacter = character;
+                <Checkbox Checked="@chosen.Contains(seatCharacter)" CheckedChanged="@(value => { ToggleCharacter(seatCharacter, value); })">@seatCharacter.Name</Checkbox>
+            }
+        </div>
+        <Button Type="@ButtonType.Primary" Disabled="@(SeatCount != 3)" OnClick="@StartGame">@($"开始牌局（{SeatCount}/3）")</Button>
+    }
+</Drawer>
+
+<style>
+    .ddz-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .ddz-seats {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .ddz-seat {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 10px 12px;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
+    }
+
+    .ddz-seat.turn {
+        border-color: var(--alife-primary);
+        box-shadow: 0 0 0 2px var(--alife-primary-bg);
+    }
+
+    .ddz-seat-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ddz-seat-meta,
+    .ddz-seat-count {
+        font-size: 12px;
+        color: var(--alife-text-secondary);
+    }
+
+    .ddz-last {
+        min-height: 32px;
+        margin-bottom: 12px;
+    }
+
+    .ddz-hand {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 14px 12px 8px;
+        min-height: 80px;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-layout);
+    }
+
+    .ddz-card {
+        min-width: 42px;
+        height: 58px;
+        padding: 0 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--alife-radius-sm);
+        border: 1px solid var(--alife-border-strong);
+        background: var(--alife-bg-container);
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.12s ease;
+    }
+
+    .ddz-card.selected {
+        transform: translateY(-8px);
+        border-color: var(--alife-primary);
+        color: var(--alife-primary);
+    }
+
+    .ddz-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0;
+    }
+
+    .ddz-log-title {
+        margin-top: 16px;
+        font-weight: 600;
+    }
+
+    .ddz-log {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 8px 12px;
+        margin-top: 6px;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-layout);
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--alife-text-secondary);
+    }
+
+    .ddz-setup {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 12px 0 16px;
+    }
+</style>
+
+@code {
+    readonly DoudizhuTable table = DoudizhuTable.Instance;
+    readonly HashSet<int> selected = [];
+    readonly HashSet<Character> chosen = [];
+    bool visible;
+    bool joinsGame = true;
+
+    int humanIndex => table.HumanIndex;
+    bool IsMyTurn => humanIndex >= 0 && table.TurnSeat == table.Seats[humanIndex];
+    int SeatCount => SelectedActivities.Count + (joinsGame ? 1 : 0);
+    string WaitingText => table.TurnSeat == null || IsMyTurn ? "" : $"等待 {table.TurnSeat.Name} 行动";
+    List<ChatActivity> CandidateActivities => ChatActivitySystem.GetAllChatActivities()
+        .Where(activity => activity.Container.Instances.OfType<DoudizhuService>().Any())
+        .ToList();
+    List<ChatActivity> SelectedActivities => CandidateActivities.Where(activity => chosen.Contains(activity.Character)).ToList();
+    List<Character> Candidates => CandidateActivities.Select(activity => activity.Character).ToList();
+    string PhaseText => table.Phase switch {
+        DoudizhuPhase.Bidding => "叫地主阶段",
+        DoudizhuPhase.Playing => "出牌阶段",
+        _ => $"{table.Seats[table.WinnerIndex].Name} 获胜",
+    };
+
+    protected override void OnInitialized()
+    {
+        table.Changed += OnTableChanged;
+    }
+    public ValueTask DisposeAsync()
+    {
+        table.Changed -= OnTableChanged;
+        return ValueTask.CompletedTask;
+    }
+
+    string RoleText(int index)
+    {
+        if (table.Phase == DoudizhuPhase.Bidding)
+            return "待定";
+        return table.LandlordIndex == index ? "地主" : "农民";
+    }
+    void ToggleDrawer()
+    {
+        visible = !visible;
+    }
+    void OnDrawerClose()
+    {
+        visible = false;
+        StateHasChanged();
+    }
+    void OnTableChanged()
+    {
+        _ = InvokeAsync(() => {
+            selected.Clear();
+            StateHasChanged();
+        });
+    }
+    void ToggleCard(int index)
+    {
+        if (selected.Remove(index) == false)
+            selected.Add(index);
+    }
+    void ToggleCharacter(Character character, bool value)
+    {
+        if (value)
+            chosen.Add(character);
+        else
+            chosen.Remove(character);
+    }
+    void StartGame()
+    {
+        List<TableSeat> seats = [];
+        if (joinsGame)
+            seats.Add(new TableSeat { Name = "我" });
+        foreach (ChatActivity activity in SelectedActivities)
+            seats.Add(new TableSeat { Name = activity.Character.Name, Character = activity.Character, ChatBot = activity.ChatBot });
+
+        table.Start(seats);
+    }
+    void PlaySelected()
+    {
+        List<int> hand = [.. table.GetHand(humanIndex)];
+        List<int> cards = selected.OrderBy(index => index).Select(index => hand[index]).ToList();
+        Attempt(table.Play(humanIndex, cards));
+    }
+    void Attempt(string? error)
+    {
+        if (error != null)
+            MessageService.Warning(error);
+    }
+}

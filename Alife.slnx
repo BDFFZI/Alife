@@ -37,6 +37,9 @@
   <Folder Name="/Sources/Alife.Function/Recreation/">
     <Project Path="Sources/Alife.Function/Alife.Function.McAgent/Alife.Function.McAgent.csproj" />
     <Project Path="Sources/Alife.Function/BDFFZI.VibeCode.GameCompanion/BDFFZI.VibeCode.GameCompanion.csproj" />
+    <Project Path="Sources/Alife.Function/BDFFZI.MaoMao.TableGame/BDFFZI.MaoMao.TableGame.csproj" />
+    <Project Path="Sources/Alife.Function/BDFFZI.MaoMao.Doudizhu/BDFFZI.MaoMao.Doudizhu.csproj" />
+    <Project Path="Sources/Alife.Function/BDFFZI.MaoMao.Xiangqi/BDFFZI.MaoMao.Xiangqi.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Client/">
     <Project Path="Sources/Alife.Function/Alife.Function.TokenStatistics/Alife.Function.TokenStatistics.csproj" />

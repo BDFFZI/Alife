@@ -1,0 +1,418 @@
+@namespace BDFFZI.MaoMao.Xiangqi
+@using Alife.Framework
+@using BDFFZI.MaoMao.TableGame
+@using AntDesign
+@using Microsoft.AspNetCore.Components.Web
+@attribute [SideBarItem]
+@implements IAsyncDisposable
+@inject ChatActivitySystem ChatActivitySystem
+@inject IMessageService MessageService
+
+@* 这个组件自己就是侧栏按钮：点击在侧栏原地开合中国象棋抽屉 *@
+<Tooltip Title="中国象棋" Placement="Placement.Right">
+    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleDrawer">
+        <Icon Type="@IconType.Outline.Appstore"/>
+    </div>
+</Tooltip>
+
+<Drawer Visible="@visible"
+        OnClose="@OnDrawerClose"
+        Placement="@DrawerPlacement.Right"
+        Title="@("中国象棋")"
+        Width="640"
+        BodyStyle="padding: 16px; overflow-y: auto;">
+    @if (table.IsPlaying)
+    {
+        IReadOnlyList<XiangqiMove> moves = table.LegalMoves;
+        <div class="xq-header">
+            <AntDesign.Text Strong>@StatusText</AntDesign.Text>
+            <Space>
+                @if (table.IsPaused)
+                {
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Resume())">继续</Button>
+                }
+                @if (table.IsOver)
+                {
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="@(() => table.Start(table.Seats))">再来一局</Button>
+                }
+                <Button Size="@ButtonSize.Small" Danger OnClick="@(() => table.Stop())">结束对局</Button>
+            </Space>
+        </div>
+
+        @if (table.IsPaused)
+        {
+            <Alert Type="@AlertType.Warning" Message="@($"{table.TurnSeat?.Name} 连续未能完成行动，对局已暂停。请检查它的对话后点击继续。")" ShowIcon="true" Style="margin-bottom: 12px;"/>
+        }
+
+        <div class="xq-seats">
+            @for (int index = 0; index < table.Seats.Count; index++)
+            {
+                TableSeat seat = table.Seats[index];
+                <div class="xq-seat @(table.TurnSeat == seat ? "turn" : "")">
+                    <div class="xq-seat-name">@seat.Name</div>
+                    <div class="xq-seat-meta">@XiangqiTable.SideName(index == 0 ? XiangqiSide.Red : XiangqiSide.Black)</div>
+                </div>
+            }
+        </div>
+
+        <svg class="xq-board" viewBox="0 0 @BoardWidth @BoardHeight">
+            @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
+            {
+                <line x1="@X(0)" y1="@Y(rank)" x2="@X(XiangqiBoard.FileCount - 1)" y2="@Y(rank)" class="xq-line"/>
+            }
+            @for (int file = 0; file < XiangqiBoard.FileCount; file++)
+            {
+                @if (file == 0 || file == XiangqiBoard.FileCount - 1)
+                {
+                    <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-line"/>
+                }
+                else
+                {
+                    <line x1="@X(file)" y1="@Y(0)" x2="@X(file)" y2="@Y(4)" class="xq-line"/>
+                    <line x1="@X(file)" y1="@Y(5)" x2="@X(file)" y2="@Y(XiangqiBoard.RankCount - 1)" class="xq-line"/>
+                }
+            }
+            <line x1="@X(3)" y1="@Y(0)" x2="@X(5)" y2="@Y(2)" class="xq-line"/>
+            <line x1="@X(5)" y1="@Y(0)" x2="@X(3)" y2="@Y(2)" class="xq-line"/>
+            <line x1="@X(3)" y1="@Y(7)" x2="@X(5)" y2="@Y(9)" class="xq-line"/>
+            <line x1="@X(5)" y1="@Y(7)" x2="@X(3)" y2="@Y(9)" class="xq-line"/>
+            @SvgText(X(4), Y(4) + Cell / 2, "xq-river", "楚 河　　　汉 界")
+
+            @for (int file = 0; file < XiangqiBoard.FileCount; file++)
+            {
+                int pointFile = file;
+                @for (int rank = 0; rank < XiangqiBoard.RankCount; rank++)
+                {
+                    int pointRank = rank;
+                    <g @onclick="@(() => OnPointClick(pointFile, pointRank))">
+                        <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@(Cell / 2)" class="xq-hit"/>
+                        @if (IsSelected(pointFile, pointRank))
+                        {
+                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@(PieceRadius + 4)" class="xq-selected"/>
+                        }
+                        @if (selected is { } origin && moves.Contains(new XiangqiMove(origin.File, origin.Rank, pointFile, pointRank)))
+                        {
+                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="7" class="xq-target"/>
+                        }
+                        @if (table.Board.PieceAt(pointFile, pointRank) is { } piece)
+                        {
+                            <circle cx="@X(pointFile)" cy="@Y(pointRank)" r="@PieceRadius" class="xq-piece @PieceClass(piece)"/>
+                            @SvgText(X(pointFile), Y(pointRank), $"xq-piece-text {PieceClass(piece)}", XiangqiBoard.Name(piece))
+                        }
+                    </g>
+                }
+            }
+        </svg>
+
+        <div class="xq-hint">
+            <AntDesign.Text Type="@TextElementType.Secondary">@HintText</AntDesign.Text>
+        </div>
+
+        <div class="xq-log-title">棋谱</div>
+        <div class="xq-log">
+            @foreach (string line in table.Log)
+            {
+                <div>@line</div>
+            }
+        </div>
+    }
+    else
+    {
+        <AntDesign.Text Type="@TextElementType.Secondary">选择红方（先手）和黑方的座位。可以选你自己与一个角色对弈，也可以让两个角色自行对弈。</AntDesign.Text>
+        @if (CandidateActivities.Count == 0)
+        {
+            <Alert Type="@AlertType.Info" Message="没有启用“中国象棋”功能的角色。请在角色的功能检视中为它启用该模块。" ShowIcon="true" Style="margin: 12px 0;"/>
+        }
+        <div class="xq-setup">
+            <div class="xq-setup-row">
+                <AntDesign.Text>红方（先手）</AntDesign.Text>
+                <Select TItem="string" TItemValue="string" @bind-Value="redKey" Placeholder="选择座位" Style="width: 240px;">
+                    <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                    @for (int index = 0; index < CandidateActivities.Count; index++)
+                    {
+                        <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
+                    }
+                </Select>
+            </div>
+            <div class="xq-setup-row">
+                <AntDesign.Text>黑方</AntDesign.Text>
+                <Select TItem="string" TItemValue="string" @bind-Value="blackKey" Placeholder="选择座位" Style="width: 240px;">
+                    <SelectOption TItem="string" TItemValue="string" Value="@HumanKey" Label="我"/>
+                    @for (int index = 0; index < CandidateActivities.Count; index++)
+                    {
+                        <SelectOption TItem="string" TItemValue="string" Value="@index.ToString()" Label="@CandidateActivities[index].Character.Name"/>
+                    }
+                </Select>
+            </div>
+        </div>
+        <Button Type="@ButtonType.Primary" Disabled="@(CanStart == false)" OnClick="@StartGame">开始对弈</Button>
+    }
+</Drawer>
+
+<style>
+    .xq-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .xq-seats {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .xq-seat {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 10px 12px;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
+    }
+
+    .xq-seat.turn {
+        border-color: var(--alife-primary);
+        box-shadow: 0 0 0 2px var(--alife-primary-bg);
+    }
+
+    .xq-seat-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .xq-seat-meta {
+        font-size: 12px;
+        color: var(--alife-text-secondary);
+    }
+
+    .xq-board {
+        display: block;
+        width: 100%;
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 4px 0;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-layout);
+    }
+
+    .xq-line {
+        stroke: var(--alife-border-strong);
+        stroke-width: 1.5;
+    }
+
+    .xq-river {
+        fill: var(--alife-text-secondary);
+        font-size: 22px;
+        text-anchor: middle;
+        dominant-baseline: central;
+    }
+
+    .xq-hit {
+        fill: transparent;
+        cursor: pointer;
+    }
+
+    .xq-selected {
+        fill: none;
+        stroke: var(--alife-primary);
+        stroke-width: 3;
+    }
+
+    .xq-target {
+        fill: var(--alife-primary);
+        opacity: 0.7;
+    }
+
+    .xq-piece {
+        fill: var(--alife-bg-container);
+        stroke: var(--alife-border-strong);
+        stroke-width: 1.5;
+    }
+
+    .xq-piece.red {
+        stroke: var(--alife-error);
+    }
+
+    .xq-piece-text {
+        fill: var(--alife-text);
+        font-size: 24px;
+        font-weight: 600;
+        text-anchor: middle;
+        dominant-baseline: central;
+        pointer-events: none;
+    }
+
+    .xq-piece-text.red {
+        fill: var(--alife-error);
+    }
+
+    .xq-hint {
+        min-height: 22px;
+        margin: 12px 0;
+        text-align: center;
+    }
+
+    .xq-log-title {
+        margin-top: 16px;
+        font-weight: 600;
+    }
+
+    .xq-log {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 8px 12px;
+        margin-top: 6px;
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-layout);
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--alife-text-secondary);
+    }
+
+    .xq-setup {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 12px 0 16px;
+    }
+
+    .xq-setup-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+
+@code {
+    const int Cell = 56;
+    const int Padding = 28;
+    const int PieceRadius = 22;
+    const int BoardWidth = Padding * 2 + (XiangqiBoard.FileCount - 1) * Cell;
+    const int BoardHeight = Padding * 2 + (XiangqiBoard.RankCount - 1) * Cell;
+    const string HumanKey = "human";
+
+    readonly XiangqiTable table = XiangqiTable.Instance;
+    (int File, int Rank)? selected;
+    bool visible;
+    string? redKey = HumanKey;
+    string? blackKey;
+
+    int HumanIndex => table.HumanIndex;
+    bool IsMyTurn => HumanIndex >= 0 && table.TurnSeat == table.Seats[HumanIndex];
+    bool CanStart => redKey != null && blackKey != null && redKey != blackKey;
+    List<ChatActivity> CandidateActivities => ChatActivitySystem.GetAllChatActivities()
+        .Where(activity => activity.Container.Instances.OfType<XiangqiService>().Any())
+        .ToList();
+    string StatusText => table.Winner is { } winner
+        ? $"{XiangqiTable.SideName(winner)}获胜"
+        : table.IsDraw ? "和棋" : $"{XiangqiTable.SideName(table.Turn)}走棋";
+    string HintText
+    {
+        get
+        {
+            if (table.IsOver)
+                return "";
+            if (IsMyTurn == false)
+                return $"等待 {table.TurnSeat?.Name} 行动";
+            return table.Board.IsInCheck(table.Turn) ? "你的将帅被将军，请先解将。点击棋子，再点击目标位置。" : "轮到你。点击棋子，再点击目标位置落子。";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        table.Changed += OnTableChanged;
+    }
+    public ValueTask DisposeAsync()
+    {
+        table.Changed -= OnTableChanged;
+        return ValueTask.CompletedTask;
+    }
+
+    int X(int file)
+    {
+        return Padding + file * Cell;
+    }
+    RenderFragment SvgText(int x, int y, string className, string text)
+    {
+        return builder =>
+        {
+            builder.OpenElement(0, "text");
+            builder.AddAttribute(1, "x", x);
+            builder.AddAttribute(2, "y", y);
+            builder.AddAttribute(3, "class", className);
+            builder.AddContent(4, text);
+            builder.CloseElement();
+        };
+    }
+    int Y(int rank)
+    {
+        return Padding + (XiangqiBoard.RankCount - 1 - rank) * Cell;
+    }
+    bool IsSelected(int file, int rank)
+    {
+        return selected is { } square && square.File == file && square.Rank == rank;
+    }
+    string PieceClass(XiangqiPiece piece)
+    {
+        return piece.Side == XiangqiSide.Red ? "red" : "black";
+    }
+    void ToggleDrawer()
+    {
+        visible = !visible;
+    }
+    void OnDrawerClose()
+    {
+        visible = false;
+        StateHasChanged();
+    }
+    void OnTableChanged()
+    {
+        _ = InvokeAsync(() => {
+            selected = null;
+            StateHasChanged();
+        });
+    }
+    void OnPointClick(int file, int rank)
+    {
+        if (IsMyTurn == false)
+            return;
+
+        if (selected is { } origin && table.LegalMoves.Contains(new XiangqiMove(origin.File, origin.Rank, file, rank)))
+        {
+            Attempt(table.Move(HumanIndex, new XiangqiMove(origin.File, origin.Rank, file, rank)));
+            selected = null;
+        }
+        else if (table.Board.PieceAt(file, rank) is { } piece && piece.Side == table.Turn)
+        {
+            selected = (file, rank);
+        }
+        else
+        {
+            selected = null;
+        }
+    }
+    void StartGame()
+    {
+        if (redKey == null || blackKey == null)
+            return;
+
+        table.Start([CreateSeat(redKey), CreateSeat(blackKey)]);
+    }
+    TableSeat CreateSeat(string key)
+    {
+        if (key == HumanKey)
+            return new TableSeat { Name = "我" };
+
+        ChatActivity activity = CandidateActivities[int.Parse(key)];
+        return new TableSeat { Name = activity.Character.Name, Character = activity.Character, ChatBot = activity.ChatBot };
+    }
+    void Attempt(string? error)
+    {
+        if (error != null)
+            MessageService.Warning(error);
+    }
+}
