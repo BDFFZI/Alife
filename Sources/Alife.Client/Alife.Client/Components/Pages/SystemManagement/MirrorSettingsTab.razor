@@ -16,6 +16,27 @@
 
     <Divider Style="margin: 16px 0;"/>
 
+    <Title Level="5" Style="margin-bottom: 12px;">GitHub 镜像</Title>
+    <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-bottom: 12px; display: block;">
+        更新 GitHub、Raw 和 API 的下载映射，其他镜像与环境变量保持不变。
+    </Text>
+    @if (showGithubPicker)
+    {
+        <GithubMirrorPicker @bind-SelectedDomain="@selectedGithubDomain"/>
+        <Space>
+            <Button Type="@ButtonType.Primary" Disabled="@(selectedGithubDomain.Length == 0)" OnClick="@ApplyGithubMirror">
+                应用所选 GitHub 镜像
+            </Button>
+            <Button OnClick="@CancelGithubMirror">取消</Button>
+        </Space>
+    }
+    else
+    {
+        <Button OnClick="@(() => showGithubPicker = true)">更新 GitHub 镜像</Button>
+    }
+
+    <Divider Style="margin: 16px 0;"/>
+
     <Title Level="5" Style="margin-bottom: 12px;">URL 镜像映射</Title>
     <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-bottom: 12px; display: block;">
         左侧为原始地址，右侧为镜像地址。进行简单的字符串替换。
@@ -74,6 +95,8 @@
 @code {
     Dictionary<string, string> MirrorUrlMap = new();
     Dictionary<string, string> MirrorEnvironmentVariables = new();
+    bool showGithubPicker;
+    string selectedGithubDomain = "";
 
     protected override void OnInitialized()
     {
@@ -114,6 +137,20 @@
     void SaveUrlMap()
     {
         AlifeMirror.SetMirrorUrlMap(MirrorUrlMap);
+    }
+
+    void ApplyGithubMirror()
+    {
+        GithubMirrorPicker.SetMappings(MirrorUrlMap, selectedGithubDomain);
+        SaveUrlMap();
+        showGithubPicker = false;
+        _ = NotificationService.Success(new NotificationConfig { Message = "GitHub 镜像映射已更新" });
+    }
+
+    void CancelGithubMirror()
+    {
+        selectedGithubDomain = "";
+        showGithubPicker = false;
     }
 
     void OnEnvKeyChanged(string oldKey, string newKey)

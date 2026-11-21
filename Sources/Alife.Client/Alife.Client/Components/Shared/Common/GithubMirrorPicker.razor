@@ -1,0 +1,171 @@
+@implements IDisposable
+
+<div class="github-mirror-picker">
+    @if (isTesting)
+    {
+        <Progress Percent="@(completed * 100 / Domains.Length)" ShowInfo="false"/>
+    }
+
+    <RadioGroup TValue="string" Value="@SelectedDomain" ValueChanged="@SelectDomainAsync">
+        <div class="github-mirror-choices">
+            @foreach (string domain in Domains)
+            {
+                <Radio Value="@domain">
+                    <span class="github-mirror-domain">@domain</span>
+                    @if (results.TryGetValue(domain, out GithubMirrorProbe.Result? result))
+                    {
+                        @if (result.Milliseconds is long milliseconds)
+                        {
+                            <span class="github-mirror-status">通过 · 合计 @(milliseconds) ms</span>
+                            @if (recommendedDomain == domain)
+                            {
+                                <Tag Color="@("green")">推荐</Tag>
+                            }
+                        }
+                        else
+                        {
+                            <span class="github-mirror-error">@result.Error</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="github-mirror-status">检测中</span>
+                    }
+                </Radio>
+            }
+        </div>
+    </RadioGroup>
+
+    @if (isTesting == false && recommendedDomain.Length == 0)
+    {
+        <span class="github-mirror-error">当前网络下没有通过所有检测的镜像。</span>
+    }
+
+    <div>
+        <Button Size="@ButtonSize.Small" OnClick="@TestAsync" Disabled="@isTesting">
+            @(isTesting ? "检测中…" : "重新检测")
+        </Button>
+        <span class="github-mirror-status">直连检查 Raw、更新 API、插件市场 ZIP 和安装包，均验证前 64 KiB。</span>
+    </div>
+</div>
+
+@code {
+    const string PrimaryDomain = "gh-proxy.com";
+    const string BackupDomain = "github.cnxiaobai.com";
+
+    static readonly string[] Domains =
+    [
+        PrimaryDomain,
+        BackupDomain,
+        "gh-proxy.org",
+        "v4.gh-proxy.org",
+        "v6.gh-proxy.org",
+        "hk.gh-proxy.org",
+        "cdn.gh-proxy.org",
+        "edgeone.gh-proxy.org",
+    ];
+
+    [Parameter] public string SelectedDomain { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedDomainChanged { get; set; }
+
+    readonly GithubMirrorProbe probe = new();
+    readonly CancellationTokenSource lifetime = new();
+    readonly Dictionary<string, GithubMirrorProbe.Result> results = new();
+    string recommendedDomain = "";
+    int completed;
+    bool isTesting;
+    bool manuallySelected;
+
+    public static void SetMappings(Dictionary<string, string> mappings, string domain)
+    {
+        foreach (string origin in new[] { GithubMirrorProbe.GithubOrigin, GithubMirrorProbe.RawOrigin, GithubMirrorProbe.ApiOrigin })
+            mappings[origin] = GithubMirrorProbe.GetUrl(domain, origin);
+    }
+
+    public void Dispose()
+    {
+        lifetime.Cancel();
+        probe.Dispose();
+        lifetime.Dispose();
+    }
+
+    protected override Task OnInitializedAsync() => TestAsync();
+
+    async Task TestAsync()
+    {
+        if (isTesting)
+            return;
+
+        isTesting = true;
+        recommendedDomain = "";
+        completed = 0;
+        results.Clear();
+        CancellationToken token = lifetime.Token;
+        try
+        {
+            if (manuallySelected == false && SelectedDomain.Length > 0)
+                await SelectedDomainChanged.InvokeAsync("");
+            await Task.WhenAll(Domains.Select(TestDomainAsync));
+            token.ThrowIfCancellationRequested();
+            recommendedDomain = Domains
+                .Where(domain => results[domain].Milliseconds.HasValue)
+                .OrderBy(domain => domain is not (PrimaryDomain or BackupDomain))
+                .ThenBy(domain => results[domain].Milliseconds)
+                .FirstOrDefault() ?? "";
+            if (manuallySelected == false)
+                await SelectedDomainChanged.InvokeAsync(recommendedDomain);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            isTesting = false;
+        }
+
+        async Task TestDomainAsync(string domain)
+        {
+            GithubMirrorProbe.Result result = await probe.RunAsync(domain, token);
+            token.ThrowIfCancellationRequested();
+            results[domain] = result;
+            completed++;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task SelectDomainAsync(string domain)
+    {
+        manuallySelected = true;
+        await SelectedDomainChanged.InvokeAsync(domain);
+    }
+}
+
+<style>
+    .github-mirror-picker, .github-mirror-choices {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .github-mirror-picker {
+        margin: 8px 0;
+    }
+
+    .github-mirror-domain {
+        display: inline-block;
+        min-width: 148px;
+        margin-right: 8px;
+        color: var(--alife-text);
+    }
+
+    .github-mirror-status, .github-mirror-error {
+        margin-right: 6px;
+        font-size: 12px;
+        color: var(--alife-text);
+    }
+
+    .github-mirror-error {
+        color: var(--alife-error);
+    }
+</style>

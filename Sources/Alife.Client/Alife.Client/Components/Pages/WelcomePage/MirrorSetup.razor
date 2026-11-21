@@ -1,17 +1,12 @@
-@using System.Diagnostics
-@implements IDisposable
-
 <div class="step-content">
     <div class="step-icon" style="background:rgba(114,46,209,.1);color:#722ed1;">
         <Icon Type="@IconType.Outline.CloudServer" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">配置下载镜像</h2>
     <p class="step-desc">
-        环境依赖大多需要从外网下载。为了让国内用户也能用，就需要配置镜像。</p>
+        在中国大陆可使用镜像下载环境依赖、插件和客户端更新。GitHub 镜像可选。
+    </p>
 
-    <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
-           Message="几乎所有的环境都得走外网下，虽然我增加了镜像功能，但很不稳定，尤其是Github。最好还是自己搞个加速器，Github作为学术网站，有很多合法加速器可以免费加速。再不济，就去群里下文件吧。"></Alert>
-    
     <div class="mirror-list">
         @foreach (var mirror in AvailableMirrors)
         {
@@ -33,60 +28,10 @@
                     
                     @if (mirror.Id == "github")
                     {
-                        <div class="github-speedtest">
-                            @if (isSpeedTesting)
-                            {
-                                <div class="speedtest-progress">
-                                    <Text Type="@TextElementType.Secondary" Style="font-size: 11px;">
-                                        正在测速 (@speedTestedCount/@githubCandidates.Count)...
-                                    </Text>
-                                    <Progress Percent="@((int)(speedTestedCount * 100.0 / githubCandidates.Count))" 
-                                             ShowInfo="false"/>
-                                </div>
-                            }
-                            
-                            <RadioGroup @bind-Value="@selectedGithubDomain">
-                                <div class="github-candidates">
-                                    @foreach (var candidate in githubCandidates)
-                                    {
-                                        <div class="candidate-item @(selectedGithubDomain == candidate.Domain ? "selected" : "")">
-                                            <Radio Value="@candidate.Domain">
-                                                <div class="candidate-content">
-                                                    <span class="candidate-url">@candidate.Url</span>
-                                                    @if (candidate.IsTesting)
-                                                    {
-                                                        <span class="candidate-testing">
-                                                            <Spin/>
-                                                        </span>
-                                                    }
-                                                    else if (candidate.Latency.HasValue)
-                                                    {
-                                                        <span class="candidate-latency @(candidate.Latency < 500 ? "fast" : candidate.Latency < 1000 ? "medium" : "slow")">
-                                                            @candidate.Latency ms
-                                                        </span>
-                                                    }
-                                                    else if (!isSpeedTesting && speedTestedCount > 0)
-                                                    {
-                                                        <span class="candidate-latency slow">
-                                                            超时
-                                                        </span>
-                                                    }
-                                                    @if (candidate.IsFastest)
-                                                    {
-                                                        <Tag Color="@("green")">最快</Tag>
-                                                    }
-                                                </div>
-                                            </Radio>
-                                        </div>
-                                    }
-                                </div>
-                            </RadioGroup>
-                            
-                            <Button Size="@ButtonSize.Small" OnClick="@StartSpeedTest" Disabled="@isSpeedTesting">
-                                <Icon Type="@IconType.Outline.Thunderbolt"/>
-                                @(isSpeedTesting ? "测速中..." : "重新测速")
-                            </Button>
-                        </div>
+                        @if (enabledMirrors[mirror.Id])
+                        {
+                            <GithubMirrorPicker @bind-SelectedDomain="@selectedGithubDomain"/>
+                        }
                     }
                     else
                     {
@@ -121,9 +66,6 @@
         }
     </div>
 
-    <Alert ShowIcon="true" Type="AlertType.Warning" Style="margin-top: 12px;"
-           Message="镜像不稳定，建议自备工具，或定期检查镜像，否则会影响软件使用！"></Alert>
-    
     <div class="step-nav">
         <Button Size="@ButtonSize.Large" OnClick="@OnPrev">
             <Icon Type="@IconType.Outline.ArrowLeft"/>
@@ -147,21 +89,6 @@
         Dictionary<string, string> UrlMappings,
         Dictionary<string, string> EnvironmentVariables
     );
-
-    class GithubCandidate
-    {
-        public string Domain { get; }
-        public string Url => $"https://{Domain}/https://github.com";
-        public string TestUrl => $"https://{Domain}/{GithubTestFile}";
-        public long? Latency { get; set; }
-        public bool IsTesting { get; set; }
-        public bool IsFastest { get; set; }
-
-        public GithubCandidate(string domain)
-        {
-            Domain = domain;
-        }
-    }
 
     static readonly List<MirrorItem> AvailableMirrors = [
         new(
@@ -190,116 +117,25 @@
         new(
             "github",
             "GitHub 加速",
-            "gh-proxy",
-            "用于下载托管在 github 上的插件和客户端",
+            "社区",
+            "用于下载 GitHub 上的插件和客户端更新",
             false,
             new Dictionary<string, string>(),
             new Dictionary<string, string>()
         ),
     ];
 
-    const string GithubTestFile = "https://raw.githubusercontent.com/BDFFZI/Alife/refs/heads/master/README.md";
-    
-    readonly List<GithubCandidate> githubCandidates = [
-        new("gh-proxy.com"),
-        new("gh-proxy.org"),
-        new("v4.gh-proxy.org"),
-        new("v6.gh-proxy.org"),
-        new("hk.gh-proxy.org"),
-        new("cdn.gh-proxy.org"),
-        new("edgeone.gh-proxy.org"),
-    ];
-
     string selectedGithubDomain = "";
-    bool isSpeedTesting = false;
-    int speedTestedCount = 0;
-    const int TestAttempts = 2;
-    readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(2.5) };
-
-    public void Dispose()
-    {
-        httpClient.Dispose();
-    }
 
     [Parameter] public EventCallback OnPrevStep { get; set; }
     [Parameter] public EventCallback OnNextStep { get; set; }
 
     readonly Dictionary<string, bool> enabledMirrors = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        foreach (var mirror in AvailableMirrors)
+        foreach (MirrorItem mirror in AvailableMirrors)
             enabledMirrors[mirror.Id] = true;
-
-        await StartSpeedTest();
-    }
-
-    async Task StartSpeedTest()
-    {
-        isSpeedTesting = true;
-        speedTestedCount = 0;
-        selectedGithubDomain = "";
-        
-        foreach (var candidate in githubCandidates)
-        {
-            candidate.Latency = null;
-            candidate.IsTesting = false;
-            candidate.IsFastest = false;
-        }
-        
-        await InvokeAsync(StateHasChanged);
-
-        var tasks = githubCandidates.Select(TestCandidateAsync).ToList();
-        await Task.WhenAll(tasks);
-
-        var fastest = githubCandidates
-            .Where(c => c.Latency.HasValue)
-            .OrderBy(c => c.Latency)
-            .FirstOrDefault();
-        
-        if (fastest != null)
-        {
-            fastest.IsFastest = true;
-            selectedGithubDomain = fastest.Domain;
-        }
-
-        isSpeedTesting = false;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    async Task TestCandidateAsync(GithubCandidate candidate)
-    {
-        candidate.IsTesting = true;
-        await InvokeAsync(StateHasChanged);
-
-        long? bestLatency = null;
-        try
-        {
-            for (int attempt = 0; attempt < TestAttempts; attempt++)
-            {
-                try
-                {
-                    var sw = Stopwatch.StartNew();
-                    var response = await httpClient.GetAsync(candidate.TestUrl);
-                    sw.Stop();
-
-                    if (response.IsSuccessStatusCode &&
-                        (bestLatency == null || sw.ElapsedMilliseconds < bestLatency))
-                        bestLatency = sw.ElapsedMilliseconds;
-                }
-                catch
-                {
-                    // 单次失败不影响重试。
-                }
-            }
-        }
-        finally
-        {
-            candidate.Latency = bestLatency;
-            candidate.IsTesting = false;
-            speedTestedCount++;
-            await InvokeAsync(StateHasChanged);
-        }
     }
 
     void ApplyMirrors()
@@ -313,12 +149,8 @@
             {
                 if (mirror.Id == "github")
                 {
-                    if (!string.IsNullOrEmpty(selectedGithubDomain))
-                    {
-                        urlMap["https://github.com"] = $"https://{selectedGithubDomain}/https://github.com";
-                        urlMap["https://raw.githubusercontent.com"] = $"https://{selectedGithubDomain}/https://raw.githubusercontent.com";
-                        urlMap["https://api.github.com"] = $"https://{selectedGithubDomain}/https://api.github.com";
-                    }
+                    if (selectedGithubDomain.Length > 0)
+                        GithubMirrorPicker.SetMappings(urlMap, selectedGithubDomain);
                 }
                 else
                 {
@@ -419,78 +251,5 @@
         gap: 6px;
         font-size: 11px;
         line-height: 1.6;
-    }
-
-    .github-speedtest {
-        margin-top: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .speedtest-progress {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .github-candidates {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .candidate-item {
-        padding: 6px 8px;
-        border-radius: 4px;
-        border: 1px solid var(--alife-border);
-        transition: all 0.2s;
-    }
-
-    .candidate-item:hover {
-        background: var(--alife-primary-bg);
-    }
-
-    .candidate-item.selected {
-        border-color: var(--alife-primary);
-        background: var(--alife-primary-bg);
-    }
-
-    .candidate-content {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .candidate-url {
-        font-size: 11px;
-        color: var(--alife-text);
-        flex: 1;
-    }
-
-    .candidate-latency {
-        font-size: 11px;
-        font-weight: 500;
-        min-width: 60px;
-        text-align: right;
-    }
-
-    .candidate-latency.fast {
-        color: var(--alife-success);
-    }
-
-    .candidate-latency.medium {
-        color: var(--alife-warning);
-    }
-
-    .candidate-latency.slow {
-        color: var(--alife-error);
-    }
-
-    .candidate-testing {
-        display: flex;
-        align-items: center;
-        min-width: 60px;
-        justify-content: flex-end;
     }
 </style>
