@@ -169,12 +169,19 @@ public class ChatBot : IAsyncDisposable
                 }
             }
 
-            ChatResult? chatResult = null;
+            ChatResult chatResult = new() { Exception = new Exception("未知错误") };
             using (ResourceOccupiedReason.Rent("执行对话"))
             {
                 await EditChatHistoryAsync(async thread => {
                     if (languageModel == null)
-                        throw new Exception("未检测到可用的语言模型");
+                    {
+                        chatResult = new ChatResult {
+                            AIMessage = "",
+                            AIThinking = "",
+                            Exception = new Exception("未检测到可用的语言模型")
+                        };
+                        return;
+                    }
 
                     chatResult = await languageModel.ChatStreamingAsync(
                         thread,
@@ -203,8 +210,6 @@ public class ChatBot : IAsyncDisposable
                     ChaseChatHistory(thread);
                 }, "接收回复");
             }
-            if (chatResult == null)
-                throw new Exception("执行对话失败，无法获取到结果！");
 
             using (ResourceOccupiedReason.Rent("完成对话"))
             {
@@ -218,11 +223,11 @@ public class ChatBot : IAsyncDisposable
                     AlifeLog.LogError(e);
                 }
 
-                if (chatResult.Value.Exception != null)
+                if (chatResult.Exception != null)
                 {
                     try
                     {
-                        ChatExceptionThrow?.Invoke(chatResult.Value.Exception);
+                        ChatExceptionThrow?.Invoke(chatResult.Exception);
                     }
                     catch (Exception ex)
                     {
@@ -234,7 +239,7 @@ public class ChatBot : IAsyncDisposable
                 {
                     ChatContext chatContext = new() {
                         UserMessage = message.Content ?? "",
-                        AIMessage = chatResult.Value.AIMessage,
+                        AIMessage = chatResult.AIMessage,
                         CancellationToken = cancellationToken,
                     };
 
@@ -263,7 +268,7 @@ public class ChatBot : IAsyncDisposable
                 }
             }
 
-            return chatResult.Value;
+            return chatResult;
         }
         finally
         {

@@ -234,7 +234,7 @@
                 NotificationType = NotificationType.Error,
                 Message = "检查更新失败。",
             });
-            AlifeLog.LogError(e);
+            AlifeLog.LogError("客户端更新检测失败：" + e);
         }
         finally
         {
@@ -256,6 +256,7 @@
         }
         catch (Exception error)
         {
+            AlifeLog.LogError("客户端更新失败：" + error);
             await NotificationService.Error(new NotificationConfig { Message = error.Message });
         }
         finally

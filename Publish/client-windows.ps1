@@ -4,8 +4,7 @@
     Builds the Alife Client for Windows and emits an Inno Setup installer.
 .DESCRIPTION
     Publishes Alife.Client (Windows, self-contained, win-x64) to
-    "$OutputDir\Alife.Client", then compiles an Inno Setup installer
-    that detects .NET SDK 10.0 and installs it online when missing.
+    "$OutputDir\Alife.Client", then compiles an Inno Setup installer.
 .PARAMETER OutputDir
     Distribution root. The client is emitted to "$OutputDir\Alife.Client"
     and the installer is written to "$OutputDir".

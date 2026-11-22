@@ -140,7 +140,7 @@ else if (showPluginUpgrade)
         {
             isDownloading = false;
             downloadProgress = 0;
-            Console.WriteLine($"更新失败: {ex.Message}");
+            AlifeLog.LogError("客户端更新失败：" + ex);
             await InvokeAsync(StateHasChanged);
         }
     }
