@@ -38,7 +38,7 @@ class MainForm : Form
 
             ContextMenuStrip trayMenu = new();
             trayMenu.Items.Add("显示主窗口", null, (_, _) => ShowWindow());
-            trayMenu.Items.Add("退出", null, (_, _) => Shutdown());
+            trayMenu.Items.Add("退出", null, (_, _) => Close());
             trayIcon.ContextMenuStrip = trayMenu;
 
             trayIcon.MouseClick += (_, e) => {
@@ -70,7 +70,7 @@ class MainForm : Form
             {
                 shuttingDown = true;
                 Hide();
-                Shutdown();
+                Application.Exit();
             }
             else if (result == DialogResult.No)
             {
@@ -114,9 +114,5 @@ class MainForm : Form
         ShowInTaskbar = false;
         WindowState = FormWindowState.Minimized;
         Hide();
-    }
-    void Shutdown()
-    {
-        Application.Exit();
     }
 }
