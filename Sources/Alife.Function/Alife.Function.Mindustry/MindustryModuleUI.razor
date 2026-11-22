@@ -46,55 +46,55 @@
 
     .md-install-actions {
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+        align-items: center;
+        gap: 12px;
         margin-top: 12px;
+    }
+
+    .md-install-wait {
+        color: var(--alife-text-secondary);
+        line-height: 1.6;
+    }
+
+    .md-install-more {
+        margin-top: 12px;
+        color: var(--alife-text-secondary);
+        font-size: 12px;
+    }
+
+    .md-install-more summary,
+    .md-install-advanced summary {
+        width: fit-content;
+        cursor: pointer;
+        color: var(--alife-text-secondary);
+    }
+
+    .md-install-more-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin-top: 8px;
+    }
+
+    .md-install-advanced {
+        border: 1px solid var(--alife-border);
+        border-radius: var(--alife-radius);
+        background: var(--alife-bg-container);
+    }
+
+    .md-install-advanced summary {
+        padding: 14px 16px;
+        color: var(--alife-text);
+    }
+
+    .md-install-advanced-body {
+        display: grid;
+        gap: 16px;
+        padding: 0 16px 16px;
     }
 
     .md-install-status {
         margin-top: 12px;
-    }
-
-    .md-install-steps {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
-        margin-top: 14px;
-    }
-
-    .md-install-step {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-        padding: 8px 10px;
-        border: 1px solid var(--alife-border);
-        border-radius: var(--alife-radius);
-        color: var(--alife-text-tertiary);
-        font-size: 12px;
-    }
-
-    .md-install-step-current {
-        color: var(--alife-text);
-        border-color: var(--alife-primary-border);
-        background: var(--alife-primary-bg);
-    }
-
-    .md-install-step-complete {
-        color: var(--alife-success);
-        border-color: var(--alife-success-border);
-        background: var(--alife-success-bg);
-    }
-
-    .md-step-number {
-        display: inline-grid;
-        place-items: center;
-        flex: 0 0 20px;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: var(--alife-bg-subtle);
-        font-weight: 650;
     }
 
     .md-install-state {
@@ -146,10 +146,6 @@
             font-size: 16px;
         }
 
-        .md-install-steps {
-            grid-template-columns: 1fr;
-        }
-
         .md-install-copy {
             font-size: 13px;
             line-height: 1.5;
@@ -162,40 +158,25 @@
         }
 
         .md-install-actions {
+            align-items: stretch;
             flex-direction: column;
         }
 
         .md-install-actions .ant-btn {
             width: 100%;
         }
+
+        .md-install-advanced-body {
+            padding: 0 12px 12px;
+        }
     }
 </style>
 
 <div class="md-install-shell">
     <div class="md-install-hero">
-        <div class="md-install-title">安装游戏 Mod</div>
+        <div class="md-install-title">开始 Mindustry 陪玩</div>
         <div class="md-install-copy">
-            先找到 Mindustry 游戏，再安装桥接 Mod，最后启动游戏并刷新连接。
-        </div>
-        <div class="md-install-steps">
-            <div class="@StepClass(status.GameExecutableFound, status.GameExecutableFound == false)">
-                <span class="md-step-number">1</span>
-                <span>选择游戏根目录</span>
-            </div>
-            <div class="@StepClass(status.Installed, status.GameExecutableFound && status.Installed == false)">
-                <span class="md-step-number">2</span>
-                <span>安装 Mod</span>
-            </div>
-            <div class="@StepClass(status.InGame, status.Installed && status.InGame == false)">
-                <span class="md-step-number">3</span>
-                <span>启动并连接</span>
-            </div>
-        </div>
-        <div class="md-install-status">
-            <Alert Type="@StatusType"
-                   ShowIcon="true"
-                   Message="@status.Message"
-                   Description="@StatusDescription"/>
+            选择游戏目录，安装一次 Mod，然后启动游戏。进入地图后会自动连接。
         </div>
         <div class="md-install-actions">
             @if (status.GameExecutableFound == false)
@@ -203,112 +184,128 @@
                 <Button Type="@ButtonType.Primary" Loading="@isChoosingGameDirectory" OnClick="ChooseGameFolderAsync">
                     选择游戏根目录
                 </Button>
-                <Button Loading="@isRefreshing" OnClick="RefreshStatusAsync">刷新检测</Button>
             }
-            else
+            else if (status.Installed == false)
             {
-                @if (status.Installed == false)
-                {
-                    <Button Type="@ButtonType.Primary" Loading="@isInstalling" OnClick="InstallBridgeAsync">
-                        安装 Mod
-                    </Button>
-                }
-                else if (status.GameRunning && status.BridgeListening == false)
-                {
-                    <Button Type="@ButtonType.Primary" Loading="@isLaunching" OnClick="RestartGameAsync">
-                        重启 Mindustry
-                    </Button>
-                }
-                else if (status.GameRunning == false)
-                {
-                    <Button Type="@ButtonType.Primary" Loading="@isLaunching" OnClick="LaunchGameAsync">
-                        启动 Mindustry
-                    </Button>
-                }
-                <Button Loading="@isRefreshing" OnClick="RefreshStatusAsync">刷新连接</Button>
-                @if (status.Installed)
-                {
-                    <Button Loading="@isInstalling" OnClick="InstallBridgeAsync">重新安装 Mod</Button>
-                }
-                <Button OnClick="ChooseGameFolderAsync">更换游戏目录</Button>
-                <Button OnClick="OpenModFolderAsync">打开 Mod 目录</Button>
+                <Button Type="@ButtonType.Primary" Loading="@isInstalling" OnClick="InstallBridgeAsync">
+                    @(status.ModInstalled ? "更新 Mod" : "安装 Mod")
+                </Button>
+            }
+            else if (status.GameRunning == false)
+            {
+                <Button Type="@ButtonType.Primary" Loading="@isLaunching" OnClick="LaunchGameAsync">
+                    启动并连接
+                </Button>
+            }
+            else if (status.BridgeListening == false)
+            {
+                <Button Type="@ButtonType.Primary" Loading="@isLaunching" OnClick="RestartGameAsync">
+                    重启并连接
+                </Button>
+            }
+            else if (status.InGame == false)
+            {
+                <div class="md-install-wait">游戏已连接，进入一张地图后会自动识别。</div>
             }
         </div>
+        <div class="md-install-status">
+            <Alert Type="@StatusType" ShowIcon="true" Message="@status.Message"/>
+        </div>
+        <details class="md-install-more">
+            <summary>其他操作</summary>
+            <div class="md-install-more-actions">
+                <Button Type="@ButtonType.Link" Loading="@isChoosingGameDirectory" OnClick="ChooseGameFolderAsync">
+                    更换游戏目录
+                </Button>
+                @if (status.ModInstalled)
+                {
+                    <Button Type="@ButtonType.Link" Loading="@isInstalling" OnClick="InstallBridgeAsync">
+                        重新安装 Mod
+                    </Button>
+                }
+                <Button Type="@ButtonType.Link" OnClick="OpenModFolderAsync">打开 Mod 目录</Button>
+            </div>
+        </details>
     </div>
 
-    <div class="md-install-state">
-        <div class="md-install-row">
-            <Text>游戏目录</Text>
-            <Tag Color="@(status.GameExecutableFound ? TagColor.Green : TagColor.Error)">
-                @(status.GameExecutableFound ? "已找到" : "未找到")
-            </Tag>
-        </div>
-        <div class="md-install-row">
-            <Text>游戏进程</Text>
-            <Tag Color="@(status.GameRunning ? TagColor.Green : TagColor.Default)">
-                @(status.GameRunning ? "运行中" : "未启动")
-            </Tag>
-        </div>
-        <div class="md-install-row">
-            <Text>桥接 Mod</Text>
-            <Tag Color="@(!status.ModInstalled ? TagColor.Error : status.ModCurrent ? TagColor.Green : TagColor.Gold)">
-                @(!status.ModInstalled ? "未安装" : status.ModCurrent ? "已安装" : "需要更新")
-            </Tag>
-        </div>
-        <div class="md-install-row">
-            <Text>配置</Text>
-            <Tag Color="@(status.ConfigReady ? TagColor.Green : TagColor.Default)">
-                @(status.ConfigReady ? "已同步" : "待同步")
-            </Tag>
-        </div>
-        <div class="md-install-row">
-            <Text>游戏连接</Text>
-            <Tag Color="@(status.Authorized ? TagColor.Green : status.BridgeListening ? TagColor.Gold : TagColor.Default)">
-                @(status.Authorized ? "已连接" : status.BridgeListening ? "等待授权" : "未连接")
-            </Tag>
-        </div>
-        <div class="md-install-row">
-            <Text>房间状态</Text>
-            <Tag Color="@(status.InGame ? TagColor.Green : TagColor.Default)">
-                @(status.InGame ? "已进入地图" : "等待进入地图")
-            </Tag>
-        </div>
-        @if (status.GameExecutableFound)
-        {
-            <div class="md-install-path">游戏位置：@status.GameDirectory</div>
-        }
-        <div class="md-install-path">Mod 数据位置：@status.DataDirectory</div>
-    </div>
+    <details class="md-install-advanced">
+        <summary>连接详情与高级设置</summary>
+        <div class="md-install-advanced-body">
+            <div class="md-install-state">
+                <div class="md-install-row">
+                    <Text>游戏目录</Text>
+                    <Tag Color="@(status.GameExecutableFound ? TagColor.Green : TagColor.Error)">
+                        @(status.GameExecutableFound ? "已找到" : "未找到")
+                    </Tag>
+                </div>
+                <div class="md-install-row">
+                    <Text>游戏进程</Text>
+                    <Tag Color="@(status.GameRunning ? TagColor.Green : TagColor.Default)">
+                        @(status.GameRunning ? "运行中" : "未启动")
+                    </Tag>
+                </div>
+                <div class="md-install-row">
+                    <Text>桥接 Mod</Text>
+                    <Tag Color="@(!status.ModInstalled ? TagColor.Error : status.ModCurrent ? TagColor.Green : TagColor.Gold)">
+                        @(!status.ModInstalled ? "未安装" : status.ModCurrent ? "已安装" : "需要更新")
+                    </Tag>
+                </div>
+                <div class="md-install-row">
+                    <Text>配置</Text>
+                    <Tag Color="@(status.ConfigReady ? TagColor.Green : TagColor.Default)">
+                        @(status.ConfigReady ? "已同步" : "待同步")
+                    </Tag>
+                </div>
+                <div class="md-install-row">
+                    <Text>游戏连接</Text>
+                    <Tag Color="@(status.Authorized ? TagColor.Green : status.BridgeListening ? TagColor.Gold : TagColor.Default)">
+                        @(status.Authorized ? "已连接" : status.BridgeListening ? "等待授权" : "未连接")
+                    </Tag>
+                </div>
+                <div class="md-install-row">
+                    <Text>房间状态</Text>
+                    <Tag Color="@(status.InGame ? TagColor.Green : TagColor.Default)">
+                        @(status.InGame ? "已进入地图" : "等待进入地图")
+                    </Tag>
+                </div>
+                @if (status.GameExecutableFound)
+                {
+                    <div class="md-install-path">游戏位置：@status.GameDirectory</div>
+                }
+                <div class="md-install-path">Mod 数据位置：@status.DataDirectory</div>
+            </div>
 
-    <div class="md-install-hero">
-        <div class="md-install-form-title">连接设置</div>
-        <Form TModel="MindustryConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
-            <FormItem Label="游戏根目录">
-                <Input @bind-Value="@Configuration.GameDirectory" Placeholder="D:\Mindustry"/>
-                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                    选择包含 Mindustry.exe 的文件夹。模块会自动识别游戏实际使用的 Mod 数据目录。
-                </Text>
-            </FormItem>
-            <FormItem Label="Mod 数据目录">
-                <Input @bind-Value="@Configuration.DataDirectory" Placeholder="安装后自动识别"/>
-                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                    启动过的正式版通常使用 %APPDATA%\Mindustry；检测到的实际位置会显示在上方。
-                </Text>
-            </FormItem>
-            <FormItem Label="桥接端口">
-                <InputNumber @bind-Value="@Configuration.Port" Min="1" Max="65535" Style="width: 100%; max-width: 180px;"/>
-            </FormItem>
-            <FormItem Label="AI 队伍编号">
-                <InputNumber @bind-Value="@Configuration.TeamId" Min="0" Max="255" Style="width: 100%; max-width: 180px;"/>
-                <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
-                    0 表示和玩家同队。想在另一支有核心的队伍独立经营时填该队伍编号，例如 Passage 的 2。
-                </Text>
-            </FormItem>
-            <FormItem Label="访问令牌">
-                <InputPassword @bind-Value="@Configuration.Token" Placeholder="安装后自动生成"/>
-            </FormItem>
-        </Form>
-    </div>
+            <div>
+                <div class="md-install-form-title">连接设置</div>
+                <Form TModel="MindustryConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
+                    <FormItem Label="游戏根目录">
+                        <Input @bind-Value="@Configuration.GameDirectory" Placeholder="D:\Mindustry"/>
+                        <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                            选择包含 Mindustry.exe 的文件夹。模块会自动识别游戏实际使用的 Mod 数据目录。
+                        </Text>
+                    </FormItem>
+                    <FormItem Label="Mod 数据目录">
+                        <Input @bind-Value="@Configuration.DataDirectory" Placeholder="安装后自动识别"/>
+                        <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                            启动过的正式版通常使用 %APPDATA%\Mindustry；检测到的实际位置会显示在上方。
+                        </Text>
+                    </FormItem>
+                    <FormItem Label="桥接端口">
+                        <InputNumber @bind-Value="@Configuration.Port" Min="1" Max="65535" Style="width: 100%; max-width: 180px;"/>
+                    </FormItem>
+                    <FormItem Label="AI 队伍编号">
+                        <InputNumber @bind-Value="@Configuration.TeamId" Min="0" Max="255" Style="width: 100%; max-width: 180px;"/>
+                        <Text Type="TextElementType.Secondary" Style="font-size: 11px;">
+                            0 表示和玩家同队。想在另一支有核心的队伍独立经营时填该队伍编号，例如 Passage 的 2。
+                        </Text>
+                    </FormItem>
+                    <FormItem Label="访问令牌">
+                        <InputPassword @bind-Value="@Configuration.Token" Placeholder="安装后自动生成"/>
+                    </FormItem>
+                </Form>
+            </div>
+        </div>
+    </details>
 </div>
 
 @code {
@@ -327,7 +324,6 @@
         "");
     CancellationTokenSource? monitorCancellation;
     bool isInstalling;
-    bool isRefreshing;
     bool isLaunching;
     bool isChoosingGameDirectory;
 
@@ -338,28 +334,6 @@
         status.Installed ? AlertType.Info :
         status.DataDirectoryExists ? AlertType.Warning :
         AlertType.Error;
-
-    string StatusDescription =>
-        status.GameExecutableFound == false
-            ? "没有找到 Mindustry.exe。请选择解压后的游戏根目录，然后点“刷新检测”。"
-            : status.ModInstalled && status.ModCurrent == false
-            ? "先点击“安装 Mod”同步当前插件版本，再启动或重启 Mindustry。"
-            : status.Installed == false
-            ? "下一步点击“安装 Mod”，完成后重启游戏并刷新连接。"
-            : status.InGame
-                ? "Alife 已读取游戏数据，可以开始下达陪玩任务。"
-                : status.Authorized
-                    ? "桥接已连接。进入地图后点击“刷新连接”。"
-                    : status.GameRunning
-                        ? "游戏已运行，但桥接尚未响应。确认 Mod 已启用，必要时重启游戏后点击“刷新连接”。"
-                        : "Mod 已安装。点击“启动 Mindustry”，进入地图后刷新连接。";
-
-    string StepClass(bool complete, bool current)
-    {
-        if (complete)
-            return "md-install-step md-install-step-complete";
-        return current ? "md-install-step md-install-step-current" : "md-install-step";
-    }
 
     protected override void OnParametersSet()
     {
@@ -384,7 +358,7 @@
             if (status.Installed)
             {
                 SaveConfiguration();
-                _ = MessageService.SuccessAsync("Mod 安装完成。下一步点击“启动 Mindustry”，进入地图后刷新连接。");
+                _ = MessageService.SuccessAsync("Mod 安装完成。下一步启动游戏，进入地图后会自动连接。");
             }
             else
                 _ = MessageService.WarningAsync(status.Message);
@@ -426,7 +400,7 @@
             SaveConfiguration();
             status = await installation.InspectAsync(Configuration, monitorCancellation?.Token ?? CancellationToken.None);
             _ = MessageService.SuccessAsync(status.ModInstalled
-                ? "已识别游戏目录。可以启动游戏或刷新连接。"
+                ? "已识别游戏目录。可以启动游戏。"
                 : "已识别游戏目录。下一步安装 Mod。");
         }
         catch (Exception exception)
@@ -436,25 +410,6 @@
         finally
         {
             isChoosingGameDirectory = false;
-            StateHasChanged();
-        }
-    }
-
-    async Task RefreshStatusAsync()
-    {
-        if (isRefreshing)
-            return;
-
-        isRefreshing = true;
-        StateHasChanged();
-        try
-        {
-            status = await installation.InspectAsync(Configuration, monitorCancellation?.Token ?? CancellationToken.None);
-            _ = MessageService.SuccessAsync(status.InGame ? "连接刷新成功，已进入地图。" : "状态已刷新。");
-        }
-        finally
-        {
-            isRefreshing = false;
             StateHasChanged();
         }
     }
@@ -471,7 +426,7 @@
         }
         if (status.GameRunning)
         {
-            _ = MessageService.WarningAsync("Mindustry 已经在运行，请直接进入地图后刷新连接。");
+            _ = MessageService.WarningAsync("Mindustry 已经在运行，请直接进入地图。");
             return;
         }
 
@@ -484,7 +439,7 @@
                 WorkingDirectory = status.GameDirectory,
                 UseShellExecute = true
             });
-            _ = MessageService.SuccessAsync("Mindustry 已启动。进入地图后点击“刷新连接”。");
+            _ = MessageService.SuccessAsync("Mindustry 已启动。进入地图后会自动连接。");
         }
         catch (Exception exception)
         {
@@ -517,7 +472,7 @@
 
                 if (processes.Any(process => process.HasExited == false))
                 {
-                    _ = MessageService.WarningAsync("Mindustry 没有正常退出。请先保存并关闭游戏，再点击“启动 Mindustry”。");
+                    _ = MessageService.WarningAsync("Mindustry 没有正常退出。请先保存并关闭游戏，再点击“启动并连接”。");
                     return;
                 }
             }
@@ -532,7 +487,7 @@
                 WorkingDirectory = status.GameDirectory,
                 UseShellExecute = true
             });
-            _ = MessageService.SuccessAsync("Mindustry 已重新启动。进入地图后点击“刷新连接”。");
+            _ = MessageService.SuccessAsync("Mindustry 已重新启动。进入地图后会自动连接。");
         }
         catch (Exception exception)
         {

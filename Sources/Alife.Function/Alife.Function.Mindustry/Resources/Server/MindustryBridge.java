@@ -19,6 +19,9 @@ import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.game.Team;
 import mindustry.gen.Building;
+import mindustry.gen.Groups;
+import mindustry.gen.Player;
+import mindustry.gen.Unit;
 import mindustry.mod.Plugin;
 import mindustry.type.Item;
 import mindustry.type.ItemStack;
@@ -41,9 +44,13 @@ import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +65,7 @@ public class MindustryBridge extends Plugin {
     private long round = System.currentTimeMillis();
 
     private record Reply(int code, String message, long taskId, long round) {}
+    private record FoundObject(int x, int y, String description, float distance) {}
 
     private static final class BridgeServer implements AutoCloseable {
         private final MindustryBridge bridge;
@@ -352,6 +360,23 @@ public class MindustryBridge extends Plugin {
             if (Vars.state.isPaused()) result.append("\n对局已暂停，任务将在恢复后继续。");
             result.append("\n核心生命：").append(Math.round(core.healthf() * 100)).append("%");
             result.append("\n队伍：").append(team.name).append(" (").append(team.id).append(")");
+            result.append("\n玩家：");
+            boolean hasPlayers = false;
+            for (Player player : Groups.player) {
+                hasPlayers = true;
+                result.append("\n- ").append(player.plainName()).append(" / 队伍 ")
+                    .append(player.team().name).append(" (").append(player.team().id).append(")");
+                if (player.team() == team || Vars.state.rules.fog == false
+                    || Vars.fogControl.isVisibleTile(team, player.tileX(), player.tileY())) {
+                    result.append(" / 坐标 ").append(player.tileX()).append(",").append(player.tileY());
+                    Unit playerUnit = player.unit();
+                    result.append(" / ").append(playerUnit == null ? "无单位"
+                        : playerUnit.type.name + " 生命 " + Math.round(playerUnit.healthf() * 100) + "%");
+                } else {
+                    result.append(" / 位置不可见");
+                }
+            }
+            if (hasPlayers == false) result.append("无");
             result.append("\n陪玩单位：").append(companion.unitStatus());
             result.append("\n己方作战单位（最多 8 台）：");
             int combatUnits = 0;
@@ -365,10 +390,29 @@ public class MindustryBridge extends Plugin {
             }
             if (combatUnits == 0) result.append("无");
             result.append("\n任务：").append(companion.status());
-            result.append("\n附近原料：");
-            for (var item : new mindustry.type.Item[]{Items.copper, Items.lead, Items.coal, Items.sand}) {
-                Tile ore = Vars.indexer.findClosestOre(core.x, core.y, item);
-                if (ore != null && (!Vars.state.rules.fog || Vars.fogControl.isVisibleTile(team, ore.x, ore.y))) result.append(item.name).append("@").append(ore.x).append(",").append(ore.y).append(" ");
+            result.append("\n就近矿点：");
+            for (var material : Vars.indexer.getAllPresentOres()) {
+                Tile floorOre = Vars.indexer.findClosestOre(core.x, core.y, material);
+                Tile wallOre = Vars.indexer.findClosestWallOre(core.x, core.y, material);
+                Tile ore;
+                String kind;
+                if (floorOre == null) {
+                    ore = wallOre;
+                    kind = "wall";
+                } else if (wallOre == null) {
+                    ore = floorOre;
+                    kind = "floor";
+                } else if (floorOre.dst2(core.x, core.y) <= wallOre.dst2(core.x, core.y)) {
+                    ore = floorOre;
+                    kind = "floor";
+                } else {
+                    ore = wallOre;
+                    kind = "wall";
+                }
+                if (ore != null && (!Vars.state.rules.fog || Vars.fogControl.isVisibleTile(team, ore.x, ore.y))) {
+                    result.append(material.name).append("@").append(ore.x).append(",").append(ore.y)
+                        .append("(").append(kind).append(") ");
+                }
             }
             var threat = Units.closestEnemy(team, core.x, core.y, Vars.tilesize * 40,
                 enemy -> !Vars.state.rules.fog || Vars.fogControl.isVisible(team, enemy.x, enemy.y));
@@ -488,6 +532,7 @@ public class MindustryBridge extends Plugin {
         }
 
         if (method.equals("GET") && route.equals("/survey")) return survey(team, query);
+        if (method.equals("GET") && route.equals("/find")) return findVisibleObjects(team, core, query);
         if (!method.equals("POST")) return "未知操作。";
         if (route.equals("/cancel")) return companion.cancel();
         if (route.equals("/research")) {
@@ -588,9 +633,10 @@ public class MindustryBridge extends Plugin {
             return companion.guard(core, target, seconds);
         }
         if (route.equals("/mine")) {
-            var mining = java.util.regex.Pattern.compile("item=(copper|lead|coal|sand)&amount=([0-9]{1,2})").matcher(query);
-            if (!mining.matches() || Integer.parseInt(mining.group(2)) == 0) return "采运任务支持 1～99 单位铜、铅、煤或沙。";
-            var item = Vars.content.items().find(material -> material.name.equals(mining.group(1)));
+            var mining = java.util.regex.Pattern.compile("item=([a-z0-9-]{1,80})&amount=([0-9]{1,2})").matcher(query);
+            if (!mining.matches() || Integer.parseInt(mining.group(2)) == 0) return "采运任务需要有效的物资ID和 1～99 的数量。";
+            Item item = Vars.content.item(mining.group(1));
+            if (item == null) return "找不到物资：" + mining.group(1) + "。";
             return companion.mine(core, item, Integer.parseInt(mining.group(2)));
         }
         if (route.equals("/supply")) {
@@ -807,16 +853,115 @@ public class MindustryBridge extends Plugin {
                 if (tile == null || (Vars.state.rules.fog && !Vars.fogControl.isVisibleTile(team, column, row))) {
                     result.append("?");
                 } else if (tile.build != null) {
-                    result.append(tile.team() == team ? tile.block().name : "other-building");
-                } else if (tile.solid() || !tile.floor().hasSurface()) {
-                    result.append("#");
+                    result.append(tile.team() == team ? "own:" : "team" + tile.team().id + ":")
+                        .append(tile.block().name);
                 } else {
-                    var drop = tile.drop();
-                    result.append(drop == null ? "." : drop.name);
+                    Item wallDrop = tile.wallDrop();
+                    Item drop = tile.drop();
+                    Block block = tile.block();
+                    if (wallDrop != null) {
+                        result.append("wall-ore:").append(wallDrop.name);
+                    } else if (drop != null) {
+                        result.append("ore:").append(drop.name);
+                    } else if (block.isAir() == false) {
+                        result.append(block.isStatic() ? "block:" : "solid:").append(block.name);
+                    } else if (tile.floor().liquidDrop != null) {
+                        result.append("liquid:").append(tile.floor().liquidDrop.name);
+                    } else if (tile.floor().hasSurface() == false) {
+                        result.append("floor:").append(tile.floor().name);
+                    } else {
+                        result.append(".");
+                    }
                 }
             }
         }
-        return result.append("\n起始 x=").append(x - radius).append("。# 障碍，. 普通空地，? 地图外或不可见。").toString();
+        return result.append("\n起始 x=").append(x - radius)
+            .append("。ore=地表矿，wall-ore=墙体矿，block/solid=实体方块，liquid=液体，floor=无地表，own/teamN=建筑，?=地图外或不可见。").toString();
+    }
+
+    private String findVisibleObjects(Team team, Building core, String query) {
+        if (query == null || query.length() > 160) return "缺少搜索参数。";
+        var parameters = java.util.regex.Pattern.compile("kind=(ore|block|unit)&id=([a-z0-9-]{1,80})").matcher(query);
+        if (!parameters.matches()) return "无效的搜索参数。";
+
+        String kind = parameters.group(1);
+        String id = parameters.group(2);
+        Item oreItem = null;
+        Block targetBlock = null;
+        mindustry.type.UnitType targetUnit = null;
+        if (kind.equals("ore")) {
+            oreItem = Vars.content.item(id);
+            if (oreItem == null) return "找不到物资：" + id + "。";
+        } else if (kind.equals("block")) {
+            targetBlock = Vars.content.block(id);
+            if (targetBlock == null) return "找不到方块：" + id + "。";
+        } else {
+            targetUnit = Vars.content.unit(id);
+            if (targetUnit == null) return "找不到单位：" + id + "。";
+        }
+
+        PriorityQueue<FoundObject> nearest = new PriorityQueue<>(Comparator.comparingDouble(FoundObject::distance).reversed());
+        int[] matches = {0};
+        if (kind.equals("ore")) {
+            for (int y = 0; y < Vars.world.height(); y++) {
+                for (int x = 0; x < Vars.world.width(); x++) {
+                    Tile tile = Vars.world.tile(x, y);
+                    if (tile == null || !visible(team, x, y)) continue;
+                    Item wallDrop = tile.wallDrop();
+                    Item drop = tile.drop();
+                    if (wallDrop != oreItem && drop != oreItem) continue;
+                    keepNearest(nearest, matches, new FoundObject(tile.x, tile.y,
+                        wallDrop == oreItem ? "wall" : "floor", tile.dst2(core.x, core.y)));
+                }
+            }
+        } else if (kind.equals("block")) {
+            for (int y = 0; y < Vars.world.height(); y++) {
+                for (int x = 0; x < Vars.world.width(); x++) {
+                    Tile tile = Vars.world.tile(x, y);
+                    if (tile == null || !visible(team, x, y)) continue;
+                    Building building = tile.build;
+                    if (building != null) {
+                        if (building.tileX() != x || building.tileY() != y || building.block != targetBlock) continue;
+                        keepNearest(nearest, matches, new FoundObject(x, y,
+                            (building.team == team ? "own:" : "team" + building.team.id + ":") + targetBlock.name
+                                + " 生命=" + Math.round(building.healthf() * 100) + "%",
+                            building.dst2(core.x, core.y)));
+                    } else if (tile.block() == targetBlock) {
+                        keepNearest(nearest, matches, new FoundObject(x, y,
+                            tile.block().isStatic() ? "block:" + targetBlock.name : "solid:" + targetBlock.name,
+                            tile.dst2(core.x, core.y)));
+                    }
+                }
+            }
+        } else {
+            for (Unit unit : Groups.unit) {
+                if (!unit.isValid() || unit.type != targetUnit || !visible(team, unit.x, unit.y)) continue;
+                keepNearest(nearest, matches, new FoundObject(unit.tileX(), unit.tileY(),
+                    (unit.team == team ? "own:" : "team" + unit.team.id + ":") + targetUnit.name
+                        + " 生命=" + Math.round(unit.healthf() * 100) + "%",
+                    unit.dst2(core.x, core.y)));
+            }
+        }
+
+        if (matches[0] == 0) return "全图没有找到可见目标：" + kind + " " + id + "。";
+        List<FoundObject> results = new ArrayList<>(nearest);
+        results.sort(Comparator.comparingDouble(FoundObject::distance));
+        StringBuilder result = new StringBuilder("全图可见目标共 ").append(matches[0])
+            .append(" 个，按离核心由近到远最多显示 50 个：");
+        for (FoundObject found : results) {
+            result.append("\n- ").append(found.x).append(",").append(found.y).append(" ").append(found.description);
+        }
+        return result.toString();
+    }
+
+    private boolean visible(Team team, float x, float y) {
+        return Vars.state.rules.fog == false || Vars.fogControl.isVisible(team, x, y);
+    }
+
+    private static void keepNearest(PriorityQueue<FoundObject> nearest, int[] matches, FoundObject found) {
+        matches[0]++;
+        nearest.offer(found);
+        if (nearest.size() > 50) nearest.poll();
     }
 
     private Tile factoryExit(int x, int y, Block block, int rotation) {

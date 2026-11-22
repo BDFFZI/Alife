@@ -92,8 +92,27 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     public Task MindustryMaps() => CallAsync("maps");
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("读取关卡、波次、所属队伍、库存、附近矿点和最近一次任务状态。")]
+    [Description("读取关卡、波次、所属队伍、所有在线玩家的名称、队伍、可见坐标和单位状态、库存、全部现存矿点及最近一次任务状态。")]
     public Task MindustryStatus() => CallAsync("status");
+
+    [XmlFunction(FunctionMode.Content)]
+    [Description("在当前可见区域外的整张地图中搜索指定矿石、建筑或单位，无需让陪玩单位移动。内容为类别和内容ID，例如 ore beryllium、block stone-vent、unit dagger。结果按离己方核心的距离排序，最多返回 50 个。")]
+    public async Task MindustryFind(XmlExecutorContext context)
+    {
+        if (context.CallMode != CallMode.Closing)
+            return;
+
+        string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || parts[0] is not ("ore" or "block" or "unit")
+            || parts[1].Length is < 1 or > 80
+            || parts[1].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false)
+        {
+            interactor.Poke("搜索格式为类别和内容ID，例如 ore beryllium、block stone-vent、unit dagger。");
+            return;
+        }
+
+        await CallAsync($"find?kind={parts[0]}&id={parts[1]}");
+    }
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("列出当前可研究的科技项目，包括内容ID、前置、剩余资源需求和库存。做新手关卡任务或需要解锁新建筑时先调用它。")]
@@ -153,17 +172,19 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让陪玩单位自动找矿、采集并运入己方核心，完成后会自动报告。内容为物资ID和数量，例如 copper 10。支持 copper、lead、coal、sand，数量 1 至 99。")]
+    [Description("让陪玩单位自动找地表矿或墙体矿、采集并运入己方核心，完成后会自动报告。内容为物资ID和数量，例如 copper 10。物资是否可采由当前单位能力和地图决定，数量 1 至 99。")]
     public async Task MindustryMine(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
             return;
 
         string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 2 || parts[0] is not ("copper" or "lead" or "coal" or "sand") || int.TryParse(parts[1], out int amount) == false
+        if (parts.Length != 2 || parts[0].Length is < 1 or > 80
+            || parts[0].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false
+            || int.TryParse(parts[1], out int amount) == false
             || amount is < 1 or > 99)
         {
-            interactor.Poke("采运格式为物资ID和数量，例如 coal 10。");
+            interactor.Poke("采运格式为物资ID和数量，例如 copper 10。");
             return;
         }
 
@@ -174,7 +195,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     [Description("取消此单位正在执行的任务，已完成的采运或建造会保留。")]
     public Task MindustryCancel() => CallAsync("cancel", HttpMethod.Post);
     [XmlFunction(FunctionMode.Content)]
-    [Description("查看指定位置附近的地形、矿石和建筑网格。内容为中心点 x y 和半径 1 至 6，例如 230 97 3。")]
+    [Description("查看指定位置附近的地形、地表矿、墙体矿、喷口、液体和建筑网格。内容为中心点 x y 和半径 1 至 6，例如 230 97 3。")]
     public async Task MindustrySurvey(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)

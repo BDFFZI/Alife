@@ -528,7 +528,11 @@ final class CompanionTasks {
     }
 
     private Tile findOre(Item target) {
-        return worker.type.mineFloor ? Vars.indexer.findClosestOre(worker, target) : null;
+        Tile floorOre = worker.type.mineFloor ? Vars.indexer.findClosestOre(worker, target) : null;
+        Tile wallOre = worker.type.mineWalls ? Vars.indexer.findClosestWallOre(worker, target) : null;
+        if (floorOre == null) return wallOre;
+        if (wallOre == null) return floorOre;
+        return floorOre.dst2(worker.x, worker.y) <= wallOre.dst2(worker.x, worker.y) ? floorOre : wallOre;
     }
 
     private void navigateCore() {

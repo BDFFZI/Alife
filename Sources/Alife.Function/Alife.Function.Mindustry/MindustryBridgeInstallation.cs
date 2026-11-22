@@ -154,8 +154,8 @@ public sealed class MindustryBridgeInstallation(string pluginDirectory)
         if (responseCode == null)
             return CreateState(true, true, true, true, false, false, false,
                 IsGameRunning(gameExecutablePath)
-                    ? "游戏已启动，但桥接尚未响应。请确认 Mod 已启用，必要时重启游戏后点击“刷新连接”。"
-                    : "Mod 已安装。点击“启动 Mindustry”，进入地图后点击“刷新连接”。",
+                    ? "游戏已启动，但桥接尚未响应。请确认 Mod 已启用，必要时重启游戏。"
+                    : "Mod 已安装。启动游戏并进入地图后会自动连接。",
                 dataDirectory,
                 gameExecutablePath);
 
@@ -176,7 +176,7 @@ public sealed class MindustryBridgeInstallation(string pluginDirectory)
         bool inGame = gameStatus.StartsWith("当前关卡", StringComparison.Ordinal);
         string firstLine = gameStatus.Split('\n', 2)[0].Trim();
         return CreateState(true, true, true, true, true, true, inGame,
-            inGame ? firstLine : "桥接已连接。进入地图后点击“刷新连接”，即可让 AI 开始陪玩。",
+            inGame ? firstLine : "桥接已连接。进入地图后会自动识别，即可让 AI 开始陪玩。",
             dataDirectory,
             gameExecutablePath);
     }
