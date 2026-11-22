@@ -82,6 +82,7 @@ public class MouthModule : IPetModule, IDisposable
         try { postMessage({type: 'mouth_hook', targets: targets.length}); } catch (e) {}
     }
     function stopTick() {
+        writeNow(0);
         try {
             if (lip.tick && app && app.ticker && typeof app.ticker.remove === 'function') app.ticker.remove(lip.tick);
         } catch (e) {}

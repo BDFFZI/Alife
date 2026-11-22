@@ -1,0 +1,267 @@
+@inject PluginCommunityService PluginCommunityService
+
+<div class="plugin-comments">
+    <div class="plugin-comments-header">
+        <span>@(Comments.Count == 0 ? "暂无评论" : $"{Comments.Count} 条评论")</span>
+        <Flex Gap="@("4")">
+            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Reload" Loading="@isRefreshing"
+                    OnClick="@RefreshComments">刷新</Button>
+            <Button Type="@ButtonType.Link" Icon="@IconType.Outline.Link"
+                    OnClick="@OpenDiscussionOnGitHub">在 GitHub 上评论</Button>
+        </Flex>
+    </div>
+
+    @if (ReactionKinds.Any(reaction => ReactionCount(reaction.Key) > 0))
+    {
+        <div class="plugin-live-votes">
+            <div class="plugin-live-votes-head">
+                <div class="plugin-live-votes-title">
+                    社区反馈
+                </div>
+            </div>
+            <div class="plugin-live-reactions">
+                @foreach (var reaction in ReactionKinds.Where(reaction => ReactionCount(reaction.Key) > 0))
+                {
+                    int count = ReactionCount(reaction.Key);
+                    <button type="button" class="plugin-live-reaction @reaction.ClassName"
+                            title="@($"{reaction.Label}：在 GitHub 上互动")" @onclick="OpenDiscussionOnGitHub">
+                        <span class="plugin-live-reaction-emoji">@reaction.Emoji</span>
+                        <span class="plugin-live-reaction-count">@count</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Comments.Count == 0)
+    {
+        <div class="plugin-comments-empty">还没有评论，去 GitHub 上聊聊这个插件吧。</div>
+    }
+    else
+    {
+        @foreach (PluginComment comment in Comments)
+        {
+            @RenderComment(comment)
+        }
+    }
+</div>
+
+<style>
+    .plugin-live-votes {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 12px 0;
+        padding: 12px 14px;
+        background: var(--alife-bg-subtle);
+        border: 1px solid var(--alife-border);
+        border-radius: var(--alife-radius);
+    }
+
+    .plugin-live-votes-head {
+        min-width: 220px;
+    }
+
+    .plugin-live-votes-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--alife-text);
+    }
+
+    .plugin-live-reactions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .plugin-live-reaction {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 9px;
+        font: inherit;
+        color: var(--alife-text-secondary);
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    .plugin-live-reaction.up:hover {
+        background: var(--alife-success-bg);
+        border-color: var(--alife-success-border);
+    }
+
+    .plugin-live-reaction.down:hover {
+        background: var(--alife-error-bg);
+        border-color: var(--alife-error-border);
+    }
+
+    .plugin-live-reaction:hover {
+        background: var(--alife-bg-hover);
+        border-color: var(--alife-border-strong);
+    }
+
+    .plugin-live-reaction-emoji {
+        font-size: 15px;
+        line-height: 1;
+    }
+
+    .plugin-live-reaction-count {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--alife-text-secondary);
+    }
+
+    .plugin-comments-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--alife-border);
+    }
+
+    .plugin-comments-empty {
+        padding: 32px 0;
+        text-align: center;
+        color: var(--alife-text-tertiary);
+    }
+
+    .plugin-comment {
+        display: flex;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--alife-border);
+    }
+
+    .plugin-comment-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .plugin-comment-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .plugin-comment-time {
+        font-size: 12px;
+        color: var(--alife-text-tertiary);
+    }
+
+    .plugin-comment-body {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--alife-text-secondary);
+        overflow-wrap: anywhere;
+    }
+
+    .plugin-comment-body img {
+        max-width: 100%;
+    }
+
+    .plugin-comment-body pre {
+        padding: 8px;
+        overflow-x: auto;
+        background: var(--alife-bg-subtle);
+        border-radius: 4px;
+    }
+
+    .plugin-comment-body code {
+        padding: 1px 4px;
+        background: var(--alife-bg-subtle);
+        border-radius: 3px;
+    }
+
+    .plugin-comment-body pre code {
+        padding: 0;
+        background: none;
+    }
+
+    .plugin-comment-body a {
+        color: var(--alife-primary);
+    }
+
+    .plugin-comment-replies {
+        margin: 6px 0 0 42px;
+        padding-left: 10px;
+        border-left: 1px solid var(--alife-border);
+    }
+
+    .plugin-comment-replies .plugin-comment {
+        padding-bottom: 6px;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public PluginPackage PluginPackage { get; set; } = null!;
+    [Parameter] public PluginDiscussion? Discussion { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    List<PluginComment> Comments => Discussion?.Comments ?? [];
+    bool isRefreshing;
+
+    static readonly (string Key, string Emoji, string Label, string ClassName)[] ReactionKinds = [
+        ("THUMBS_UP", "👍", "赞", "up"),
+        ("THUMBS_DOWN", "👎", "踩", "down"),
+        ("LAUGH", "😄", "笑", ""),
+        ("HOORAY", "🎉", "庆祝", ""),
+        ("CONFUSED", "😕", "疑惑", ""),
+        ("HEART", "❤️", "喜欢", ""),
+        ("ROCKET", "🚀", "火箭", ""),
+        ("EYES", "👀", "关注", "")
+    ];
+
+    int ReactionCount(string key) => Discussion?.GetReaction(key) ?? 0;
+
+    static string AuthorInitial(PluginComment comment) => string.IsNullOrEmpty(comment.Author) ? "?" : comment.Author[..1];
+
+    static string OpenLinksInNewWindow(string html) => html.Replace("<a ", "<a target=\"_blank\" ");
+
+    RenderFragment RenderComment(PluginComment comment) => @<div class="plugin-comment">
+        <Avatar Size="@AvatarSize.Small" Src="@comment.AvatarUrl" Text="@AuthorInitial(comment)"/>
+        <div class="plugin-comment-main">
+            <div class="plugin-comment-meta">
+                <AntDesign.Text Strong>@comment.Author</AntDesign.Text>
+                <a class="plugin-comment-time" href="@comment.Url" target="_blank">
+                    @comment.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                </a>
+            </div>
+            <div class="plugin-comment-body">@((MarkupString)OpenLinksInNewWindow(comment.BodyHtml))</div>
+            @if (comment.Replies.Count > 0)
+            {
+                <div class="plugin-comment-replies">
+                    @foreach (PluginComment reply in comment.Replies)
+                    {
+                        @RenderComment(reply)
+                    }
+                </div>
+            }
+        </div>
+    </div>;
+
+    async Task RefreshComments()
+    {
+        isRefreshing = true;
+        await OnRefresh.InvokeAsync();
+        isRefreshing = false;
+    }
+
+    void OpenDiscussionOnGitHub()
+    {
+        string? discussionUrl = Discussion?.Url;
+        string url = string.IsNullOrWhiteSpace(discussionUrl)
+            ? PluginCommunityService.GetDiscussionUrl(PluginPackage.Id)
+            : discussionUrl;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = url,
+            UseShellExecute = true
+        });
+    }
+}

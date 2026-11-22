@@ -1,4 +1,5 @@
 @inject PluginSystem PluginSystem
+@inject PluginCommunityService PluginCommunityService
 @implements IDisposable
 
 <div class="plugin-card" @onclick="HandleClick">
@@ -35,6 +36,11 @@
                         Style="font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
             @(string.IsNullOrWhiteSpace(PluginPackage.Description) ? PluginPackage.Id : PluginPackage.Description)
         </AntDesign.Text>
+        <div class="plugin-votes" title="在 GitHub 讨论页点赞或点踩"
+             @onclick="OpenDiscussion" @onclick:stopPropagation="true">
+            <span><Icon Type="@IconType.Outline.ArrowUp"/> @UpVotes</span>
+            <span><Icon Type="@IconType.Outline.ArrowDown"/> @DownVotes</span>
+        </div>
     </div>
 </div>
 
@@ -104,6 +110,23 @@
     }
 
     .plugin-meta {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .plugin-votes {
+        display: flex;
+        gap: 12px;
+        margin-top: auto;
+        padding-top: 6px;
+        font-size: 11px;
+        color: var(--alife-text-tertiary);
+        cursor: pointer;
+    }
+
+    .plugin-votes:hover {
+        color: var(--alife-primary);
     }
 </style>
 
@@ -113,15 +136,24 @@
     [Parameter] public EventCallback<bool> OnToggleCart { get; set; }
     [Parameter] public EventCallback<PluginPackage> OnClick { get; set; }
 
+    int UpVotes => PluginCommunityService.GetUpVotes(PluginPackage.Id);
+    int DownVotes => PluginCommunityService.GetDownVotes(PluginPackage.Id);
+
     protected override void OnInitialized()
     {
         PluginSystem.PluginSynced += OnPluginSynced;
+        PluginCommunityService.SnapshotUpdated += OnCommunityUpdated;
     }
     public void Dispose()
     {
         PluginSystem.PluginSynced -= OnPluginSynced;
+        PluginCommunityService.SnapshotUpdated -= OnCommunityUpdated;
     }
     void OnPluginSynced()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+    void OnCommunityUpdated()
     {
         InvokeAsync(StateHasChanged);
     }
@@ -134,5 +166,14 @@
     async Task ToggleCart()
     {
         await OnToggleCart.InvokeAsync(!IsInCart);
+    }
+
+    void OpenDiscussion()
+    {
+        string url = PluginCommunityService.GetDiscussionUrl(PluginPackage.Id);
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+            FileName = url,
+            UseShellExecute = true
+        });
     }
 }

@@ -1,0 +1,69 @@
+<div class="local-plugin-card" @onclick="HandleClick">
+    <div class="local-plugin-icon">
+        <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: var(--alife-primary);"/>
+    </div>
+    <div class="local-plugin-info">
+        <div class="local-plugin-name">@PluginId</div>
+        <div class="local-plugin-version">版本 @Version</div>
+    </div>
+    <Tag>本地</Tag>
+</div>
+
+<style>
+    .local-plugin-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 100%;
+        padding: 10px;
+        background: var(--alife-bg-container);
+        border: 1px solid var(--alife-border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .local-plugin-card:hover {
+        border-color: var(--alife-primary);
+        box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .local-plugin-icon {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--alife-primary-bg);
+        border-radius: 8px;
+    }
+
+    .local-plugin-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .local-plugin-name {
+        overflow: hidden;
+        color: var(--alife-text);
+        font-size: 13px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .local-plugin-version {
+        color: var(--alife-text-tertiary);
+        font-size: 11px;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string PluginId { get; set; } = "";
+    [Parameter, EditorRequired] public string Version { get; set; } = "";
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    Task HandleClick() => OnClick.InvokeAsync();
+}

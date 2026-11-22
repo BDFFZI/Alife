@@ -1,5 +1,7 @@
 @inject PluginSystem PluginSystem
+@inject PluginCommunityService PluginCommunityService
 @inject INotificationService NotificationService
+@implements IDisposable
 
 <ErrorWindowUI @bind-Value="@operException"/>
 
@@ -77,6 +79,9 @@
                     <Icon Type="@IconType.Outline.Reload"/>
                     重装
                 </Button>
+            }
+            @if (isInstalled)
+            {
                 <Popconfirm Title="@($"确定要卸载 {PluginPackage.Name} 吗？")"
                             OkText="卸载" CancelText="取消"
                             OnConfirm="@Uninstall">
@@ -93,63 +98,70 @@
         </Flex>
     </div>
 
-    @* 版本列表 *@
+    @* 评论与版本 *@
     <div style="flex: 1; overflow-y: auto; padding: 16px 0;">
-        <Title Level="4">版本历史</Title>
-        <Timeline>
-            @if (PluginPackage.Releases != null)
-            {
-                @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(DependencyResolver.CompareVersions)))
-                {
-                    bool isCompatible = PluginSystem.IsClientCompatible(release.Key);
-                    <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <Tooltip Title="@(isCompatible ? "" : "版本不兼容：插件大版本号高于当前客户端版本")">
-                                <AntDesign.Text Strong
-                                                Style="@(isCompatible ? "" : "opacity: 0.4;")">@release.Key</AntDesign.Text>
-                            </Tooltip>
-                            @if (isInstalled && release.Key == installedVersion)
-                            {
-                                <Tag Color="@("green")">当前版本</Tag>
-                            }
-                            @if (release.Key == latestVersion)
-                            {
-                                <Tag Color="@("blue")">最新</Tag>
-                            }
-                            @if (!isCompatible)
-                            {
-                                <Tag Color="@("red")">不兼容</Tag>
-                            }
-                        </div>
-                        <AntDesign.Text Type="@TextElementType.Secondary"
-                                        Style="font-size: 12px;">@release.Value.Date</AntDesign.Text>
-                        @if (!string.IsNullOrEmpty(release.Value.Note))
+        <Tabs DefaultActiveKey="comments">
+            <TabPane Key="comments" Tab="评论">
+                <PluginCommentsUI PluginPackage="PluginPackage" Discussion="discussion"
+                                  OnRefresh="RefreshLiveCommunity"/>
+            </TabPane>
+            <TabPane Key="releases" Tab="版本历史">
+                <Timeline>
+                    @if (PluginPackage.Releases != null)
+                    {
+                        @foreach (var release in PluginPackage.Releases.OrderByDescending(r => r.Key, Comparer<string>.Create(DependencyResolver.CompareVersions)))
                         {
-                            <div
-                                style="margin-top: 4px; white-space: pre-wrap; @(isCompatible ? "" : "opacity: 0.4;")">@release.Value.Note</div>
+                            bool isCompatible = PluginSystem.IsClientCompatible(release.Key);
+                            <TimelineItem Color="@(release.Key == latestVersion ? "blue" : "gray")">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <Tooltip Title="@(isCompatible ? "" : "版本不兼容：插件大版本号高于当前客户端版本")">
+                                        <AntDesign.Text Strong
+                                                        Style="@(isCompatible ? "" : "opacity: 0.4;")">@release.Key</AntDesign.Text>
+                                    </Tooltip>
+                                    @if (isInstalled && release.Key == installedVersion)
+                                    {
+                                        <Tag Color="@("green")">当前版本</Tag>
+                                    }
+                                    @if (release.Key == latestVersion)
+                                    {
+                                        <Tag Color="@("blue")">最新</Tag>
+                                    }
+                                    @if (!isCompatible)
+                                    {
+                                        <Tag Color="@("red")">不兼容</Tag>
+                                    }
+                                </div>
+                                <AntDesign.Text Type="@TextElementType.Secondary"
+                                                Style="font-size: 12px;">@release.Value.Date</AntDesign.Text>
+                                @if (!string.IsNullOrEmpty(release.Value.Note))
+                                {
+                                    <div
+                                        style="margin-top: 4px; white-space: pre-wrap; @(isCompatible ? "" : "opacity: 0.4;")">@release.Value.Note</div>
+                                }
+                                @if (!string.IsNullOrEmpty(release.Value.File))
+                                {
+                                    <div style="margin-top: 4px; word-break: break-all; @(isCompatible ? "" : "opacity: 0.4;")">
+                                        <a href="@release.Value.File" target="_blank" style="font-size: 12px; color: var(--alife-primary);">
+                                            @release.Value.File
+                                        </a>
+                                    </div>
+                                }
+                                @if (release.Key != installedVersion)
+                                {
+                                    <div style="margin-top: 4px;">
+                                        <Button Size="@ButtonSize.Small" Loading="isOperating" Danger
+                                                OnClick="@(() => InstallVersion(release.Key))">
+                                            <Icon Type="@IconType.Outline.Swap"/>
+                                            切换到此版本
+                                        </Button>
+                                    </div>
+                                }
+                            </TimelineItem>
                         }
-                        @if (!string.IsNullOrEmpty(release.Value.File))
-                        {
-                            <div style="margin-top: 4px; word-break: break-all; @(isCompatible ? "" : "opacity: 0.4;")">
-                                <a href="@release.Value.File" target="_blank" style="font-size: 12px; color: var(--alife-primary);">
-                                    @release.Value.File
-                                </a>
-                            </div>
-                        }
-                        @if (release.Key != installedVersion)
-                        {
-                            <div style="margin-top: 4px;">
-                                <Button Size="@ButtonSize.Small" Loading="isOperating" Danger
-                                        OnClick="@(() => InstallVersion(release.Key))">
-                                    <Icon Type="@IconType.Outline.Swap"/>
-                                    切换到此版本
-                                </Button>
-                            </div>
-                        }
-                    </TimelineItem>
-                }
-            }
-        </Timeline>
+                    }
+                </Timeline>
+            </TabPane>
+        </Tabs>
     </div>
 </div>
 
@@ -163,13 +175,29 @@
     bool hasUpdate;
     bool isInCart;
     bool isOperating;
+    bool isRefreshingLive;
+    bool isDisposed;
     string? installedVersion;
     string? latestVersion;
+    string? lastLivePluginId;
     Exception? operException;
+    PluginDiscussion? discussion;
+    readonly CancellationTokenSource liveCancellation = new();
+
+    protected override void OnInitialized()
+    {
+        _ = PollLiveCommunityAsync();
+    }
 
     protected override void OnParametersSet()
     {
         RefreshState();
+
+        if (lastLivePluginId == PluginPackage.Id)
+            return;
+        lastLivePluginId = PluginPackage.Id;
+        discussion = null;
+        _ = RefreshLiveCommunity();
     }
 
     void RefreshState()
@@ -184,6 +212,47 @@
     async Task ToggleCart()
     {
         await OnToggleCart.InvokeAsync(!isInCart);
+    }
+
+    async Task RefreshLiveCommunity()
+    {
+        if (isRefreshingLive)
+            return;
+
+        isRefreshingLive = true;
+        try
+        {
+            string pluginId = PluginPackage.Id;
+            PluginDiscussion? liveDiscussion = await PluginCommunityService.FetchDiscussionAsync(pluginId);
+            if (liveDiscussion == null || isDisposed || PluginPackage.Id != pluginId)
+                return;
+            discussion = liveDiscussion;
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            isRefreshingLive = false;
+        }
+    }
+
+    async Task PollLiveCommunityAsync()
+    {
+        using PeriodicTimer timer = new(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(liveCancellation.Token))
+                await RefreshLiveCommunity();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        isDisposed = true;
+        liveCancellation.Cancel();
+        liveCancellation.Dispose();
     }
 
     Task InstallLatest()

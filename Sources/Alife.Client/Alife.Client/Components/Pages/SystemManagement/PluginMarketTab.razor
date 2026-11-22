@@ -1,7 +1,9 @@
 @attribute [SystemMenu("插件市场", "shop", 40, Closable = false)]
 @inject PluginSystem PluginSystem
+@inject PluginCommunityService PluginCommunityService
 @inject IJSRuntime JsRuntime
 @inject StorageSystem StorageSystem
+@inject INotificationService NotificationService
 @implements IAsyncDisposable
 
 <div class="alife-pane-fill">
@@ -19,10 +21,33 @@
             </Tooltip>
         </div>
         <Flex Gap="@("12")" Align="FlexAlign.Center">
-            <RadioGroup TValue="string" Value="@viewMode" ValueChanged="@(ChangeViewMode)">
-                <Radio Value="@("all")">全部插件</Radio>
-                <Radio Value="@("installed")">已安装</Radio>
-            </RadioGroup>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="flex-shrink: 0; white-space: nowrap;">范围</AntDesign.Text>
+            <Select TItemValue="string" TItem="string" Value="@viewMode" ValueChanged="@(ChangeViewMode)" Style="width: 110px;">
+                <SelectOption Value="@("all")" Label="全部插件"/>
+                <SelectOption Value="@("installed")" Label="已安装"/>
+                <SelectOption Value="@("local")" Label="本地插件"/>
+            </Select>
+            @if (viewMode != "local")
+            {
+                <Tooltip Placement="Placement.Bottom">
+                    <TitleTemplate>
+                        <div style="max-width: 300px; line-height: 1.6;">
+                            <div>按时间：最新版本发布时间越新越靠前。</div>
+                            <div>按点赞：按「赞 − 踩」排序，允许负数，同分按发布时间。</div>
+                            <div>综合热度：(max(赞 − 踩, 0) + 1) ÷ (距最新版本天数 + 2)<sup>1.3</sup>，同分按发布时间。</div>
+                            <div>排序使用社区数据快照；点击右侧重载按钮可刷新，GitHub 定时同步可能延迟。</div>
+                        </div>
+                    </TitleTemplate>
+                    <ChildContent>
+                        <AntDesign.Text Type="@TextElementType.Secondary" Style="flex-shrink: 0; white-space: nowrap; cursor: help;">排序</AntDesign.Text>
+                    </ChildContent>
+                </Tooltip>
+                <Select TItemValue="string" TItem="string" Value="@sortMode" ValueChanged="@(ChangeSortMode)" Style="width: 120px;">
+                    <SelectOption Value="@("time")" Label="按时间"/>
+                    <SelectOption Value="@("votes")" Label="按点赞"/>
+                    <SelectOption Value="@("hot")" Label="综合热度"/>
+                </Select>
+            }
             <Tooltip Title="重载插件市场">
                 <Button Type="@ButtonType.Link" Icon="@IconType.Outline.CloudDownload" OnClick="@FetchOnlinePlugin"
                         Loading="isFetching"></Button>
@@ -72,7 +97,7 @@
                     ValueOnClear="@("")">
             </Select>
             <AntDesign.Text Type="@TextElementType.Secondary" Style="flex-shrink: 0; white-space: nowrap;">
-                共 @filteredPlugins.Length 个
+                共 @VisiblePluginCount 个
             </AntDesign.Text>
         </div>
         @if (allTags.Length > 0)
@@ -123,9 +148,9 @@
             {
                 <Spin Tip="加载中..." Style="display: flex; justify-content: center; padding: 48px;"/>
             }
-            else if (filteredPlugins.Length == 0)
+            else if (VisiblePluginCount == 0)
             {
-                @if (allPlugins.Length == 0)
+                @if (allPlugins.Length == 0 && viewMode != "local")
                 {
                     <div
                         style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; opacity: 0.6;">
@@ -138,28 +163,39 @@
                 }
                 else
                 {
-                    <Empty Description="@("未找到匹配的插件")"/>
+                    <Empty Description="@(viewMode == "local" ? "没有未在市场注册的本地插件" : "未找到匹配的插件")"/>
                 }
             }
             else
             {
                 <div id="pluginMarketGrid"
                      style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 4px; justify-content: center; align-content: center; width: 100%;">
-                    @foreach (var plugin in pagedPlugins)
+                    @if (viewMode == "local")
                     {
-                        <PluginCardUI PluginPackage="plugin" IsInCart="@(cartItems.Any(p => p.Id == plugin.Id))"
-                                      OnClick="@(() => OnShowDetail(plugin))"
-                                      OnToggleCart="@((val) => ToggleCart(plugin, val))"/>
+                        @foreach ((string pluginId, PluginManifest manifest) in pagedLocalPlugins)
+                        {
+                            <LocalPluginCardUI PluginId="@pluginId" Version="@manifest.Version"
+                                               OnClick="@(() => inspectingLocalPluginId = pluginId)"/>
+                        }
+                    }
+                    else
+                    {
+                        @foreach (PluginPackage plugin in pagedPlugins)
+                        {
+                            <PluginCardUI PluginPackage="plugin" IsInCart="@(cartItems.Any(p => p.Id == plugin.Id))"
+                                          OnClick="@(() => OnShowDetail(plugin))"
+                                          OnToggleCart="@((val) => ToggleCart(plugin, val))"/>
+                        }
                     }
                 </div>
             }
         </div>
 
-        @if (!isFetching && filteredPlugins.Length > 0 && TotalPages > 1)
+        @if (!isFetching && VisiblePluginCount > 0 && TotalPages > 1)
         {
             <div
                 style="flex-shrink: 0; display: flex; justify-content: center; padding: 12px; border-top: 1px solid var(--alife-border); background: var(--alife-bg-container);">
-                <Pagination Current="currentPage" Total="filteredPlugins.Length" PageSize="pageSize"
+                <Pagination Current="currentPage" Total="VisiblePluginCount" PageSize="pageSize"
                             OnChange="@ChangePageIndex" ShowSizeChanger="false"/>
             </div>
         }
@@ -167,9 +203,9 @@
 </div>
 
 @* 插件详情弹窗 *@
-<Modal Title="@(inspectingPlugin?.Name ?? "")"
-       Visible="@(inspectingPlugin != null)"
-       OnCancel="@(() => inspectingPlugin = null)"
+<Modal Title="@(inspectingPlugin?.Name ?? inspectingLocalPluginId ?? "")"
+       Visible="@(inspectingPlugin != null || inspectingLocalPluginId != null)"
+       OnCancel="@CloseDetail"
        Footer="null"
        Width="640"
        Centered="true"
@@ -180,6 +216,26 @@
                           IsInCart="@(cartItems.Any(p => p.Id == inspectingPlugin?.Id))"
                           OnToggleCart="@((val) => ToggleCart(inspectingPlugin!, val))"
                           OnBack="@(() => inspectingPlugin = null)"/>
+    }
+    else if (inspectingLocalPluginId != null)
+    {
+        <div style="padding: 8px 0;">
+            <Flex Align="FlexAlign.Center" Gap="@("12")">
+                <Title Level="4" Style="margin: 0;">@inspectingLocalPluginId</Title>
+                <Tag>本地</Tag>
+            </Flex>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="display: block; margin-top: 8px;">
+                未在插件市场注册，当前版本：@InspectingLocalPlugin?.Version
+            </AntDesign.Text>
+            <Popconfirm Title="@($"确定要卸载 {inspectingLocalPluginId} 吗？")"
+                        OkText="卸载" CancelText="取消"
+                        OnConfirm="@UninstallLocalPlugin">
+                <Button Danger Loading="isOperatingLocal" Style="margin-top: 20px;">
+                    <Icon Type="@IconType.Outline.Delete"/>
+                    卸载
+                </Button>
+            </Popconfirm>
+        </div>
     }
 </Modal>
 
@@ -267,12 +323,15 @@
 @code {
     const string UnknownPlatform = "未知";
     bool isFetching;
+    bool isOperatingLocal;
     Exception? operException;
     PluginPackage? inspectingPlugin;
+    string? inspectingLocalPluginId;
     DotNetObjectReference<PluginMarketTab>? dotnetRef;
 
     //筛选输入条件
     string viewMode = "all";
+    string sortMode = "time";
     string searchText = "";
     string authorSearchText = "";
     string platformFilter = "";
@@ -285,10 +344,19 @@
     string[] allTags = [];
     string[] authorOptions = [];
     string[] platformOptions = [];
-    int TotalPages => (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
+    int VisiblePluginCount => viewMode == "local" ? filteredLocalPlugins.Length : filteredPlugins.Length;
+    int TotalPages => (int)Math.Ceiling(VisiblePluginCount / (double)pageSize);
     PluginPackage[] allPlugins = [];
     PluginPackage[] filteredPlugins = [];
     PluginPackage[] pagedPlugins = [];
+    KeyValuePair<string, PluginManifest>[] allLocalPlugins = [];
+    KeyValuePair<string, PluginManifest>[] filteredLocalPlugins = [];
+    KeyValuePair<string, PluginManifest>[] pagedLocalPlugins = [];
+    PluginManifest? InspectingLocalPlugin =>
+        inspectingLocalPluginId != null &&
+        PluginSystem.GetAllLocalPlugins().TryGetValue(inspectingLocalPluginId, out PluginManifest manifest)
+            ? manifest
+            : null;
 
     List<PluginPackage> cartItems = [];
     bool showCartModal;
@@ -298,12 +366,16 @@
     protected override void OnInitialized()
     {
         hideNoticeAnimation = StorageSystem.GetObject("Settings/PluginNoticeConfig", new NoticeAnimationConfig())?.HideNoticeAnimation ?? false;
+        sortMode = StorageSystem.GetObject("Settings/PluginMarketSort", "time") ?? "time";
         UpdatePluginOptions();
         PluginSystem.PluginSynced += OnPluginSynced;
+        PluginCommunityService.SnapshotUpdated += OnCommunityUpdated;
+        _ = PluginCommunityService.RefreshSnapshotAsync();
     }
     public async ValueTask DisposeAsync()
     {
         PluginSystem.PluginSynced -= OnPluginSynced;
+        PluginCommunityService.SnapshotUpdated -= OnCommunityUpdated;
         await JsRuntime.InvokeVoidAsync("unwatchPluginMarketResize");
         dotnetRef?.Dispose();
     }
@@ -312,22 +384,48 @@
     {
         UpdatePluginOptions();
     }
+    void OnCommunityUpdated()
+    {
+        _ = InvokeAsync(UpdatePluginOptions);
+    }
     void UpdatePluginOptions()
     {
-        var onlinePlugins = PluginSystem.GetAllOnlinePlugins().Values
-            .Where(package => package.Releases != null && package.Releases.Count != 0)
-            .OrderByDescending(plugin => plugin.Releases!.Max(pair => pair.Value.Date));
-
-        if (viewMode == "installed")
+        if (viewMode == "local")
         {
-            var installed = PluginSystem.GetAllLocalPlugins();
-            allPlugins = onlinePlugins
-                .Where(p => installed.ContainsKey(p.Id))
+            IReadOnlyDictionary<string, PluginPackage> marketPlugins = PluginSystem.GetAllOnlinePlugins();
+            allPlugins = [];
+            allLocalPlugins = PluginSystem.GetAllLocalPlugins()
+                .Where(pair => marketPlugins.ContainsKey(pair.Key) == false)
+                .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         else
         {
-            allPlugins = onlinePlugins.ToArray();
+            allLocalPlugins = [];
+            IEnumerable<PluginPackage> candidatePlugins = PluginSystem.GetAllOnlinePlugins().Values
+                .Where(package => package.Releases != null && package.Releases.Count != 0);
+            IEnumerable<PluginPackage> onlinePlugins = sortMode switch
+            {
+                "votes" => candidatePlugins
+                    .OrderByDescending(plugin => GetNetVotes(plugin.Id))
+                    .ThenByDescending(GetLatestReleaseDate),
+                "hot" => candidatePlugins
+                    .OrderByDescending(GetHotScore)
+                    .ThenByDescending(GetLatestReleaseDate),
+                _ => candidatePlugins.OrderByDescending(GetLatestReleaseDate)
+            };
+
+            if (viewMode == "installed")
+            {
+                IReadOnlyDictionary<string, PluginManifest> installed = PluginSystem.GetAllLocalPlugins();
+                allPlugins = onlinePlugins
+                    .Where(p => installed.ContainsKey(p.Id))
+                    .ToArray();
+            }
+            else
+            {
+                allPlugins = onlinePlugins.ToArray();
+            }
         }
 
         allTags = allPlugins
@@ -363,6 +461,16 @@
 
         FilterPlugins();
     }
+    static DateTime GetLatestReleaseDate(PluginPackage plugin) => plugin.Releases!.Max(pair => pair.Value.Date);
+    double GetHotScore(PluginPackage plugin)
+    {
+        double ageDays = (DateTime.Now - GetLatestReleaseDate(plugin)).TotalDays;
+        int netVotes = Math.Max(GetNetVotes(plugin.Id), 0);
+        return (netVotes + 1) / Math.Pow(ageDays + 2, 1.3);
+    }
+    int GetNetVotes(string pluginId) =>
+        PluginCommunityService.GetUpVotes(pluginId) -
+        PluginCommunityService.GetDownVotes(pluginId);
     static IEnumerable<string> GetPlatformCategories(PluginPackage package)
     {
         string[] platforms = package.Platforms?
@@ -375,40 +483,50 @@
     }
     void FilterPlugins(bool resetPage = true)
     {
-        IEnumerable<PluginPackage> result = allPlugins;
-
-        if (!string.IsNullOrWhiteSpace(searchText))
+        if (viewMode == "local")
         {
-            result = result.Where(p =>
-                p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                p.Id.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                p.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            IEnumerable<KeyValuePair<string, PluginManifest>> localResult = allLocalPlugins;
+            if (!string.IsNullOrWhiteSpace(searchText))
+                localResult = localResult.Where(pair => pair.Key.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            filteredLocalPlugins = localResult.ToArray();
         }
-
-        if (!string.IsNullOrWhiteSpace(authorSearchText))
+        else
         {
-            result = result.Where(p =>
-                p.Author.Contains(authorSearchText, StringComparison.OrdinalIgnoreCase));
+            IEnumerable<PluginPackage> result = allPlugins;
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                result = result.Where(p =>
+                    p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Id.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(authorSearchText))
+            {
+                result = result.Where(p =>
+                    p.Author.Contains(authorSearchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(platformFilter))
+            {
+                result = result.Where(p =>
+                    GetPlatformCategories(p).Contains(platformFilter, StringComparer.OrdinalIgnoreCase));
+            }
+
+            if (selectedTags.Any())
+            {
+                var includeTags = selectedTags.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+                var excludeTags = selectedTags.Where(kv => !kv.Value).Select(kv => kv.Key).ToList();
+
+                if (includeTags.Any())
+                    result = result.Where(p => p.Tags != null && includeTags.All(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
+                if (excludeTags.Any())
+                    result = result.Where(p => p.Tags == null || !excludeTags.Any(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
+            }
+
+            filteredPlugins = result.ToArray();
         }
-
-        if (!string.IsNullOrEmpty(platformFilter))
-        {
-            result = result.Where(p =>
-                GetPlatformCategories(p).Contains(platformFilter, StringComparer.OrdinalIgnoreCase));
-        }
-
-        if (selectedTags.Any())
-        {
-            var includeTags = selectedTags.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
-            var excludeTags = selectedTags.Where(kv => !kv.Value).Select(kv => kv.Key).ToList();
-
-            if (includeTags.Any())
-                result = result.Where(p => p.Tags != null && includeTags.All(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
-            if (excludeTags.Any())
-                result = result.Where(p => p.Tags == null || !excludeTags.Any(t => p.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
-        }
-
-        filteredPlugins = result.ToArray();
 
         if (resetPage)
             currentPage = 1;
@@ -417,10 +535,20 @@
     }
     void PagePlugins()
     {
-        pagedPlugins = filteredPlugins
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToArray();
+        if (viewMode == "local")
+        {
+            pagedLocalPlugins = filteredLocalPlugins
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize)
+                .ToArray();
+        }
+        else
+        {
+            pagedPlugins = filteredPlugins
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize)
+                .ToArray();
+        }
 
         InvokeAsync(StateHasChanged);
     }
@@ -487,7 +615,7 @@
         if (newPageSize != pageSize && newPageSize > 0)
         {
             pageSize = newPageSize;
-            int newTotalPages = (int)Math.Ceiling(filteredPlugins.Length / (double)pageSize);
+            int newTotalPages = (int)Math.Ceiling(VisiblePluginCount / (double)pageSize);
             if (currentPage > newTotalPages && newTotalPages > 0)
                 currentPage = newTotalPages;
             PagePlugins();
@@ -510,12 +638,16 @@
 
     async Task FetchOnlinePlugin()
     {
+        if (isFetching)
+            return;
+
         isFetching = true;
         StateHasChanged();
 
         try
         {
             await PluginSystem.SyncOnlinePluginPackages();
+            await PluginCommunityService.RefreshSnapshotAsync();
             await PluginSystem.SyncLocalPluginEnvironment();
         }
         catch (Exception e)
@@ -542,6 +674,12 @@
         viewMode = value;
         UpdatePluginOptions();
     }
+    void ChangeSortMode(string value)
+    {
+        sortMode = value;
+        StorageSystem.SetObject("Settings/PluginMarketSort", value);
+        UpdatePluginOptions();
+    }
     void OnPlatformFilterChanged()
     {
         FilterPlugins();
@@ -550,6 +688,38 @@
     {
         currentPage = args.Page;
         PagePlugins();
+    }
+    void CloseDetail()
+    {
+        inspectingPlugin = null;
+        inspectingLocalPluginId = null;
+    }
+    async Task UninstallLocalPlugin()
+    {
+        string? pluginId = inspectingLocalPluginId;
+        if (pluginId == null || isOperatingLocal)
+            return;
+
+        isOperatingLocal = true;
+        operException = null;
+        StateHasChanged();
+
+        try
+        {
+            await PluginSystem.PluginMarket.UninstallPlugins(pluginId);
+            await PluginSystem.SyncLocalPluginEnvironment();
+            inspectingLocalPluginId = null;
+            _ = NotificationService.Success(new NotificationConfig { Message = $"已卸载 {pluginId}" });
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
+        finally
+        {
+            isOperatingLocal = false;
+            StateHasChanged();
+        }
     }
 
     void OnHideNoticeAnimationChanged(bool checkedValue)

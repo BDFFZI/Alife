@@ -24,6 +24,7 @@ public static class AlifeClient
         services.AddSingleton<AlifeClientConfig>();
         services.AddSingleton<ClientDataStore>();
         services.AddSingleton<UIThemeSystem>();
+        services.AddSingleton<PluginCommunityService>();
     }
     public static async Task InitAlifeClient(this IServiceProvider provider, IProgress<string>? progress = null)
     {
