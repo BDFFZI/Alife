@@ -2160,7 +2160,9 @@
 
     // 音效与场景脚本随插件注入，不依赖客户端 wwwroot。
     const string ClientScript = """
-        if (!window.__alifeDdzPlay) {
+        if (typeof window.__alifeDdzPlay !== "function"
+            || typeof window.__alifeDdzMusic !== "function"
+            || typeof window.__alifeDdzStopMusic !== "function") {
             let audioContext = null;
             let musicGain = null;
             let musicSource = null;
