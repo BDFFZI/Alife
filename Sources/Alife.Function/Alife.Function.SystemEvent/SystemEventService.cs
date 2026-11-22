@@ -77,7 +77,6 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
-
     protected override Task OnUpdate()
     {
         deltaTime += UpdateContext.DeltaTime;
@@ -109,7 +108,7 @@ public class SystemEventService(
 
         return Task.CompletedTask;
     }
-    protected override async Task OnDestroy()
+    protected override async Task OnEnd()
     {
         ChatBot.ChatFinished += OnChatFinished;
 
