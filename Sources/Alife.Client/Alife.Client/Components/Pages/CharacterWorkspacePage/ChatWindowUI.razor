@@ -21,53 +21,55 @@
     @* 消息区：滚动贴底、回到底部浮标都由 alife-chat.js 接管 *@
     <div class="chat-body" id="chatBody">
         <div class="chat-stream" id="messageArea">
-            @if (messages == null)
-            {
-                <Empty Style="margin-top: 80px" Description="@("消息存储不存在！")"/>
-            }
-            else if (messages.Count == 0)
-            {
-                <Empty Style="margin-top: 80px" Description="@("暂无聊天信息，开始对话吧喵！")"/>
-            }
-            else
-            {
-                @foreach (ChatMessage message in SnapshotMessages(messages))
+            <div class="chat-stream-content">
+                @if (messages == null)
                 {
-                    bool hasReasoning = message.HasReasoning;
-                    <div class="chat-row @(message.IsUser ? "chat-row-user" : "")" @key="message">
-                        <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
-                            @if (hasReasoning)
-                            {
-                                <div class="chat-reasoning">
-                                    <div class="chat-reasoning-title"
-                                         @onclick="@(() => message.ReasoningExpanded = message.ReasoningExpanded == false)">
-                                        <Icon Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
-                                        <span>思考过程</span>
-                                        <span class="chat-reasoning-caret @(message.ReasoningExpanded ? "is-open" : "")">▼</span>
-                                    </div>
-
-                                    @if (message.ReasoningExpanded)
-                                    {
-                                        @if (!string.IsNullOrEmpty(message.ThinkingReason))
-                                        {
-                                            <div class="chat-reasoning-reason">思考原因：@message.ThinkingReason</div>
-                                        }
-                                        <div class="chat-reasoning-content">@message.Reasoning</div>
-                                    }
-                                </div>
-                            }
-                            <div class="chat-text">@message.Content</div>
-                            @if (message.IsInputting)
-                            {
-                                <div class="chat-typing">
-                                    <Icon Type="@IconType.Outline.Loading"/>
-                                    <span>输入中</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <Empty Style="margin-top: 80px" Description="@("消息存储不存在！")"/>
                 }
-            }
+                else if (messages.Count == 0)
+                {
+                    <Empty Style="margin-top: 80px" Description="@("暂无聊天信息，开始对话吧喵！")"/>
+                }
+                else
+                {
+                    @foreach (ChatMessage message in SnapshotMessages(messages))
+                    {
+                        bool hasReasoning = message.HasReasoning;
+                        <div class="chat-row @(message.IsUser ? "chat-row-user" : "")" @key="message">
+                            <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
+                                @if (hasReasoning)
+                                {
+                                    <div class="chat-reasoning">
+                                        <div class="chat-reasoning-title"
+                                             @onclick="@(() => message.ReasoningExpanded = message.ReasoningExpanded == false)">
+                                            <Icon Type="@(message.IsReasoning ? IconType.Outline.Loading : IconType.Outline.Bulb)"/>
+                                            <span>思考过程</span>
+                                            <span class="chat-reasoning-caret @(message.ReasoningExpanded ? "is-open" : "")">▼</span>
+                                        </div>
+
+                                        @if (message.ReasoningExpanded)
+                                        {
+                                            @if (!string.IsNullOrEmpty(message.ThinkingReason))
+                                            {
+                                                <div class="chat-reasoning-reason">思考原因：@message.ThinkingReason</div>
+                                            }
+                                            <div class="chat-reasoning-content">@message.Reasoning</div>
+                                        }
+                                    </div>
+                                }
+                                <div class="chat-text">@message.Content</div>
+                                @if (message.IsInputting)
+                                {
+                                    <div class="chat-typing">
+                                        <Icon Type="@IconType.Outline.Loading"/>
+                                        <span>输入中</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
         </div>
 
         <button type="button" class="chat-jump" @onclick="@ScrollToLatestAsync">
@@ -147,6 +149,10 @@
         padding: 20px 24px;
     }
 
+    .chat-stream-content {
+        display: flow-root;
+    }
+
     .chat-jump {
         position: absolute;
         right: 24px;
@@ -182,8 +188,13 @@
         display: flex;
         width: 100%;
         margin-bottom: 14px;
-        /* 历史消息离屏时跳过排版：流式输出每次刷新只重排当前这一行，
-           否则整段对话（实测 60 万字符）会在每个节拍上被完整重排一次。 */
+    }
+
+    /* 历史消息离屏时跳过排版：流式输出每次刷新只重排当前这一行，
+       否则整段对话（实测 60 万字符）会在每个节拍上被完整重排一次。
+       末尾两行是刚插入的「用户消息 + 输入中占位」，新行还没排版过，
+       contain-intrinsic-size 会先按 120px 估算，贴底滚动就会少算长消息的高度。 */
+    .chat-row:not(:nth-last-child(-n + 2)) {
         content-visibility: auto;
         contain-intrinsic-size: auto 120px;
     }

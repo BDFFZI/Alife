@@ -17,8 +17,10 @@ function scrollToBottom(stream) {
     const target = area.scrollHeight - area.clientHeight;
     // 位置没有变化时不会触发 scroll 事件，不能留下记录，否则下一次真正的用户滚动会被误吞。
     if (Math.abs(area.scrollTop - target) < 1) return;
-    stream.programmaticTop = target;
     area.scrollTop = target;
+    // 写入可能被当时的最大滚动位置截断，记录实际落点，这条 scroll 事件才不会被当成用户滚动。
+    stream.programmaticTop = area.scrollTop;
+    stream.lastScrollTop = area.scrollTop;
 }
 
 function setPinned(stream, value) {
@@ -39,6 +41,8 @@ function stickToBottom(stream) {
     if (stream.pinned == false || stream.frame) return;
     stream.frame = requestAnimationFrame(() => {
         stream.frame = 0;
+        // 排队的这一帧里用户可能已经开始回看历史，不能再把视图拽回底部。
+        if (stream.pinned == false) return;
         scrollToBottom(stream);
     });
 }
@@ -46,6 +50,7 @@ function stickToBottom(stream) {
 function release(stream) {
     stream.controller.abort();
     stream.observer.disconnect();
+    stream.resizeObserver?.disconnect();
 }
 
 export function setupStream(bodyId, streamId) {
@@ -59,6 +64,9 @@ export function setupStream(bodyId, streamId) {
     if (existing) release(existing);
 
     const controller = new AbortController();
+    // content-visibility 的占位行只有在滚动后才参与排版，这类高度变化不产生 DOM 变更，
+    // MutationObserver 看不到，需要另外监听内容块尺寸。
+    const content = area.querySelector(":scope > .chat-stream-content");
     const stream = {
         body: body,
         area: area,
@@ -66,18 +74,29 @@ export function setupStream(bodyId, streamId) {
         pinned: true,
         frame: 0,
         programmaticTop: null,
+        lastScrollTop: area.scrollTop,
         observer: new MutationObserver(() => stickToBottom(stream)),
+        // 排版刚完成就立即补滚：等下一帧的话，scroll 事件会先到达并被误判成用户回看历史。
+        resizeObserver: content ? new ResizeObserver(() => {
+            if (stream.pinned) scrollToBottom(stream);
+        }) : null,
     };
     area.addEventListener("scroll", () => {
+        const top = area.scrollTop;
+        // 内容高度变化也会触发 scroll，但位置没变，不能当成用户回看历史。
+        if (Math.abs(top - stream.lastScrollTop) < 1) return;
+        stream.lastScrollTop = top;
         // 贴底写入同样会触发 scroll；位置仍是我们写入的值时视为程序化滚动。
         // 用户滚动若与之合并成同一次事件，位置已不相等，不会被误吞。
-        if (stream.programmaticTop !== null && Math.abs(area.scrollTop - stream.programmaticTop) < 1) {
+        if (stream.programmaticTop !== null && Math.abs(top - stream.programmaticTop) < 1) {
             stream.programmaticTop = null;
             return;
         }
+        stream.programmaticTop = null;
         setPinned(stream, isNearBottom(area));
     }, { passive: true, signal: controller.signal });
     stream.observer.observe(area, { childList: true, subtree: true, characterData: true });
+    stream.resizeObserver?.observe(content);
     streams.set(streamId, stream);
     setPinned(stream, true);
     scrollToBottom(stream);
