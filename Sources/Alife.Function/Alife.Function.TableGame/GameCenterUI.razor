@@ -1,0 +1,259 @@
+@namespace Alife.Function.TableGame
+@using Alife.Framework
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+@attribute [SideBarItem(Order = 5)]
+@implements IDisposable
+@inject UIAttributeSystem UIAttributeSystem
+
+<div class="game-center">
+    <div class="alife-rail-item @(activeGame != null ? "active" : "")"
+         aria-haspopup="true">
+        <svg class="game-center-rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>
+            <path d="M6 11h4M8 9v4"/>
+            <path d="M15 12h.01M18 10h.01"/>
+        </svg>
+    </div>
+
+    <div class="game-center-panel" role="menu" aria-label="游戏列表">
+        <div class="game-center-head">
+            <span>游戏中心</span>
+            <small>@games.Count 款游戏</small>
+        </div>
+        @if (games.Count == 0)
+        {
+            <div class="game-center-empty">还没有已安装的桌游</div>
+        }
+        @foreach (GameEntry game in games)
+        {
+            bool isActive = game.ComponentType == activeGame;
+            <button type="button" class="game-center-item @(isActive ? "active" : "")"
+                    role="menuitem"
+                    @onclick="@(() => OpenGame(game))">
+                <span class="game-center-glyph">
+                    <DynamicComponent Type="@game.Attribute.IconComponent" />
+                </span>
+                <span class="game-center-copy">
+                    <strong>@game.Attribute.Name</strong>
+                    <small>@game.Attribute.Description</small>
+                </span>
+                <span class="game-center-state">@(isActive ? "显示中" : "")</span>
+            </button>
+        }
+    </div>
+
+    @foreach (GameEntry game in games)
+    {
+        <DynamicComponent Type="@game.ComponentType" @key="@game.ComponentType" Parameters="@GameParameters(game)" />
+    }
+</div>
+
+<style>
+    .game-center {
+        position: relative;
+        z-index: 1200;
+    }
+
+    .game-center > .alife-rail-item {
+        cursor: default;
+    }
+
+    .game-center-rail-icon {
+        width: 24px;
+        height: 24px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.65;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: transform .18s ease, filter .18s ease;
+    }
+
+    .game-center:hover .game-center-rail-icon,
+    .game-center .alife-rail-item.active .game-center-rail-icon {
+        filter: drop-shadow(0 0 8px var(--alife-primary-border));
+        transform: scale(1.06);
+    }
+
+    .game-center-panel {
+        position: absolute;
+        left: calc(100% + 12px);
+        top: 50%;
+        width: 272px;
+        padding: 8px;
+        border: 1px solid var(--alife-border);
+        border-radius: var(--alife-radius-lg);
+        background: var(--alife-bg-elevated);
+        box-shadow: var(--alife-shadow-float);
+        color: var(--alife-text);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translate(-8px, -50%);
+        transform-origin: left center;
+        transition: opacity .16s ease, transform .16s ease, visibility .16s;
+    }
+
+    .game-center-panel::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -14px;
+        width: 14px;
+    }
+
+    .game-center:hover .game-center-panel,
+    .game-center:focus-within .game-center-panel {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translate(0, -50%);
+    }
+
+    .game-center-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 8px 9px;
+        color: var(--alife-text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .08em;
+    }
+
+    .game-center-head small {
+        color: var(--alife-text-tertiary);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0;
+    }
+
+    .game-center-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: var(--alife-radius);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background .15s ease;
+    }
+
+    .game-center-item:hover {
+        background: var(--alife-bg-hover);
+    }
+
+    .game-center-item.active {
+        background: var(--alife-primary-bg);
+    }
+
+    .game-center-glyph {
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+    }
+
+    .game-center-copy {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .game-center-copy strong {
+        color: var(--alife-text);
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .game-center-copy small {
+        overflow: hidden;
+        color: var(--alife-text-tertiary);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .game-center-state {
+        flex: 0 0 auto;
+        color: var(--alife-primary);
+        font-size: 11px;
+    }
+
+    .game-center-empty {
+        padding: 18px 10px 20px;
+        color: var(--alife-text-tertiary);
+        font-size: 12px;
+        text-align: center;
+    }
+</style>
+
+@code {
+    sealed record GameEntry(TableGameAttribute Attribute, Type ComponentType);
+
+    List<GameEntry> games = [];
+    Type? activeGame;
+
+    protected override void OnInitialized()
+    {
+        UIAttributeSystem.RegistrationsChanged += OnRegistrationsChanged;
+        RefreshGames();
+    }
+
+    public void Dispose()
+    {
+        UIAttributeSystem.RegistrationsChanged -= OnRegistrationsChanged;
+    }
+
+    void OnRegistrationsChanged()
+    {
+        _ = InvokeAsync(() =>
+        {
+            RefreshGames();
+            StateHasChanged();
+        });
+    }
+
+    void RefreshGames()
+    {
+        games = UIAttributeSystem.GetEnabledRegistrations<TableGameAttribute>()
+            .Select(registration => new GameEntry((TableGameAttribute)registration.Attribute, registration.ComponentType))
+            .OrderByDescending(game => game.Attribute.Order)
+            .ThenBy(game => game.Attribute.Name, StringComparer.Ordinal)
+            .ToList();
+
+        if (activeGame != null && games.All(game => game.ComponentType != activeGame))
+            activeGame = null;
+    }
+
+    void OpenGame(GameEntry game)
+    {
+        activeGame = game.ComponentType;
+    }
+
+    void CloseGame()
+    {
+        activeGame = null;
+    }
+
+    Dictionary<string, object> GameParameters(GameEntry game)
+    {
+        return new Dictionary<string, object>
+        {
+            [nameof(TableGameUI.Opened)] = game.ComponentType == activeGame,
+            [nameof(TableGameUI.CloseRequested)] = EventCallback.Factory.Create(this, CloseGame)
+        };
+    }
+}

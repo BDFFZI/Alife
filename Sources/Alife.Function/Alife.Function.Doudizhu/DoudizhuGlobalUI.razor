@@ -6,29 +6,14 @@
 @using AntDesign
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
-@attribute [SideBarItem]
+@attribute [TableGame("斗地主", "三人牌局 · 明牌配合", typeof(DoudizhuGameIcon), 10)]
+@inherits TableGameUI
 @implements IAsyncDisposable
 @inject ChatActivitySystem ChatActivitySystem
 @inject PluginSystem PluginSystem
 @inject IJSRuntime JsRuntime
 
-@* 这个组件自己就是侧栏按钮：点击在客户端内打开全屏牌桌 *@
-<Tooltip Title="斗地主" Placement="Placement.Right">
-    <div class="alife-rail-item @(visible ? "active" : "")" @onclick="@ToggleFullscreen">
-        <svg class="ddz-rail-icon" viewBox="0 0 64 64" aria-hidden="true">
-            <g transform="rotate(-17 32 34)">
-                <rect x="9" y="15" width="25" height="38" rx="5" class="ddz-rail-card back"/>
-            </g>
-            <g transform="rotate(17 32 34)">
-                <rect x="30" y="15" width="25" height="38" rx="5" class="ddz-rail-card back"/>
-            </g>
-            <rect x="19" y="9" width="26" height="44" rx="5" class="ddz-rail-card front"/>
-            <text x="32" y="39" text-anchor="middle" class="ddz-rail-char">斗</text>
-        </svg>
-    </div>
-</Tooltip>
-
-@if (visible)
+@if (Opened)
 {
     <div class="ddz-stage">
         <div class="ddz-sky"></div>
@@ -345,33 +330,40 @@
 }
 
 <style>
-    .ddz-rail-icon {
-        width: 36px;
-        height: 36px;
+    .ddz-game-icon {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+    }
+
+    .ddz-game-icon svg {
+        width: 38px;
+        height: 38px;
         filter: drop-shadow(0 0 6px rgba(232, 192, 125, .45));
         transition: filter .18s ease, transform .18s ease;
     }
 
-    .alife-rail-item:hover .ddz-rail-icon,
-    .alife-rail-item.active .ddz-rail-icon {
+    .game-center-item:hover .ddz-game-icon svg,
+    .game-center-item.active .ddz-game-icon svg {
         filter: drop-shadow(0 0 9px rgba(255, 226, 160, .75));
         transform: scale(1.06);
     }
 
-    .ddz-rail-card {
+    .ddz-game-card {
         stroke: #d9b36c;
         stroke-width: 2;
     }
 
-    .ddz-rail-card.front {
+    .ddz-game-card.front {
         fill: #f7e6be;
     }
 
-    .ddz-rail-card.back {
+    .ddz-game-card.back {
         fill: #8e252b;
     }
 
-    .ddz-rail-char {
+    .ddz-game-char {
         fill: #a52a2a;
         font-size: 22px;
         font-weight: 800;
@@ -1775,7 +1767,6 @@
     readonly Dictionary<string, string> soundSources = [];
     readonly HashSet<int> selected = [];
     bool clientReady;
-    bool visible;
     bool musicEnabled = true;
     string? openingNotice;
     int openingGeneration;
@@ -1888,14 +1879,9 @@
         }
         return ordinal;
     }
-    void ToggleFullscreen()
-    {
-        visible = !visible;
-    }
     void CloseFullscreen()
     {
-        visible = false;
-        StateHasChanged();
+        _ = RequestCloseAsync();
     }
     void OnTableChanged()
     {
@@ -2046,7 +2032,7 @@
     async Task ToggleMusic()
     {
         musicEnabled = !musicEnabled;
-        if (musicEnabled && visible && table.IsPlaying && table.Phase != DoudizhuPhase.Over)
+        if (musicEnabled && Opened && table.IsPlaying && table.Phase != DoudizhuPhase.Over)
             await PlayMusicAsync();
         if (musicEnabled == false)
             await StopMusicAsync();
