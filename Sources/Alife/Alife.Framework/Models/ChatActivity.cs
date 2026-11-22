@@ -104,7 +104,7 @@ public class ChatActivity(
             {
                 ChatBehaviour chatBehaviour = behaviours[index];
                 progress?.Report(($"启动 {TypeUtility.GetReadableName(chatBehaviour.GetType())} 模块", (float)index / behaviours.Length));
-                await chatBehaviour.UpdateAsync(new UpdateContext());
+                await chatBehaviour.StartOrUpdateAsync(new UpdateContext());
             }
         }
         //开始update
@@ -113,12 +113,25 @@ public class ChatActivity(
     }
     public async Task Destroy(IProgress<(string, float)>? progress = null)
     {
+        //结束update
+        if (cancelTimerSource != null)
+            await cancelTimerSource.CancelAsync();
+
+        //关闭模块
+        {
+            ChatBehaviour[] behaviours = container.Instances.OfType<ChatBehaviour>().ToArray();
+            for (int index = behaviours.Length - 1; index >= 0; index--)
+            {
+                ChatBehaviour chatBehaviour = behaviours[index];
+                progress?.Report(($"关闭 {TypeUtility.GetReadableName(chatBehaviour.GetType())} 模块", 1 - (float)index / behaviours.Length));
+                await chatBehaviour.EndAsync();
+            }
+        }
+
+        //销毁模块
         moduleSystem.ModulesLoadedAsync -= OnModulesLoadedAsync;
         moduleSystem.ModulesUnloadedAsync -= OnModulesUnloadedAsync;
         characterSystem.CharacterChangedAsync -= OnCharacterChangedAsync;
-
-        if (cancelTimerSource != null)
-            await cancelTimerSource.CancelAsync();
         await container.DisposeAsync(progress);
     }
 
@@ -155,7 +168,7 @@ public class ChatActivity(
                 try
                 {
                     foreach (ChatBehaviour behaviour in container.Instances.OfType<ChatBehaviour>())
-                        await behaviour.UpdateAsync(context);
+                        await behaviour.StartOrUpdateAsync(context);
                 }
                 finally
                 {

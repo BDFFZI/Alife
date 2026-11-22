@@ -15,12 +15,12 @@ public class ChatActivitySystem
     public event Action<Character>? Activating;
 
     /// <summary>
-    /// 活动创建并调用Awake后
+    /// 活动创建并调用Awake后，此时ChatBot和各插件都可以正常工作了
     /// </summary>
     public event Action<ChatActivity>? ActivatingCreated;
 
     /// <summary>
-    /// 活动调用Start并正式加入统计，即完成创建后
+    /// 活动调用Start后，即完全的进入运行状态中了
     /// </summary>
     public event Action<ChatActivity>? Activated;
 

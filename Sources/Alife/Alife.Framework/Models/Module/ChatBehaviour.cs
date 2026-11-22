@@ -48,7 +48,7 @@ public class ChatBehaviour : IAsyncDisposable
             AlifeLog.LogError(e);
         }
     }
-    public async Task UpdateAsync(UpdateContext context)
+    public async Task StartOrUpdateAsync(UpdateContext context)
     {
         if (IsAwaked == false)
             return;
@@ -59,6 +59,7 @@ public class ChatBehaviour : IAsyncDisposable
         {
             try
             {
+                AlifeLog.LogInformation($"{GetType().Name}::OnStart");
                 await OnStart();
             }
             catch (Exception e)
@@ -79,7 +80,22 @@ public class ChatBehaviour : IAsyncDisposable
             AlifeLog.LogError(e);
         }
     }
-    public async ValueTask DisposeAsync()
+    public async Task EndAsync()
+    {
+        if (IsStarted)
+        {
+            try
+            {
+                AlifeLog.LogInformation($"{GetType().Name}::OnEnd");
+                await OnEnd();
+            }
+            catch (Exception e)
+            {
+                AlifeLog.LogError(e);
+            }
+        }
+    }
+    public virtual async ValueTask DisposeAsync()
     {
         await destroyCancellationTokenSource.CancelAsync();
 
@@ -97,9 +113,30 @@ public class ChatBehaviour : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 插件已全部实例化，但未初始化，功能不一定可用
+    /// </summary>
+    /// <returns></returns>
     protected virtual Task OnAwake() => Task.CompletedTask;
+    /// <summary>
+    /// 插件已完全初始化，可以自由使用
+    /// </summary>
+    /// <returns></returns>
     protected virtual Task OnStart() => Task.CompletedTask;
+    /// <summary>
+    /// 默认的每帧时间，可用于简化定时任务的实现
+    /// </summary>
+    /// <returns></returns>
     protected virtual Task OnUpdate() => Task.CompletedTask;
+    /// <summary>
+    /// 角色活动即将停止，但各插件还处于可正常工作的阶段
+    /// </summary>
+    /// <returns></returns>
+    protected virtual Task OnEnd() => Task.CompletedTask;
+    /// <summary>
+    /// 插件陆续销毁，功能不一定可用
+    /// </summary>
+    /// <returns></returns>
     protected virtual Task OnDestroy() => Task.CompletedTask;
 
     readonly CancellationTokenSource destroyCancellationTokenSource = new();
