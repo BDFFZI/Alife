@@ -7,6 +7,9 @@
         在中国大陆可使用镜像下载环境依赖、插件和客户端更新。GitHub 镜像可选。
     </p>
 
+    <Alert ShowIcon="true" Type="AlertType.Warning" Style="margin: 12px;"
+           Message="Github镜像很不稳定，你需要定期在镜像设置页面更新，否则将无法正常使用！"></Alert>
+    
     <div class="mirror-list">
         @foreach (var mirror in AvailableMirrors)
         {

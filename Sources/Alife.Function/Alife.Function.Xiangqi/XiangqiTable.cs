@@ -47,18 +47,21 @@ public class XiangqiTable : GameTable
             logLine.Append($"，吃{SideName(target.Side)}{XiangqiBoard.Name(target)}");
         if (Board.IsInCheck(Turn))
             logLine.Append("，将军");
-        AddLog(logLine.ToString());
+        string moveText = logLine.ToString();
+        AddLog(moveText);
         if (Board.LegalMoves(Turn).Count == 0)
         {
             Winner = mover;
-            AddLog($"{SideName(Turn)}无棋可走，{SideName(mover)}获胜");
-            NotifyAll($"{SideName(Turn)}无棋可走，{SideName(mover)}获胜，对局结束。");
+            string result = $"{SideName(Turn)}无棋可走，{SideName(mover)}获胜";
+            AddLog(result);
+            NotifyAll(DescribeEnd(result, moveText));
         }
         else if (plies >= MaxPlies)
         {
             IsDraw = true;
-            AddLog($"走满 {MaxPlies} 步未分胜负，和棋");
-            NotifyAll($"走满 {MaxPlies} 步未分胜负，和棋，对局结束。");
+            string result = $"走满 {MaxPlies} 步未分胜负，和棋";
+            AddLog(result);
+            NotifyAll(DescribeEnd(result, moveText));
         }
 
         Commit();
@@ -111,6 +114,19 @@ public class XiangqiTable : GameTable
         IReadOnlyList<XiangqiMove> legalMoves = LegalMoves;
         builder.AppendLine($"当前合法走法共 {legalMoves.Count} 种。");
         builder.Append("请回复 <XiangqiMove>走法</XiangqiMove> 落子，例如 <XiangqiMove>h2e2</XiangqiMove>。");
+        return builder.ToString();
+    }
+    string DescribeEnd(string result, string lastMoveText)
+    {
+        StringBuilder builder = new();
+        builder.AppendLine($"【对局结束】{result}。");
+        builder.AppendLine("最终棋盘（红方在下方，黑方在上方）：");
+        builder.AppendLine("```text");
+        builder.AppendLine(Board.RenderCompact().TrimEnd());
+        builder.AppendLine("```");
+        builder.AppendLine($"最后一步：{lastMoveText}");
+        builder.AppendLine($"红方：{Board.DescribePieces(XiangqiSide.Red)}");
+        builder.AppendLine($"黑方：{Board.DescribePieces(XiangqiSide.Black)}");
         return builder.ToString();
     }
 

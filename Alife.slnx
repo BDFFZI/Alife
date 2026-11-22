@@ -39,6 +39,7 @@
     <Project Path="Sources/Alife.Function/Alife.Function.GameCompanion/Alife.Function.GameCompanion.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Xiangqi/Alife.Function.Xiangqi.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.McAgent/Alife.Function.McAgent.csproj" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Mindustry/Alife.Function.Mindustry.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.TableGame/Alife.Function.TableGame.csproj" />
   </Folder>
   <Folder Name="/Sources/Alife.Function/Environment/">

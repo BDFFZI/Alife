@@ -8,10 +8,10 @@
         <Icon Type="@IconType.Outline.Setting" Style="font-size:28px;"/>
     </div>
     <h2 class="step-title">配置 LLM 信息</h2>
-    <p class="step-desc">接入 OpenAI 兼容协议的大语言模型</p>
+    <p class="step-desc">接入 OpenAI 兼容协议的大语言模型，也可以先跳过，之后在“OpenAI语言模型”模块中配置</p>
 
     <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
-           Message="LLM一般要钱，本地的又太蠢。但网上依然有很多免费鸡蛋可以领，比如 https://platform.agnes-ai.cn 就有提供免费模型。你只需要注册账号，然后复制粘贴你的 API 密钥即可。但该模型限速有甲，陪伴效果很差，有条件的最好换掉，或者你也可以尝试市场中的本地语言模型。"></Alert>
+           Message="LLM一般要钱，本地的又太蠢。但网上依然有很多免费鸡蛋可以领，比如 https://platform.agnes-ai.cn 就有提供免费模型。你只需要注册账号，然后复制粘贴你的 API 密钥即可。但该模型限速有甲，陪伴效果很差，有条件的最好换掉。推荐尝试使用 magpie 之类的工具搞反代额度，或者你也可以尝试市场中的本地语言模型。"></Alert>
 
     <Form TModel="LlmConfigModel" Model="@llmConfig" Layout="@FormLayout.Vertical" Size="@FormSize.Small">
         <FormItem Label="API Base URL（端点）">
@@ -51,12 +51,17 @@
             <Icon Type="@IconType.Outline.ArrowLeft"/>
             上一步
         </Button>
-        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large"
-                Disabled="@(string.IsNullOrWhiteSpace(llmConfig.endpoint) || string.IsNullOrWhiteSpace(llmConfig.apiKey))"
-                OnClick="@OnSaveAndNext">
-            下一步
-            <Icon Type="@IconType.Outline.ArrowRight"/>
-        </Button>
+        <Flex Gap="@("8")">
+            <Button Size="@ButtonSize.Large" OnClick="@OnSkip">
+                跳过
+            </Button>
+            <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large"
+                    Disabled="@(string.IsNullOrWhiteSpace(llmConfig.endpoint) || string.IsNullOrWhiteSpace(llmConfig.apiKey))"
+                    OnClick="@OnSaveAndNext">
+                下一步
+                <Icon Type="@IconType.Outline.ArrowRight"/>
+            </Button>
+        </Flex>
     </div>
 </div>
 
@@ -130,6 +135,11 @@
     async Task OnSaveAndNext()
     {
         OnSaveLlmConfig();
+        await OnNextStep.InvokeAsync();
+    }
+
+    async Task OnSkip()
+    {
         await OnNextStep.InvokeAsync();
     }
 

@@ -110,8 +110,9 @@ public class DoudizhuTable : GameTable
         {
             Phase = DoudizhuPhase.Over;
             WinnerIndex = index;
-            AddLog($"{Seats[index].Name} 出完手牌，{(index == LandlordIndex ? "地主" : "农民")}方获胜");
-            NotifyAll($"{Seats[index].Name} 出完手牌，{(index == LandlordIndex ? "地主" : "农民")}方获胜，牌局结束。");
+            string result = $"{Seats[index].Name} 出完手牌，{(index == LandlordIndex ? "地主" : "农民")}方获胜";
+            AddLog(result);
+            NotifyAll(DescribeEnd(result, combo));
         }
         else
         {
@@ -253,6 +254,22 @@ public class DoudizhuTable : GameTable
             DoudizhuKind.Rocket => "王炸",
             _ => "未知牌型",
         };
+    }
+    string DescribeEnd(string result, DoudizhuCombo combo)
+    {
+        StringBuilder builder = new();
+        builder.AppendLine($"【牌局结束】{result}。");
+        builder.AppendLine($"地主：{Seats[LandlordIndex].Name}");
+        builder.AppendLine($"农民：{string.Join("、", Seats.Where((_, index) => index != LandlordIndex).Select(seat => seat.Name))}");
+        builder.AppendLine($"底牌：{DoudizhuCards.Format(bottom)}");
+        builder.AppendLine($"最后出牌：{Seats[LastPlayerIndex].Name} 出 {DoudizhuCards.Format(lastCards)}（{ComboName(combo)}）");
+        builder.AppendLine("最终手牌：");
+        for (int index = 0; index < Seats.Count; index++)
+        {
+            string hand = hands[index].Count == 0 ? "已出完" : $"{DoudizhuCards.Format(hands[index])}（{hands[index].Count} 张）";
+            builder.AppendLine($"- {Seats[index].Name}（{(index == LandlordIndex ? "地主" : "农民")}）：{hand}");
+        }
+        return builder.ToString();
     }
 
     void Deal()

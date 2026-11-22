@@ -8,8 +8,8 @@
     <h2 class="step-title">配置运行环境</h2>
     <p class="step-desc">@string.Join("、", environmentItems.Where(item => item.IsRequired).Select(item => item.Name))（必需）</p>
 
-    <Alert ShowIcon="true" Type="AlertType.Info" Style="margin: 12px;"
-           Message="下载时间取决于网络情况。"></Alert>
+    <Alert ShowIcon="true" Type="AlertType.Warning" Style="margin: 12px;"
+           Message="下载时间取决于网络情况，注意观察任务管理器。"></Alert>
 
     <div class="env-grid">
         @foreach (var item in environmentItems)

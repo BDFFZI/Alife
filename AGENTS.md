@@ -220,6 +220,7 @@ if (c == false) return;
 ### 9.1 启动前先把插件编出来
 
 - `PluginContext.GetPluginFiles` 在 Debug 下只保留 `obj\Debug\**\generated`（Razor 源生成器产出的 `.g.cs`），其余 `bin`、`obj` 一律跳过。所以含 `.razor` 的插件**必须先 `dotnet build`（Debug）生成 g.cs**，运行时才编得过；否则日志全是「模块编译失败」，插件界面集体缺席，真问题被噪音盖住。
+- 插件包含 `.razor` 时，工程必须使用 `Microsoft.NET.Sdk.Razor`，否则 `dotnet build` 不会生成可被插件加载器收集的 `obj\Debug\<TFM>\generated\...\*_razor.g.cs`。`Resources` 是唯一随插件包分发的运行资源目录，不要把源码、JAR 或其他运行文件依赖放到它之外。
 
 ```powershell
 Get-ChildItem Sources\Alife.Function -Recurse -Filter *.csproj |
@@ -268,6 +269,9 @@ while ((Get-Date) -lt $deadline) {
 - 端口连不上（`Test-NetConnection 127.0.0.1 -Port 18765` 为 False）只有两种可能：客户端没启动，或刚启动还没监听（等 30–60 秒）。改完插件可以 `reload_plugin` 省一次重启，但先确认 §9.1 的旧 DLL 缓存已经清掉。
 
 ### 9.4 静态资源放哪
+
+- 随插件打包的运行资源统一放在插件的 `Resources/` 下，例如启动脚本、桥接 JAR 和安装说明。打包后检查实际 ZIP 是否包含这些文件。
+- 插件通过构造函数注入 `PluginSystem`，用 `pluginSystem.PluginContext.GetPluginDirectoryPath(pluginId)` 获取实际安装目录，再拼接 `Resources` 和文件名。
 
 - 宿主与插件共用的浏览器脚本放在 `Alife.Client\wwwroot`（`alife-theme.css` / `alife-theme.js` / `alife-chat.js`），插件按固定 URL 取用：`import("./_content/Alife.Client/alife-chat.js")`。这只是运行时地址，插件不引用 `Alife.Client` 工程，分层不破。
 - **不要给 `Alife.Application` 加 `wwwroot`**：把它改成 Razor SDK 之后，凡是引用它的 `Microsoft.NET.Sdk.Razor` 插件工程都会在 `DiscoverPrecompressedAssets` 上抛「An item with the same key has already been added」，构建直接失败（同一份资源被聚合了两遍，清 obj、关压缩都躲不开）。
