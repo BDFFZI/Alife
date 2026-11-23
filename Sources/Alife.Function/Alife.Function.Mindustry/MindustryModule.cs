@@ -59,7 +59,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
 
         operationHandler = new XmlHandler(this) { Description = "Mindustry 陪玩操作" };
         functionCaller.RegisterHandler(operationHandler, DocumentMode.Explicit, DestroyCancellationToken);
-        interactor.Poke("已开启 Mindustry 陪玩。请先调用 MindustryStatus 查看当前局面，再下达操作。");
+        interactor.Poke("已开启 Mindustry 陪玩。先调用 MindustryStatus；每次只提交一项操作并等待回报。");
     }
 
     [Description("关闭 Mindustry 陪玩，卸载游戏操作工具并停止自主陪玩。")]
@@ -88,15 +88,15 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("列出服务器中的关卡名称和尺寸，可以向用户汇报这些关卡。")]
-    public Task MindustryMaps() => CallAsync("maps");
+    [Description("列出可用关卡。")]
+    public Task MindustryMaps() => CallAsync("maps", allowWhileBusy: true);
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("读取关卡、波次、所属队伍、所有在线玩家的名称、队伍、可见坐标和单位状态、库存、全部现存矿点及最近一次任务状态。")]
-    public Task MindustryStatus() => CallAsync("status");
+    [Description("仅在阶段切换或需要完整产业、坐标规划时调用；普通任务完成后先依据自主陪玩的精简状态决策。")]
+    public Task MindustryStatus() => CallAsync("status", allowWhileBusy: true);
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("在当前可见区域外的整张地图中搜索指定矿石、建筑或单位，无需让陪玩单位移动。内容为类别和内容ID，例如 ore beryllium、block stone-vent、unit dagger。结果按离己方核心的距离排序，最多返回 50 个。")]
+    [Description("全图搜索矿石、建筑或单位。格式：ore/block/unit ID，支持名称片段；结果按离核心距离排序。")]
     public async Task MindustryFind(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -107,36 +107,32 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
             || parts[1].Length is < 1 or > 80
             || parts[1].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false)
         {
-            interactor.Poke("搜索格式为类别和内容ID，例如 ore beryllium、block stone-vent、unit dagger。");
+            interactor.Poke("搜索格式为类别和ID或名称片段，例如 ore beryllium、block vent、unit stell。");
             return;
         }
 
-        await CallAsync($"find?kind={parts[0]}&id={parts[1]}");
+        await CallAsync($"find?kind={parts[0]}&id={parts[1]}", allowWhileBusy: true);
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("列出当前可研究的科技项目，包括内容ID、前置、剩余资源需求和库存。做新手关卡任务或需要解锁新建筑时先调用它。")]
-    public Task MindustryTech() => CallAsync("tech");
-
-    [XmlFunction(FunctionMode.Content)]
-    [Description("研究并解锁一个科技项目，内容为科技列表中的内容ID，例如 pneumatic-drill。会使用当前核心库存或战役全局库存，扣除资源并验证解锁结果。")]
-    public async Task MindustryResearch(XmlExecutorContext context)
+    [Description("查看可研究科技；填写 content 时研究该内容ID。")]
+    public Task MindustryTech(string? content = null)
     {
-        if (context.CallMode != CallMode.Closing)
-            return;
+        if (string.IsNullOrEmpty(content))
+            return CallAsync("tech", allowWhileBusy: true);
 
-        string content = context.FullContent.Trim();
+        content = content.Trim();
         if (content.Length is < 1 or > 80 || content.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false)
         {
-            interactor.Poke("研究格式为科技列表中的内容ID，例如 pneumatic-drill。");
-            return;
+            interactor.Poke("研究格式为科技列表中的内容ID，例如 silicon-arc-furnace。");
+            return Task.CompletedTask;
         }
 
-        await CallAsync($"research?content={Uri.EscapeDataString(content)}", HttpMethod.Post);
+        return CallAsync($"research?content={Uri.EscapeDataString(content)}", HttpMethod.Post, allowWhileBusy: true);
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让己方陪玩单位建造。内容为以空格分隔的 x y 方向 建筑ID，例如 216 84 0 copper-wall。先查询状态，则可获取推荐坐标和建筑列表。建造单位会前往目标，系统会自动报告完工或失败。")]
+    [Description("建造一个建筑。格式：x y 方向 建筑ID。")]
     public async Task MindustryBuild(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -146,16 +142,54 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         if (parts.Length != 4 || int.TryParse(parts[0], out int x) == false
             || int.TryParse(parts[1], out int y) == false || int.TryParse(parts[2], out int rotation) == false)
         {
-            interactor.Poke("建造格式为 x y 方向 建筑ID，例如 216 84 0 copper-wall。");
+            interactor.Poke("建造格式为 x y 方向 建筑ID，例如 281 107 0 duct。");
             return;
         }
 
         await CallAsync($"build?x={x}&y={y}&rotation={rotation}&block={Uri.EscapeDataString(parts[3])}", HttpMethod.Post);
     }
 
+    [XmlFunction(FunctionMode.Content)]
+    [Description("铺设 L 形单格路线。格式：x1 y1 x2 y2 方向 建筑ID。")]
+    public async Task MindustryBuildLine(XmlExecutorContext context)
+    {
+        if (context.CallMode != CallMode.Closing)
+            return;
+
+        string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 6 || int.TryParse(parts[0], out int x1) == false
+            || int.TryParse(parts[1], out int y1) == false
+            || int.TryParse(parts[2], out int x2) == false
+            || int.TryParse(parts[3], out int y2) == false
+            || int.TryParse(parts[4], out int rotation) == false)
+        {
+            interactor.Poke("连续建造格式为起点x 起点y 终点x 终点y 方向 建筑ID，例如 282 118 270 105 0 duct。");
+            return;
+        }
+
+        await CallAsync($"build-line?x1={x1}&y1={y1}&x2={x2}&y2={y2}&rotation={rotation}&block={Uri.EscapeDataString(parts[5])}", HttpMethod.Post);
+    }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让陪玩单位自主前往目标格，到达后会自动报告。内容为 x y，例如 220 90。")]
+    [Description("拆除己方建筑。格式：x y。")]
+    public async Task MindustryDeconstruct(XmlExecutorContext context)
+    {
+        if (context.CallMode != CallMode.Closing)
+            return;
+
+        string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || int.TryParse(parts[0], out int x) == false || int.TryParse(parts[1], out int y) == false)
+        {
+            interactor.Poke("拆除格式为 x y，例如 283 118。");
+            return;
+        }
+
+        await CallAsync($"deconstruct?x={x}&y={y}", HttpMethod.Post);
+    }
+
+
+    [XmlFunction(FunctionMode.Content)]
+    [Description("移动到目标格。格式：x y。")]
     public async Task MindustryMove(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -172,7 +206,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让陪玩单位自动找地表矿或墙体矿、采集并运入己方核心，完成后会自动报告。内容为物资ID和数量，例如 copper 10。物资是否可采由当前单位能力和地图决定，数量 1 至 99。")]
+    [Description("采集并运回核心。格式：物资ID 数量（1～999）。")]
     public async Task MindustryMine(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -182,9 +216,9 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         if (parts.Length != 2 || parts[0].Length is < 1 or > 80
             || parts[0].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false
             || int.TryParse(parts[1], out int amount) == false
-            || amount is < 1 or > 99)
+            || amount is < 1 or > 999)
         {
-            interactor.Poke("采运格式为物资ID和数量，例如 copper 10。");
+            interactor.Poke("采运格式为物资ID和数量，例如 beryllium 10。");
             return;
         }
 
@@ -192,10 +226,10 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("取消此单位正在执行的任务，已完成的采运或建造会保留。")]
-    public Task MindustryCancel() => CallAsync("cancel", HttpMethod.Post);
+    [Description("取消当前陪玩任务，已完成部分会保留。")]
+    public Task MindustryCancel() => CallAsync("cancel", HttpMethod.Post, allowWhileBusy: true);
     [XmlFunction(FunctionMode.Content)]
-    [Description("查看指定位置附近的地形、地表矿、墙体矿、喷口、液体和建筑网格。内容为中心点 x y 和半径 1 至 6，例如 230 97 3。")]
+    [Description("仅在需要检查局部地形或建筑候选位时勘查网格。格式：x y 半径（1～6）。")]
     public async Task MindustrySurvey(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -209,11 +243,11 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
             return;
         }
 
-        await CallAsync($"survey?x={x}&y={y}&radius={radius}");
+        await CallAsync($"survey?x={x}&y={y}&radius={radius}", allowWhileBusy: true);
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("仅在用户要求持续自主玩当前对局时启动。内容是获准执行的具体目标。闲置时会收到状态用来选择下一步；目标达成时调用 MindustryAutoplayStop。")]
+    [Description("持续自主游玩。内容为具体目标；空闲时自动收到精简状态。")]
     public Task MindustryAutoplay(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -244,7 +278,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("停止自动安排后续任务。若还需要中止当前游戏动作，另行调用 MindustryCancel。")]
+    [Description("停止自主陪玩。当前动作需另调 MindustryCancel。")]
     public void MindustryAutoplayStop()
     {
         lock (autoplayLock)
@@ -259,7 +293,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让单位自动规划并铺设从同种矿床到己方核心的机械钻头和传送带。内容为 copper、lead、coal 或 sand。同一局再次调用会修复该资源产线的缺损。会等待核心库存增加后自动回报。")]
+    [Description("苏普鲁自动产线。内容：copper、lead、coal 或 sand。埃里克尔改用 MindustryBuild。")]
     public async Task MindustrySupply(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -276,7 +310,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("让陪玩单位前往指定格守卫，自动瞄准射击，有铜时为附近低弹量双管炮补给，生命过低时撤回。内容为 x y 秒数（5～90）。")]
+    [Description("守卫并自动补弹。格式：x y 秒数（5～600）。")]
     public async Task MindustryGuard(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -284,39 +318,21 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
 
         string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 3 || int.TryParse(parts[0], out int x) == false || int.TryParse(parts[1], out int y) == false
-            || int.TryParse(parts[2], out int seconds) == false || seconds is < 5 or > 90)
+            || int.TryParse(parts[2], out int seconds) == false || seconds is < 5 or > 600)
         {
-            interactor.Poke("守卫格式为 x y 秒数（5～90）。");
+            interactor.Poke("守卫格式为 x y 秒数（5～600）。");
             return;
         }
 
         await CallAsync($"guard?x={x}&y={y}&seconds={seconds}", HttpMethod.Post);
     }
 
-    [XmlFunction(FunctionMode.Content)]
-    [Description("从己方核心取铜并运到指定的己方双管炮，按炮塔容量补给。内容为炮塔 x y 和物资数量，例如 223 80 10。")]
-    public async Task MindustryResupply(XmlExecutorContext context)
-    {
-        if (context.CallMode != CallMode.Closing)
-            return;
-
-        string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 3 || int.TryParse(parts[0], out int x) == false || int.TryParse(parts[1], out int y) == false
-            || int.TryParse(parts[2], out int amount) == false || amount is < 1 or > 99)
-        {
-            interactor.Poke("补给格式为炮塔 x y 铜数量（1～99）。");
-            return;
-        }
-
-        await CallAsync($"resupply?x={x}&y={y}&amount={amount}", HttpMethod.Post);
-    }
-
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("仅在用户允许提前开波、而且己方防守已就绪时，开始下一波生存敌军。")]
-    public Task MindustryNextWave() => CallAsync("wave", HttpMethod.Post);
+    [Description("防御就绪且用户允许时，提前开始下一波。")]
+    public Task MindustryNextWave() => CallAsync("wave", HttpMethod.Post, allowWhileBusy: true);
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("选择一台己方无人操控且能伤害建筑的作战单位，进攻指定格的可见敌方建筑。内容为 x y。生命过低时撤回己方核心。")]
+    [Description("全部战斗单位进攻敌方建筑。格式：x y。")]
     public async Task MindustryAttack(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -333,7 +349,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("设置己方陆军工厂生产方案，格式为 x y 兵种ID，例如 350 65 dagger。工厂需要供电和材料才会出兵。")]
+    [Description("配置单位工厂。格式：x y 兵种ID。")]
     public async Task MindustryFactory(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -342,7 +358,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 3 || int.TryParse(parts[0], out int x) == false || int.TryParse(parts[1], out int y) == false)
         {
-            interactor.Poke("工厂配置格式为 x y 兵种ID，例如 350 65 dagger。");
+            interactor.Poke("工厂配置格式为 x y 兵种ID，例如 300 120 stell。");
             return;
         }
 
@@ -350,7 +366,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("从己方核心给已配置的工厂、硅冶炼炉或燃烧发电机运送材料。格式为 x y 物资ID 数量，例如 349 65 silicon 10。等待送达后再运下一种。")]
+    [Description("从核心向己方建筑送料。格式：x y 物资ID 数量（1～99）。")]
     public async Task MindustryFactoryFeed(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -358,10 +374,11 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
 
         string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 4 || int.TryParse(parts[0], out int x) == false || int.TryParse(parts[1], out int y) == false
-            || parts[2] is not ("silicon" or "lead" or "coal" or "titanium" or "sand")
+            || parts[2].Length is < 1 or > 80
+            || parts[2].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false
             || int.TryParse(parts[3], out int amount) == false || amount is < 1 or > 99)
         {
-            interactor.Poke("工厂供料格式为 x y 物资ID 数量（1～99），支持 silicon、lead、coal、titanium、sand。");
+            interactor.Poke("工厂供料格式为 x y 物资ID 数量（1～99），物资ID使用 MindustryStatus 中显示的 ID。");
             return;
         }
 
@@ -369,7 +386,32 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("连接己方电力节点和电力建筑，格式为 节点x 节点y 目标x 目标y。重复调用会保留现有连接。")]
+    [Description("在两座己方建筑之间转运物资。格式：源x 源y 目标x 目标y 物资ID 数量（1～99）。")]
+    public async Task MindustryTransfer(XmlExecutorContext context)
+    {
+        if (context.CallMode != CallMode.Closing)
+            return;
+
+        string[] parts = context.FullContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 6 || int.TryParse(parts[0], out int sourceX) == false
+            || int.TryParse(parts[1], out int sourceY) == false
+            || int.TryParse(parts[2], out int targetX) == false
+            || int.TryParse(parts[3], out int targetY) == false
+            || parts[4].Length is < 1 or > 80
+            || parts[4].All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-') == false
+            || int.TryParse(parts[5], out int amount) == false || amount is < 1 or > 99)
+        {
+            interactor.Poke("建筑转运格式为源x 源y 目标x 目标y 物资ID 数量（1～99）。");
+            return;
+        }
+
+        await CallAsync(
+            $"transfer?fromX={sourceX}&fromY={sourceY}&toX={targetX}&toY={targetY}&item={parts[4]}&amount={amount}",
+            HttpMethod.Post);
+    }
+
+    [XmlFunction(FunctionMode.Content)]
+    [Description("连接普通电力节点。格式：起点x 起点y 目标x 目标y；beam-node 自动连接。")]
     public async Task MindustryPowerLink(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -387,7 +429,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("从己方硅冶炼炉取出已制成的硅并运回核心。格式为 x y 数量。")]
+    [Description("从己方建筑回收硅到核心。格式：x y 数量。")]
     public async Task MindustryCollectSilicon(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -439,15 +481,17 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     readonly object autoplayLock = new();
+    readonly object taskLock = new();
     CancellationTokenSource? autoplay;
     XmlHandler? operationHandler;
+    long activeTaskId;
 
     static readonly HttpClient client = new(new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false })
     {
         Timeout = TimeSpan.FromSeconds(6)
     };
 
-    async Task CallAsync(string path, HttpMethod? method = null)
+    async Task CallAsync(string path, HttpMethod? method = null, bool allowWhileBusy = false)
     {
         if (IsConfigured() == false)
         {
@@ -455,11 +499,25 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
             return;
         }
 
+        if (allowWhileBusy == false)
+        {
+            long taskId;
+            lock (taskLock)
+                taskId = activeTaskId;
+            if (taskId != 0)
+            {
+                interactor.Poke($"Mindustry 任务 #{taskId} 仍在执行。等待回报、查询状态或取消后再提交下一项。");
+                return;
+            }
+        }
+
         try
         {
             (HttpStatusCode status, string result, long taskId, long round) = await SendAsync(path, method ?? HttpMethod.Get, DestroyCancellationToken);
             if (taskId != 0)
             {
+                lock (taskLock)
+                    activeTaskId = taskId;
                 _ = ReportCompletionAsync(taskId, round);
                 return;
             }
@@ -492,7 +550,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
                 if (status == HttpStatusCode.Accepted)
                     continue;
 
-                interactor.Poke($"Mindustry 任务 #{taskId} 回报：{result}");
+                interactor.Poke($"Mindustry 任务 #{taskId} 回报：{result}\n任务结束。先读取状态，只执行一个操作，等待回报后再继续。");
                 return;
             }
         }
@@ -504,6 +562,14 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         {
             interactor.Poke($"与 Mindustry 的连接中断，任务 #{taskId} 结果未知。重新连接后请先查询状态。");
         }
+        finally
+        {
+            lock (taskLock)
+            {
+                if (activeTaskId == taskId)
+                    activeTaskId = 0;
+            }
+        }
     }
 
     async Task DriveAutoplayAsync(CancellationTokenSource session, string objective)
@@ -512,12 +578,20 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         try
         {
             long round = 0;
+            string? lastStatus = null;
             while (true)
             {
                 string path = round == 0 ? "autonomy" : $"autonomy?round={round}";
                 (HttpStatusCode status, string result, _, long currentRound) = await SendAsync(path, HttpMethod.Get, cancellationToken);
                 if (status == HttpStatusCode.OK)
-                    interactor.Poke($"Mindustry 自主陪玩目标：{objective}\n{result}\n空闲时只下达一项任务，等回报再决定下一步。守卫中只决定是否开波。目标达成或无法继续时，停止自主陪玩并说明结果。");
+                {
+                    if (string.Equals(result, lastStatus, StringComparison.Ordinal) == false)
+                    {
+                        bool isFirstStatus = lastStatus == null;
+                        lastStatus = result;
+                        interactor.Poke($"{(isFirstStatus ? $"Mindustry 自主陪玩目标：{objective}\n" : "")}{result}\n一次只执行一项任务并等待回报；任务结束后避免例行调用 MindustryStatus；达标或无法继续时停止自主陪玩。");
+                    }
+                }
                 else if (status != HttpStatusCode.Accepted)
                 {
                     interactor.Poke($"Mindustry 自主陪玩已结束：{result}");

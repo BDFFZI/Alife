@@ -4,7 +4,6 @@ import arc.math.geom.Vec2;
 import mindustry.Vars;
 import mindustry.ai.types.CommandAI;
 import mindustry.content.Items;
-import mindustry.content.Blocks;
 import mindustry.world.blocks.defense.turrets.ItemTurret.ItemTurretBuild;
 import mindustry.entities.Units;
 import mindustry.entities.units.BuildPlan;
@@ -12,19 +11,23 @@ import mindustry.gen.Building;
 import mindustry.gen.Call;
 import mindustry.gen.Unit;
 import mindustry.type.Item;
+import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
+import mindustry.world.blocks.defense.turrets.ItemTurret;
+import mindustry.world.blocks.defense.turrets.ItemTurret.ItemTurretBuild;
 import mindustry.world.blocks.storage.CoreBlock;
 
 import arc.util.Time;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 final class CompanionTasks {
-    private enum Action { MOVE, BUILD, MINE, VERIFY_SUPPLY, GUARD, RETREAT, RESUPPLY, ATTACK, COLLECT, UNLOAD }
+    private enum Action { MOVE, BUILD, MINE, VERIFY_SUPPLY, GUARD, RETREAT, RESUPPLY, TRANSFER, ATTACK, COLLECT, UNLOAD }
 
     private Unit worker;
     private Action action;
@@ -38,18 +41,22 @@ final class CompanionTasks {
     private Building home;
     private float guardTime;
     private Building turret;
+    private Building transferSource;
     private Item cargo;
     private Building attackTarget;
+    private final List<Unit> attackers = new ArrayList<>();
+    private float attackStagingTime;
     private Action afterUnload;
-    private Unit attacker;
     private Tile guardPost;
     private float reloadCheck;
-    private int guardCopperDelivered;
+    private int guardAmmoDelivered;
     private Item item;
     private Building depositCore;
     private Tile ore;
     private int remaining;
     private int delivered;
+    private float miningRetry;
+    private float blockedTime;
     private float timeLeft;
     private long sequence;
     private final Map<Item, List<BuildPlan>> supplyRoutes = new HashMap<>();
@@ -91,10 +98,16 @@ final class CompanionTasks {
     }
 
     String unitStatus() {
-        return ready() ? worker.tileX() + "," + worker.tileY() + "，生命 " + Math.round(worker.health)
-            + "/" + Math.round(worker.maxHealth) + (worker.stack.amount > 0
-            ? "，携带 " + worker.stack.item.name + "=" + worker.stack.amount : "")
-            : "将在首条有效指令后从己方核心出发";
+        if (!ready()) return "将在首条有效指令后从己方核心出发";
+        String status = worker.type.name + "@" + worker.tileX() + "," + worker.tileY()
+            + "，生命 " + Math.round(worker.health) + "/" + Math.round(worker.maxHealth);
+        if (worker.stack.amount > 0) status += "，携带 " + worker.stack.item.name + "=" + worker.stack.amount;
+        if (action == Action.ATTACK) status += "，进攻编队 " + attackers.size() + " 台";
+        return status;
+    }
+
+    Unit worker() {
+        return worker;
     }
 
     String move(Building core, Tile target) {
@@ -107,15 +120,26 @@ final class CompanionTasks {
 
     String attack(Building core, Building target) {
         if (action != null) return busy();
-        attacker = core.team.data().units.find(unit -> unit != worker && unit.isValid() && !unit.isPlayer()
-            && unit.healthf() >= 0.25f && unit.controller() instanceof CommandAI
-            && unit.type.weapons.contains(weapon -> weapon.bullet.collidesGround && weapon.bullet.buildingDamageMultiplier > 0));
-        if (attacker == null) return "己方没有可用的攻城单位，请先生产可以伤害建筑的作战单位。";
-        start(Action.ATTACK, "进攻 " + target.block.name + "@" + target.tileX() + "," + target.tileY(), 240);
+        attackers.clear();
+        for (Unit candidate : core.team.data().units) {
+            if (candidate != worker && candidate.isValid() && !candidate.isPlayer()
+                && candidate.healthf() >= 0.25f && candidate.controller() instanceof CommandAI
+                && candidate.type.weapons.contains(weapon -> weapon.aiControllable && !weapon.noAttack
+                    && weapon.bullet.collidesGround && weapon.bullet.buildingDamageMultiplier > 0)) {
+                attackers.add(candidate);
+            }
+        }
+        if (attackers.isEmpty()) return "己方没有可用的攻城单位，请先生产可以伤害建筑的作战单位。";
+        start(Action.ATTACK, "进攻 " + target.block.name + "@" + target.tileX() + "," + target.tileY(), 900);
         home = core;
         attackTarget = target;
-        ((CommandAI)attacker.controller()).commandTarget(target);
-        phase = "正在接敌";
+        destination = attackStaging(target);
+        attackStagingTime = 30f * 60f;
+        for (Unit attacker : attackers) {
+            ((CommandAI)attacker.controller()).commandPosition(
+                new Vec2(destination.worldx(), destination.worldy()));
+        }
+        phase = "正在前往 " + destination.x + "," + destination.y + " 集结，编队 " + attackers.size() + " 台";
         return accepted();
     }
 
@@ -127,8 +151,17 @@ final class CompanionTasks {
         guardTime = seconds * 60f;
         guardPost = target;
         reloadCheck = 0;
-        guardCopperDelivered = 0;
-        navigate(target);
+        guardAmmoDelivered = 0;
+        if (worker.stack.amount > 0) {
+            afterUnload = Action.GUARD;
+            action = Action.UNLOAD;
+            depositCore = core;
+            destination = core.tile;
+            navigate(core.tile);
+            phase = "先返回核心卸下余料";
+        } else {
+            navigate(target);
+        }
         return accepted();
     }
 
@@ -136,6 +169,12 @@ final class CompanionTasks {
         if (action != null) return busy();
         if (!summon(core)) return "该队伍没有可用的陪玩单位。";
         return buildQueue(target.block.name + "@" + target.x + "," + target.y, List.of(target), 90);
+    }
+
+    String buildRoute(Building core, Block block, List<BuildPlan> targets) {
+        if (action != null) return busy();
+        if (!summon(core)) return "该队伍没有可用的陪玩单位。";
+        return buildQueue(block.name + " 路线（" + targets.size() + " 格）", targets, 90 + targets.size() * 3);
     }
 
     String supply(Building core, Item item, List<BuildPlan> route) {
@@ -172,14 +211,24 @@ final class CompanionTasks {
 
     String mine(Building core, Item target, int amount) {
         if (action != null) return busy();
-        if (!summon(core) || !worker.canMine() || !worker.canMine(target)) {
-            return "陪玩单位无法直接开采 " + target.name + "。可尝试用机械钻头产线采集。";
+        if (!summon(core)) return "该队伍没有可用的陪玩单位。";
+        if (!worker.canMine() || !worker.canMine(target)) {
+            return "陪玩单位 " + worker.type.name + " 无法直接开采 " + target.name
+                + "。请建造当前星球可用的钻矿建筑或在 MindustryStatus 查看矿点。";
         }
 
         Tile source = findOre(target);
-        if (source == null) return "附近没有可开采的 " + target.name + "。";
+        if (source == null) {
+            StringBuilder available = new StringBuilder();
+            for (Item item : Vars.indexer.getAllPresentOres()) {
+                if (available.length() > 0) available.append("、");
+                available.append(item.name);
+            }
+            return "附近没有可开采的 " + target.name + "。地图当前存在的矿种："
+                + (available.length() == 0 ? "无" : available.toString());
+        }
         if (core.acceptStack(target, 1, worker) == 0) return "核心无法接收 " + target.name + "。";
-        start(Action.MINE, "采运 " + amount + " " + target.name, 150);
+        start(Action.MINE, "采运 " + amount + " " + target.name, Math.max(150, amount * 2));
         ore = source;
         item = target;
         remaining = amount;
@@ -188,7 +237,7 @@ final class CompanionTasks {
         miningReturn = worker.stack.item == target && worker.stack.amount >= amount;
         if (needsUnload(target)) beginUnload(Action.MINE);
         else if (miningReturn) navigateCore();
-        else navigate(ore);
+        else navigateOre();
         return accepted();
     }
 
@@ -196,17 +245,40 @@ final class CompanionTasks {
         if (action != null) return busy();
         if (!summon(core)) return "该队伍没有可用的陪玩单位。";
         int carried = worker.stack.item == material ? worker.stack.amount : 0;
-        int accepted = target.acceptStack(material, Math.min(amount, worker.type.itemCapacity), worker);
-        if (accepted <= 0) return "目标已满或不能接收该物资。";
-        if (core.items.get(material) + carried < accepted) return "核心可用物资不足。";
+        if (!accepts(target, material)) return "目标建筑不接收该物资。";
+        if (core.items.get(material) + carried <= 0) return "核心可用物资不足。";
 
-        start(Action.RESUPPLY, "物资补给 " + target.tileX() + "," + target.tileY(), 90);
+        start(Action.RESUPPLY, "物资补给 " + target.tileX() + "," + target.tileY(), 240 + amount * 4);
         cargo = material;
         home = core;
         turret = target;
-        remaining = accepted;
+        remaining = Math.min(amount, core.items.get(material) + carried);
+        delivered = 0;
         if (carried >= remaining) navigate(turret.tile);
         else navigate(home.tile);
+        return accepted();
+    }
+
+    String transfer(Building core, Building source, Building target, Item material, int amount) {
+        if (action != null) return busy();
+        if (!summon(core)) return "该队伍没有可用的陪玩单位。";
+        if (worker.stack.amount > 0 && worker.stack.item != material) {
+            return "陪玩单位正携带 " + worker.stack.item.name + "，无法同时转运 " + material.name + "。";
+        }
+
+        if (!accepts(target, material)) return "目标建筑不接收 " + material.name + "。";
+        int carried = worker.stack.item == material ? worker.stack.amount : 0;
+        int available = Math.min(amount, source.items.get(material) + carried);
+        if (available <= 0) return "源建筑没有可转运的 " + material.name + "。";
+
+        start(Action.TRANSFER, "转运 " + material.name + " "
+            + source.tileX() + "," + source.tileY() + "→" + target.tileX() + "," + target.tileY(), 120);
+        item = material;
+        transferSource = source;
+        turret = target;
+        remaining = available;
+        delivered = 0;
+        navigate(source.tile);
         return accepted();
     }
 
@@ -248,16 +320,24 @@ final class CompanionTasks {
             return;
         }
         action = afterUnload;
-        navigate(action == Action.MINE ? ore : turret.tile);
+        if (action == Action.MINE) navigateOre();
+        else if (action == Action.GUARD) navigate(guardPost);
+        else navigate(turret.tile);
     }
 
     private boolean unloadCargo(Building core) {
         Item previous = worker.stack.item;
         int amount = worker.stack.amount;
         if (core.acceptStack(previous, amount, worker) < amount) return false;
-        Call.transferItemTo(worker, previous, amount, worker.x, worker.y, core);
-        worker.clearItem();
+        transferToCore(core, previous, amount);
         return true;
+    }
+
+    private boolean accepts(Building target, Item material) {
+        if (target instanceof ItemTurretBuild) {
+            return ((ItemTurret)target.block).ammoTypes.get(material) != null;
+        }
+        return target.getMaximumAccepted(material) > 0;
     }
 
     private void updateCollection() {
@@ -283,8 +363,7 @@ final class CompanionTasks {
             finish("核心无法接收硅，已取出的硅仍在单位背包");
             return;
         }
-        Call.transferItemTo(worker, item, amount, worker.x, worker.y, depositCore);
-        if (worker.stack.amount == 0) worker.clearItem();
+        transferToCore(depositCore, item, amount);
         finish("已运入核心 " + amount + " silicon");
     }
 
@@ -308,16 +387,39 @@ final class CompanionTasks {
         }
         switch (action) {
             case MOVE -> {
-                if (worker.within(destination.worldx(), destination.worldy(), Vars.tilesize)) finish("已到达");
+                if (worker.within(destination.worldx(), destination.worldy(), Vars.tilesize)) {
+                    finish("已到达");
+                    return;
+                }
+                ensureNavigation();
             }
-            case BUILD -> updateBuild();
-            case MINE -> updateMining();
+            case BUILD -> {
+                ensureNavigation();
+                updateBuild();
+            }
+            case MINE -> {
+                ensureNavigation();
+                updateMining();
+            }
             case VERIFY_SUPPLY -> verifySupply();
             case GUARD, RETREAT -> updateGuard();
-            case RESUPPLY -> updateResupply();
+            case RESUPPLY -> {
+                ensureNavigation();
+                updateResupply();
+            }
+            case TRANSFER -> {
+                ensureNavigation();
+                updateTransfer();
+            }
             case ATTACK -> updateAttack();
-            case COLLECT -> updateCollection();
-            case UNLOAD -> updateUnload();
+            case COLLECT -> {
+                ensureNavigation();
+                updateCollection();
+            }
+            case UNLOAD -> {
+                ensureNavigation();
+                updateUnload();
+            }
         }
     }
 
@@ -338,20 +440,113 @@ final class CompanionTasks {
     }
 
     private void updateAttack() {
-        if (!attacker.isValid() || attacker.isPlayer() || attacker.team != home.team
-            || !(attacker.controller() instanceof CommandAI combat)) {
-            finish("作战单位已失效或已由玩家接管");
+        if (!attackTarget.isValid()) {
+            finish("敌方建筑已摧毁");
             return;
         }
-        if (!attackTarget.isValid() || attackTarget.team == attacker.team) {
-            finish("目标已移除或不再是敌方建筑");
+        if (attackTarget.team == home.team) {
+            finish("目标已不属于敌方");
             return;
         }
-        if (attacker.healthf() < 0.25f) {
-            if (home.isValid()) combat.commandPosition(new Vec2(home.x, home.y));
-            attacker = null;
-            finish("作战单位生命过低，已下达返航指令");
+
+        for (int index = attackers.size() - 1; index >= 0; index--) {
+            Unit attacker = attackers.get(index);
+            if (!attacker.isValid() || attacker.isPlayer() || attacker.team != home.team
+                || !(attacker.controller() instanceof CommandAI combat)) {
+                attackers.remove(index);
+                continue;
+            }
+            if (attacker.healthf() < 0.25f) {
+                if (home.isValid()) combat.commandPosition(new Vec2(home.x, home.y));
+                attackers.remove(index);
+            }
         }
+        if (attackers.isEmpty()) {
+            finish("作战编队已损毁或重伤返航");
+            return;
+        }
+        if (attackStagingTime > 0) {
+            attackStagingTime -= Time.delta;
+            if (attackStagingTime > 0) {
+                boolean staged = true;
+                for (Unit attacker : attackers) {
+                    if (!attacker.within(destination.worldx(), destination.worldy(), Vars.tilesize * 3f)) {
+                        staged = false;
+                        break;
+                    }
+                }
+                if (!staged) {
+                    for (Unit attacker : attackers) {
+                        CommandAI combat = (CommandAI)attacker.controller();
+                        if (!combat.hasCommand()) combat.commandPosition(
+                            new Vec2(destination.worldx(), destination.worldy()));
+                    }
+                    return;
+                }
+            }
+            attackStagingTime = 0;
+            for (Unit attacker : attackers) ((CommandAI)attacker.controller()).commandTarget(attackTarget);
+            phase = "已在外侧集结，正在接敌，编队 " + attackers.size() + " 台";
+            return;
+        }
+        for (Unit attacker : attackers) {
+            CommandAI combat = (CommandAI)attacker.controller();
+            if (!combat.hasCommand()) combat.commandTarget(attackTarget);
+        }
+        phase = "正在接敌，剩余 " + attackers.size() + " 台";
+    }
+
+    private Tile attackStaging(Building target) {
+        int offset = target.block.size / 2 + 3;
+        Tile[] candidates = {
+            Vars.world.tile(target.tileX(), target.tileY() + offset),
+            Vars.world.tile(target.tileX(), target.tileY() - offset),
+            Vars.world.tile(target.tileX() - offset, target.tileY()),
+            Vars.world.tile(target.tileX() + offset, target.tileY())
+        };
+        Tile best = null;
+        int bestScore = Integer.MIN_VALUE;
+        int fewestBlockers = Integer.MAX_VALUE;
+        float greatestDistance = -1f;
+        for (Tile candidate : candidates) {
+            if (candidate == null || candidate.solid()) continue;
+            int score = 0;
+            for (int dy = -2; dy <= 2; dy++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    Tile tile = Vars.world.tile(candidate.x + dx, candidate.y + dy);
+                    if (tile != null && !tile.solid()) score++;
+                }
+            }
+            int blockers = 0;
+            int directionX = Integer.signum(candidate.x - target.tileX());
+            int directionY = Integer.signum(candidate.y - target.tileY());
+            for (int step = 1; step <= offset; step++) {
+                for (int lateral = -1; lateral <= 1; lateral++) {
+                    int x = target.tileX() + directionX * step
+                        + (directionY == 0 ? lateral : 0);
+                    int y = target.tileY() + directionY * step
+                        + (directionX == 0 ? lateral : 0);
+                    Tile tile = Vars.world.tile(x, y);
+                    if (tile == null) {
+                        blockers++;
+                    } else if (tile.build == target) {
+                        continue;
+                    } else if (tile.build != null || tile.solid()) {
+                        blockers++;
+                    }
+                }
+            }
+            float distance = home.dst2(candidate.worldx(), candidate.worldy());
+            if (blockers < fewestBlockers
+                || (blockers == fewestBlockers && distance > greatestDistance)
+                || (blockers == fewestBlockers && distance == greatestDistance && score > bestScore)) {
+                best = candidate;
+                fewestBlockers = blockers;
+                greatestDistance = distance;
+                bestScore = score;
+            }
+        }
+        return best == null ? target.tile : best;
     }
 
     private void updateGuard() {
@@ -373,31 +568,39 @@ final class CompanionTasks {
         guardTime -= Time.delta;
         phase = "正在守卫，剩余 " + (int)Math.ceil(guardTime / 60f) + " 秒";
         if (guardTime <= 0) {
-            finish("已完成守卫，期间补给 " + guardCopperDelivered + " 铜");
+            finish("已完成守卫，期间补给 " + guardAmmoDelivered + " 发弹药");
             return;
         }
 
         reloadCheck -= Time.delta;
         if (reloadCheck > 0 || !home.isValid()) return;
         reloadCheck = 120f;
-        if (worker.stack.amount > 0 && worker.stack.item != Items.copper) return;
-        int available = home.items.get(Items.copper) + worker.stack.amount;
-        if (available == 0) return;
+        if (worker.stack.amount > 0) return;
         Building nearest = null;
+        Item selectedAmmo = null;
+        int selectedAvailable = 0;
         float distance = 20f * Vars.tilesize;
-        for (Building building : worker.team.data().getBuildings(Blocks.duo)) {
-            ItemTurretBuild candidate = (ItemTurretBuild)building;
+        for (Building building : worker.team.data().buildings) {
+            if (!(building instanceof ItemTurretBuild candidate) || candidate.getAmmoFraction() > 0.25f) continue;
+            Item ammo = null;
+            for (Item item : Vars.content.items()) {
+                if (home.items.get(item) > 0 && candidate.acceptStack(item, 1, worker) > 0) {
+                    if (ammo == null || home.items.get(item) > home.items.get(ammo)) ammo = item;
+                }
+            }
+            if (ammo == null) continue;
             float candidateDistance = candidate.dst(guardPost.worldx(), guardPost.worldy());
-            if (candidateDistance < distance && candidate.getAmmoFraction() <= 0.25f
-                && candidate.acceptStack(Items.copper, 1, worker) > 0) {
+            if (candidateDistance < distance) {
                 distance = candidateDistance;
                 nearest = candidate;
+                selectedAmmo = ammo;
+                selectedAvailable = home.items.get(ammo);
             }
         }
         if (nearest == null) return;
         turret = nearest;
-        cargo = Items.copper;
-        remaining = turret.acceptStack(Items.copper, Math.min(10, available), worker);
+        cargo = selectedAmmo;
+        remaining = turret.acceptStack(selectedAmmo, Math.min(10, selectedAvailable), worker);
         action = Action.RESUPPLY;
         navigate(worker.stack.amount >= remaining ? turret.tile : home.tile);
     }
@@ -428,15 +631,97 @@ final class CompanionTasks {
             return;
         }
         if (!worker.within(turret, worker.type.range)) return;
-        int amount = turret.acceptStack(cargo, Math.min(remaining, worker.stack.amount), worker);
+        int requested = Math.min(remaining, worker.stack.amount);
+        int amount = turret.acceptStack(cargo, requested, worker);
         if (amount <= 0) {
-            completeResupply("目标已无法接收物资；余料仍在陪玩单位背包");
+            blockedTime += Time.delta;
+            if (blockedTime >= 10f * 60f) {
+                completeResupply("目标持续已满，已停止补给并保留剩余物资");
+                return;
+            }
+            phase = "目标暂时已满，等待接收剩余 " + remaining + " " + cargo.name;
             return;
         }
+        blockedTime = amount < requested ? blockedTime + Time.delta : 0;
         Call.transferItemTo(worker, cargo, amount, worker.x, worker.y, turret);
+        delivered += amount;
+        remaining = Math.max(0, remaining - amount);
+        if (remaining == 0) {
+            completeResupply("已送达 " + delivered + " " + cargo.name);
+            return;
+        }
+        if (blockedTime >= 10f * 60f) {
+            completeResupply("目标长期只接收少量物资，已停止补给并保留剩余物资");
+            return;
+        }
         if (worker.stack.amount == 0) worker.clearItem();
-        if (guardPost != null) guardCopperDelivered += amount;
-        completeResupply("已送达 " + amount + " " + cargo.name);
+        if (guardPost != null) guardAmmoDelivered += amount;
+        navigate(home.tile);
+    }
+
+    private void updateTransfer() {
+        if (!transferSource.isValid() || transferSource.team != worker.team
+            || !turret.isValid() || turret.team != worker.team) {
+            finish("转运源建筑或目标建筑已失效");
+            return;
+        }
+        if (destination == transferSource.tile) {
+            if (!worker.within(transferSource, worker.type.range)) return;
+            if (worker.stack.item == item && worker.stack.amount > 0) {
+                navigate(turret.tile);
+                phase = "携带 " + worker.stack.amount + " " + item.name + "，累计转运 " + delivered;
+                return;
+            }
+            int capacity = Math.min(remaining - delivered, worker.type.itemCapacity - worker.stack.amount);
+            if (capacity <= 0) {
+                finish("陪玩单位背包已满，无法继续装载 " + item.name);
+                return;
+            }
+            int previous = worker.stack.amount;
+            Call.takeItems(transferSource, item, capacity, worker);
+            int loaded = worker.stack.amount - previous;
+            if (loaded <= 0) {
+                finish("源建筑当前没有可转运的 " + item.name);
+                return;
+            }
+            blockedTime = 0;
+            navigate(turret.tile);
+            phase = "已装载 " + loaded + " " + item.name + "，累计转运 " + delivered;
+            return;
+        }
+        if (!worker.within(turret, worker.type.range)) return;
+        int requested = Math.min(worker.stack.amount, remaining - delivered);
+        int amount = turret.acceptStack(item, requested, worker);
+        if (amount <= 0) {
+            blockedTime += Time.delta;
+            if (blockedTime >= 10f * 60f) {
+                finish("目标持续已满，已中止转运并保留 " + worker.stack.amount + " " + item.name);
+                return;
+            }
+            phase = "目标暂时已满，等待接收剩余 " + (remaining - delivered) + " " + item.name;
+            return;
+        }
+        blockedTime = amount < requested ? blockedTime + Time.delta : 0;
+        int carried = worker.stack.amount;
+        Call.transferItemTo(worker, item, amount, worker.x, worker.y, turret);
+        int moved = carried - worker.stack.amount;
+        delivered += moved;
+        if (delivered >= remaining) {
+            finish("已转运 " + delivered + " " + item.name + " 到 " + turret.block.name
+                + "@" + turret.tileX() + "," + turret.tileY());
+            return;
+        }
+        if (blockedTime >= 10f * 60f) {
+            finish("目标长期只接收少量 " + item.name + "，已中止转运并保留余料");
+            return;
+        }
+        if (worker.stack.amount > 0) {
+            phase = "目标暂时已满，等待接收剩余 " + worker.stack.amount + " " + item.name;
+            return;
+        }
+        worker.clearItem();
+        navigate(transferSource.tile);
+        phase = "已送达 " + moved + " " + item.name + "，累计转运 " + delivered;
     }
 
     private void completeResupply(String result) {
@@ -493,9 +778,7 @@ final class CompanionTasks {
                 finish("未完成：核心库存已满，已运入 " + delivered);
                 return;
             }
-            Call.transferItemTo(worker, item, amount, worker.x, worker.y, depositCore);
-
-            if (worker.stack.amount == 0) worker.clearItem();
+            transferToCore(depositCore, item, amount);
             remaining = Math.max(0, remaining - amount);
             delivered += amount;
             if (remaining == 0) {
@@ -503,7 +786,7 @@ final class CompanionTasks {
                 return;
             }
             miningReturn = false;
-            navigate(ore);
+            navigateOre();
             return;
         }
         if (worker.stack.amount >= Math.min(remaining, Math.max(1, worker.type.itemCapacity - 1))) {
@@ -518,13 +801,44 @@ final class CompanionTasks {
                 finish("失败：矿点已不可用，已运入 " + delivered);
                 return;
             }
+            navigateOre();
+            return;
+        }
+        if (worker.validMine(ore) == false) {
+            miningRetry -= Time.delta;
+            if (miningRetry <= 0) navigateOre();
+            return;
+        }
+        miningRetry = 0;
+        controller().clearCommands();
+        worker.mineTile(ore);
+        phase = "采集中，累计入库 " + delivered;
+    }
+
+    private void navigateOre() {
+        miningRetry = 60f;
+        if (ore.solid() == false) {
             navigate(ore);
+            return;
         }
-        if (worker.validMine(ore)) {
-            controller().clearCommands();
-            worker.mineTile(ore);
-            phase = "采集中，累计入库 " + delivered;
+
+        Tile approach = null;
+        float closest = Float.MAX_VALUE;
+        for (int radius = 1; radius <= 3 && approach == null; radius++) {
+            for (int x = ore.x - radius; x <= ore.x + radius; x++) {
+                for (int y = ore.y - radius; y <= ore.y + radius; y++) {
+                    if (Math.abs(x - ore.x) != radius && Math.abs(y - ore.y) != radius) continue;
+                    Tile candidate = Vars.world.tile(x, y);
+                    if (candidate == null || candidate.solid()) continue;
+                    float distance = candidate.dst2(worker.x, worker.y);
+                    if (distance < closest) {
+                        closest = distance;
+                        approach = candidate;
+                    }
+                }
+            }
         }
+        navigate(approach == null ? ore : approach);
     }
 
     private Tile findOre(Item target) {
@@ -533,6 +847,12 @@ final class CompanionTasks {
         if (floorOre == null) return wallOre;
         if (wallOre == null) return floorOre;
         return floorOre.dst2(worker.x, worker.y) <= wallOre.dst2(worker.x, worker.y) ? floorOre : wallOre;
+    }
+
+    private void transferToCore(Building core, Item transferred, int amount) {
+        for (int index = 0; index < amount; index++) core.handleItem(core, transferred);
+        worker.stack.amount -= amount;
+        if (worker.stack.amount == 0) worker.clearItem();
     }
 
     private void navigateCore() {
@@ -546,6 +866,11 @@ final class CompanionTasks {
         phase = "正在前往 " + tile.x + "," + tile.y;
     }
 
+    private void ensureNavigation() {
+        if (destination == null || controller().hasCommand()) return;
+        controller().commandPosition(new Vec2(destination.worldx(), destination.worldy()));
+    }
+
     private boolean summon(Building core) {
         if (ready()) return worker.team == core.team;
         var type = ((CoreBlock)core.block).unitType;
@@ -556,17 +881,21 @@ final class CompanionTasks {
     }
 
     private CommandAI controller() {
-        return (CommandAI)worker.controller();
+        if (worker.controller() instanceof CommandAI) return (CommandAI)worker.controller();
+        CommandAI controller = new CommandAI();
+        worker.controller(controller);
+        return controller;
     }
 
     private boolean ready() {
-        return worker != null && !worker.dead() && worker.isAdded() && worker.controller() instanceof CommandAI;
+        return worker != null && !worker.dead() && worker.isAdded();
     }
 
     private void start(Action kind, String description, int seconds) {
         action = kind;
         task = "#" + (++sequence) + " " + description;
         timeLeft = seconds * 60f;
+        blockedTime = 0;
     }
 
     private void finish(String result) {
@@ -592,14 +921,19 @@ final class CompanionTasks {
         supplyItem = null;
         home = null;
         turret = null;
+        transferSource = null;
         guardPost = null;
         attackTarget = null;
-        if (attacker != null && attacker.isValid() && !attacker.isPlayer()
-            && attacker.controller() instanceof CommandAI combat) combat.clearCommands();
-        attacker = null;
+        attackStagingTime = 0;
+        for (Unit attacker : attackers) {
+            if (attacker.isValid() && !attacker.isPlayer()
+                && attacker.controller() instanceof CommandAI combat) combat.clearCommands();
+        }
+        attackers.clear();
         ore = null;
         item = null;
         depositCore = null;
+        delivered = 0;
         buildingQueued = false;
     }
 
@@ -607,7 +941,7 @@ final class CompanionTasks {
         return "已受理 " + task + "。可查询状态获取进展。";
     }
 
-    private String busy() {
+    String busy() {
         return "已有任务在执行：" + status();
     }
 }
