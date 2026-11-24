@@ -56,7 +56,6 @@ import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.defense.turrets.ItemTurret.ItemTurretBuild;
 import mindustry.world.blocks.distribution.Conveyor;
 import mindustry.world.blocks.distribution.Duct;
-import mindustry.world.blocks.distribution.Duct.DuctBuild;
 import mindustry.world.consumers.Consume;
 import mindustry.world.consumers.ConsumeItems;
 
@@ -74,6 +73,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -545,21 +545,16 @@ public class MindustryBridge extends Plugin {
             if (!link.matches()) return "无效电网连接参数。";
             Building from = Vars.world.build(Integer.parseInt(link.group(1)), Integer.parseInt(link.group(2)));
             Building to = Vars.world.build(Integer.parseInt(link.group(3)), Integer.parseInt(link.group(4)));
-            if (from == null || to == null || from == to || from.team != team || to.team != team
-                || to.power == null) {
-                return "只能连接己方电力建筑。";
-            }
-            if (from.block instanceof BeamNode beam && from instanceof BeamNodeBuild build) {
-                build.updateDirections();
-                if (java.util.Arrays.asList(build.links).contains(to)) {
-                    return "beam-node 已自动连接到目标电力建筑。";
-                }
-                return "beam-node 只能自动连接上下左右直线上范围内最近的己方电力建筑；当前连接="
-                    + describeBeamLinks(build) + "。请让节点与目标同轴，距离不超过 " + beam.range + " 格。";
-            }
+            if (from == null) return "起点格没有建筑。";
+            if (to == null) return "目标格没有建筑。";
+            if (from == to) return "起点和目标不能是同一座建筑。";
+            if (from.team != team || to.team != team) return "只能连接己方建筑。";
+            if (from.block instanceof BeamNode beam && from instanceof BeamNodeBuild build)
+                return connectBeamNode(build, beam, to);
             if (!(from.block instanceof PowerNode node)) {
                 return "起点不是电力节点。埃里克尔 beam-node 不需要手动连线，请通过同轴摆放触发自动连接。";
             }
+            if (to.power == null) return "目标建筑不可接电。";
             if (from.power.links.contains(to.pos())) return "该电力连接已存在。";
             if (!node.linkValid(from, to)) return "目标超出节点范围、被绝缘墙阻挡或节点已满。";
             from.configured(null, to.pos());
@@ -979,69 +974,201 @@ public class MindustryBridge extends Plugin {
         int radius = Integer.parseInt(coordinates.group(3));
         if (Vars.world.tile(x, y) == null) return "中心点不在地图内。";
 
-        StringBuilder result = new StringBuilder("网格按 y 从大到小排列，行内 x 从小到大：");
+        Map<Item, Character> itemSymbols = new LinkedHashMap<>();
+        Map<String, Character> buildingSymbols = new LinkedHashMap<>();
+        StringBuilder details = new StringBuilder();
+        String buildingCodes = "1234567890!$%&()/;=[]{}|";
+        StringBuilder result = new StringBuilder("勘查 中心=").append(x).append(',').append(y)
+            .append(" 半径=").append(radius).append(" 上行y=").append(y + radius)
+            .append(" 左x=").append(x - radius).append("；1字符=1格，x右 y下");
         for (int row = y + radius; row >= y - radius; row--) {
-            result.append("\ny=").append(row);
+            result.append('\n');
             for (int column = x - radius; column <= x + radius; column++) {
-                result.append(" ");
                 Tile tile = Vars.world.tile(column, row);
                 if (tile == null) {
-                    result.append("?");
+                    result.append('?');
                 } else if (tile.build != null) {
                     if (tile.x != tile.build.tileX() || tile.y != tile.build.tileY()) {
-                        result.append("+");
+                        result.append('+');
                         continue;
                     }
-                    if (tile.floor() instanceof SteamVent) {
-                        result.append("vent:").append(tile.floor().name);
+                    Building building = tile.build;
+                    if (building.team != team) {
+                        result.append('X');
+                        appendSurveyBuildingDetail(details, building, 'X', team, itemSymbols);
                         continue;
                     }
-                    result.append(tile.team() == team ? "own:" : "team" + tile.team().id + ":")
-                        .append(tile.build.block.name);
-                    if (tile.block().rotate) result.append("[r").append(tile.build.rotation).append("]");
-                    if (tile.build.items != null && tile.build.items.total() > 0 && tile.build.items.total() < 1000000) {
-                        result.append("{");
-                        int[] count = {0};
-                        tile.build.items.each((item, amount) -> {
-                            if (amount <= 0) return;
-                            if (count[0]++ > 0) result.append(",");
-                            result.append(item.name).append("=").append(amount);
-                        });
-                        result.append("}");
+                    if (building instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild) {
+                        result.append('@');
+                        appendSurveyBuildingDetail(details, building, '@', team, itemSymbols);
+                        continue;
                     }
-                    if (tile.build instanceof DuctBuild duct) {
-                        result.append("->");
-                        if (duct.next == null) {
-                            result.append("none");
-                        } else {
-                            result.append(duct.next.tileX()).append(",").append(duct.next.tileY());
-                        }
+                    if (building.block instanceof Conveyor || building.block instanceof Duct) {
+                        char arrow = surveyTransportArrow(building.rotation);
+                        result.append(arrow);
+                        continue;
                     }
+                    Character symbol = buildingSymbols.get(building.block.name);
+                    if (symbol == null) {
+                        int index = buildingSymbols.size();
+                        symbol = index < buildingCodes.length() ? buildingCodes.charAt(index) : '*';
+                        buildingSymbols.put(building.block.name, symbol);
+                    }
+                    result.append(symbol);
+                    appendSurveyBuildingDetail(details, building, symbol, team, itemSymbols);
                 } else {
                     Item wallDrop = tile.wallDrop();
                     Item drop = tile.drop();
                     Block block = tile.block();
                     Floor floor = tile.floor();
                     if (wallDrop != null) {
-                        result.append("wall-ore:").append(wallDrop.name);
+                        result.append(Character.toUpperCase(itemSymbol(wallDrop, itemSymbols)));
                     } else if (drop != null) {
-                        result.append("ore:").append(drop.name);
+                        result.append(itemSymbol(drop, itemSymbols));
                     } else if (floor instanceof SteamVent) {
-                        result.append("vent:").append(floor.name);
+                        result.append('V');
                     } else if (block.isAir() == false) {
-                        result.append(block.isStatic() ? "block:" : "solid:").append(block.name);
+                        result.append('#');
                     } else if (floor.liquidDrop != null) {
-                        result.append("liquid:").append(floor.liquidDrop.name);
+                        result.append('~');
                     } else if (floor.hasSurface() == false) {
-                        result.append("floor:").append(floor.name);
+                        result.append('_');
                     } else {
-                        result.append(".");
+                        result.append('.');
                     }
                 }
             }
         }
-        return result.append("\n起始 x=").append(x - radius)
-            .append("。ore=地表矿，wall-ore=墙体矿，vent=喷口，block/solid=实体方块，liquid=液体，floor=无地表，own/teamN=建筑，+=建筑占地，?=地图外或不可见。").toString();
+        result.append("\n图例 .=空地 #=实体 ~=液体 V=喷口 +=占地 _=无地表 ?=界外 @=核心 X=敌；小写=地表矿 大写=墙矿 箭头=物流");
+        if (itemSymbols.isEmpty() == false) {
+            result.append("\n矿 ");
+            for (Map.Entry<Item, Character> entry : itemSymbols.entrySet()) {
+                char symbol = entry.getValue();
+                result.append(symbol).append('=').append(entry.getKey().name).append(' ');
+            }
+            result.setLength(result.length() - 1);
+        }
+        if (buildingSymbols.isEmpty() == false) {
+            result.append("\n建筑 ");
+            for (Map.Entry<String, Character> entry : buildingSymbols.entrySet())
+                result.append(entry.getValue()).append('=').append(entry.getKey()).append(' ');
+            result.setLength(result.length() - 1);
+        }
+        if (details.length() > 0) result.append(details);
+        return result.toString();
+    }
+
+    private String connectBeamNode(BeamNodeBuild build, BeamNode node, Building target) {
+        build.updateDirections();
+        if (java.util.Arrays.asList(build.links).contains(target))
+            return "激光节点已连接目标。";
+
+        int offsetX = target.tileX() - build.tileX();
+        int offsetY = target.tileY() - build.tileY();
+        if (offsetX != 0 && offsetY != 0) {
+            return "目标未与激光节点同轴：偏移=" + offsetX + "," + offsetY
+                + "。激光节点只沿上下左右连接；当前=" + beamLinkCoordinates(build) + "。";
+        }
+        if (target.block.hasPower == false || target.block.connectedPower == false) {
+            return target.block.name + "@" + target.tileX() + "," + target.tileY()
+                + " 不是可接电建筑；当前=" + beamLinkCoordinates(build) + "。";
+        }
+        if (Math.max(Math.abs(offsetX), Math.abs(offsetY)) > node.range) {
+            return "目标距离 " + Math.max(Math.abs(offsetX), Math.abs(offsetY))
+                + " 格，超过激光范围 " + node.range + "；当前=" + beamLinkCoordinates(build) + "。";
+        }
+        if (target.block instanceof PowerNode) {
+            return "beam-node 不会连接普通电力节点；请直接连用电、发电或储电建筑。当前="
+                + beamLinkCoordinates(build) + "。";
+        }
+
+        int stepX = Integer.compare(offsetX, 0);
+        int stepY = Integer.compare(offsetY, 0);
+        int distance = Math.max(Math.abs(offsetX), Math.abs(offsetY));
+        for (int index = 1; index <= distance; index++) {
+            Building crossed = Vars.world.build(build.tileX() + stepX * index, build.tileY() + stepY * index);
+            if (crossed == null || crossed == build) continue;
+            if (crossed.isInsulated()) {
+                return "射线在 " + crossed.tileX() + "," + crossed.tileY() + " 被 "
+                    + crossed.block.name + " 阻断；当前=" + beamLinkCoordinates(build) + "。";
+            }
+            if (crossed != target && crossed.team == build.team && crossed.block.hasPower
+                && crossed.block.connectedPower && (crossed.block instanceof PowerNode) == false) {
+                return "同轴更近处已有 " + crossed.block.name + "@" + crossed.tileX() + ","
+                    + crossed.tileY() + "；beam-node 只连最近电力建筑，当前="
+                    + beamLinkCoordinates(build) + "。";
+            }
+        }
+        return "目标同轴且在范围内，但游戏没有建立连接；当前=" + beamLinkCoordinates(build)
+            + "。请检查目标是否属于己方且可接电。";
+    }
+
+    private void appendSurveyBuildingDetail(StringBuilder details, Building building, char symbol, Team viewer,
+                                            Map<Item, Character> itemSymbols) {
+        boolean beam = building instanceof BeamNodeBuild;
+        boolean carriesItems = building.items != null && building.items.total() > 0
+            && building.items.total() < 1000000
+            && (building.block instanceof GenericCrafter || building instanceof UnitFactoryBuild
+                || building instanceof mindustry.world.blocks.storage.CoreBlock.CoreBuild);
+        boolean hostile = building.team != viewer;
+        if (hostile == false && beam == false && carriesItems == false) return;
+
+        details.append('\n').append(symbol).append(' ').append(building.tileX()).append(',')
+            .append(building.tileY());
+        if (hostile) details.append(' ').append(building.block.name);
+        if (building.block.rotate) details.append(" r").append(building.rotation);
+        if (beam) {
+            BeamNodeBuild beamBuild = (BeamNodeBuild)building;
+            details.append(" 范围").append(((BeamNode)building.block).range)
+                .append(" 连接=").append(beamLinkCoordinates(beamBuild));
+        }
+        if (carriesItems) {
+            details.append(" 库存=");
+            int[] count = {0};
+            building.items.each((item, amount) -> {
+                if (amount <= 0) return;
+                if (count[0]++ > 0) details.append(',');
+                details.append(itemSymbol(item, itemSymbols)).append(amount);
+            });
+        }
+        if (building instanceof UnitFactoryBuild factory && factory.unit() != null)
+            details.append(" 兵种=").append(factory.unit().name);
+    }
+
+    private char itemSymbol(Item item, Map<Item, Character> symbols) {
+        Character existing = symbols.get(item);
+        if (existing != null) return existing;
+        String name = item.name.toLowerCase(Locale.ROOT);
+        for (int index = 0; index < name.length(); index++) {
+            char symbol = name.charAt(index);
+            if (symbol < 'a' || symbol > 'z' || symbol == 'v' || symbol == 'x'
+                || symbols.containsValue(symbol)) continue;
+            symbols.put(item, symbol);
+            return symbol;
+        }
+        for (char symbol = 'a'; symbol <= 'z'; symbol++) {
+            if (symbol == 'v' || symbol == 'x' || symbols.containsValue(symbol)) continue;
+            symbols.put(item, symbol);
+            return symbol;
+        }
+        return 'o';
+    }
+
+    private char surveyTransportArrow(int rotation) {
+        var direction = arc.math.geom.Geometry.d4(rotation);
+        if (direction.x > 0) return '>';
+        if (direction.x < 0) return '<';
+        return direction.y > 0 ? '^' : 'v';
+    }
+
+    private String beamLinkCoordinates(BeamNodeBuild beam) {
+        StringBuilder result = new StringBuilder();
+        for (Building linked : beam.links) {
+            if (linked == null) continue;
+            if (result.length() > 0) result.append(',');
+            result.append(linked.tileX()).append(',').append(linked.tileY());
+        }
+        return result.length() == 0 ? "无" : result.toString();
     }
 
     private String findObjects(Team team, Building core, String query) {
@@ -1458,7 +1585,7 @@ public class MindustryBridge extends Plugin {
             .append(" ").append(building.status());
         if (building.block.rotate) result.append(" 方向=").append(building.rotation);
         if (building instanceof BeamNodeBuild beam) {
-            result.append(" 自动连接=").append(describeBeamLinks(beam));
+            result.append(" 连接=").append(beamLinkCoordinates(beam));
         } else if (building instanceof mindustry.world.blocks.power.PowerGenerator.GeneratorBuild generator) {
             result.append(" 发电=").append(Math.round(generator.getPowerProduction() * 60)).append("/秒");
         } else if (building.power != null) {
@@ -1612,16 +1739,6 @@ public class MindustryBridge extends Plugin {
             FoundObject found = results.get(index);
             result.append(found.description).append("@").append(found.x).append(",").append(found.y).append(" ");
         }
-    }
-
-    private String describeBeamLinks(BeamNodeBuild beam) {
-        StringBuilder result = new StringBuilder();
-        for (Building linked : beam.links) {
-            if (linked == null) continue;
-            if (result.length() > 0) result.append(" ");
-            result.append(linked.block.name).append("@").append(linked.tileX()).append(",").append(linked.tileY());
-        }
-        return result.length() == 0 ? "无" : result.toString();
     }
 
     private Tile factoryExit(int x, int y, Block block, int rotation) {

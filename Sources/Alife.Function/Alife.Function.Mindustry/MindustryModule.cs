@@ -229,7 +229,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     [Description("取消当前陪玩任务，已完成部分会保留。")]
     public Task MindustryCancel() => CallAsync("cancel", HttpMethod.Post, allowWhileBusy: true);
     [XmlFunction(FunctionMode.Content)]
-    [Description("仅在需要检查局部地形或建筑候选位时勘查网格。格式：x y 半径（1～6）。")]
+    [Description("返回单字符地形网格，用于选择建筑位和核对同轴距离。格式：x y 半径（1～6）。")]
     public async Task MindustrySurvey(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -411,7 +411,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("连接普通电力节点。格式：起点x 起点y 目标x 目标y；beam-node 自动连接。")]
+    [Description("连接普通电力节点；beam-node 会检查同轴、范围和最近建筑后自动连接。格式：起点x 起点y 目标x 目标y。")]
     public async Task MindustryPowerLink(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
