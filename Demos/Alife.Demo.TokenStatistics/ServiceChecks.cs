@@ -94,6 +94,13 @@ public static class ServiceChecks
             // 6.1 多标签按字节占比分摊，且分摊后总量守恒（标签各自独占一行，符合框架的注入位置）
             string multiMessage = "[源(Alpha)]包一包二包三包四\n[源(Beta)]测一测二测三测四测五测六测七测八测九测十";
             store.Append(MakeRawRecord(today.AddHours(23), 1234, 400, 100, multiMessage, "<Speak>回复</Speak>", now));
+            Check(ref failures, "最近记录日期=最新一条的日期",
+                store.LatestRecordDate() == today.Date,
+                store.LatestRecordDate()?.ToString("yyyy-MM-dd") ?? "null");
+
+            ChatRecordStore emptyStore = new(Path.Combine(tempRoot, "empty"));
+            Check(ref failures, "没有记录时最近日期为 null", emptyStore.LatestRecordDate() is null, "null");
+
             var afterMulti = service.QueryRecords(today, today.AddDays(1), filter);
             var multi = afterMulti.FirstOrDefault(r => r.Record.InputTotal == 1234);
             double alphaWeight = multi?.TagWeights.FirstOrDefault(w => w.Name == "源(Alpha)")?.Weight ?? 0;
@@ -101,10 +108,20 @@ public static class ServiceChecks
             Check(ref failures, "多标签权重合计=1", multi != null && Math.Abs(alphaWeight + betaWeight - 1) < 1e-9, alphaWeight + betaWeight);
             Check(ref failures, "Beta 字节多于 Alpha → 权重更大", betaWeight > alphaWeight, $"alpha={alphaWeight:P1} beta={betaWeight:P1}");
 
-            var multiRank = service.RankByTags(afterMulti);
-            double rankedCost = multiRank.Sum(row => row.Cost);
-            double totalCost = afterMulti.Sum(view => view.Cost);
-            Check(ref failures, "标签排行分摊合计=总花费", Math.Abs(rankedCost - totalCost) < 1e-6, $"Σ={rankedCost:F6} 总={totalCost:F6}");
+            var multiTagRank = service.RankByTags(afterMulti);
+            double tagRankCost = multiTagRank.Sum(row => row.Cost);
+            double totalInputCost = afterMulti.Sum(view => view.InputCost);
+            Check(ref failures, "标签排行分摊合计=输入侧花费",
+                Math.Abs(tagRankCost - totalInputCost) < 1e-6 && multiTagRank.All(row => row.OutputCost == 0),
+                $"Σ={tagRankCost:F6} 输入={totalInputCost:F6}");
+
+            var multiFuncRank = service.RankByFunctions(afterMulti);
+            double funcRankCost = multiFuncRank.Sum(row => row.Cost);
+            double totalOutputCost = afterMulti.Sum(view => view.OutputCost);
+            Check(ref failures, "函数排行分摊合计=输出侧花费",
+                Math.Abs(funcRankCost - totalOutputCost) < 1e-6
+                && multiFuncRank.All(row => row.HitCost == 0 && row.MissCost == 0),
+                $"Σ={funcRankCost:F6} 输出={totalOutputCost:F6}");
             // 8. 上月记录不计入今天范围
             var lastMonthSummary = service.Summarize(today.AddMonths(-1), today.AddMonths(-1).AddDays(1));
             Check(ref failures, "上月范围条数=1", lastMonthSummary.ChatCount == 1, lastMonthSummary.ChatCount);

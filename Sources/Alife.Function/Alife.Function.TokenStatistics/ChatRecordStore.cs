@@ -58,6 +58,37 @@ public sealed class ChatRecordStore
         return result.OrderBy(record => record.Time).ToList();
     }
 
+    /// <summary>最近一条记录的日期；没有任何记录时返回 null。</summary>
+    public DateTime? LatestRecordDate()
+    {
+        if (Directory.Exists(recordsFolder) == false)
+            return null;
+
+        foreach (string file in Directory.GetFiles(recordsFolder, "*.jsonl")
+            .OrderByDescending(path => Path.GetFileNameWithoutExtension(path), StringComparer.Ordinal))
+        {
+            string? lastLine = null;
+            using (FileStream stream = new(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (StreamReader reader = new(stream))
+            {
+                while (reader.ReadLine() is { } line)
+                {
+                    if (string.IsNullOrWhiteSpace(line) == false)
+                        lastLine = line;
+                }
+            }
+
+            if (lastLine is null)
+                continue;
+
+            ChatRecord? record = JsonSerializer.Deserialize<ChatRecord>(lastLine, JsonOptions);
+            if (record is not null)
+                return record.Time.Date;
+        }
+
+        return null;
+    }
+
     /// <summary>删除早于保留期起点所在月份之前的所有月文件。保留期内的整月保留，不做行级截断。</summary>
     public void PruneExpired(DateTimeOffset now)
     {

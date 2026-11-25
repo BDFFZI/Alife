@@ -81,4 +81,8 @@ public static class TokenStatisticsLocator
             return false;
         return Directory.EnumerateFiles(folder, "*.jsonl").Any();
     }
+
+    /// <summary>该角色最近一条记录的日期；没有记录时返回 null。</summary>
+    public static DateTime? LatestRecordDate(string characterName)
+        => new ChatRecordStore(RecordsFolderFor(characterName)).LatestRecordDate();
 }

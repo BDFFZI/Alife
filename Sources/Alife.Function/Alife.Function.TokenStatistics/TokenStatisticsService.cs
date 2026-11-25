@@ -79,7 +79,7 @@ public sealed class TokenStatisticsService(
         public bool HasFunc(string name)
             => FuncWeights.Any(weight => string.Equals(weight.Name, name, StringComparison.OrdinalIgnoreCase));
     }
-    /// <summary>排行中的一行：三段 token 与各自费用（已按字节占比分摊），供界面按任意列排序。</summary>
+    /// <summary>排行中的一行：所属侧（输入或输出）的 token 与费用，按字节占比分摊。</summary>
     public sealed record RankRow(
         string Name,
         int ChatCount,
@@ -90,7 +90,7 @@ public sealed class TokenStatisticsService(
         double MissCost,
         double OutputCost)
     {
-        /// <summary>该行总花费（缓存 + 输入 + 输出）。</summary>
+        /// <summary>该行总花费（标签行为输入侧，函数行为输出侧）。</summary>
         public double Cost => HitCost + MissCost + OutputCost;
 
         /// <summary>输入合计（缓存命中 + 未命中）。</summary>
@@ -410,15 +410,18 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
             .OrderBy(name => name, StringComparer.Ordinal)];
     }
 
-    /// <summary>按标签聚合排行：每条记录的三段 token / 费用按各标签字节占比分摊。</summary>
+    /// <summary>按标签聚合排行：只分摊输入侧 token / 费用。</summary>
     public IReadOnlyList<RankRow> RankByTags(IReadOnlyList<RecordView> views)
-        => Rank(views, view => view.TagWeights);
+        => Rank(views, view => view.TagWeights, inputSide: true);
 
-    /// <summary>按函数聚合排行：同样按字节占比分摊。</summary>
+    /// <summary>按函数聚合排行：只分摊输出侧 token / 费用。</summary>
     public IReadOnlyList<RankRow> RankByFunctions(IReadOnlyList<RecordView> views)
-        => Rank(views, view => view.FuncWeights);
+        => Rank(views, view => view.FuncWeights, inputSide: false);
 
-    IReadOnlyList<RankRow> Rank(IReadOnlyList<RecordView> views, Func<RecordView, IReadOnlyList<WeightedName>> selector)
+    IReadOnlyList<RankRow> Rank(
+        IReadOnlyList<RecordView> views,
+        Func<RecordView, IReadOnlyList<WeightedName>> selector,
+        bool inputSide)
     {
         Dictionary<string, Accumulator> map = new(StringComparer.OrdinalIgnoreCase);
 
@@ -441,13 +444,20 @@ public sealed record HitRateTarget(double Rate, DateTime Day, int SampleCount);
                 // 出现次数：这条对话里出现过就算一次（同名多次只算一次）
                 acc.ChatCount++;
 
-                // token 与费用按字节占比分摊
-                acc.CachedTokens += view.Record.InputCached * weight.Weight;
-                acc.MissTokens += missTokens * weight.Weight;
-                acc.OutputTokens += view.Record.OutputTotal * weight.Weight;
-                acc.HitCost += view.HitCost * weight.Weight;
-                acc.MissCost += view.MissCost * weight.Weight;
-                acc.OutputCost += view.OutputCost * weight.Weight;
+                // 标签只解释输入侧、函数只解释输出侧；两表相加才是整笔花费，
+                // 同一段记忆的读取（记忆存档）与写入（Memorize）不会在两边各摊一次全额。
+                if (inputSide)
+                {
+                    acc.CachedTokens += view.Record.InputCached * weight.Weight;
+                    acc.MissTokens += missTokens * weight.Weight;
+                    acc.HitCost += view.HitCost * weight.Weight;
+                    acc.MissCost += view.MissCost * weight.Weight;
+                }
+                else
+                {
+                    acc.OutputTokens += view.Record.OutputTotal * weight.Weight;
+                    acc.OutputCost += view.OutputCost * weight.Weight;
+                }
             }
         }
 

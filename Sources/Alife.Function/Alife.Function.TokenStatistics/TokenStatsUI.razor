@@ -182,7 +182,7 @@
         <div class="ts-card">
             <div class="ts-card-head">
                 <div class="ts-card-title">时间范围</div>
-                <div class="ts-card-sub">下面三块（总览 / 用量走势 / 诊断摘要）都按这个范围统计</div>
+                <div class="ts-card-sub">下面的总览、走势、诊断、排行与对话记录都按这个范围和时间区间统计</div>
             </div>
         <div class="ts-toolbar">
             <div class="ts-tool-group">
@@ -212,6 +212,21 @@
             </div>
         </div>
 
+            <div class="ts-record-range">
+                <div class="ts-record-range-head">
+                    <span class="ts-label">时间区间</span>
+                    <span class="ts-record-range-text">@recordsFrom.ToString("MM-dd HH:mm") ~ @recordsTo.ToString("MM-dd HH:mm")</span>
+                    <Button Size="@ButtonSize.Small" OnClick="ResetRecordRange">重置</Button>
+                </div>
+                <Slider TValue="(double, double)" Range="true" Min="0" Max="1000" Step="1"
+                        Value="@recordRange" OnAfterChange="@OnRecordRangeChanged" TipFormatter="@FormatRangeTip" />
+                <div class="ts-slider-scale">
+                    <span>@viewFrom.ToString("MM-dd HH:mm")</span>
+                    <span>@SliderMidTime.ToString("MM-dd HH:mm")</span>
+                    <span>@viewTo.ToString("MM-dd HH:mm")</span>
+                </div>
+            </div>
+
         </div>
 
 
@@ -220,9 +235,13 @@
             <div class="ts-empty">
                 <Empty Description="@("该时间段内没有对话记录")"/>
                 <div class="ts-empty-tip">
-                    @if (HasRecordsInWindow)
+                    @if (rangeRecordCount > 0)
                     {
-                        <text>当前「记录区间」里没有数据，把上面的区间滑块拉开或点「重置」即可恢复。</text>
+                        <text>当前区间有 @rangeRecordCount 条记录，但被当前下钻条件排除了。</text>
+                        @if (dominantTagFilter != null || dominantFuncFilter != null)
+                        {
+                            <Button Size="@ButtonSize.Small" OnClick="ClearDominantFilter">清除下钻</Button>
+                        }
                     }
                     else
                     {
@@ -284,10 +303,11 @@
                             @foreach (var bucket in buckets)
                             {
                                 <div class="ts-bar-col">
+                                    <Button Class="ts-bar-hit" Type="@ButtonType.Text" OnClick="@(() => FocusBucket(bucket))" />
                                     <div class="ts-bar-holder">
                                         @foreach (var series in ActiveSeries)
                                         {
-                                            <div class="ts-bar" style="@BarStyle(bucket, series)" title="@($"{series.Label}: {FormatSeriesValue(series, bucket)}")"></div>
+                                            <div class="ts-bar" style="@BarStyle(bucket, series)" title="@($"{series.Label}: {FormatSeriesValue(series, bucket)} · 合计 ¥{Money(bucket.Cost)}")"></div>
                                         }
                                     </div>
                                     <div class="ts-bar-label">@(ShouldShowLabel(bucket) ? bucket.Label : "")</div>
@@ -307,6 +327,7 @@
                                         {
                                             <div class="ts-tip-row"><span>输出</span><b>@bucket.OutputTotal.ToString("N0")（¥@bucket.OutputCost.ToString("F4")）</b></div>
                                         }
+                                        <div class="ts-tip-row"><span>合计</span><b>¥@Money(bucket.Cost)</b></div>
                                         <div class="ts-tip-row"><span>命中率</span><b>@BucketHitRate(bucket)</b></div>
                                     </div>
                                 </div>
@@ -351,23 +372,9 @@
 
         <div class="ts-card">
             <div class="ts-card-head">
-                <div class="ts-card-title">明细筛选</div>
-                <div class="ts-card-sub">在上面的对话里再收窄，只影响「排行榜 / 对话记录」</div>
+                <div class="ts-card-title">统计筛选</div>
+                <div class="ts-card-sub">时间范围与区间统一由上方决定；这里只调整名字的分摊与下钻</div>
             </div>
-                    <div class="ts-record-range">
-                        <div class="ts-record-range-head">
-                            <span class="ts-label">记录区间</span>
-                            <span class="ts-record-range-text">@recordsFrom.ToString("MM-dd HH:mm") ~ @recordsTo.ToString("MM-dd HH:mm")</span>
-                            <Button Size="@ButtonSize.Small" OnClick="ResetRecordRange">重置</Button>
-                        </div>
-                        <Slider TValue="(double, double)" Range="true" Min="0" Max="1000" Step="1"
-                                Value="@recordRange" OnAfterChange="@OnRecordRangeChanged" TipFormatter="@FormatRangeTip" />
-                        <div class="ts-slider-scale">
-                            <span>@viewFrom.ToString("MM-dd HH:mm")</span>
-                            <span>@SliderMidTime.ToString("MM-dd HH:mm")</span>
-                            <span>@viewTo.ToString("MM-dd HH:mm")</span>
-                        </div>
-                    </div>
                         <div class="ts-filter">
                             <div class="ts-filter-card">
                                 <div class="ts-filter-card-head">
@@ -405,11 +412,9 @@
 
             <div class="ts-scope-summary">
                 <span class="ts-scope-label">当前生效</span>
-                <span>@RangeText</span>
+                <span>@ActiveRangeText</span>
                 <span class="ts-scope-dot">·</span>
-                <span>基础 @summary.ChatCount 条</span>
-                <span class="ts-scope-dot">·</span>
-                <span>明细 @filteredRecords.Count 条</span>
+                <span>@filteredRecords.Count 条</span>
                 <span class="ts-scope-dot">·</span>
                 <span>排除 @excludedNames.Count 个名字</span>
                 <span class="ts-scope-dot">·</span>
@@ -422,7 +427,7 @@
                 }
             </div>
         </div>
-            <div class="ts-rank-hint">点击表头切换排序（再点一次反向）；「占比 / 累计」按当前排序列计算。想看谁最耗输出，点「输出¥」列排序即可</div>
+            <div class="ts-rank-hint">点击表头切换排序（再点一次反向）。标签表只分摊输入侧、函数表只分摊输出侧；同一段内容在两侧出现时各是一次真实计费，两表合计相加才是总花费。</div>
 
             <div class="ts-rank-grid">
                 @foreach (var group in rankGroups)
@@ -431,10 +436,11 @@
                     <div class="ts-card">
                         <div class="ts-card-head">
                             <div class="ts-card-title">@group.Title</div>
-                            <div class="ts-card-sub">@group.Sub · 按明细筛选后分摊，占比在本表内合计 100% · 点击名称可下钻</div>
+                            <div class="ts-card-sub">@group.Sub · 本表合计 ¥@Money(group.Rows.Sum(row => row.Cost)) · 点击名称可下钻</div>
                         </div>
 
                         @{ List<RankRowView> ranked = RankRows(group); }
+                        @{ RankSortColumn sortColumn = EffectiveRankSort(group); }
 
                         @if (ranked.Count == 0)
                         {
@@ -447,40 +453,46 @@
                                     <tr>
                                         <th class="ts-rank-idx">#</th>
                                         <th>
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Name)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Name))">@($"{group.NameLabel}{SortArrow(RankSortColumn.Name)}")</Button>
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Name)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Name))">@($"{group.NameLabel}{SortArrow(sortColumn, RankSortColumn.Name)}")</Button>
                                         </th>
                                         <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Count)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Count))">@($"次数{SortArrow(RankSortColumn.Count)}")</Button>
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Count)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Count))">@($"次数{SortArrow(sortColumn, RankSortColumn.Count)}")</Button>
                                         </th>
+                                        @if (group.Kind == "tag")
+                                        {
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Cached)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.Cached))">@($"缓存{SortArrow(sortColumn, RankSortColumn.Cached)}")</Button>
+                                            </th>
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.CachedCost)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.CachedCost))">@($"缓存¥{SortArrow(sortColumn, RankSortColumn.CachedCost)}")</Button>
+                                            </th>
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Input)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.Input))">@($"输入{SortArrow(sortColumn, RankSortColumn.Input)}")</Button>
+                                            </th>
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.InputCost)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.InputCost))">@($"输入¥{SortArrow(sortColumn, RankSortColumn.InputCost)}")</Button>
+                                            </th>
+                                        }
+                                        else
+                                        {
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Output)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.Output))">@($"输出{SortArrow(sortColumn, RankSortColumn.Output)}")</Button>
+                                            </th>
+                                            <th class="ts-rank-num">
+                                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.OutputCost)"
+                                                        OnClick="@(() => OnRankSort(RankSortColumn.OutputCost))">@($"输出¥{SortArrow(sortColumn, RankSortColumn.OutputCost)}")</Button>
+                                            </th>
+                                        }
                                         <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Cached)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Cached))">@($"缓存{SortArrow(RankSortColumn.Cached)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.CachedCost)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.CachedCost))">@($"缓存¥{SortArrow(RankSortColumn.CachedCost)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Input)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Input))">@($"输入{SortArrow(RankSortColumn.Input)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.InputCost)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.InputCost))">@($"输入¥{SortArrow(RankSortColumn.InputCost)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Output)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Output))">@($"输出{SortArrow(RankSortColumn.Output)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.OutputCost)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.OutputCost))">@($"输出¥{SortArrow(RankSortColumn.OutputCost)}")</Button>
-                                        </th>
-                                        <th class="ts-rank-num">
-                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(RankSortColumn.Total)"
-                                                    OnClick="@(() => OnRankSort(RankSortColumn.Total))">@($"合计¥{SortArrow(RankSortColumn.Total)}")</Button>
+                                            <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Style="@SortHeaderStyle(sortColumn, RankSortColumn.Total)"
+                                                    OnClick="@(() => OnRankSort(RankSortColumn.Total))">@($"合计¥{SortArrow(sortColumn, RankSortColumn.Total)}")</Button>
                                         </th>
                                         <th class="ts-rank-num">占比</th>
                                         <th class="ts-rank-num">累计</th>
@@ -504,12 +516,18 @@
                                                 </div>
                                             </td>
                                             <td class="ts-rank-num">@row.ChatCount</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(row.CachedTokens)</td>
-                                            <td class="ts-rank-num">@row.HitCost.ToString("F4")</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(row.InputMissTokens)</td>
-                                            <td class="ts-rank-num">@row.MissCost.ToString("F4")</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(row.OutputTokens)</td>
-                                            <td class="ts-rank-num">@row.OutputCost.ToString("F4")</td>
+                                            @if (group.Kind == "tag")
+                                            {
+                                                <td class="ts-rank-num">@FormatTokenValue(row.CachedTokens)</td>
+                                                <td class="ts-rank-num">@row.HitCost.ToString("F4")</td>
+                                                <td class="ts-rank-num">@FormatTokenValue(row.InputMissTokens)</td>
+                                                <td class="ts-rank-num">@row.MissCost.ToString("F4")</td>
+                                            }
+                                            else
+                                            {
+                                                <td class="ts-rank-num">@FormatTokenValue(row.OutputTokens)</td>
+                                                <td class="ts-rank-num">@row.OutputCost.ToString("F4")</td>
+                                            }
                                             <td class="ts-rank-num">@row.Cost.ToString("F4")</td>
                                             <td class="ts-rank-num">@view.Share.ToString("P1")</td>
                                             <td class="ts-rank-num">@view.Cumulative.ToString("P1")</td>
@@ -524,12 +542,18 @@
                                             <td class="ts-rank-idx">…</td>
                                             <td>@restRow.Name</td>
                                             <td class="ts-rank-num">@restRow.ChatCount</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(restRow.CachedTokens)</td>
-                                            <td class="ts-rank-num">@Money(restRow.HitCost)</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(restRow.InputMissTokens)</td>
-                                            <td class="ts-rank-num">@Money(restRow.MissCost)</td>
-                                            <td class="ts-rank-num">@FormatTokenValue(restRow.OutputTokens)</td>
-                                            <td class="ts-rank-num">@Money(restRow.OutputCost)</td>
+                                            @if (group.Kind == "tag")
+                                            {
+                                                <td class="ts-rank-num">@FormatTokenValue(restRow.CachedTokens)</td>
+                                                <td class="ts-rank-num">@Money(restRow.HitCost)</td>
+                                                <td class="ts-rank-num">@FormatTokenValue(restRow.InputMissTokens)</td>
+                                                <td class="ts-rank-num">@Money(restRow.MissCost)</td>
+                                            }
+                                            else
+                                            {
+                                                <td class="ts-rank-num">@FormatTokenValue(restRow.OutputTokens)</td>
+                                                <td class="ts-rank-num">@Money(restRow.OutputCost)</td>
+                                            }
                                             <td class="ts-rank-num">@Money(restRow.Cost)</td>
                                             <td class="ts-rank-num">@restShare.ToString("P1")</td>
                                             <td class="ts-rank-num">100.0%</td>
@@ -598,16 +622,31 @@
                                 </div>
 
                                 <div class="ts-head-row">
-                                    <span class="ts-head-label">内容</span>
-                                    @if (view.TagWeights.Count == 0 && view.FuncWeights.Count == 0)
+                                    <span class="ts-head-label">输入</span>
+                                    @if (view.TagWeights.Count == 0)
                                     {
-                                        <span class="ts-dominant ts-dominant-none">无内容可归属</span>
+                                        <span class="ts-dominant ts-dominant-none">无标签</span>
                                     }
                                     else
                                     {
-                                        @foreach (var share in MergedShares(view.TagWeights, view.FuncWeights))
+                                        @foreach (var share in ChipShares(view.TagWeights))
                                         {
-                                            <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : (share.IsFunc ? "ts-dominant ts-dominant-func" : "ts-dominant"))">@ChipName(share.Name) @share.Percent%</span>
+                                            <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : "ts-dominant")">@ChipName(share.Name) @share.Percent%</span>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="ts-head-row">
+                                    <span class="ts-head-label">输出</span>
+                                    @if (view.FuncWeights.Count == 0)
+                                    {
+                                        <span class="ts-dominant ts-dominant-none">纯文本</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var share in ChipShares(view.FuncWeights))
+                                        {
+                                            <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : "ts-dominant ts-dominant-func")">@ChipName(share.Name) @share.Percent%</span>
                                         }
                                     }
                                 </div>
@@ -637,7 +676,7 @@
                                                     }
                                                     else
                                                     {
-                                                        @foreach (var share in MergedShares(view.TagWeights, []))
+                                                        @foreach (var share in ChipShares(view.TagWeights))
                                                         {
                                                             <span class="ts-dominant">@ChipName(share.Name) @share.Percent%</span>
                                                         }
@@ -647,6 +686,7 @@
                                                 <div class="ts-bubble-meta">
                                                     <span>缓存 @view.Record.InputCached.ToString("N0")（¥@Money(view.HitCost)）</span>
                                                     <span>输入 @((view.Record.InputTotal - view.Record.InputCached).ToString("N0"))（¥@Money(view.MissCost)）</span>
+                                                    <span>输入合计 ¥@Money(view.InputCost)</span>
                                                     <span>命中率 @view.HitRate.ToString("P1")</span>
                                                 </div>
                                             </div>
@@ -664,7 +704,7 @@
                                                     }
                                                     else
                                                     {
-                                                        @foreach (var share in MergedShares([], view.FuncWeights))
+                                                        @foreach (var share in ChipShares(view.FuncWeights))
                                                         {
                                                             <span class="@(share.Name == TokenStatisticsService.NoDominantName ? "ts-dominant ts-dominant-none" : "ts-dominant ts-dominant-func")">@ChipName(share.Name) @share.Percent%</span>
                                                         }
@@ -972,7 +1012,27 @@
 
     .ts-bar-col {
         position: relative;
+        cursor: pointer;
     }
+
+    /* 覆盖整根柱子接收点击；透明，只负责命中区域 */
+    .ts-bar-hit {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: none;
+        background: transparent;
+        z-index: 5;
+    }
+
+        .ts-bar-hit:hover,
+        .ts-bar-hit:focus {
+            border: none;
+            background: transparent;
+            box-shadow: none;
+        }
 
     .ts-tip {
         display: none;
@@ -1917,7 +1977,7 @@
     string holidayCharacter = "";
     string holidayStatus = "未加载";
     DateTime? holidayRefreshedAt;
-    readonly HashSet<int> holidayRequestedYears = new();
+    readonly Dictionary<string, HashSet<int>> holidayRequestedYears = new(StringComparer.Ordinal);
 
     IHolidayCalendar EffectiveCalendar => holidayCalendar is null ? NoHolidayCalendar.Instance : holidayCalendar;
 
@@ -1925,17 +1985,14 @@
     bool showPriceConfig;
 
     string PriceFileHint => selectedCharacter == "" ? "" : TokenStatisticsLocator.PriceFileFor(selectedCharacter);
-    DateTimeOffset spanFrom;
-    DateTimeOffset spanTo;
     DateTimeOffset viewFrom;
     DateTimeOffset viewTo;
+    int rangeRecordCount;
 
     TokenStatisticsService.RangeSummary summary = new(0, 0, 0, 0, 0, 0, 0);
     List<TokenStatisticsService.Bucket> buckets = new();
     List<TokenStatisticsService.RecordView> filteredRecords = new();
 
-    // 基础范围（基准日 + 跨度）内的全部记录：总览、柱状图、诊断摘要只看这个
-    List<TokenStatisticsService.RecordView> baseRecords = new();
     List<TokenStatisticsService.RecordView> pageRecords = new();
     List<string> knownNames = new();
     List<Kpi> kpis = new();
@@ -2035,13 +2092,23 @@
         // 默认选中"有记录"的角色，避免打开就是空页面
         string? withRecords = characters.FirstOrDefault(TokenStatisticsLocator.HasRecords);
         selectedCharacter = withRecords ?? (characters.Count > 0 ? characters[0] : "");
+        ResetRangeAnchorToLatest();
     }
 
     void OnCharacterChanged()
     {
+        ResetRangeAnchorToLatest();
         pageIndex = 0;
         ApplyRange();
-        Reload();
+    }
+
+    /// <summary>默认停在最近有记录的日期；没有记录时退回今天。</summary>
+    void ResetRangeAnchorToLatest()
+    {
+        latestRecordDate = (selectedCharacter == ""
+            ? null
+            : TokenStatisticsLocator.LatestRecordDate(selectedCharacter)) ?? DateTime.Today;
+        rangeAnchor = latestRecordDate;
     }
 
 
@@ -2119,8 +2186,20 @@
         Reload();
     }
 
-    /// <summary>窗口内有记录、但被「记录区间」滑块裁成 0 条——用来提示"把滑块拉开"而不是"没数据"。</summary>
-    bool HasRecordsInWindow => service != null && service.Summarize(viewFrom, viewTo).ChatCount > 0;
+    /// <summary>点击柱状图：把时间区间收紧到被点击柱子的那一段。</summary>
+    void FocusBucket(TokenStatisticsService.Bucket bucket)
+    {
+        long totalTicks = viewTo.UtcTicks - viewFrom.UtcTicks;
+        if (totalTicks <= 0)
+            return;
+
+        double low = (bucket.Start.UtcTicks - viewFrom.UtcTicks) * 1000d / totalTicks;
+        double high = (bucket.End.UtcTicks - viewFrom.UtcTicks) * 1000d / totalTicks;
+        recordRange = (Math.Clamp(low, 0, 1000), Math.Clamp(high, 0, 1000));
+        ApplyRecordRange();
+        pageIndex = 0;
+        Reload();
+    }
 
     void ApplyRecordRange()
     {
@@ -2171,6 +2250,7 @@
     /// 基准日：窗口的右端（含当日）。改跨度时这个日期保持不动，窗口往前扩张。
     /// </summary>
     DateTime rangeAnchor = DateTime.Today;
+    DateTime latestRecordDate = DateTime.Today;
 
     /// <summary>跨度（天）：从基准日往前回溯的天数。</summary>
     int spanDays = 1;
@@ -2191,11 +2271,16 @@
     /// <summary>窗口左端（含当日）。</summary>
     DateTime WindowStartDate => rangeAnchor.AddDays(-(spanDays - 1));
 
-    bool CanPageNext => rangeAnchor.Date < DateTime.Today;
+    bool CanPageNext => rangeAnchor.Date < latestRecordDate;
 
     string RangeText => spanDays == 1
         ? $"{rangeAnchor:MM-dd} 单日"
         : $"{WindowStartDate:MM-dd} ~ {rangeAnchor:MM-dd}（{spanDays} 天）";
+
+    /// <summary>当前实际参与统计的范围；拖动时间区间后显示到分钟，避免和日期范围看起来是两套数据。</summary>
+    string ActiveRangeText => recordRange.Low == 0 && recordRange.High == 1000
+        ? RangeText
+        : $"{recordsFrom:MM-dd HH:mm} ~ {recordsTo:MM-dd HH:mm}";
 
     void OnRangeAnchorChanged(DateTime? value)
     {
@@ -2225,8 +2310,8 @@
         if (CanPageNext == false)
             return;
         rangeAnchor = rangeAnchor.AddDays(spanDays);
-        if (rangeAnchor.Date > DateTime.Today)
-            rangeAnchor = DateTime.Today;
+        if (rangeAnchor.Date > latestRecordDate)
+            rangeAnchor = latestRecordDate;
         ApplyRange();
     }
 
@@ -2236,8 +2321,6 @@
         DateTimeOffset now = DateTimeOffset.Now;
         viewFrom = new DateTimeOffset(WindowStartDate, now.Offset);
         viewTo = new DateTimeOffset(rangeAnchor.AddDays(1), now.Offset);
-        spanFrom = viewFrom;
-        spanTo = viewTo;
         recordRange = (0, 1000);
         pageIndex = 0;
         Reload();
@@ -2261,7 +2344,7 @@
     async Task LoadHolidaysAsync(string characterName)
     {
         HolidayCalendar calendar = TokenStatisticsLocator.CreateHolidayCalendar(characterName);
-        await EnsureHolidayYearsAsync(calendar, force: false);
+        await EnsureHolidayYearsAsync(characterName, calendar, force: false);
 
         await InvokeAsync(() => {
             if (string.Equals(holidayCharacter, characterName, StringComparison.Ordinal) == false)
@@ -2273,8 +2356,9 @@
     }
 
     /// <summary>按需补齐年份；force=true 用于面板上手动刷新。</summary>
-    async Task EnsureHolidayYearsAsync(HolidayCalendar calendar, bool force)
+    async Task EnsureHolidayYearsAsync(string characterName, HolidayCalendar calendar, bool force)
     {
+        HashSet<int> requested = GetHolidayRequestedYears(characterName);
         List<int> pending = [];
         foreach (int year in HolidayYearsInRange())
         {
@@ -2286,15 +2370,25 @@
 
             if (calendar.LoadedYears.Contains(year) || calendar.MissingYears.Contains(year))
                 continue;
-            if (holidayRequestedYears.Contains(year))
+            if (requested.Contains(year))
                 continue;
 
-            holidayRequestedYears.Add(year);
+            requested.Add(year);
             pending.Add(year);
         }
 
         foreach (int year in pending)
             await calendar.EnsureYearAsync(year, force: force);
+    }
+
+    HashSet<int> GetHolidayRequestedYears(string characterName)
+    {
+        if (holidayRequestedYears.TryGetValue(characterName, out HashSet<int>? years) == false)
+        {
+            years = [];
+            holidayRequestedYears[characterName] = years;
+        }
+        return years;
     }
 
     /// <summary>窗口跨到新年份时补加载；有新增年份则刷新一次界面。</summary>
@@ -2304,7 +2398,7 @@
             return;
 
         int before = holidayCalendar.LoadedYears.Count;
-        await EnsureHolidayYearsAsync(holidayCalendar, force: false);
+        await EnsureHolidayYearsAsync(holidayCharacter, holidayCalendar, force: false);
         if (holidayCalendar.LoadedYears.Count == before)
             return;
 
@@ -2341,7 +2435,7 @@
         holidayStatus = "刷新中…";
         StateHasChanged();
 
-        await EnsureHolidayYearsAsync(holidayCalendar, force: true);
+        await EnsureHolidayYearsAsync(holidayCharacter, holidayCalendar, force: true);
         await InvokeAsync(() => {
             UpdateHolidayStatus();
             Reload();
@@ -2624,6 +2718,7 @@
             holidayCharacter = selectedCharacter;
             holidayCalendar = null;
             holidayStatus = "加载中…";
+            holidayRequestedYears.Remove(selectedCharacter);
             _ = LoadHolidaysAsync(selectedCharacter);
         }
 
@@ -2633,38 +2728,27 @@
         ApplyRecordRange();
 
         TagFilter filter = new(excludedNames, ignoredParamNames);
-        filteredRecords = service.QueryRecords(recordsFrom, recordsTo, filter).ToList();
-
-        // 排行榜下钻：只看选中的主导标签/函数
-        if (dominantTagFilter != null)
-            filteredRecords = filteredRecords.Where(view => view.HasTag(dominantTagFilter)).ToList();
-        if (dominantFuncFilter != null)
-            filteredRecords = filteredRecords.Where(view => view.HasFunc(dominantFuncFilter)).ToList();
-
-
-        // 两层数据：
-        //   基础范围（基准日 + 跨度，不做名称筛选、不含记录区间滑块）→ 总览 KPI、柱状图、诊断摘要
-        //   明细筛选（基础范围 ∩ 记录区间 ∩ 名称筛选 ∩ 下钻）→ 排行榜、对话记录
-        baseRecords = service.QueryRecords(viewFrom, viewTo, new TagFilter([], ignoredParamNames)).ToList();
+        List<TokenStatisticsService.RecordView> records = service.QueryRecords(recordsFrom, recordsTo, filter).ToList();
+        rangeRecordCount = records.Count;
+        filteredRecords = ApplyDrill(records);
 
         summary = new TokenStatisticsService.RangeSummary(
-            baseRecords.Count,
-            (int)baseRecords.Sum(view => (long)view.Record.InputTotal),
-            (int)baseRecords.Sum(view => (long)view.Record.InputCached),
-            (int)baseRecords.Sum(view => (long)view.Record.OutputTotal),
-            baseRecords.Sum(view => view.MissCost),
-            baseRecords.Sum(view => view.HitCost),
-            baseRecords.Sum(view => view.OutputCost));
+            filteredRecords.Count,
+            (int)filteredRecords.Sum(view => (long)view.Record.InputTotal),
+            (int)filteredRecords.Sum(view => (long)view.Record.InputCached),
+            (int)filteredRecords.Sum(view => (long)view.Record.OutputTotal),
+            filteredRecords.Sum(view => view.MissCost),
+            filteredRecords.Sum(view => view.HitCost),
+            filteredRecords.Sum(view => view.OutputCost));
 
         // 给每条记录标上"开销第 N"（按当前筛选结果降序），不再只标前 10 条
         costRanks.Clear();
         foreach (var view in filteredRecords.OrderByDescending(view => view.Cost))
             costRanks[view.Record.Id] = costRanks.Count + 1;
 
-        // 记录区间内的合计，用于"每条记录占所选范围"的百分比
-        knownNames = [.. service.KnownNames(spanFrom, spanTo, filter)];
+        knownNames = [.. service.KnownNames(recordsFrom, recordsTo, filter)];
         parameterizedNames.Clear();
-        parameterizedNames.AddRange(service.ParameterizedBaseNames(spanFrom, spanTo));
+        parameterizedNames.AddRange(service.ParameterizedBaseNames(recordsFrom, recordsTo));
 
         long tokens = summary.InputTotal + summary.OutputTotal;
         long missTokens = summary.InputMissTokens;
@@ -2680,20 +2764,30 @@
             new Kpi("总花费", "¥" + summary.Cost.ToString("F4"), "平均每次 ¥" + summary.AverageCost.ToString("F5")),
         ];
 
-        // 与上一段同长度窗口对比（诊断只做对比，不用拍脑袋阈值）
-        // 诊断也属于"基础范围"层：本期 = 基准日+跨度内的全部对话；基线 = 紧邻的等长窗口
+        // 与上一段同长度窗口对比；基线与本期使用同一组筛选与下钻。
+        DateTimeOffset baselineFrom = recordsFrom - (recordsTo - recordsFrom);
         List<TokenStatisticsService.RecordView> baselineRecords =
-            service.QueryRecords(viewFrom - (viewTo - viewFrom), viewFrom, new TagFilter([], ignoredParamNames)).ToList();
+            ApplyDrill(service.QueryRecords(baselineFrom, recordsFrom, filter));
 
         // "缓存优化空间"的目标值来自历史：近 30 天里样本够、命中率最高的一天
         TokenStatisticsService.HitRateTarget? hitRateTarget = service.BestDailyHitRate(
-            viewFrom.AddDays(-TokenStatisticsDiagnostics.LookbackDays), viewFrom, TokenStatisticsDiagnostics.MinSamplesForTrend);
+            recordsFrom.AddDays(-TokenStatisticsDiagnostics.LookbackDays), recordsFrom, TokenStatisticsDiagnostics.MinSamplesForTrend);
 
-        insights = TokenStatisticsDiagnostics.Analyze(baseRecords, baselineRecords, viewTo - viewFrom,
+        insights = TokenStatisticsDiagnostics.Analyze(filteredRecords, baselineRecords, recordsTo - recordsFrom,
             time => priceProfile.IsOverridden(time, EffectiveCalendar), holidayStatus, hitRateTarget).ToList();
         BuildRankGroups();
         RefreshBuckets();
         SlicePage();
+    }
+
+    List<TokenStatisticsService.RecordView> ApplyDrill(IEnumerable<TokenStatisticsService.RecordView> views)
+    {
+        List<TokenStatisticsService.RecordView> result = [.. views];
+        if (dominantTagFilter != null)
+            result = [.. result.Where(view => view.HasTag(dominantTagFilter))];
+        if (dominantFuncFilter != null)
+            result = [.. result.Where(view => view.HasFunc(dominantFuncFilter))];
+        return result;
     }
 
     void RefreshBuckets()
@@ -2701,8 +2795,7 @@
         if (service == null)
             return;
 
-        // 图表属于"基础范围"层：时间轴与数据都只用基准日 + 跨度，不受记录区间/名称筛选影响
-        TimeSpan span = viewTo - viewFrom;
+        TimeSpan span = recordsTo - recordsFrom;
         if (span <= TimeSpan.Zero)
             span = TimeSpan.FromHours(1);
         TimeSpan width;
@@ -2724,7 +2817,7 @@
             labelMode = BucketLabelMode.Day;
         }
 
-        buckets = service.Bucketize(baseRecords, viewFrom, viewTo, width, labelMode).ToList();
+        buckets = service.Bucketize(filteredRecords, recordsFrom, recordsTo, width, labelMode).ToList();
         double tokenMax = 0;
         double costMax = 0;
         foreach (var bucket in buckets)
@@ -2924,8 +3017,8 @@
 
         rankGroups =
         [
-            new RankGroup("标签排行", "标签的字节 = 标签自身 + 其后正文（直到下一个标签），排的是「这段内容记在谁头上」", "标签", "tag", service.RankByTags(filteredRecords)),
-            new RankGroup("函数排行", "配对函数算整段（扣除子函数），自闭合只算自身", "函数", "func", service.RankByFunctions(filteredRecords)),
+            new RankGroup("输入标签排行", "字节 = 标签自身 + 其后正文（到下一个标签），只分摊输入侧", "标签", "tag", service.RankByTags(filteredRecords)),
+            new RankGroup("输出函数排行", "成对函数算整段（扣除子函数），自闭合只算自身，只分摊输出侧", "函数", "func", service.RankByFunctions(filteredRecords)),
         ];
     }
 
@@ -2942,11 +3035,26 @@
         rankSortDesc = column != RankSortColumn.Name;
     }
 
-    string SortArrow(RankSortColumn column)
-        => rankSort == column ? (rankSortDesc ? " ▼" : " ▲") : "";
+    RankSortColumn EffectiveRankSort(RankGroup group)
+    {
+        if (group.Kind == "tag")
+        {
+            return rankSort is RankSortColumn.Output or RankSortColumn.OutputCost
+                ? RankSortColumn.Total
+                : rankSort;
+        }
 
-    string SortHeaderStyle(RankSortColumn column)
-        => rankSort == column
+        return rankSort is RankSortColumn.Cached or RankSortColumn.CachedCost
+            or RankSortColumn.Input or RankSortColumn.InputCost
+            ? RankSortColumn.Total
+            : rankSort;
+    }
+
+    string SortArrow(RankSortColumn active, RankSortColumn column)
+        => active == column ? (rankSortDesc ? " ▼" : " ▲") : "";
+
+    string SortHeaderStyle(RankSortColumn active, RankSortColumn column)
+        => active == column
             ? "padding:0; height:auto; font-weight:600; color:var(--alife-primary);"
             : "padding:0; height:auto; color:var(--alife-text-secondary);";
 
@@ -2965,23 +3073,24 @@
     /// <summary>按当前排序列排好，并算出占比与累计（都基于排序列的合计）。</summary>
     List<RankRowView> RankRows(RankGroup group)
     {
-        List<TokenStatisticsService.RankRow> rows = rankSort == RankSortColumn.Name
+        RankSortColumn sortColumn = EffectiveRankSort(group);
+        List<TokenStatisticsService.RankRow> rows = sortColumn == RankSortColumn.Name
             ? (rankSortDesc
                 ? [.. group.Rows.OrderByDescending(row => row.Name, StringComparer.Ordinal)]
                 : [.. group.Rows.OrderBy(row => row.Name, StringComparer.Ordinal)])
             : (rankSortDesc
-                ? [.. group.Rows.OrderByDescending(row => SortValue(row, rankSort)).ThenByDescending(row => row.ChatCount)]
-                : [.. group.Rows.OrderBy(row => SortValue(row, rankSort)).ThenByDescending(row => row.ChatCount)]);
+                ? [.. group.Rows.OrderByDescending(row => SortValue(row, sortColumn)).ThenByDescending(row => row.ChatCount)]
+                : [.. group.Rows.OrderBy(row => SortValue(row, sortColumn)).ThenByDescending(row => row.ChatCount)]);
 
-        double total = rankSort == RankSortColumn.Name
+        double total = sortColumn == RankSortColumn.Name
             ? rows.Sum(row => row.Cost)
-            : rows.Sum(row => SortValue(row, rankSort));
+            : rows.Sum(row => SortValue(row, sortColumn));
 
         double cumulative = 0;
         List<RankRowView> list = new(rows.Count);
         for (int i = 0; i < rows.Count; i++)
         {
-            double value = rankSort == RankSortColumn.Name ? rows[i].Cost : SortValue(rows[i], rankSort);
+            double value = sortColumn == RankSortColumn.Name ? rows[i].Cost : SortValue(rows[i], sortColumn);
             double share = total > 0 ? value / total : 0;
             cumulative += share;
             list.Add(new RankRowView(rows[i], i + 1, share, cumulative));
@@ -3035,48 +3144,6 @@
         }
 
         return [.. weights.Select((item, index) => (item.Name, percent[index]))];
-    }
-
-    /// <summary>
-    /// 把「标签 + 函数 + 思考」合并成一行占比：全部按 UTF-8 字节数算，
-    /// 排序后取整（最大余数法），保证同一张卡上这些百分比相加正好 100%。
-    /// </summary>
-    static IReadOnlyList<(string Name, int Percent, bool IsFunc)> MergedShares(
-        IReadOnlyList<TokenStatisticsService.WeightedName> tags,
-        IReadOnlyList<TokenStatisticsService.WeightedName> funcs)
-    {
-        List<(string Name, int Bytes, bool IsFunc)> items =
-        [
-            .. tags.Select(item => (item.Name, item.Bytes, false)),
-            .. funcs.Select(item => (item.Name, item.Bytes, true)),
-        ];
-
-        int total = items.Sum(item => item.Bytes);
-        if (total <= 0)
-            return [.. items.Select(item => (item.Name, 0, item.IsFunc))];
-
-        double[] exact = [.. items.Select(item => (double)item.Bytes / total * 100)];
-        int[] percent = [.. exact.Select(value => (int)Math.Floor(value))];
-        int remainder = 100 - percent.Sum();
-
-        if (remainder > 0)
-        {
-            int[] order = [.. Enumerable.Range(0, exact.Length)
-                .OrderByDescending(index => exact[index] - Math.Floor(exact[index]))];
-            for (int i = 0; i < remainder && i < order.Length; i++)
-                percent[order[i]]++;
-        }
-        else if (remainder < 0)
-        {
-            int[] order = [.. Enumerable.Range(0, exact.Length)
-                .OrderBy(index => exact[index] - Math.Floor(exact[index]))];
-            for (int i = 0; i < -remainder && i < order.Length && percent[order[i]] > 0; i++)
-                percent[order[i]]--;
-        }
-
-        return [.. items
-            .Select((item, index) => (item.Name, percent[index], item.IsFunc))
-            .OrderByDescending(entry => entry.Item2)];
     }
 
     /// <summary>胶囊状态样式：蓝色=参与/已忽略，灰色划线=已排除/未忽略。</summary>
