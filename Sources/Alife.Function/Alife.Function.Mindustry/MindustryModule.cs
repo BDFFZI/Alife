@@ -59,7 +59,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
 
         operationHandler = new XmlHandler(this) { Description = "Mindustry 陪玩操作" };
         functionCaller.RegisterHandler(operationHandler, DocumentMode.Explicit, DestroyCancellationToken);
-        interactor.Poke("已开启 Mindustry 陪玩。先调用 MindustryStatus；每次只提交一项操作并等待回报。");
+        interactor.Poke("已开启 Mindustry 陪玩。先调用 MindustryStatus 了解任务，需要时再查询单位、产业或建筑清单；每次只提交一项操作并等待回报。");
     }
 
     [Description("关闭 Mindustry 陪玩，卸载游戏操作工具并停止自主陪玩。")]
@@ -92,8 +92,20 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     public Task MindustryMaps() => CallAsync("maps", allowWhileBusy: true);
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("仅在阶段切换或需要完整产业、坐标规划时调用；普通任务完成后先依据自主陪玩的精简状态决策。")]
+    [Description("查询关卡、波次、核心库存、任务进度、当前动作和紧急近敌。阶段切换或任务完成后按需调用。")]
     public Task MindustryStatus() => CallAsync("status", allowWhileBusy: true);
+
+    [XmlFunction(FunctionMode.OneShot)]
+    [Description("查询在线玩家、陪玩单位、己方作战单位、核心附近敌军和敌方核心坐标。")]
+    public Task MindustryActors() => CallAsync("actors", allowWhileBusy: true);
+
+    [XmlFunction(FunctionMode.OneShot)]
+    [Description("查询己方生产、供电、防御和物流建筑的方向、库存、电力、兵种及弹药状态。")]
+    public Task MindustryIndustry() => CallAsync("industry", allowWhileBusy: true);
+
+    [XmlFunction(FunctionMode.OneShot)]
+    [Description("查询任务建筑、已有建筑和当前已解锁可建建筑，包含建材与任务候选位置。建造前按需调用。")]
+    public Task MindustryBuildable() => CallAsync("buildable", allowWhileBusy: true);
 
     [XmlFunction(FunctionMode.Content)]
     [Description("全图搜索矿石、建筑或单位。格式：ore/block/unit ID，支持名称片段；结果按离核心距离排序。")]
@@ -132,7 +144,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("建造一个建筑。格式：x y 方向 建筑ID。")]
+    [Description("建造一个建筑。格式：x y 方向 建筑ID；方向0=右 1=下 2=左 3=上；占地格须全部可建且满足地形要求。")]
     public async Task MindustryBuild(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -150,7 +162,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("铺设 L 形单格路线。格式：x1 y1 x2 y2 方向 建筑ID。")]
+    [Description("铺设 L 形单格路线。格式：x1 y1 x2 y2 方向 建筑ID；方向0=右 1=下 2=左 3=上。")]
     public async Task MindustryBuildLine(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -411,7 +423,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
     }
 
     [XmlFunction(FunctionMode.Content)]
-    [Description("连接普通电力节点；beam-node 会检查同轴、范围和最近建筑后自动连接。格式：起点x 起点y 目标x 目标y。")]
+    [Description("连接电力。beam-node 可沿上下左右分别连接各方向最近的可接电建筑，一个节点最多连接四个方向；电力节点目标须在节点范围内。格式：起点x 起点y 目标x 目标y。")]
     public async Task MindustryPowerLink(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.Closing)
@@ -550,7 +562,7 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
                 if (status == HttpStatusCode.Accepted)
                     continue;
 
-                interactor.Poke($"Mindustry 任务 #{taskId} 回报：{result}\n任务结束。先读取状态，只执行一个操作，等待回报后再继续。");
+                interactor.Poke($"Mindustry 任务 #{taskId} 回报：{result}\n任务结束。按需查询状态，只执行一个操作，等待回报后再继续。");
                 return;
             }
         }
@@ -579,6 +591,8 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
         {
             long round = 0;
             string? lastStatus = null;
+            int idlePolls = 0;
+            int idleNudges = 0;
             while (true)
             {
                 string path = round == 0 ? "autonomy" : $"autonomy?round={round}";
@@ -589,7 +603,20 @@ public class MindustryModule(XmlFunctionCaller functionCaller, Interactor<Mindus
                     {
                         bool isFirstStatus = lastStatus == null;
                         lastStatus = result;
-                        interactor.Poke($"{(isFirstStatus ? $"Mindustry 自主陪玩目标：{objective}\n" : "")}{result}\n一次只执行一项任务并等待回报；任务结束后避免例行调用 MindustryStatus；达标或无法继续时停止自主陪玩。");
+                        idlePolls = 0;
+                        idleNudges = 0;
+                        interactor.Poke($"{(isFirstStatus ? $"Mindustry 自主陪玩目标：{objective}\n" : "")}{result}\n一次只执行一项任务并等待回报；需要单位、产业或建筑细节时再调用对应查询；达标或无法继续时停止自主陪玩。");
+                    }
+                    else if (++idlePolls >= 4)
+                    {
+                        idlePolls = 0;
+                        if (++idleNudges > 2)
+                        {
+                            interactor.Poke("Mindustry 自主陪玩长时间未收到操作，已停止。");
+                            return;
+                        }
+
+                        interactor.Poke($"{result}\n仍未收到任务。请立即提交一项任务，或调用 MindustryAutoplayStop 结束自主陪玩。");
                     }
                 }
                 else if (status != HttpStatusCode.Accepted)

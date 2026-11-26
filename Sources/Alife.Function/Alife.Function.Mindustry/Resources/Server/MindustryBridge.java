@@ -175,6 +175,11 @@ public class MindustryBridge extends Plugin {
             winner = null;
             clearedThrough = 0;
             round++;
+            // Dedicated servers do not run the client Control loop that unlocks starting campaign inventory.
+            if (Vars.headless && Vars.state.isCampaign()) {
+                Building core = Vars.state.rules.defaultTeam.core();
+                if (core != null) core.items.each((item, amount) -> item.unlock());
+            }
         });
         Events.on(GameOverEvent.class, event -> winner = event.winner);
         Events.on(BlockBuildEndEvent.class, event -> {
@@ -360,127 +365,11 @@ public class MindustryBridge extends Plugin {
 
         if (method.equals("GET") && route.equals("/tech")) return researchStatus(team);
 
-        if (method.equals("GET") && route.equals("/status")) {
-            Planet planet = Vars.state.getPlanet();
-            StringBuilder result = new StringBuilder("当前关卡：").append(Vars.state.map.plainName())
-                .append("，下一波编号：").append(Vars.state.wave).append("，核心：").append(core.tileX()).append(",").append(core.tileY())
-                .append("\n星球：").append(planet == null ? "未知" : planet.localizedName + " (" + planet.name + ")")
-                .append("，地图 ").append(Vars.world.width()).append("×").append(Vars.world.height())
-                .append("\n资源：");
-            team.items().each((item, amount) -> result.append(item.name).append("=").append(amount).append(" "));
-            if (Vars.state.rules.waves) {
-                result.append("\n本波剩余敌军：").append(Vars.state.enemies);
-                result.append(Vars.spawner.isSpawning() ? "（仍在刷怪）"
-                    : Vars.state.enemies > 0 ? "（交战中）" : "（当前没有存活敌军）");
-                if (!Vars.spawner.isSpawning() && Vars.state.enemies == 0) {
-                    clearedThrough = Math.max(clearedThrough, Vars.state.wave - 1);
-                }
-                result.append("，已确认清场至第 ").append(clearedThrough).append(" 波");
-                if (Vars.state.rules.waveTimer && !Vars.spawner.isSpawning() && Vars.state.enemies == 0 && !Vars.state.isPaused()) {
-                    result.append("，下一波倒计时：").append(Math.max(0, Math.round(Vars.state.wavetime / arc.util.Time.toSeconds))).append(" 秒");
-                }
-                result.append("，出怪口（最多 6 个）：");
-                int spawnCount = 0;
-                for (Tile spawn : Vars.spawner.getSpawns()) {
-                    if (spawnCount++ == 6) break;
-                    result.append(spawn.x).append(",").append(spawn.y).append(" ");
-                }
-                if (Vars.state.rules.winWave > 0) result.append("，胜利波次阈值：").append(Vars.state.rules.winWave);
-            }
-            appendObjectives(result, team, 8);
-            if (Vars.state.isPaused()) result.append("\n对局已暂停，任务将在恢复后继续。");
-            result.append("\n核心生命：").append(Math.round(core.healthf() * 100)).append("%");
-            result.append("\n队伍：").append(team.name).append(" (").append(team.id).append(")");
-            result.append("\n玩家：");
-            boolean hasPlayers = false;
-            for (Player player : Groups.player) {
-                hasPlayers = true;
-                result.append("\n- ").append(player.plainName()).append(" / 队伍 ")
-                    .append(player.team().name).append(" (").append(player.team().id).append(")");
-                if (player.team() == team || Vars.state.rules.fog == false
-                    || Vars.fogControl.isVisibleTile(team, player.tileX(), player.tileY())) {
-                    result.append(" / 坐标 ").append(player.tileX()).append(",").append(player.tileY());
-                    Unit playerUnit = player.unit();
-                    result.append(" / ").append(playerUnit == null ? "无单位"
-                        : playerUnit.type.name + " 生命 " + Math.round(playerUnit.healthf() * 100) + "%");
-                } else {
-                    result.append(" / 位置不可见");
-                }
-            }
-            if (hasPlayers == false) result.append("无");
-            result.append("\n陪玩单位：").append(companion.unitStatus());
-            result.append("\n己方作战单位（最多 8 台）：");
-            int combatUnits = 0;
-            for (var unit : team.data().units) {
-                if (!unit.isValid() || unit.isPlayer() || unit == companion.worker()
-                    || !unit.type.weapons.contains(weapon -> weapon.aiControllable && !weapon.noAttack
-                        && weapon.bullet.collidesGround && weapon.bullet.buildingDamageMultiplier > 0)) continue;
-                result.append(unit.type.name).append("@").append(unit.tileX()).append(",").append(unit.tileY())
-                    .append("/").append(Math.round(unit.healthf() * 100)).append("% ");
-                if (++combatUnits == 8) break;
-            }
-            if (combatUnits == 0) result.append("无");
-            result.append("\n任务：").append(companion.status());
-            result.append("\n就近矿点：");
-            for (var material : Vars.indexer.getAllPresentOres()) {
-                Tile floorOre = Vars.indexer.findClosestOre(core.x, core.y, material);
-                Tile wallOre = Vars.indexer.findClosestWallOre(core.x, core.y, material);
-                Tile ore;
-                String kind;
-                if (floorOre == null) {
-                    ore = wallOre;
-                    kind = "wall";
-                } else if (wallOre == null) {
-                    ore = floorOre;
-                    kind = "floor";
-                } else if (floorOre.dst2(core.x, core.y) <= wallOre.dst2(core.x, core.y)) {
-                    ore = floorOre;
-                    kind = "floor";
-                } else {
-                    ore = wallOre;
-                    kind = "wall";
-                }
-                if (ore != null) {
-                    result.append(material.name).append("@").append(ore.x).append(",").append(ore.y)
-                        .append("(").append(kind).append(") ");
-                }
-            }
-            result.append("\n采矿：MindustryMine <物资ID> <数量>；更多矿点用 MindustryFind ore <ID>。");
-            result.append("\n全图喷口：");
-            appendClosestBlocks(result, team, core, "vent", 5);
-            var threat = Units.closestEnemy(team, core.x, core.y, Vars.tilesize * 40,
-                enemy -> !Vars.state.rules.fog || Vars.fogControl.isVisible(team, enemy.x, enemy.y));
-            result.append("\n核心附近敌军：");
-            if (threat == null) result.append("未发现");
-            else result.append(threat.type.name).append("@").append(threat.tileX()).append(",").append(threat.tileY());
-            result.append("\n炮塔（名称@坐标/弹药/射程）：");
-            int defenses = 0;
-            for (Building building : team.data().buildings) {
-                if (!(building instanceof ItemTurretBuild turret)) continue;
-                if (defenses++ == 8) break;
-                result.append(turret.block.name).append("@").append(turret.tileX()).append(",").append(turret.tileY())
-                    .append("/").append(Math.round(turret.getAmmoFraction() * 100)).append("%/")
-                    .append(Math.round(turret.range() / Vars.tilesize)).append("格，可装[")
-                    .append(ammoTypes(turret)).append("] ");
-            }
-            if (defenses == 0) result.append("无");
-            result.append("\n敌方核心：");
-            int targets = 0;
-            for (var opponent : Vars.state.teams.getActive()) {
-                if (opponent.team == team || opponent.team == Team.derelict) continue;
-                for (Building enemyCore : opponent.cores) {
-                    if (targets == 8) break;
-                    result.append(opponent.team.name).append("@").append(enemyCore.tileX()).append(",")
-                        .append(enemyCore.tileY()).append("/").append(Math.round(enemyCore.healthf() * 100)).append("% ");
-                    targets++;
-                }
-            }
-            if (targets == 0) result.append("未发现");
-            result.append("\n生产与供电：");
-            appendIndustrySummary(result, team, 12);
-            result.append("\n可建建筑（格式：x y 方向 建筑ID）：");
-            appendAvailableBlocks(result, team, planet, core);
-            return result.toString();
+        if (method.equals("GET") && route.equals("/status")) return compactStatus(team, core);
+        if (method.equals("GET") && route.equals("/actors")) return actorStatus(team, core);
+        if (method.equals("GET") && route.equals("/industry")) return industryStatus(team);
+        if (method.equals("GET") && route.equals("/buildable")) {
+            return buildableStatus(team, core, Vars.state.getPlanet());
         }
 
         if (method.equals("GET") && route.equals("/survey")) return survey(team, query);
@@ -675,7 +564,7 @@ public class MindustryBridge extends Plugin {
 
     private String compactStatus(Team team, Building core) {
         Planet planet = Vars.state.getPlanet();
-        StringBuilder result = new StringBuilder("关卡：").append(Vars.state.map.plainName())
+        StringBuilder result = new StringBuilder("当前关卡：").append(Vars.state.map.plainName())
             .append(" / ").append(planet == null ? "未知星球" : planet.name)
             .append(" ").append(Vars.world.width()).append("×").append(Vars.world.height())
             .append("，波次 ").append(Vars.state.wave).append("，核心 ").append(core.tileX()).append(",").append(core.tileY())
@@ -693,73 +582,15 @@ public class MindustryBridge extends Plugin {
         appendObjectives(result, team, 6);
         result.append("\n核心：").append(Math.round(core.healthf() * 100)).append("%，队伍 ")
             .append(team.name).append(" (").append(team.id).append(")");
-        int players = 0;
-        for (Player player : Groups.player) {
-            if (players == 4) break;
-            result.append("\n玩家：").append(player.plainName()).append(" / ")
-                .append(player.team().name).append(" / ").append(player.tileX()).append(",").append(player.tileY());
-            players++;
-        }
-        result.append("\n陪玩：").append(companion.unitStatus());
-        result.append("\n作战：");
-        int combatUnits = 0;
-        for (Unit unit : team.data().units) {
-            if (!unit.isValid() || unit.isPlayer() || unit == companion.worker()
-                || !unit.type.weapons.contains(weapon -> weapon.aiControllable && !weapon.noAttack
-                    && weapon.bullet.collidesGround && weapon.bullet.buildingDamageMultiplier > 0)) continue;
-            result.append(unit.type.name).append("@").append(unit.tileX()).append(",").append(unit.tileY())
-                .append("/").append(Math.round(unit.healthf() * 100)).append("% ");
-            if (++combatUnits == 6) break;
-        }
-        if (combatUnits == 0) result.append("无");
+        result.append("\n在线玩家：").append(Groups.player.size());
         result.append("\n当前：").append(companion.status());
-        result.append("\n矿点：");
-        int ores = 0;
-        for (var material : Vars.indexer.getAllPresentOres()) {
-            if (ores++ == 4) break;
-            Tile floorOre = Vars.indexer.findClosestOre(core.x, core.y, material);
-            Tile wallOre = Vars.indexer.findClosestWallOre(core.x, core.y, material);
-            Tile ore = floorOre;
-            String kind = "地板";
-            if (wallOre != null && (floorOre == null || wallOre.dst2(core.x, core.y) < floorOre.dst2(core.x, core.y))) {
-                ore = wallOre;
-                kind = "墙体";
-            }
-            if (ore != null) {
-                result.append(material.name).append("@").append(ore.x).append(",").append(ore.y)
-                    .append("(").append(kind).append(") ");
-            }
-        }
         var threat = Units.closestEnemy(team, core.x, core.y, Vars.tilesize * 40,
             enemy -> !Vars.state.rules.fog || Vars.fogControl.isVisible(team, enemy.x, enemy.y));
         if (threat != null) {
             result.append("\n近敌：").append(threat.type.name).append("@")
-                .append(threat.tileX()).append(",").append(threat.tileY());
+                .append(threat.tileX()).append(",").append(threat.tileY()).append("/")
+                .append(Math.round(threat.healthf() * 100)).append("%");
         }
-        int turrets = 0;
-        for (Building building : team.data().buildings) {
-            if (!(building instanceof ItemTurretBuild turret)) continue;
-            if (turrets == 4) break;
-            result.append("\n炮塔：").append(turret.block.name).append("@")
-                .append(turret.tileX()).append(",").append(turret.tileY()).append("/")
-                .append(Math.round(turret.getAmmoFraction() * 100)).append("%[")
-                .append(ammoTypes(turret)).append("]");
-            turrets++;
-        }
-        int targets = 0;
-        for (var opponent : Vars.state.teams.getActive()) {
-            if (opponent.team == team || opponent.team == Team.derelict) continue;
-            for (Building enemyCore : opponent.cores) {
-                if (targets == 4) break;
-                result.append("\n敌核：").append(opponent.team.name).append("@")
-                    .append(enemyCore.tileX()).append(",").append(enemyCore.tileY()).append("/")
-                    .append(Math.round(enemyCore.healthf() * 100)).append("%");
-                targets++;
-            }
-            if (targets == 4) break;
-        }
-        result.append("\n产能：");
-        appendCompactIndustry(result, team, 8);
         if (Vars.state.rules.objectives != null) {
             for (MapObjective objective : Vars.state.rules.objectives.all) {
                 if (!(objective instanceof BuildCountObjective build) || objective.isCompleted()) continue;
@@ -768,44 +599,92 @@ public class MindustryBridge extends Plugin {
                 break;
             }
         }
-        return result.append("\n详情：MindustryStatus；全图：MindustryFind；局部：MindustrySurvey。").toString();
+        return result.append("\n按需查询：MindustryActors / MindustryIndustry / MindustryBuildable / MindustryFind / MindustrySurvey。").toString();
     }
 
-    private void appendCompactIndustry(StringBuilder result, Team team, int limit) {
-        int count = 0;
-        for (Building building : team.data().buildings) {
-            boolean relevant = building.block instanceof Drill
-                || building.block instanceof GenericCrafter
-                || building.block instanceof UnitFactory
-                || building instanceof ItemTurretBuild
-                || building instanceof mindustry.world.blocks.power.PowerGenerator.GeneratorBuild;
-            if (!relevant) continue;
-            result.append("\n- ").append(building.block.name).append("@")
-                .append(building.tileX()).append(",").append(building.tileY()).append(" ")
-                .append(building.status());
-            if (building instanceof mindustry.world.blocks.power.PowerGenerator.GeneratorBuild generator) {
-                result.append(" 发电=").append(Math.round(generator.getPowerProduction() * 60)).append("/秒");
-            } else if (building.power != null && building.block.consPower != null) {
-                result.append(" 需电=").append(Math.round(building.block.consPower.requestedPower(building) * 60)).append("/秒");
-                if (building.power.status < 0.99f) {
-                    result.append(" 满足=").append(Math.round(building.power.status * 100)).append("%");
-                }
-            } else if (building.power != null && building.power.status < 0.99f) {
-                result.append(" 电=").append(Math.round(building.power.status * 100)).append("%");
+    private String actorStatus(Team team, Building core) {
+        StringBuilder result = new StringBuilder("队伍：").append(team.name).append(" (").append(team.id).append(")");
+        result.append("\n玩家：");
+        boolean hasPlayers = false;
+        for (Player player : Groups.player) {
+            hasPlayers = true;
+            result.append("\n- ").append(player.plainName()).append(" / 队伍 ")
+                .append(player.team().name).append(" (").append(player.team().id).append(")");
+            if (player.team() == team || !Vars.state.rules.fog
+                || Vars.fogControl.isVisibleTile(team, player.tileX(), player.tileY())) {
+                result.append(" / 坐标 ").append(player.tileX()).append(",").append(player.tileY());
+                Unit playerUnit = player.unit();
+                result.append(" / ").append(playerUnit == null ? "无单位"
+                    : playerUnit.type.name + " 生命 " + Math.round(playerUnit.healthf() * 100) + "%");
+            } else {
+                result.append(" / 位置不可见");
             }
-            if (building instanceof UnitFactoryBuild factory) {
-                result.append(" 兵种=").append(factory.unit() == null ? "无" : factory.unit().name);
-            }
-            if (building instanceof ItemTurretBuild turret) {
-                result.append(" 弹=").append(Math.round(turret.getAmmoFraction() * 100)).append("%");
-            } else if (building.items != null) {
-                building.items.each((item, amount) -> {
-                    if (amount > 0) result.append(" ").append(item.name).append("=").append(amount);
-                });
-            }
-            if (++count == limit) break;
         }
-        if (count == 0) result.append("无");
+        if (!hasPlayers) result.append("无");
+        result.append("\n陪玩：").append(companion.unitStatus());
+        result.append("\n己方作战单位（最多 12 台）：");
+        int combatUnits = 0;
+        for (Unit unit : team.data().units) {
+            if (!unit.isValid() || unit.isPlayer() || unit == companion.worker()
+                || !unit.type.weapons.contains(weapon -> weapon.aiControllable && !weapon.noAttack
+                    && weapon.bullet.collidesGround && weapon.bullet.buildingDamageMultiplier > 0)) continue;
+            result.append(unit.type.name).append("@").append(unit.tileX()).append(",").append(unit.tileY())
+                .append("/").append(Math.round(unit.healthf() * 100)).append("% ");
+            if (++combatUnits == 12) break;
+        }
+        if (combatUnits == 0) result.append("无");
+
+        PriorityQueue<FoundObject> enemies = new PriorityQueue<>(Comparator.comparingDouble(FoundObject::distance).reversed());
+        int[] enemyCount = {0};
+        for (Unit unit : Groups.unit) {
+            if (!unit.isValid() || unit.team == team || unit.team == Team.derelict
+                || unit.dst(core.x, core.y) > Vars.tilesize * 60
+                || (Vars.state.rules.fog && !Vars.fogControl.isVisible(team, unit.x, unit.y))) continue;
+            keepNearest(enemies, enemyCount, new FoundObject(unit.tileX(), unit.tileY(),
+                unit.type.name + " 生命=" + Math.round(unit.healthf() * 100) + "%",
+                unit.dst2(core.x, core.y)));
+        }
+        result.append("\n核心 60 格内可见敌军：");
+        if (enemyCount[0] == 0) {
+            result.append("无");
+        } else {
+            List<FoundObject> nearest = new ArrayList<>(enemies);
+            nearest.sort(Comparator.comparingDouble(FoundObject::distance));
+            result.append("共 ").append(enemyCount[0]).append(" 个，最近 ")
+                .append(Math.min(10, nearest.size())).append(" 个：");
+            for (int index = 0; index < Math.min(10, nearest.size()); index++) {
+                FoundObject found = nearest.get(index);
+                result.append("\n- ").append(found.x()).append(",").append(found.y())
+                    .append(" ").append(found.description());
+            }
+        }
+
+        result.append("\n敌方核心：");
+        int targets = 0;
+        for (var opponent : Vars.state.teams.getActive()) {
+            if (opponent.team == team || opponent.team == Team.derelict) continue;
+            for (Building enemyCore : opponent.cores) {
+                if (targets == 8) break;
+                result.append("\n- ").append(opponent.team.name).append("@")
+                    .append(enemyCore.tileX()).append(",").append(enemyCore.tileY()).append("/")
+                    .append(Math.round(enemyCore.healthf() * 100)).append("%");
+                targets++;
+            }
+        }
+        if (targets == 0) result.append("无");
+        return result.toString();
+    }
+
+    private String industryStatus(Team team) {
+        StringBuilder result = new StringBuilder("己方生产、供电、防御与物流：");
+        appendIndustrySummary(result, team, 8);
+        return result.toString();
+    }
+
+    private String buildableStatus(Team team, Building core, Planet planet) {
+        StringBuilder result = new StringBuilder("任务建筑、已有建筑与当前可建建筑：");
+        appendAvailableBlocks(result, team, planet, core);
+        return result.toString();
     }
 
     private String researchStatus(Team team) {
@@ -851,10 +730,9 @@ public class MindustryBridge extends Plugin {
             for (var objective : node.objectives) {
                 if (objective.complete()) continue;
                 if (blockers.length() > 0) blockers.append("、");
-                String display = objective.display();
-                blockers.append(display == null || display.contains("???") ? "科技前置目标" : display);
+                blockers.append(techObjectiveName(objective));
             }
-            return "前置目标尚未完成：" + blockers + "。";
+            return "前置目标尚未完成：" + blockers + "。完成后再研究 " + content.name + "。";
         }
 
         for (ItemStack requirement : node.requirements) {
@@ -884,6 +762,20 @@ public class MindustryBridge extends Plugin {
         }
         arc.Events.fire(new mindustry.game.EventType.ResearchEvent(content));
         return "研究完成：" + content.name + "（" + content.localizedName + "）已解锁，现在可以建造或使用。";
+    }
+
+    private String techObjectiveName(mindustry.game.Objectives.Objective objective) {
+        if (objective instanceof mindustry.game.Objectives.Research research)
+            return "研究 " + research.content.name + "（" + research.content.localizedName + "）";
+        if (objective instanceof mindustry.game.Objectives.Produce produce)
+            return "生产 " + produce.content.name + "（" + produce.content.localizedName + "）";
+        if (objective instanceof mindustry.game.Objectives.SectorComplete complete)
+            return "完成星区 " + complete.preset.name;
+        if (objective instanceof mindustry.game.Objectives.OnSector sector)
+            return "占领星区 " + sector.preset.name;
+        if (objective instanceof mindustry.game.Objectives.OnPlanet planet)
+            return "在星球 " + planet.planet.name + " 建立基地";
+        return String.valueOf(objective);
     }
 
     private TechNode currentTechRoot(Sector currentSector) {
@@ -932,7 +824,9 @@ public class MindustryBridge extends Plugin {
         if (currentSector == null) return team.items().get(item);
         int total = 0;
         for (Sector sector : currentSector.planet.sectors) {
-            if (sector.hasBase() && !sector.isFrozen()) total += sector.items().get(item);
+            if ((sector == currentSector || sector.hasBase()) && !sector.isFrozen()) {
+                total += sector.items().get(item);
+            }
         }
         return total;
     }
@@ -979,9 +873,9 @@ public class MindustryBridge extends Plugin {
         StringBuilder details = new StringBuilder();
         String buildingCodes = "1234567890!$%&()/;=[]{}|";
         StringBuilder result = new StringBuilder("勘查 中心=").append(x).append(',').append(y)
-            .append(" 半径=").append(radius).append(" 上行y=").append(y + radius)
-            .append(" 左x=").append(x - radius).append("；1字符=1格，x右 y下");
-        for (int row = y + radius; row >= y - radius; row--) {
+            .append(" 半径=").append(radius).append(" 上行y=").append(y - radius)
+            .append(" 左x=").append(x - radius).append("；1字符=1格，x右 y下，首行是上方");
+        for (int row = y - radius; row <= y + radius; row++) {
             result.append('\n');
             for (int column = x - radius; column <= x + radius; column++) {
                 Tile tile = Vars.world.tile(column, row);
@@ -1039,7 +933,7 @@ public class MindustryBridge extends Plugin {
                 }
             }
         }
-        result.append("\n图例 .=空地 #=实体 ~=液体 V=喷口 +=占地 _=无地表 ?=界外 @=核心 X=敌；小写=地表矿 大写=墙矿 箭头=物流");
+        result.append("\n图例 .=空地 #=实体 ~=液体 V=喷口 +=占地 _=无地表 ?=界外 @=核心 X=敌；小写=地表矿 大写=墙矿 箭头=传送带流向(>右 <左 v下 ^上)");
         if (itemSymbols.isEmpty() == false) {
             result.append("\n矿 ");
             for (Map.Entry<Item, Character> entry : itemSymbols.entrySet()) {
@@ -1061,25 +955,25 @@ public class MindustryBridge extends Plugin {
     private String connectBeamNode(BeamNodeBuild build, BeamNode node, Building target) {
         build.updateDirections();
         if (java.util.Arrays.asList(build.links).contains(target))
-            return "激光节点已连接目标。";
+            return "激光节点已连接目标。" + beamNodeSummary(build) + "。";
 
         int offsetX = target.tileX() - build.tileX();
         int offsetY = target.tileY() - build.tileY();
         if (offsetX != 0 && offsetY != 0) {
             return "目标未与激光节点同轴：偏移=" + offsetX + "," + offsetY
-                + "。激光节点只沿上下左右连接；当前=" + beamLinkCoordinates(build) + "。";
+                + "。激光节点只沿上下左右连接；当前=" + beamNodeSummary(build) + "。";
         }
         if (target.block.hasPower == false || target.block.connectedPower == false) {
             return target.block.name + "@" + target.tileX() + "," + target.tileY()
-                + " 不是可接电建筑；当前=" + beamLinkCoordinates(build) + "。";
+                + " 不是可接电建筑；当前=" + beamNodeSummary(build) + "。";
         }
         if (Math.max(Math.abs(offsetX), Math.abs(offsetY)) > node.range) {
             return "目标距离 " + Math.max(Math.abs(offsetX), Math.abs(offsetY))
-                + " 格，超过激光范围 " + node.range + "；当前=" + beamLinkCoordinates(build) + "。";
+                + " 格，超过激光范围 " + node.range + "；当前=" + beamNodeSummary(build) + "。";
         }
         if (target.block instanceof PowerNode) {
             return "beam-node 不会连接普通电力节点；请直接连用电、发电或储电建筑。当前="
-                + beamLinkCoordinates(build) + "。";
+                + beamNodeSummary(build) + "。";
         }
 
         int stepX = Integer.compare(offsetX, 0);
@@ -1090,17 +984,69 @@ public class MindustryBridge extends Plugin {
             if (crossed == null || crossed == build) continue;
             if (crossed.isInsulated()) {
                 return "射线在 " + crossed.tileX() + "," + crossed.tileY() + " 被 "
-                    + crossed.block.name + " 阻断；当前=" + beamLinkCoordinates(build) + "。";
+                    + crossed.block.name + " 阻断；当前=" + beamNodeSummary(build) + "。";
             }
             if (crossed != target && crossed.team == build.team && crossed.block.hasPower
                 && crossed.block.connectedPower && (crossed.block instanceof PowerNode) == false) {
                 return "同轴更近处已有 " + crossed.block.name + "@" + crossed.tileX() + ","
                     + crossed.tileY() + "；beam-node 只连最近电力建筑，当前="
-                    + beamLinkCoordinates(build) + "。";
+                    + beamNodeSummary(build) + "。";
             }
         }
-        return "目标同轴且在范围内，但游戏没有建立连接；当前=" + beamLinkCoordinates(build)
+
+        build.updateDirections();
+        if (java.util.Arrays.asList(build.links).contains(target))
+            return "激光节点已连接目标。" + beamNodeSummary(build) + "。";
+
+        return "目标同轴且在范围内，但游戏没有建立连接；当前=" + beamNodeSummary(build)
             + "。请检查目标是否属于己方且可接电。";
+    }
+
+    private String beamNodeSummary(BeamNodeBuild beam) {
+        BeamNode node = (BeamNode)beam.block;
+        beam.updateDirections();
+        StringBuilder connected = new StringBuilder();
+        StringBuilder available = new StringBuilder();
+        for (int direction = 0; direction < 4; direction++) {
+            Building linked = beam.links[direction];
+            if (linked != null) {
+                if (connected.length() > 0) connected.append(',');
+                connected.append(beamDirectionName(direction)).append(linked.tileX())
+                    .append(',').append(linked.tileY());
+            }
+            Building candidate = beamNearestTarget(beam, node, direction);
+            if (candidate != null && candidate != linked) {
+                if (available.length() > 0) available.append(',');
+                available.append(beamDirectionName(direction)).append(candidate.tileX())
+                    .append(',').append(candidate.tileY());
+            }
+        }
+        String summary = "范围" + node.range + " 连接=" + (connected.length() == 0 ? "无" : connected.toString());
+        if (available.length() > 0) summary += " 可接=" + available;
+        return summary;
+    }
+
+    private Building beamNearestTarget(BeamNodeBuild beam, BeamNode node, int direction) {
+        var vector = arc.math.geom.Geometry.d4(direction);
+        int halfSize = node.size / 2;
+        for (int distance = halfSize + 1; distance <= node.range + halfSize; distance++) {
+            Building candidate = Vars.world.build(
+                beam.tileX() + vector.x * distance, beam.tileY() + vector.y * distance);
+            if (candidate == null || candidate.isInsulated()) continue;
+            if (candidate.block.hasPower == false || candidate.block.connectedPower == false) continue;
+            if (candidate.team != beam.team || candidate.block instanceof PowerNode) continue;
+            return candidate;
+        }
+        return null;
+    }
+
+    private String beamDirectionName(int direction) {
+        return switch (direction) {
+            case 0 -> "右";
+            case 1 -> "下";
+            case 2 -> "左";
+            default -> "上";
+        };
     }
 
     private void appendSurveyBuildingDetail(StringBuilder details, Building building, char symbol, Team viewer,
@@ -1120,7 +1066,7 @@ public class MindustryBridge extends Plugin {
         if (beam) {
             BeamNodeBuild beamBuild = (BeamNodeBuild)building;
             details.append(" 范围").append(((BeamNode)building.block).range)
-                .append(" 连接=").append(beamLinkCoordinates(beamBuild));
+                .append(" ").append(beamNodeSummary(beamBuild));
         }
         if (carriesItems) {
             details.append(" 库存=");
@@ -1158,17 +1104,7 @@ public class MindustryBridge extends Plugin {
         var direction = arc.math.geom.Geometry.d4(rotation);
         if (direction.x > 0) return '>';
         if (direction.x < 0) return '<';
-        return direction.y > 0 ? '^' : 'v';
-    }
-
-    private String beamLinkCoordinates(BeamNodeBuild beam) {
-        StringBuilder result = new StringBuilder();
-        for (Building linked : beam.links) {
-            if (linked == null) continue;
-            if (result.length() > 0) result.append(',');
-            result.append(linked.tileX()).append(',').append(linked.tileY());
-        }
-        return result.length() == 0 ? "无" : result.toString();
+        return direction.y > 0 ? 'v' : '^';
     }
 
     private String findObjects(Team team, Building core, String query) {
@@ -1539,12 +1475,17 @@ public class MindustryBridge extends Plugin {
 
     private void appendIndustrySummary(StringBuilder result, Team team, int limit) {
         int count = 0;
+        List<Building> beams = new ArrayList<>();
         List<Building> logistics = new ArrayList<>();
         List<Building> production = new ArrayList<>();
         List<Building> power = new ArrayList<>();
         for (Building building : team.data().buildings) {
             if (building.block instanceof Duct || building.block instanceof Conveyor) {
                 logistics.add(building);
+                continue;
+            }
+            if (building instanceof BeamNodeBuild) {
+                beams.add(building);
                 continue;
             }
             boolean productive = building.block instanceof Drill
@@ -1557,8 +1498,13 @@ public class MindustryBridge extends Plugin {
                 power.add(building);
             }
         }
+        beams.sort(Comparator.comparingInt(Building::tileY).thenComparingInt(Building::tileX));
         production.sort(Comparator.comparingInt(Building::tileY).thenComparingInt(Building::tileX));
         power.sort(Comparator.comparingInt(Building::tileY).thenComparingInt(Building::tileX));
+        for (Building building : beams) {
+            if (count++ == limit) break;
+            appendIndustryBuilding(result, building);
+        }
         for (Building building : production) {
             if (count++ == limit) break;
             appendIndustryBuilding(result, building);
@@ -1585,7 +1531,7 @@ public class MindustryBridge extends Plugin {
             .append(" ").append(building.status());
         if (building.block.rotate) result.append(" 方向=").append(building.rotation);
         if (building instanceof BeamNodeBuild beam) {
-            result.append(" 连接=").append(beamLinkCoordinates(beam));
+            result.append(" ").append(beamNodeSummary(beam));
         } else if (building instanceof mindustry.world.blocks.power.PowerGenerator.GeneratorBuild generator) {
             result.append(" 发电=").append(Math.round(generator.getPowerProduction() * 60)).append("/秒");
         } else if (building.power != null) {
@@ -1681,6 +1627,23 @@ public class MindustryBridge extends Plugin {
             for (MapObjective objective : Vars.state.rules.objectives.all) {
                 if (!(objective instanceof DestroyBlockObjective destroy) || !destroy.isCompleted()
                     || destroy.block != block) continue;
+                Building rebuilt = Vars.world.build(destroy.pos.x, destroy.pos.y);
+                boolean rebuilding = rebuilt instanceof mindustry.world.blocks.ConstructBlock.ConstructBuild construct
+                    && construct.current == block;
+                if (rebuilt != null && rebuilt.team != team && rebuilding) {
+                    result.append(rebuilt.tileX()).append(",").append(rebuilt.tileY())
+                        .append("（敌方正在重建目标核心，")
+                        .append(hasBuildResources(team, block, 1) ? "摧毁施工后原地建造" : "先备齐建材再摧毁施工")
+                        .append("）");
+                    return;
+                }
+                if (rebuilt != null && rebuilt.team != team && rebuilt.block == block) {
+                    result.append(rebuilt.tileX()).append(",").append(rebuilt.tileY())
+                        .append("（目标核心已由敌方重建，")
+                        .append(hasBuildResources(team, block, 1) ? "摧毁后原地建造" : "先备齐建材再摧毁")
+                        .append("）");
+                    return;
+                }
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dx = -1; dx <= 1; dx++) {
                         int x = destroy.pos.x + dx;
@@ -1691,6 +1654,55 @@ public class MindustryBridge extends Plugin {
                     }
                 }
             }
+        }
+        if (block instanceof mindustry.world.blocks.storage.CoreBlock) {
+            List<int[]> sites = new ArrayList<>();
+            for (int y = 0; y < Vars.world.height(); y++) {
+                for (int x = 0; x < Vars.world.width(); x++) {
+                    Tile tile = Vars.world.tile(x, y);
+                    if (tile == null || tile.floor().allowCorePlacement == false) continue;
+                    Tile left = Vars.world.tile(x - 1, y);
+                    Tile above = Vars.world.tile(x, y - 1);
+                    if (left != null && left.floor().allowCorePlacement) continue;
+                    if (above != null && above.floor().allowCorePlacement) continue;
+                    boolean empty = true;
+                    for (int dx = 0; dx < block.size && empty; dx++) {
+                        for (int dy = 0; dy < block.size; dy++) {
+                            Tile footprint = Vars.world.tile(x + dx, y + dy);
+                            if (footprint == null || footprint.floor().allowCorePlacement == false
+                                || footprint.build != null) {
+                                empty = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (empty) sites.add(new int[]{x, y});
+                }
+            }
+            sites.sort(Comparator.comparingDouble(position ->
+                (position[0] - core.tileX()) * (position[0] - core.tileX())
+                    + (position[1] - core.tileY()) * (position[1] - core.tileY())));
+            if (sites.isEmpty()) {
+                result.append("全图核心区没有可用位置");
+                return;
+            }
+            int found = 0;
+            for (int[] position : sites) {
+                if (Build.validPlace(block, team, position[0], position[1], 0) == false) continue;
+                if (found++ > 0) result.append(" ");
+                result.append(position[0]).append(",").append(position[1]);
+                if (found == limit) break;
+            }
+            if (found > 0) return;
+            for (int index = 0; index < Math.min(limit, sites.size()); index++) {
+                int[] position = sites.get(index);
+                if (index > 0) result.append(" ");
+                result.append(position[0]).append(",").append(position[1]).append("（")
+                    .append(Vars.fogControl.isDiscovered(team, position[0], position[1])
+                        ? "当前不可建，检查敌方核心保护范围" : "未探索，先派单位靠近")
+                    .append("）");
+            }
+            return;
         }
         int found = 0;
         int maxDistance = Math.max(12, block.size * 3);
@@ -1708,37 +1720,6 @@ public class MindustryBridge extends Plugin {
             }
         }
         if (found == 0) result.append("未找到可用位置，请勘查后换个区域");
-    }
-
-    private void appendClosestBlocks(StringBuilder result, Team team, Building core, String keyword, int limit) {
-        PriorityQueue<FoundObject> nearest = new PriorityQueue<>(Comparator.comparingDouble(FoundObject::distance).reversed());
-        int[] matches = {0};
-        for (int y = 0; y < Vars.world.height(); y++) {
-            for (int x = 0; x < Vars.world.width(); x++) {
-                Tile tile = Vars.world.tile(x, y);
-                if (tile == null) continue;
-                Block block = tile.block();
-                Floor floor = tile.floor();
-                boolean floorMatch = floor.name.contains(keyword)
-                    && (!(floor instanceof SteamVent vent) || vent.isCenterVent(tile));
-                boolean blockMatch = block != null && block != Blocks.air && block.name.contains(keyword);
-                if (floorMatch == false && blockMatch == false) continue;
-                String description = floorMatch ? "floor:" + floor.name : "block:" + block.name;
-                if (tile.build != null) description += "(" + tile.build.block.name + ")";
-                keepNearest(nearest, matches, new FoundObject(x, y, description, tile.dst2(core.x, core.y)));
-            }
-        }
-        if (matches[0] == 0) {
-            result.append("未发现");
-            return;
-        }
-        List<FoundObject> results = new ArrayList<>(nearest);
-        results.sort(Comparator.comparingDouble(FoundObject::distance));
-        result.append("共 ").append(matches[0]).append(" 个，最近 ").append(Math.min(limit, results.size())).append(" 个：");
-        for (int index = 0; index < Math.min(limit, results.size()); index++) {
-            FoundObject found = results.get(index);
-            result.append(found.description).append("@").append(found.x).append(",").append(found.y).append(" ");
-        }
     }
 
     private Tile factoryExit(int x, int y, Block block, int rotation) {
@@ -1773,10 +1754,12 @@ public class MindustryBridge extends Plugin {
         List<BuildPlan> plans = new ArrayList<>();
         for (int index = 0; index < route.size(); index++) {
             int[] position = route.get(index);
-            int direction = route.size() == 1 ? rotation
-                : pathDirection(route.get(Math.max(0, index - 1)), route.get(Math.min(route.size() - 1, index + 1)));
+            int direction;
+            if (route.size() == 1) direction = rotation;
+            else if (index == route.size() - 1) direction = pathDirection(route.get(index - 1), position);
+            else direction = pathDirection(position, route.get(index + 1));
             String error = validateBuildLocation(core, block, position[0], position[1], direction);
-            if (error != null) return error;
+            if (error != null) return "路线第" + (index + 1) + "格 " + position[0] + "," + position[1] + "：" + error;
             plans.add(new BuildPlan(position[0], position[1], direction, block));
         }
         if (!hasBuildResources(core.team, block, plans.size())) {
@@ -1798,9 +1781,8 @@ public class MindustryBridge extends Plugin {
         if (tile == null) {
             return "建造位置在地图外：" + x + "," + y + "。";
         }
-        if (tile.block() != Blocks.air || !Build.validPlace(block, team, x, y, rotation)) {
-            return block.name + " 无法放在 " + x + "," + y
-                + "：格子被占用、地形不适合或方向不合法。请先用 MindustrySurvey " + x + " " + y + " 3 勘查。";
+        if (!Build.validPlace(block, team, x, y, rotation)) {
+            return buildLocationError(block, x, y, rotation);
         }
         if (block instanceof UnitFactory) {
             Tile exit = factoryExit(x, y, block, rotation);
@@ -1816,6 +1798,41 @@ public class MindustryBridge extends Plugin {
             }
         }
         return null;
+    }
+
+    private String buildLocationError(Block block, int x, int y, int rotation) {
+        Tile center = Vars.world.tile(x, y);
+        var footprint = center.getLinkedTilesAs(block, new arc.struct.Seq<Tile>());
+        StringBuilder tiles = new StringBuilder();
+        boolean blocked = false;
+        for (Tile tile : footprint) {
+            if (tiles.length() > 0) tiles.append(' ');
+            if (tile == null) {
+                tiles.append("?界外");
+                blocked = true;
+                continue;
+            }
+            String status = tileStatus(tile);
+            tiles.append(tile.x).append(',').append(tile.y).append('=').append(status);
+            if (status.equals("占用") || status.equals("实体") || status.equals("墙矿")
+                || status.equals("液体") || status.equals("无地表")) blocked = true;
+        }
+        String hint = blocked
+            ? "需占地格全为空地并满足地形要求且无占用。"
+            : "占地全空却仍失败，多为朝向不对：钻头须朝向矿石/喷口（0=右1=下2=左3=上）。";
+        return block.name + " 无法放在 " + x + "," + y + "（占地" + block.size + "x" + block.size
+            + "，方向" + rotation + "）：" + tiles + "。" + hint;
+    }
+
+    private String tileStatus(Tile tile) {
+        if (tile.build != null) return "占用";
+        if (tile.wallDrop() != null) return "墙矿";
+        if (tile.block() != Blocks.air) return "实体";
+        if (tile.drop() != null) return "矿";
+        if (tile.floor() instanceof SteamVent) return "喷口";
+        if (tile.floor().liquidDrop != null) return "液体";
+        if (tile.floor().hasSurface() == false) return "无地表";
+        return "空地";
     }
 
     private boolean hasBuildResources(Team team, Block block, int count) {

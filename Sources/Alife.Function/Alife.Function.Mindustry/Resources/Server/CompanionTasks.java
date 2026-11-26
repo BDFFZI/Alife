@@ -851,6 +851,7 @@ final class CompanionTasks {
 
     private void transferToCore(Building core, Item transferred, int amount) {
         for (int index = 0; index < amount; index++) core.handleItem(core, transferred);
+        if (Vars.headless && Vars.state.isCampaign()) transferred.unlock();
         worker.stack.amount -= amount;
         if (worker.stack.amount == 0) worker.clearItem();
     }
