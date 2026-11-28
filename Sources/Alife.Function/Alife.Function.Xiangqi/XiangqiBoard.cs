@@ -135,9 +135,6 @@ public class XiangqiBoard
                 builder.Append(squares[file, rank] is { } piece ? Name(piece) : '・').Append(' ');
             builder.Append('\n');
         }
-        builder.Append("   ");
-        for (int file = 0; file < FileCount; file++)
-            builder.Append((char)('a' + file)).Append("  ");
 
         return builder.ToString();
     }

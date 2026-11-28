@@ -42,7 +42,7 @@
                 }
             </div>
             <div class="xq-actions">
-                @if (table.IsPlaying && table.IsPaused)
+                @if (table.IsPlaying && table.IsPaused && table.IsOver == false)
                 {
                     <button class="xq-btn primary" @onclick="@(() => table.Resume())">继续</button>
                 }
@@ -60,6 +60,10 @@
                         </svg>
                         <span>@(musicEnabled ? "音乐开" : "音乐关")</span>
                     </button>
+                    @if (table.IsOver == false && HumanIndex >= 0)
+                    {
+                        <button class="xq-btn danger" @onclick="Surrender">投降</button>
+                    }
                     <button class="xq-btn danger" @onclick="@(() => table.Stop())">结束对局</button>
                 }
                 <button class="xq-btn ghost" @onclick="@CloseFullscreen">退出全屏</button>
@@ -210,7 +214,7 @@
                 </div>
             }
 
-            @if (table.IsPaused)
+            @if (table.IsPaused && table.IsOver == false)
             {
                 <div class="xq-pause">
                     <span>@table.TurnSeat?.Name 连续未能完成行动，对局已暂停。</span>
@@ -1842,7 +1846,7 @@
         : "终";
     string ResultSub => table.IsDraw
         ? "势均力敌，握手言和"
-        : table.Winner is { } winner ? $"{XiangqiTable.SideName(winner)}方胜" : "对局结束";
+        : table.Winner is { } winner ? $"{XiangqiTable.SideName(winner)}胜" : "对局结束";
     string HintText
     {
         get
@@ -2124,6 +2128,12 @@
         {
             selected = null;
         }
+    }
+    void Surrender()
+    {
+        if (HumanIndex < 0)
+            return;
+        Attempt(table.Surrender(HumanIndex));
     }
     void StartGame()
     {

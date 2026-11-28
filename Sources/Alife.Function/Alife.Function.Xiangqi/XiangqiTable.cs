@@ -67,19 +67,37 @@ public class XiangqiTable : GameTable
         Commit();
         return null;
     }
+    public string? Surrender(int index)
+    {
+        if (IsPlaying == false)
+            return "对局尚未开始";
+        if (IsOver)
+            return "对局已经结束";
+        if (index < 0 || index >= Seats.Count)
+            return "你当前不在棋局中";
+
+        XiangqiSide loser = index == 0 ? XiangqiSide.Red : XiangqiSide.Black;
+        XiangqiSide winner = Opposite(loser);
+        Winner = winner;
+        string lastMoveText = log.Count == 0 ? "尚未走子" : log[^1];
+        string result = $"{Seats[index].Name}（{SideName(loser)}）投降，{SideName(winner)}获胜";
+        AddLog(result);
+        NotifyAll(DescribeEnd(result, lastMoveText));
+        Commit();
+        return null;
+    }
 
     protected override TableSeat? ActiveSeat => IsOver ? null : Seats[SeatIndexOf(Turn)];
     protected override string Rules => """
         【中国象棋规则】
-        这是一局中国象棋，开局随机决定红方或黑方先手。轮到你时你会收到当前棋盘和全部合法走法。
-        - 棋盘：列为 a 到 i，行为 0 到 9。红方在下方（第 0 行，帅在 e0），黑方在上方（第 9 行，将在 e9）。
-        - 棋子：红方为 帅 仕 相 马 车 炮 兵，黑方为 将 士 象 马 车 炮 卒。
-        - 炮：不吃子时像车一样沿直线移动；吃子时，起点和目标之间必须恰好隔一个棋子。不能吃路径上的第一个棋子，但可以隔着它吃后面的棋子。
-        - 走法用起点加终点表示，例如 h2e2 表示把 h2 的炮移到 e2。
-        - 每回合只能走一步，且必须从合法走法列表中选择。走棋后自己的将帅不能被对方将军，两个将帅不能在同一直线上直接照面。
-        - 轮到你无棋可走（被将死或无子可动）即判负。走满 200 步未分胜负则和棋。
-        - 棋盘文本上下两侧是列坐标 a-i，左侧是行坐标 0-9，・ 表示空位。
-        回复时可以正常说话，但落子必须使用 <XiangqiMove>走法</XiangqiMove> 标签，例如 <XiangqiMove>h2e2</XiangqiMove>。
+        开局随机决定红方或黑方先手。红方在下方（第 0 行，帅在 e0），黑方在上方（第 9 行，将在 e9）；列为 a-i，行为 0-9。
+        棋子：红方为 帅 仕 相 马 车 炮 兵，黑方为 将 士 象 马 车 炮 卒。
+        炮不吃子时像车一样沿直线移动；吃子时，起点和目标之间必须恰好隔一个棋子，且不能吃路径上的第一个棋子。
+        走法用起点加终点表示，例如 h2e2。每回合只能走一步，且必须从合法走法中选择；走棋后自己的将帅不能被将军，两个将帅不能在同一直线上直接照面。
+        每次落子先判断将帅安全、对方主要攻击线、己方关键子与本步目的（防守、吃子、将军、出动大子或控制要道），不要只因合法就随手走；分析炮线要看完整条线。
+        被将死或无子可动判负；走满 200 步未分胜负则和棋。局面无法挽回时可投降，使用 <XiangqiSurrender/>。
+        棋盘顶部是列坐标，左侧是行坐标，・ 表示空位。
+        可以正常说话，但落子必须使用 <XiangqiMove>走法</XiangqiMove>，例如 <XiangqiMove>h2e2</XiangqiMove>。
         """;
     protected override string StartNotice => $"象棋开局：{Seats[0].Name}（红方）对 {Seats[1].Name}（黑方）。当前轮到{Seats[SeatIndexOf(Turn)].Name}（{SideName(Turn)}）行动；请等待系统发出轮到你的棋盘提示，不要启动陪玩或提前落子。";
     protected override string StopNotice => "象棋对局结束。";
@@ -97,23 +115,21 @@ public class XiangqiTable : GameTable
     protected override string DescribeTurn(TableSeat seat)
     {
         StringBuilder builder = new();
-        builder.AppendLine($"轮到你了：{seat.Name}，执{SideName(Turn)}。棋盘（红方在下方，黑方在上方）：");
+        builder.AppendLine($"轮到你了：{seat.Name}，执{SideName(Turn)}。棋盘：");
         builder.AppendLine("```text");
         builder.AppendLine(Board.RenderCompact().TrimEnd());
         builder.AppendLine("```");
         if (log.Count > 0)
             builder.AppendLine($"上一步：{log[^1]}");
-        XiangqiSide opponent = Turn == XiangqiSide.Red ? XiangqiSide.Black : XiangqiSide.Red;
-        builder.AppendLine($"你执{SideName(Turn)}，位于{(Turn == XiangqiSide.Black ? "上方" : "下方")}；对方执{SideName(opponent)}。");
         builder.AppendLine($"你方棋子：{Board.DescribePieces(Turn)}");
-        builder.AppendLine($"对方棋子：{Board.DescribePieces(opponent)}");
+        if (seat.IsBriefed == false)
+            builder.AppendLine($"对方棋子：{Board.DescribePieces(Opposite(Turn))}");
         if (Board.IsInCheck(Turn))
             builder.AppendLine("你的将帅正被将军，本步必须解将。");
-        builder.AppendLine("落子前先判断将帅安全、对方主要攻击线和己方关键子，并明确本步目的（防守、吃子、将军、出动大子或控制要道）；不要只因为某步合法就随手走。");
-        builder.AppendLine("分析炮线时看完整条线：炮不能吃路径上的第一个棋子，但可以隔着它吃后面的目标。");
+        builder.AppendLine("先检查将帅安全、炮线和关键子，再落子。");
         IReadOnlyList<XiangqiMove> legalMoves = LegalMoves;
-        builder.AppendLine($"当前合法走法共 {legalMoves.Count} 种。");
-        builder.Append("请回复 <XiangqiMove>走法</XiangqiMove> 落子，例如 <XiangqiMove>h2e2</XiangqiMove>。");
+        builder.AppendLine($"合法走法：{legalMoves.Count} 种。");
+        builder.Append("回复 <XiangqiMove>起点终点</XiangqiMove>，如 <XiangqiMove>h2e2</XiangqiMove>。");
         return builder.ToString();
     }
     string DescribeEnd(string result, string lastMoveText)

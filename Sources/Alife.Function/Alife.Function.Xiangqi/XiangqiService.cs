@@ -42,6 +42,18 @@ public class XiangqiService(XmlFunctionCaller functionCaller, ChatActivitySystem
         Report(error);
     }
 
+    [XmlFunction(FunctionMode.OneShot, "XiangqiSurrender")]
+    public void Surrender()
+    {
+        int index = XiangqiTable.Instance.IndexOfCharacter(Character);
+        if (index < 0)
+        {
+            Report("你当前不在棋局中");
+            return;
+        }
+        Report(XiangqiTable.Instance.Surrender(index));
+    }
+
     [XmlFunction(FunctionMode.Content, "XiangqiStart")]
     public void StartGame(XmlExecutorContext context)
     {
